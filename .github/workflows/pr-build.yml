@@ -1,0 +1,49 @@
+name: PR Build Validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build pinned toolchain image
+        run: |
+          docker build \
+            -f build/docker/Dockerfile.toolchain \
+            -t secureos/toolchain:bookworm-2026-02-12 \
+            .
+
+      - name: Install runtime test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm qemu-system-x86
+
+      - name: Kernel entry build
+        run: ./build/scripts/build.sh kernel
+
+      - name: Boot smoke validation
+        run: ./build/scripts/test.sh hello_boot
+
+      - name: Upload kernel artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-artifacts
+          path: artifacts/kernel/
+          if-no-files-found: warn
+
+      - name: Upload qemu artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-artifacts
+          path: artifacts/qemu/
+          if-no-files-found: warn
