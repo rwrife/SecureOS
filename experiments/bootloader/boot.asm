@@ -2,6 +2,9 @@
 [bits 16]
 
 %define COM1 0x3F8
+%define DEBUG_EXIT 0xF4
+%define EXIT_PASS 0x10
+%define EXIT_FAIL 0x11
 
 start:
     cli
@@ -22,10 +25,12 @@ start:
     jmp .print
 
 .done:
-    cli
-.hang:
-    hlt
-    jmp .hang
+    mov al, EXIT_PASS
+    call debug_exit
+
+.fail:
+    mov al, EXIT_FAIL
+    call debug_exit
 
 serial_init:
     ; Disable interrupts
@@ -74,6 +79,14 @@ serial_out:
     mov dx, COM1
     out dx, al
     ret
+
+debug_exit:
+    mov dx, DEBUG_EXIT
+    out dx, al
+    cli
+.hang:
+    hlt
+    jmp .hang
 
 msg db 'SecureOS boot sector OK', 0x0D, 0x0A, 0
 

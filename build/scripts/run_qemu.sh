@@ -74,13 +74,28 @@ boot_bin = pathlib.Path(r'''$BOOT_BIN''')
 timeout_s = int(r'''$TIMEOUT_SECONDS''')
 
 raw_args = [line.strip() for line in args_file.read_text().splitlines() if line.strip() and not line.strip().startswith('#')]
-cmd = ["qemu-system-x86_64", "-drive", f"format=raw,file={boot_bin},if=floppy", *raw_args]
+exit_code_map = {
+    "pass": 0x10,
+    "fail": 0x11,
+}
+expected_qemu_return = {
+    name: (code << 1) | 1 for name, code in exit_code_map.items()
+}
+
+cmd = [
+    "qemu-system-x86_64",
+    "-drive", f"format=raw,file={boot_bin},if=floppy",
+    "-device", "isa-debug-exit,iobase=0xf4,iosize=0x04",
+    *raw_args,
+]
 
 result = {
     "test": r'''$TEST_NAME''',
     "timeoutSeconds": timeout_s,
     "command": cmd,
     "logFile": str(log_file),
+    "debugExitCodeMap": exit_code_map,
+    "expectedQemuReturn": expected_qemu_return,
 }
 
 try:
@@ -99,7 +114,13 @@ except subprocess.TimeoutExpired as e:
 
 log_text = log_file.read_text(errors="replace")
 result["detectedMessage"] = "SecureOS boot sector OK" in log_text
-result["status"] = "pass" if result["detectedMessage"] else "fail"
+result["debugExitResult"] = "unknown"
+if result.get("qemuExitCode") == expected_qemu_return["pass"]:
+    result["debugExitResult"] = "pass"
+elif result.get("qemuExitCode") == expected_qemu_return["fail"]:
+    result["debugExitResult"] = "fail"
+
+result["status"] = "pass" if result["debugExitResult"] == "pass" else "fail"
 meta_file.write_text(json.dumps(result, indent=2) + "\n")
 
 print(log_text, end="")
@@ -108,7 +129,7 @@ if result["status"] == "pass":
     print(f"QEMU_PASS:{result['test']}")
     raise SystemExit(0)
 
-print(f"QEMU_FAIL:{result['test']}")
+print(f"QEMU_FAIL:{result['test']}:debug_exit={result['debugExitResult']}:qemu_rc={result.get('qemuExitCode')}")
 raise SystemExit(1)
 PY
     EXIT_CODE=$?
