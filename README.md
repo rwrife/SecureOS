@@ -55,6 +55,9 @@ You should see:
 ## Repo Pointers
 
 - Roadmap: `BUILD_ROADMAP.md`
+- M0→M1 task registry: `docs/planning/M0-M1-task-registry.md`
+- Coding conventions: `docs/CODING_CONVENTIONS.md`
+- ADRs: `docs/adr/`
 - Toolchain container: `build/docker/`
 - Build wrappers: `build/scripts/`
 - QEMU args: `build/qemu/`
