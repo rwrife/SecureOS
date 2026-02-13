@@ -1,0 +1,10 @@
+-nographic
+-serial
+stdio
+-monitor
+none
+-m
+256M
+-smp
+1
+-no-reboot
