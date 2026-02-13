@@ -98,8 +98,9 @@ if [[ ! -f "$BOOT_BIN" ]]; then
   exit 1
 fi
 
-if [[ $(stat -f%z "$BOOT_BIN") -ne 512 ]]; then
-  echo "Boot sector size is not 512 bytes"
+BOOT_SIZE=$(wc -c < "$BOOT_BIN" | tr -d '[:space:]')
+if [[ "$BOOT_SIZE" -ne 512 ]]; then
+  echo "Boot sector size is not 512 bytes (got $BOOT_SIZE)"
   exit 1
 fi
 

@@ -21,6 +21,11 @@ jobs:
             -t secureos/toolchain:bookworm-2026-02-12 \
             .
 
+      - name: Install runtime test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm qemu-system-x86
+
       - name: Kernel entry build
         run: ./build/scripts/build.sh kernel
 
