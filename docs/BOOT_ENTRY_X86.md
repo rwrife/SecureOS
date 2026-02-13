@@ -6,6 +6,7 @@ This introduces a minimal x86 boot-entry handoff scaffold:
 - `kernel/arch/x86/boot/linker.ld` — linker layout + entrypoint at 1 MiB
 - `kernel/core/kmain.c` — `kmain` handoff target with early test markers
 - `kernel/arch/x86/serial.c` + `serial.h` — COM1 early serial driver
+- `kernel/arch/x86/vga.c` + `vga.h` — minimal VGA text writer (`0xB8000`)
 
 ## Build
 
