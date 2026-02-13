@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "pipeline": {
+    "name": "m0-to-m1-capability-gate",
+    "entryTasks": ["M0_BOOT_SMOKE"]
+  },
+  "tasks": [
+    {
+      "taskId": "M0_BOOT_SMOKE",
+      "ownerRole": "validator",
+      "run": "./build/scripts/test.sh hello_boot",
+      "passCondition": {
+        "type": "log_marker",
+        "marker": "QEMU_PASS:hello_boot"
+      },
+      "artifacts": ["artifacts/qemu/hello_boot.log"]
+    },
+    {
+      "taskId": "M1_CAP_MODEL",
+      "ownerRole": "implementer",
+      "dependsOn": ["M0_BOOT_SMOKE"],
+      "run": ["./build/scripts/build.sh", "./build/scripts/test.sh capability_model"],
+      "passCondition": {
+        "type": "expression",
+        "expression": "exit_code == 0 && log_has('TEST:PASS:cap_model_skeleton')"
+      }
+    }
+  ]
+}
