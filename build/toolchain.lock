@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "name": "secureos-toolchain",
+  "baseImage": {
+    "reference": "docker.io/library/debian@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe",
+    "sourceTag": "debian:bookworm-slim",
+    "resolvedAt": "2026-02-12"
+  },
+  "requiredTools": [
+    "clang",
+    "lld",
+    "gcc",
+    "g++",
+    "binutils",
+    "nasm",
+    "make",
+    "ninja",
+    "cmake",
+    "python3",
+    "qemu-system-x86_64",
+    "xorriso",
+    "grub-mkrescue",
+    "mtools",
+    "git",
+    "jq"
+  ],
+  "build": {
+    "dockerfile": "build/docker/Dockerfile.toolchain",
+    "imageTag": "secureos/toolchain:bookworm-2026-02-12"
+  },
+  "verification": {
+    "buildCommand": "docker build -f build/docker/Dockerfile.toolchain -t secureos/toolchain:bookworm-2026-02-12 .",
+    "digestCheckCommand": "docker image inspect debian:bookworm-slim --format '{{index .RepoDigests 0}}'"
+  }
+}

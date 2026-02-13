@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1.7
+
+# Pinned Debian Bookworm slim base image (immutable digest)
+FROM docker.io/library/debian@sha256:98f4b71de414932439ac6ac690d7060df1f27161073c5036a7553723881bffbe
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    clang \
+    lld \
+    gcc \
+    g++ \
+    binutils \
+    nasm \
+    make \
+    ninja-build \
+    cmake \
+    python3 \
+    python3-pip \
+    qemu-system-x86 \
+    xorriso \
+    grub-common \
+    mtools \
+    git \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+CMD ["bash"]
