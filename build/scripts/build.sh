@@ -31,7 +31,10 @@ if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
 fi
 
 case "$TARGET" in
-  kernel|modules|image)
+  kernel)
+    "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
+    ;;
+  modules|image)
     echo "[build] target=$TARGET"
     docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
       bash -lc "echo TODO: implement $TARGET target build graph"

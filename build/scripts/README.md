@@ -5,6 +5,7 @@ Canonical wrapper scripts for deterministic local/agent workflows.
 ## Targets
 
 ```bash
+./build/scripts/build.sh kernel
 ./build/scripts/build.sh image
 ./build/scripts/build.sh run
 ./build/scripts/build.sh test-boot
