@@ -32,10 +32,22 @@ Boot test binaries should write one byte to debug-exit (`out 0xF4, al`).
 
 The harness treats pass/fail based on debug-exit return mapping, not timeout behavior.
 
-### Expected result
+### Negative-path fixture
 
-The script prints QEMU serial output and ends with:
+Run intentional failing fixture validation:
+
+```bash
+./build/scripts/test.sh hello_boot_negative
+```
+
+Expected markers for this fixture:
+
+- `TEST:START:hello_boot_fail`
+- `TEST:FAIL:hello_boot_fail:intentional-fixture`
+- no pass marker
+
+Even though the fixture exits with `EXIT_FAIL`, the harness reports success when the failure is correctly detected and prints:
 
 ```text
-QEMU_PASS:hello_boot
+QEMU_PASS:hello_boot_fail
 ```
