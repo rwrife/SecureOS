@@ -1,2 +1,3 @@
 artifacts/
 experiments/bootloader/boot.bin
+experiments/bootloader/boot_fail.bin

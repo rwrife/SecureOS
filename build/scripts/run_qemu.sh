@@ -12,7 +12,8 @@ usage() {
 Usage: $(basename "$0") --test <name>
 
 Supported tests:
-  hello_boot  Uses experiments/bootloader/boot.bin as floppy image
+  hello_boot       Uses experiments/bootloader/boot.bin as pass fixture
+  hello_boot_fail  Uses experiments/bootloader/boot_fail.bin as intentional fail fixture
 
 Outputs:
   artifacts/qemu/<test>.log
@@ -53,11 +54,18 @@ LOG_FILE="$ART_DIR/${TEST_NAME}.log"
 META_FILE="$ART_DIR/${TEST_NAME}.meta.json"
 
 case "$TEST_NAME" in
-  hello_boot)
-    BOOT_BIN="$ROOT_DIR/experiments/bootloader/boot.bin"
+  hello_boot|hello_boot_fail)
+    if [[ "$TEST_NAME" == "hello_boot" ]]; then
+      BOOT_BIN="$ROOT_DIR/experiments/bootloader/boot.bin"
+      EXPECTED_STATUS="pass"
+    else
+      BOOT_BIN="$ROOT_DIR/experiments/bootloader/boot_fail.bin"
+      EXPECTED_STATUS="fail"
+    fi
+
     if [[ ! -f "$BOOT_BIN" ]]; then
       echo "Missing boot binary: $BOOT_BIN"
-      echo "Run build/scripts/test.sh hello_boot first."
+      echo "Run build/scripts/test.sh $TEST_NAME first."
       exit 1
     fi
 
@@ -70,6 +78,7 @@ args_file = pathlib.Path(r'''$QEMU_ARGS_FILE''')
 log_file = pathlib.Path(r'''$LOG_FILE''')
 meta_file = pathlib.Path(r'''$META_FILE''')
 boot_bin = pathlib.Path(r'''$BOOT_BIN''')
+expected_status = r'''$EXPECTED_STATUS'''
 
 timeout_s = int(r'''$TIMEOUT_SECONDS''')
 
@@ -91,6 +100,7 @@ cmd = [
 
 result = {
     "test": r'''$TEST_NAME''',
+    "expectedStatus": expected_status,
     "timeoutSeconds": timeout_s,
     "command": cmd,
     "logFile": str(log_file),
@@ -133,13 +143,22 @@ result["markers"] = {
     "fail": markers["fail_prefix"] in log_text,
 }
 
-result["status"] = "pass" if (
-    result["debugExitResult"] == "pass"
-    and result["detectedMessage"]
-    and result["markers"]["start"]
-    and result["markers"]["pass"]
-    and not result["markers"]["fail"]
-) else "fail"
+if expected_status == "pass":
+    result["status"] = "pass" if (
+        result["debugExitResult"] == "pass"
+        and result["detectedMessage"]
+        and result["markers"]["start"]
+        and result["markers"]["pass"]
+        and not result["markers"]["fail"]
+    ) else "fail"
+else:
+    result["status"] = "pass" if (
+        result["debugExitResult"] == "fail"
+        and result["markers"]["start"]
+        and not result["markers"]["pass"]
+        and result["markers"]["fail"]
+    ) else "fail"
+
 meta_file.write_text(json.dumps(result, indent=2) + "\n")
 
 print(log_text, end="")
@@ -149,7 +168,7 @@ if result["status"] == "pass":
     raise SystemExit(0)
 
 print(
-    f"QEMU_FAIL:{result['test']}:debug_exit={result['debugExitResult']}:"
+    f"QEMU_FAIL:{result['test']}:expected={expected_status}:debug_exit={result['debugExitResult']}:"
     f"qemu_rc={result.get('qemuExitCode')}:message={result['detectedMessage']}:"
     f"start={result['markers']['start']}:pass={result['markers']['pass']}:"
     f"fail_marker={result['markers']['fail']}"

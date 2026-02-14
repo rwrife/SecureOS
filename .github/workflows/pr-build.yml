@@ -32,6 +32,9 @@ jobs:
       - name: Boot smoke validation
         run: ./build/scripts/test.sh hello_boot
 
+      - name: Boot negative-path fixture validation
+        run: ./build/scripts/test.sh hello_boot_negative
+
       - name: Upload kernel artifacts
         if: always()
         uses: actions/upload-artifact@v4
