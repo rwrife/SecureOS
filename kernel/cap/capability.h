@@ -18,6 +18,7 @@ typedef enum {
 
 void cap_reset_for_tests(void);
 cap_result_t cap_grant_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
+cap_result_t cap_revoke_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
 cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_id);
 
 #endif
