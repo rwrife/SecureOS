@@ -7,7 +7,7 @@ This repository includes a minimal x86 boot sector validation to verify local bu
 ### Run
 
 ```bash
-./build/scripts/test_boot_sector.sh
+./build/scripts/test.sh hello_boot
 ```
 
 ### What it checks
@@ -17,6 +17,10 @@ This repository includes a minimal x86 boot sector validation to verify local bu
 - `qemu-system-x86_64` boots the image headlessly
 - boot code exits through `isa-debug-exit` on I/O port `0xF4`
 - serial output contains `SecureOS boot sector OK`
+- structured markers are present:
+  - `TEST:START:hello_boot`
+  - `TEST:PASS:hello_boot`
+  - no `TEST:FAIL:hello_boot:<reason>` marker is present
 
 ### Debug-exit code mapping
 
@@ -33,5 +37,5 @@ The harness treats pass/fail based on debug-exit return mapping, not timeout beh
 The script prints QEMU serial output and ends with:
 
 ```text
-PASS: boot sector smoke test
+QEMU_PASS:hello_boot
 ```

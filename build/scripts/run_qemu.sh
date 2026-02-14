@@ -113,6 +113,13 @@ except subprocess.TimeoutExpired as e:
     result["timedOut"] = True
 
 log_text = log_file.read_text(errors="replace")
+
+markers = {
+    "start": f"TEST:START:{result['test']}",
+    "pass": f"TEST:PASS:{result['test']}",
+    "fail_prefix": f"TEST:FAIL:{result['test']}:",
+}
+
 result["detectedMessage"] = "SecureOS boot sector OK" in log_text
 result["debugExitResult"] = "unknown"
 if result.get("qemuExitCode") == expected_qemu_return["pass"]:
@@ -120,7 +127,19 @@ if result.get("qemuExitCode") == expected_qemu_return["pass"]:
 elif result.get("qemuExitCode") == expected_qemu_return["fail"]:
     result["debugExitResult"] = "fail"
 
-result["status"] = "pass" if result["debugExitResult"] == "pass" else "fail"
+result["markers"] = {
+    "start": markers["start"] in log_text,
+    "pass": markers["pass"] in log_text,
+    "fail": markers["fail_prefix"] in log_text,
+}
+
+result["status"] = "pass" if (
+    result["debugExitResult"] == "pass"
+    and result["detectedMessage"]
+    and result["markers"]["start"]
+    and result["markers"]["pass"]
+    and not result["markers"]["fail"]
+) else "fail"
 meta_file.write_text(json.dumps(result, indent=2) + "\n")
 
 print(log_text, end="")
@@ -129,7 +148,12 @@ if result["status"] == "pass":
     print(f"QEMU_PASS:{result['test']}")
     raise SystemExit(0)
 
-print(f"QEMU_FAIL:{result['test']}:debug_exit={result['debugExitResult']}:qemu_rc={result.get('qemuExitCode')}")
+print(
+    f"QEMU_FAIL:{result['test']}:debug_exit={result['debugExitResult']}:"
+    f"qemu_rc={result.get('qemuExitCode')}:message={result['detectedMessage']}:"
+    f"start={result['markers']['start']}:pass={result['markers']['pass']}:"
+    f"fail_marker={result['markers']['fail']}"
+)
 raise SystemExit(1)
 PY
     EXIT_CODE=$?

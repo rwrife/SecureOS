@@ -16,19 +16,22 @@ start:
 
     call serial_init
 
-    mov si, msg
-.print:
-    lodsb
-    test al, al
-    jz .done
-    call serial_out
-    jmp .print
+    mov si, marker_start
+    call serial_print
 
-.done:
+    mov si, msg_hello
+    call serial_print
+
+    mov si, marker_pass
+    call serial_print
+
     mov al, EXIT_PASS
     call debug_exit
 
 .fail:
+    mov si, marker_fail
+    call serial_print
+
     mov al, EXIT_FAIL
     call debug_exit
 
@@ -67,6 +70,16 @@ serial_init:
     out dx, al
     ret
 
+serial_print:
+.next:
+    lodsb
+    test al, al
+    jz .done
+    call serial_out
+    jmp .next
+.done:
+    ret
+
 serial_out:
     push ax
 .wait:
@@ -88,7 +101,10 @@ debug_exit:
     hlt
     jmp .hang
 
-msg db 'SecureOS boot sector OK', 0x0D, 0x0A, 0
+marker_start db 'TEST:START:hello_boot', 0x0D, 0x0A, 0
+msg_hello db 'SecureOS boot sector OK', 0x0D, 0x0A, 0
+marker_pass db 'TEST:PASS:hello_boot', 0x0D, 0x0A, 0
+marker_fail db 'TEST:FAIL:hello_boot:unexpected-path', 0x0D, 0x0A, 0
 
 times 510 - ($ - $$) db 0
 dw 0xAA55
