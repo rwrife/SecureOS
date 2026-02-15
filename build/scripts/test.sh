@@ -6,7 +6,7 @@ TEST_NAME="${1:-hello_boot}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate]
 
 Runs SecureOS test targets.
 EOF
@@ -31,6 +31,9 @@ case "$TEST_NAME" in
     ;;
   capability_table)
     "$ROOT_DIR/build/scripts/test_capability_table.sh"
+    ;;
+  capability_gate)
+    "$ROOT_DIR/build/scripts/test_capability_gate.sh"
     ;;
   *)
     echo "Unknown test: $TEST_NAME"
