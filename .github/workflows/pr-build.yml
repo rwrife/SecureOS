@@ -38,6 +38,9 @@ jobs:
       - name: Capability API contract validation
         run: ./build/scripts/test.sh cap_api_contract
 
+      - name: Capability table validation
+        run: ./build/scripts/test.sh capability_table
+
       - name: Upload kernel artifacts
         if: always()
         uses: actions/upload-artifact@v4

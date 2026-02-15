@@ -29,7 +29,18 @@ Rules:
 - No implicit grants are allowed.
 - Invalid inputs are explicit errors, never treated as success.
 
+## CAP-002 per-subject table
+
+A fixed-capacity table now owns subject capability grants.
+
+- `CAP_TABLE_MAX_SUBJECTS = 8`
+- all subjects default to deny after `cap_table_init`/`cap_table_reset`
+- grant/revoke/check are explicit API calls with bounded input validation
+- invalid subject or capability IDs return explicit error codes
+
+Current implementation stores `CAP_CONSOLE_WRITE` grants in an internal array while keeping the table interface stable for additional capability IDs.
+
 ## Follow-on
 
-- CAP-002: dedicated per-subject table abstraction with explicit grant/revoke flows.
 - CAP-003: gate first privileged operation (console write) behind capability checks.
+- Extension path: move table internals from per-cap arrays to packed bitsets as capability IDs grow, without changing external API semantics.

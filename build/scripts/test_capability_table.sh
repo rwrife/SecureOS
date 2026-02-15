@@ -7,9 +7,8 @@ OUT_DIR="$ROOT_DIR/artifacts/tests"
 mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror \
-  "$ROOT_DIR/kernel/cap/capability.c" \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
-  "$ROOT_DIR/tests/cap_api_contract_test.c" \
-  -o "$OUT_DIR/cap_api_contract_test"
+  "$ROOT_DIR/tests/capability_table_test.c" \
+  -o "$OUT_DIR/capability_table_test"
 
-"$OUT_DIR/cap_api_contract_test"
+"$OUT_DIR/capability_table_test"
