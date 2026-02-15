@@ -23,8 +23,8 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M0-BOOT-002 | M0 | Boot smoke marker parser and pass/fail contract | M0-BOOT-001 | `./build/scripts/test.sh hello_boot` | done |
 | M0-BOOT-003 | M0 | Negative-path failing fixture in harness | M0-BOOT-002 | `./build/scripts/test.sh hello_boot_negative` | done |
 | M1-CAP-001 | M1 | Capability IDs + check API skeleton | M0-BOOT-003 | `./build/scripts/test.sh cap_api_contract` | done |
-| M1-CAP-002 | M1 | Per-subject capability table (deny-by-default) | M1-CAP-001 | `./build/scripts/test.sh capability_table` | in-progress |
-| M1-CAP-003 | M1 | Gate first privileged operation behind capability check | M1-CAP-002 | `./build/scripts/test.sh capability_gate` | todo |
+| M1-CAP-002 | M1 | Per-subject capability table (deny-by-default) | M1-CAP-001 | `./build/scripts/test.sh capability_table` | done |
+| M1-CAP-003 | M1 | Gate first privileged operation behind capability check | M1-CAP-002 | `./build/scripts/test.sh capability_gate` | in-progress |
 | M1-CAP-004 | M1 | Capability allow/deny markers integrated in harness | M1-CAP-003 | `./build/scripts/test.sh capability_gate` | todo |
 | M1-CAP-005 | M1 | Capability core ADR + architecture docs | M1-CAP-003 | `./build/scripts/test.sh hello_boot` | todo |
 

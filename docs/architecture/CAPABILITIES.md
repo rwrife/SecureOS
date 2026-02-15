@@ -40,7 +40,20 @@ A fixed-capacity table now owns subject capability grants.
 
 Current implementation stores `CAP_CONSOLE_WRITE` grants in an internal array while keeping the table interface stable for additional capability IDs.
 
+## CAP-003 privileged console gate
+
+The first privileged path now enforces capability checks via `cap_console_write_gate(...)`.
+
+- The gate requires `CAP_CONSOLE_WRITE` before success.
+- Default path denies with `CAP_ERR_MISSING` until explicit grant.
+- Revoke restores deny behavior immediately.
+- Invalid subjects are rejected with `CAP_ERR_SUBJECT_INVALID`.
+
+Validation command:
+
+- `./build/scripts/test.sh capability_gate`
+
 ## Follow-on
 
-- CAP-003: gate first privileged operation (console write) behind capability checks.
+- CAP-004: capability allow/deny markers integrated in broader harness flows.
 - Extension path: move table internals from per-cap arrays to packed bitsets as capability IDs grow, without changing external API semantics.
