@@ -29,17 +29,8 @@ jobs:
       - name: Kernel entry build
         run: ./build/scripts/build.sh kernel
 
-      - name: Boot smoke validation
-        run: ./build/scripts/test.sh hello_boot
-
-      - name: Boot negative-path fixture validation
-        run: ./build/scripts/test.sh hello_boot_negative
-
-      - name: Capability API contract validation
-        run: ./build/scripts/test.sh cap_api_contract
-
-      - name: Capability table validation
-        run: ./build/scripts/test.sh capability_table
+      - name: Full validation bundle (machine-readable)
+        run: ./build/scripts/validate_bundle.sh
 
       - name: Upload kernel artifacts
         if: always()
@@ -55,4 +46,12 @@ jobs:
         with:
           name: qemu-artifacts
           path: artifacts/qemu/
+          if-no-files-found: warn
+
+      - name: Upload validation run bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-run-bundles
+          path: artifacts/runs/
           if-no-files-found: warn

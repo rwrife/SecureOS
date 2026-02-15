@@ -46,11 +46,15 @@ Expected success markers include:
 
 ```bash
 ls -la artifacts/qemu/
+./build/scripts/validate_bundle.sh
+ls -la artifacts/runs/
 ```
 
 You should see:
 - `artifacts/qemu/hello_boot.log`
 - `artifacts/qemu/hello_boot.meta.json`
+- `artifacts/runs/<run-id>/build_metadata.json`
+- `artifacts/runs/<run-id>/validator_report.json`
 
 ## Repo Pointers
 
