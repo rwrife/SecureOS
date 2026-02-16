@@ -15,6 +15,7 @@ TEST_TARGETS=(
   hello_boot_negative
   cap_api_contract
   capability_table
+  capability_gate
 )
 
 STATUS_LINES=()
