@@ -16,6 +16,7 @@ Canonical wrapper scripts for deterministic local/agent workflows.
 ```bash
 ./build/scripts/test.sh hello_boot
 ./build/scripts/run_qemu.sh --test hello_boot
+./build/scripts/validate_bundle.sh
 ```
 
 ## Notes
