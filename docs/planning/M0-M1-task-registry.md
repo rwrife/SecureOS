@@ -27,7 +27,7 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M1-CAP-003 | M1 | Gate first privileged operation behind capability check | M1-CAP-002 | `./build/scripts/test.sh capability_gate` | done |
 | M1-CAP-004 | M1 | Capability allow/deny markers integrated in harness | M1-CAP-003 | `./build/scripts/test.sh capability_gate` | done |
 | M1-CAP-005 | M1 | Capability core ADR + architecture docs | M1-CAP-004 | `./build/scripts/test.sh hello_boot` | done |
-| M1-CAP-006 | M1 | Bitset-backed subject capability storage migration | M1-CAP-005 | `./build/scripts/test.sh capability_table` | todo |
+| M1-CAP-006 | M1 | Bitset-backed subject capability storage migration | M1-CAP-005 | `./build/scripts/test.sh capability_table` | in-progress |
 
 ## Notes
 

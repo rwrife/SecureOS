@@ -57,4 +57,4 @@ Validation command:
 
 - CAP-004 is complete: capability allow/deny markers are integrated in broader harness flows and validation bundles.
 - CAP-005 is complete: see `docs/adr/0001-capability-core-boundary.md` for the architecture decision record.
-- Extension path: move table internals from per-cap arrays to packed bitsets as capability IDs grow, without changing external API semantics.
+- CAP-006 is active: migrate table internals from per-cap arrays to packed bitsets as capability IDs grow, without changing external API semantics.
