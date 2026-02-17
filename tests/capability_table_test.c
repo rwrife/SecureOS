@@ -40,6 +40,15 @@ int main(void) {
   }
   printf("TEST:PASS:capability_table_revoke_deny\n");
 
+  if (cap_table_grant(1u, CAP_CONSOLE_WRITE) != CAP_OK) {
+    fail("grant_before_reset_failed");
+  }
+  cap_table_reset();
+  if (cap_table_check(1u, CAP_CONSOLE_WRITE) != CAP_ERR_MISSING) {
+    fail("reset_default_deny_missing");
+  }
+  printf("TEST:PASS:capability_table_reset_clears_grants\n");
+
   if (cap_table_grant(CAP_TABLE_MAX_SUBJECTS, CAP_CONSOLE_WRITE) != CAP_ERR_SUBJECT_INVALID) {
     fail("invalid_subject_grant");
   }
