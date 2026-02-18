@@ -7,6 +7,7 @@ typedef uint32_t cap_subject_id_t;
 
 typedef enum {
   CAP_CONSOLE_WRITE = 1,
+  CAP_SERIAL_WRITE = 2,
 } capability_id_t;
 
 typedef enum {
