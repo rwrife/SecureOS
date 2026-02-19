@@ -29,3 +29,8 @@ cap_result_t cap_console_write_gate(cap_subject_id_t subject_id, const char *mes
 cap_result_t cap_serial_write_gate(cap_subject_id_t subject_id, const char *message, size_t *bytes_written) {
   return cap_write_gate(subject_id, CAP_SERIAL_WRITE, message, bytes_written);
 }
+
+cap_result_t cap_debug_exit_gate(cap_subject_id_t subject_id, int exit_code) {
+  (void)exit_code;
+  return cap_check(subject_id, CAP_DEBUG_EXIT);
+}

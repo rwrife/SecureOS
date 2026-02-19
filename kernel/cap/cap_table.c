@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define CAP_ID_MIN CAP_CONSOLE_WRITE
-#define CAP_ID_MAX CAP_SERIAL_WRITE
+#define CAP_ID_MAX CAP_DEBUG_EXIT
 
 #define CAPABILITY_COUNT ((uint32_t)(CAP_ID_MAX - CAP_ID_MIN + 1u))
 #define CAP_WORD_BITS 8u

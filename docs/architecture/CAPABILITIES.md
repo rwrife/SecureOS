@@ -10,6 +10,7 @@ Current stable IDs:
 
 - `CAP_CONSOLE_WRITE = 1`
 - `CAP_SERIAL_WRITE = 2`
+- `CAP_DEBUG_EXIT = 3`
 
 Rules:
 
@@ -59,4 +60,5 @@ Validation command:
 - CAP-004 is complete: capability allow/deny markers are integrated in broader harness flows and validation bundles.
 - CAP-005 is complete: see `docs/adr/0001-capability-core-boundary.md` for the architecture decision record.
 - CAP-006 is complete: table internals now use packed bitsets while preserving external API semantics.
-- CAP-007 is active: add a serial-write capability boundary and explicit gate validation without changing zero-trust defaults.
+- CAP-007 is complete: serial-write capability boundary and dual-cap isolation tests are merged.
+- CAP-008 is active: gate debug-exit authorization behind explicit capability checks and marker-backed validation.
