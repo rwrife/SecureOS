@@ -7,5 +7,6 @@
 
 cap_result_t cap_console_write_gate(cap_subject_id_t subject_id, const char *message, size_t *bytes_written);
 cap_result_t cap_serial_write_gate(cap_subject_id_t subject_id, const char *message, size_t *bytes_written);
+cap_result_t cap_debug_exit_gate(cap_subject_id_t subject_id, int exit_code);
 
 #endif

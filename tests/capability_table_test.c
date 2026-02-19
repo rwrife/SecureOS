@@ -21,6 +21,9 @@ int main(void) {
     if (cap_table_check(subject, CAP_SERIAL_WRITE) != CAP_ERR_MISSING) {
       fail("default_deny_serial");
     }
+    if (cap_table_check(subject, CAP_DEBUG_EXIT) != CAP_ERR_MISSING) {
+      fail("default_deny_debug_exit");
+    }
   }
   printf("TEST:PASS:capability_table_default_deny\n");
 
@@ -49,6 +52,19 @@ int main(void) {
   if (cap_table_check(3u, CAP_SERIAL_WRITE) != CAP_ERR_MISSING) {
     fail("grant_serial_leaked_subject");
   }
+
+  if (cap_table_grant(5u, CAP_DEBUG_EXIT) != CAP_OK) {
+    fail("grant_debug_exit_failed");
+  }
+  if (cap_table_check(5u, CAP_DEBUG_EXIT) != CAP_OK) {
+    fail("grant_debug_exit_allow_missing");
+  }
+  if (cap_table_check(5u, CAP_CONSOLE_WRITE) != CAP_ERR_MISSING) {
+    fail("grant_debug_exit_leaked_console");
+  }
+  if (cap_table_check(5u, CAP_SERIAL_WRITE) != CAP_ERR_MISSING) {
+    fail("grant_debug_exit_leaked_serial");
+  }
   printf("TEST:PASS:capability_table_grant_allow\n");
 
   if (cap_table_revoke(3u, CAP_CONSOLE_WRITE) != CAP_OK) {
@@ -63,6 +79,12 @@ int main(void) {
   if (cap_table_check(4u, CAP_SERIAL_WRITE) != CAP_ERR_MISSING) {
     fail("revoke_serial_deny_missing");
   }
+  if (cap_table_revoke(5u, CAP_DEBUG_EXIT) != CAP_OK) {
+    fail("revoke_debug_exit_failed");
+  }
+  if (cap_table_check(5u, CAP_DEBUG_EXIT) != CAP_ERR_MISSING) {
+    fail("revoke_debug_exit_deny_missing");
+  }
   printf("TEST:PASS:capability_table_revoke_deny\n");
 
   if (cap_table_grant(1u, CAP_CONSOLE_WRITE) != CAP_OK) {
@@ -71,12 +93,18 @@ int main(void) {
   if (cap_table_grant(1u, CAP_SERIAL_WRITE) != CAP_OK) {
     fail("grant_before_reset_serial_failed");
   }
+  if (cap_table_grant(1u, CAP_DEBUG_EXIT) != CAP_OK) {
+    fail("grant_before_reset_debug_exit_failed");
+  }
   cap_table_reset();
   if (cap_table_check(1u, CAP_CONSOLE_WRITE) != CAP_ERR_MISSING) {
     fail("reset_default_deny_console_missing");
   }
   if (cap_table_check(1u, CAP_SERIAL_WRITE) != CAP_ERR_MISSING) {
     fail("reset_default_deny_serial_missing");
+  }
+  if (cap_table_check(1u, CAP_DEBUG_EXIT) != CAP_ERR_MISSING) {
+    fail("reset_default_deny_debug_exit_missing");
   }
   printf("TEST:PASS:capability_table_reset_clears_grants\n");
 
