@@ -94,6 +94,9 @@ int main(void) {
   if (cap_audit_count_for_tests() != (size_t)CAP_AUDIT_EVENT_MAX) {
     fail("audit_ring_count");
   }
+  if (cap_audit_dropped_for_tests() != 5u) {
+    fail("audit_ring_dropped_count");
+  }
 
   expect_event(0u,
                CAP_AUDIT_OP_CHECK,
@@ -112,6 +115,41 @@ int main(void) {
     fail("audit_out_of_bounds_rejected");
   }
   printf("TEST:PASS:capability_audit_ring_wrap\n");
+
+  cap_reset_for_tests();
+
+  for (size_t i = 0; i < 12u; ++i) {
+    if (cap_grant_for_tests((cap_subject_id_t)i, CAP_SERIAL_WRITE) != CAP_OK && i < 8u) {
+      fail("mixed_grant_result");
+    }
+    (void)cap_check((cap_subject_id_t)i, CAP_SERIAL_WRITE);
+    (void)cap_revoke_for_tests((cap_subject_id_t)i, CAP_SERIAL_WRITE);
+  }
+
+  if (cap_audit_count_for_tests() != (size_t)CAP_AUDIT_EVENT_MAX) {
+    fail("mixed_ring_count");
+  }
+  if (cap_audit_dropped_for_tests() != 4u) {
+    fail("mixed_ring_dropped_count");
+  }
+
+  expect_event(0u,
+               CAP_AUDIT_OP_CHECK,
+               1u,
+               CAP_SERIAL_WRITE,
+               CAP_OK,
+               "mixed_oldest_expected");
+  expect_event((size_t)CAP_AUDIT_EVENT_MAX - 1u,
+               CAP_AUDIT_OP_REVOKE,
+               11u,
+               CAP_SERIAL_WRITE,
+               CAP_ERR_SUBJECT_INVALID,
+               "mixed_latest_expected");
+
+  printf("TEST:PASS:capability_audit_mixed_overflow\n");
+  printf("TEST:AUDIT_SUMMARY:count=%zu:dropped=%zu\n",
+         cap_audit_count_for_tests(),
+         cap_audit_dropped_for_tests());
 
   return 0;
 }

@@ -43,6 +43,7 @@ cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_i
 
 void cap_audit_reset_for_tests(void);
 size_t cap_audit_count_for_tests(void);
+size_t cap_audit_dropped_for_tests(void);
 cap_result_t cap_audit_get_for_tests(size_t index, cap_audit_event_t *out_event);
 
 #endif
