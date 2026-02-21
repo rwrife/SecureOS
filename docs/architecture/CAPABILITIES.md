@@ -61,4 +61,5 @@ Validation command:
 - CAP-005 is complete: see `docs/adr/0001-capability-core-boundary.md` for the architecture decision record.
 - CAP-006 is complete: table internals now use packed bitsets while preserving external API semantics.
 - CAP-007 is complete: serial-write capability boundary and dual-cap isolation tests are merged.
-- CAP-008 is active: gate debug-exit authorization behind explicit capability checks and marker-backed validation.
+- CAP-008 is complete: debug-exit authorization is gated behind explicit capability checks and marker-backed validation.
+- CAP-009 is complete: capability checks now write deterministic audit events (subject, capability, result) into a bounded ring buffer for test-time visibility without changing allow/deny semantics.

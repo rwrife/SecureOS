@@ -1,6 +1,7 @@
 #ifndef SECUREOS_CAPABILITY_H
 #define SECUREOS_CAPABILITY_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef uint32_t cap_subject_id_t;
@@ -18,9 +19,23 @@ typedef enum {
   CAP_ERR_CAP_INVALID = 3,
 } cap_result_t;
 
+enum {
+  CAP_AUDIT_EVENT_MAX = 32,
+};
+
+typedef struct {
+  cap_subject_id_t subject_id;
+  capability_id_t capability_id;
+  cap_result_t result;
+} cap_audit_event_t;
+
 void cap_reset_for_tests(void);
 cap_result_t cap_grant_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
 cap_result_t cap_revoke_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
 cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_id);
+
+void cap_audit_reset_for_tests(void);
+size_t cap_audit_count_for_tests(void);
+cap_result_t cap_audit_get_for_tests(size_t index, cap_audit_event_t *out_event);
 
 #endif

@@ -30,6 +30,7 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M1-CAP-006 | M1 | Bitset-backed subject capability storage migration | M1-CAP-005 | `./build/scripts/test.sh capability_table` | done |
 | M1-CAP-007 | M1 | Serial-write capability boundary + dual-cap isolation tests | M1-CAP-006 | `./build/scripts/test.sh capability_gate` | done |
 | M1-CAP-008 | M1 | Debug-exit capability boundary + authorization gate tests | M1-CAP-007 | `./build/scripts/test.sh capability_gate` | done |
+| M1-CAP-009 | M1 | Capability-check audit log + deterministic ring-buffer tests | M1-CAP-008 | `./build/scripts/test.sh capability_audit` | done |
 
 ## Notes
 
