@@ -23,7 +23,14 @@ enum {
   CAP_AUDIT_EVENT_MAX = 32,
 };
 
+typedef enum {
+  CAP_AUDIT_OP_CHECK = 0,
+  CAP_AUDIT_OP_GRANT = 1,
+  CAP_AUDIT_OP_REVOKE = 2,
+} cap_audit_op_t;
+
 typedef struct {
+  cap_audit_op_t operation;
   cap_subject_id_t subject_id;
   capability_id_t capability_id;
   cap_result_t result;
