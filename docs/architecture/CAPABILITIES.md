@@ -63,4 +63,4 @@ Validation command:
 - CAP-007 is complete: serial-write capability boundary and dual-cap isolation tests are merged.
 - CAP-008 is complete: debug-exit authorization is gated behind explicit capability checks and marker-backed validation.
 - CAP-009 is complete: capability checks now write deterministic audit events (subject, capability, result) into a bounded ring buffer for test-time visibility without changing allow/deny semantics.
-- CAP-010 is in progress: grant/revoke mutation operations are being added to the same bounded audit stream with explicit operation type metadata so tests can verify mixed ordering deterministically.
+- CAP-010 is complete: grant/revoke mutation operations are now emitted to the same bounded audit stream with explicit operation type metadata, and mixed-flow ordering is validated deterministically in tests.
