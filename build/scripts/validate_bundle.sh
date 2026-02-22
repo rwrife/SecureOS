@@ -92,6 +92,55 @@ if qemu_meta.exists():
     except Exception:
         qemu_command = []
 
+summary_check_error = None
+summary_path = run_dir / "tests" / "capability_audit_summary.json"
+summary = None
+
+if not summary_path.exists():
+    summary_check_error = f"missing summary artifact: {summary_path}"
+else:
+    try:
+        summary = json.loads(summary_path.read_text())
+    except Exception as exc:
+        summary_check_error = f"invalid JSON in {summary_path}: {exc}"
+
+if summary is not None:
+    required_int_fields = ["schemaVersion", "ringCapacity", "retainedEvents", "droppedEvents"]
+    for field in required_int_fields:
+        value = summary.get(field)
+        if not isinstance(value, int):
+            summary_check_error = f"{field} must be integer"
+            break
+
+    if summary_check_error is None:
+        if summary.get("schemaVersion") != 1:
+            summary_check_error = "schemaVersion must be 1"
+        elif summary.get("test") != "capability_audit":
+            summary_check_error = "test must be capability_audit"
+        elif summary.get("ringCapacity", 0) <= 0:
+            summary_check_error = "ringCapacity must be > 0"
+        elif summary.get("retainedEvents", -1) < 0:
+            summary_check_error = "retainedEvents must be >= 0"
+        elif summary.get("droppedEvents", -1) < 0:
+            summary_check_error = "droppedEvents must be >= 0"
+        elif summary.get("retainedEvents", 0) > summary.get("ringCapacity", 0):
+            summary_check_error = "retainedEvents must be <= ringCapacity"
+        elif summary.get("retainedEvents", 0) + summary.get("droppedEvents", 0) < summary.get("ringCapacity", 0):
+            summary_check_error = "retainedEvents + droppedEvents must be >= ringCapacity"
+
+checks.append({
+    "name": "capability_audit_summary_contract",
+    "status": "pass" if summary_check_error is None else "fail",
+    "pass": summary_check_error is None,
+    "durationSeconds": 0,
+    "details": {
+        "summaryPath": str(summary_path.relative_to(run_dir)),
+    },
+})
+
+if summary_check_error is not None:
+    failed.append("capability_audit_summary_contract")
+
 build_metadata = {
     "runId": os.environ["RUN_ID"],
     "startedAt": os.environ["STARTED_AT"],
@@ -127,6 +176,9 @@ report = {
 }
 (run_dir / "validator_report.json").write_text(json.dumps(report, indent=2) + "\n")
 print(f"VALIDATION_REPORT:{run_dir / 'validator_report.json'}")
+if summary_check_error is not None:
+    print(f"VALIDATION_CONTRACT_FAIL:{summary_check_error}")
+    raise SystemExit(2)
 PY
 
 if [[ ${#FAILED_TESTS[@]} -gt 0 ]]; then
