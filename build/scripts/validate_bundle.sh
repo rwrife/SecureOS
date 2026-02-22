@@ -16,6 +16,7 @@ TEST_TARGETS=(
   cap_api_contract
   capability_table
   capability_gate
+  capability_audit
 )
 
 STATUS_LINES=()

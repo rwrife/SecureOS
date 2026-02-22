@@ -64,3 +64,4 @@ Validation command:
 - CAP-008 is complete: debug-exit authorization is gated behind explicit capability checks and marker-backed validation.
 - CAP-009 is complete: capability checks now write deterministic audit events (subject, capability, result) into a bounded ring buffer for test-time visibility without changing allow/deny semantics.
 - CAP-010 is complete: grant/revoke mutation operations are now emitted to the same bounded audit stream with explicit operation type metadata, and mixed-flow ordering is validated deterministically in tests.
+- CAP-011 is complete: audit ring overflow now has explicit FIFO retention semantics with a monotonic dropped-events counter, plus machine-readable CI summary artifacts for deterministic overflow assertions.

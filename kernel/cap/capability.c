@@ -5,6 +5,7 @@
 static cap_audit_event_t cap_audit_events[CAP_AUDIT_EVENT_MAX];
 static size_t cap_audit_next_index;
 static size_t cap_audit_event_count;
+static size_t cap_audit_dropped_count;
 
 static void cap_audit_record(cap_audit_op_t operation,
                              cap_subject_id_t subject_id,
@@ -18,16 +19,23 @@ static void cap_audit_record(cap_audit_op_t operation,
   cap_audit_next_index = (cap_audit_next_index + 1u) % CAP_AUDIT_EVENT_MAX;
   if (cap_audit_event_count < CAP_AUDIT_EVENT_MAX) {
     cap_audit_event_count++;
+  } else {
+    cap_audit_dropped_count++;
   }
 }
 
 void cap_audit_reset_for_tests(void) {
   cap_audit_next_index = 0u;
   cap_audit_event_count = 0u;
+  cap_audit_dropped_count = 0u;
 }
 
 size_t cap_audit_count_for_tests(void) {
   return cap_audit_event_count;
+}
+
+size_t cap_audit_dropped_for_tests(void) {
+  return cap_audit_dropped_count;
 }
 
 cap_result_t cap_audit_get_for_tests(size_t index, cap_audit_event_t *out_event) {

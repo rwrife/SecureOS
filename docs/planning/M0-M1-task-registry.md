@@ -32,7 +32,7 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M1-CAP-008 | M1 | Debug-exit capability boundary + authorization gate tests | M1-CAP-007 | `./build/scripts/test.sh capability_gate` | done |
 | M1-CAP-009 | M1 | Capability-check audit log + deterministic ring-buffer tests | M1-CAP-008 | `./build/scripts/test.sh capability_audit` | done |
 | M1-CAP-010 | M1 | Capability grant/revoke mutation audit events + mixed-flow ordering tests | M1-CAP-009 | `./build/scripts/test.sh capability_audit` | done |
-| M1-CAP-011 | M1 | Audit ring overflow contract + CI artifact assertions | M1-CAP-010 | `./build/scripts/test.sh capability_audit` | todo |
+| M1-CAP-011 | M1 | Audit ring overflow contract + CI artifact assertions | M1-CAP-010 | `./build/scripts/test.sh capability_audit` | done |
 
 ## Notes
 
