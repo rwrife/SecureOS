@@ -11,6 +11,7 @@ Current stable IDs:
 - `CAP_CONSOLE_WRITE = 1`
 - `CAP_SERIAL_WRITE = 2`
 - `CAP_DEBUG_EXIT = 3`
+- `CAP_CAPABILITY_ADMIN = 4`
 
 Rules:
 
@@ -65,3 +66,5 @@ Validation command:
 - CAP-009 is complete: capability checks now write deterministic audit events (subject, capability, result) into a bounded ring buffer for test-time visibility without changing allow/deny semantics.
 - CAP-010 is complete: grant/revoke mutation operations are now emitted to the same bounded audit stream with explicit operation type metadata, and mixed-flow ordering is validated deterministically in tests.
 - CAP-011 is complete: audit ring overflow now has explicit FIFO retention semantics with a monotonic dropped-events counter, plus machine-readable CI summary artifacts for deterministic overflow assertions.
+- CAP-012 is complete: validation now enforces a strict capability-audit summary schema contract in CI.
+- CAP-013 is in progress: capability grant/revoke mutation APIs are being constrained behind explicit `CAP_CAPABILITY_ADMIN` actor authorization to preserve deny-by-default mutation semantics.

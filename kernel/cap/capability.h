@@ -10,6 +10,7 @@ typedef enum {
   CAP_CONSOLE_WRITE = 1,
   CAP_SERIAL_WRITE = 2,
   CAP_DEBUG_EXIT = 3,
+  CAP_CAPABILITY_ADMIN = 4,
 } capability_id_t;
 
 typedef enum {
@@ -39,6 +40,12 @@ typedef struct {
 void cap_reset_for_tests(void);
 cap_result_t cap_grant_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
 cap_result_t cap_revoke_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
+cap_result_t cap_grant_as_for_tests(cap_subject_id_t actor_subject_id,
+                                    cap_subject_id_t target_subject_id,
+                                    capability_id_t capability_id);
+cap_result_t cap_revoke_as_for_tests(cap_subject_id_t actor_subject_id,
+                                     cap_subject_id_t target_subject_id,
+                                     capability_id_t capability_id);
 cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_id);
 
 void cap_audit_reset_for_tests(void);
