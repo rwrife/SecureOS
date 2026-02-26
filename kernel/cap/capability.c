@@ -70,17 +70,37 @@ cap_result_t cap_revoke_for_tests(cap_subject_id_t subject_id, capability_id_t c
   return result;
 }
 
+static const cap_subject_id_t CAP_BOOTSTRAP_ROOT_SUBJECT_ID = 0u;
+
 static cap_result_t cap_actor_authorized_for_mutation(cap_subject_id_t actor_subject_id) {
   return cap_table_check(actor_subject_id, CAP_CAPABILITY_ADMIN);
+}
+
+static cap_result_t cap_actor_authorized_for_admin_grant(cap_subject_id_t actor_subject_id,
+                                                          capability_id_t capability_id) {
+  if (capability_id == CAP_CAPABILITY_ADMIN && actor_subject_id != CAP_BOOTSTRAP_ROOT_SUBJECT_ID) {
+    return CAP_ERR_MISSING;
+  }
+
+  return CAP_OK;
 }
 
 cap_result_t cap_grant_as_for_tests(cap_subject_id_t actor_subject_id,
                                     cap_subject_id_t target_subject_id,
                                     capability_id_t capability_id) {
-  cap_result_t actor_check = cap_actor_authorized_for_mutation(actor_subject_id);
+  cap_result_t actor_check = CAP_OK;
+  if (!(capability_id == CAP_CAPABILITY_ADMIN && actor_subject_id == CAP_BOOTSTRAP_ROOT_SUBJECT_ID)) {
+    actor_check = cap_actor_authorized_for_mutation(actor_subject_id);
+  }
   if (actor_check != CAP_OK) {
     cap_audit_record(CAP_AUDIT_OP_GRANT, target_subject_id, capability_id, actor_check);
     return actor_check;
+  }
+
+  cap_result_t admin_grant_check = cap_actor_authorized_for_admin_grant(actor_subject_id, capability_id);
+  if (admin_grant_check != CAP_OK) {
+    cap_audit_record(CAP_AUDIT_OP_GRANT, target_subject_id, capability_id, admin_grant_check);
+    return admin_grant_check;
   }
 
   cap_result_t result = cap_table_grant(target_subject_id, capability_id);

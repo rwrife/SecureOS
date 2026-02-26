@@ -71,6 +71,18 @@ int main(void) {
   if (cap_check(2u, CAP_CONSOLE_WRITE) != CAP_ERR_MISSING) {
     fail("revoke_as_restore_deny_missing");
   }
+  if (cap_grant_as_for_tests(1u, 3u, CAP_CAPABILITY_ADMIN) != CAP_ERR_MISSING) {
+    fail("delegated_admin_grant_denied");
+  }
+  if (cap_check(3u, CAP_CAPABILITY_ADMIN) != CAP_ERR_MISSING) {
+    fail("delegated_admin_grant_leaked");
+  }
+  if (cap_grant_as_for_tests(0u, 3u, CAP_CAPABILITY_ADMIN) != CAP_OK) {
+    fail("bootstrap_root_admin_grant_failed");
+  }
+  if (cap_check(3u, CAP_CAPABILITY_ADMIN) != CAP_OK) {
+    fail("bootstrap_root_admin_grant_missing");
+  }
   printf("TEST:PASS:cap_api_contract_admin_gated_mutation\n");
 
   if (cap_check(999u, CAP_CONSOLE_WRITE) != CAP_ERR_SUBJECT_INVALID) {
