@@ -35,7 +35,8 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M1-CAP-011 | M1 | Audit ring overflow contract + CI artifact assertions | M1-CAP-010 | `./build/scripts/test.sh capability_audit` | done |
 | M1-CAP-012 | M1 | Validator-enforced capability audit summary schema guardrail | M1-CAP-011 | `./build/scripts/validate_bundle.sh` | done |
 | M1-CAP-013 | M1 | Admin-gated capability mutation boundary (actor-authorized grant/revoke) | M1-CAP-012 | `./build/scripts/test.sh capability_table` | done |
-| M1-CAP-014 | M1 | Non-delegable capability-admin grant policy (bootstrap-root only) | M1-CAP-013 | `./build/scripts/test.sh cap_api_contract` | in_progress |
+| M1-CAP-014 | M1 | Non-delegable capability-admin grant policy (bootstrap-root only) | M1-CAP-013 | `./build/scripts/test.sh cap_api_contract` | done |
+| M1-CAP-015 | M1 | Capability mutation actor attribution in audit events | M1-CAP-014 | `./build/scripts/test.sh capability_audit` | todo |
 
 ## Notes
 
