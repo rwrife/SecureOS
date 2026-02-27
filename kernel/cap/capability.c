@@ -8,10 +8,12 @@ static size_t cap_audit_event_count;
 static size_t cap_audit_dropped_count;
 
 static void cap_audit_record(cap_audit_op_t operation,
+                             cap_subject_id_t actor_subject_id,
                              cap_subject_id_t subject_id,
                              capability_id_t capability_id,
                              cap_result_t result) {
   cap_audit_events[cap_audit_next_index].operation = operation;
+  cap_audit_events[cap_audit_next_index].actor_subject_id = actor_subject_id;
   cap_audit_events[cap_audit_next_index].subject_id = subject_id;
   cap_audit_events[cap_audit_next_index].capability_id = capability_id;
   cap_audit_events[cap_audit_next_index].result = result;
@@ -60,13 +62,13 @@ void cap_reset_for_tests(void) {
 
 cap_result_t cap_grant_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id) {
   cap_result_t result = cap_table_grant(subject_id, capability_id);
-  cap_audit_record(CAP_AUDIT_OP_GRANT, subject_id, capability_id, result);
+  cap_audit_record(CAP_AUDIT_OP_GRANT, subject_id, subject_id, capability_id, result);
   return result;
 }
 
 cap_result_t cap_revoke_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id) {
   cap_result_t result = cap_table_revoke(subject_id, capability_id);
-  cap_audit_record(CAP_AUDIT_OP_REVOKE, subject_id, capability_id, result);
+  cap_audit_record(CAP_AUDIT_OP_REVOKE, subject_id, subject_id, capability_id, result);
   return result;
 }
 
@@ -93,18 +95,30 @@ cap_result_t cap_grant_as_for_tests(cap_subject_id_t actor_subject_id,
     actor_check = cap_actor_authorized_for_mutation(actor_subject_id);
   }
   if (actor_check != CAP_OK) {
-    cap_audit_record(CAP_AUDIT_OP_GRANT, target_subject_id, capability_id, actor_check);
+    cap_audit_record(CAP_AUDIT_OP_GRANT,
+                     actor_subject_id,
+                     target_subject_id,
+                     capability_id,
+                     actor_check);
     return actor_check;
   }
 
   cap_result_t admin_grant_check = cap_actor_authorized_for_admin_grant(actor_subject_id, capability_id);
   if (admin_grant_check != CAP_OK) {
-    cap_audit_record(CAP_AUDIT_OP_GRANT, target_subject_id, capability_id, admin_grant_check);
+    cap_audit_record(CAP_AUDIT_OP_GRANT,
+                     actor_subject_id,
+                     target_subject_id,
+                     capability_id,
+                     admin_grant_check);
     return admin_grant_check;
   }
 
   cap_result_t result = cap_table_grant(target_subject_id, capability_id);
-  cap_audit_record(CAP_AUDIT_OP_GRANT, target_subject_id, capability_id, result);
+  cap_audit_record(CAP_AUDIT_OP_GRANT,
+                   actor_subject_id,
+                   target_subject_id,
+                   capability_id,
+                   result);
   return result;
 }
 
@@ -113,17 +127,25 @@ cap_result_t cap_revoke_as_for_tests(cap_subject_id_t actor_subject_id,
                                      capability_id_t capability_id) {
   cap_result_t actor_check = cap_actor_authorized_for_mutation(actor_subject_id);
   if (actor_check != CAP_OK) {
-    cap_audit_record(CAP_AUDIT_OP_REVOKE, target_subject_id, capability_id, actor_check);
+    cap_audit_record(CAP_AUDIT_OP_REVOKE,
+                     actor_subject_id,
+                     target_subject_id,
+                     capability_id,
+                     actor_check);
     return actor_check;
   }
 
   cap_result_t result = cap_table_revoke(target_subject_id, capability_id);
-  cap_audit_record(CAP_AUDIT_OP_REVOKE, target_subject_id, capability_id, result);
+  cap_audit_record(CAP_AUDIT_OP_REVOKE,
+                   actor_subject_id,
+                   target_subject_id,
+                   capability_id,
+                   result);
   return result;
 }
 
 cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_id) {
   cap_result_t result = cap_table_check(subject_id, capability_id);
-  cap_audit_record(CAP_AUDIT_OP_CHECK, subject_id, capability_id, result);
+  cap_audit_record(CAP_AUDIT_OP_CHECK, subject_id, subject_id, capability_id, result);
   return result;
 }
