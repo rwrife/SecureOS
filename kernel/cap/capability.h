@@ -31,6 +31,7 @@ typedef enum {
 } cap_audit_op_t;
 
 typedef struct {
+  uint64_t sequence_id;
   cap_audit_op_t operation;
   cap_subject_id_t actor_subject_id;
   cap_subject_id_t subject_id;

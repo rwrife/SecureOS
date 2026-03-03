@@ -67,4 +67,7 @@ Validation command:
 - CAP-010 is complete: grant/revoke mutation operations are now emitted to the same bounded audit stream with explicit operation type metadata, and mixed-flow ordering is validated deterministically in tests.
 - CAP-011 is complete: audit ring overflow now has explicit FIFO retention semantics with a monotonic dropped-events counter, plus machine-readable CI summary artifacts for deterministic overflow assertions.
 - CAP-012 is complete: validation now enforces a strict capability-audit summary schema contract in CI.
-- CAP-013 is in progress: capability grant/revoke mutation APIs are being constrained behind explicit `CAP_CAPABILITY_ADMIN` actor authorization to preserve deny-by-default mutation semantics.
+- CAP-013 is complete: capability grant/revoke mutation APIs are constrained behind explicit `CAP_CAPABILITY_ADMIN` actor authorization to preserve deny-by-default mutation semantics.
+- CAP-014 is complete: `CAP_CAPABILITY_ADMIN` grants are non-delegable and restricted to bootstrap root subject `0`.
+- CAP-015 is complete: audit mutation events now carry explicit actor attribution (`actor_subject_id`) for deterministic policy forensics.
+- CAP-016 is in progress: capability audit events are gaining monotonic `sequence_id` integrity to prove strict event ordering across ring wrap/overflow windows.
