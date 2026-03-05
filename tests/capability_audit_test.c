@@ -216,6 +216,57 @@ int main(void) {
                "mixed_latest_expected");
 
   printf("TEST:PASS:capability_audit_mixed_overflow\n");
+
+  cap_reset_for_tests();
+  for (size_t i = 0; i < 20u; ++i) {
+    (void)cap_check((cap_subject_id_t)(i % 8u), CAP_CONSOLE_WRITE);
+  }
+
+  if (cap_audit_checkpoint_count_for_tests() != 2u) {
+    fail("checkpoint_count_expected_two");
+  }
+
+  cap_audit_checkpoint_t checkpoint0 = {0};
+  cap_audit_checkpoint_t checkpoint1 = {0};
+  if (cap_audit_checkpoint_get_for_tests(0u, &checkpoint0) != CAP_OK) {
+    fail("checkpoint0_read");
+  }
+  if (cap_audit_checkpoint_get_for_tests(1u, &checkpoint1) != CAP_OK) {
+    fail("checkpoint1_read");
+  }
+
+  if (checkpoint0.checkpoint_id != 0u || checkpoint0.start_sequence_id != 0u ||
+      checkpoint0.end_sequence_id != 7u || checkpoint0.dropped_count != 0u) {
+    fail("checkpoint0_metadata");
+  }
+  if (checkpoint1.checkpoint_id != 1u || checkpoint1.start_sequence_id != 8u ||
+      checkpoint1.end_sequence_id != 15u || checkpoint1.dropped_count != 0u) {
+    fail("checkpoint1_metadata");
+  }
+  if (checkpoint0.seal == checkpoint1.seal) {
+    fail("checkpoint_seal_progression");
+  }
+
+  cap_reset_for_tests();
+  for (size_t i = 0; i < (size_t)CAP_AUDIT_EVENT_MAX + CAP_AUDIT_CHECKPOINT_INTERVAL; ++i) {
+    (void)cap_check((cap_subject_id_t)i, CAP_CONSOLE_WRITE);
+  }
+
+  if (cap_audit_checkpoint_count_for_tests() == 0u) {
+    fail("checkpoint_count_wrap_nonzero");
+  }
+
+  cap_audit_checkpoint_t checkpoint_last = {0};
+  if (cap_audit_checkpoint_get_for_tests(cap_audit_checkpoint_count_for_tests() - 1u,
+                                         &checkpoint_last) != CAP_OK) {
+    fail("checkpoint_last_read");
+  }
+
+  if (checkpoint_last.dropped_count == 0u) {
+    fail("checkpoint_dropped_count_reflects_wrap");
+  }
+
+  printf("TEST:PASS:capability_audit_checkpoints\n");
   printf("TEST:AUDIT_SUMMARY:count=%zu:dropped=%zu\n",
          cap_audit_count_for_tests(),
          cap_audit_dropped_for_tests());
