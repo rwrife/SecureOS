@@ -70,4 +70,5 @@ Validation command:
 - CAP-013 is complete: capability grant/revoke mutation APIs are constrained behind explicit `CAP_CAPABILITY_ADMIN` actor authorization to preserve deny-by-default mutation semantics.
 - CAP-014 is complete: `CAP_CAPABILITY_ADMIN` grants are non-delegable and restricted to bootstrap root subject `0`.
 - CAP-015 is complete: audit mutation events now carry explicit actor attribution (`actor_subject_id`) for deterministic policy forensics.
-- CAP-016 is in progress: capability audit events are gaining monotonic `sequence_id` integrity to prove strict event ordering across ring wrap/overflow windows.
+- CAP-016 is complete: capability audit events now carry monotonic `sequence_id` values that preserve strict ordering semantics across ring wrap/overflow windows.
+- CAP-017 is planned: add deterministic tamper-evident audit checkpoints to detect retained-window divergence without changing authorization behavior.
