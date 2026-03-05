@@ -9,6 +9,7 @@ static void fail(const char *reason) {
 }
 
 static void expect_event(size_t index,
+                         uint64_t sequence_id,
                          cap_audit_op_t operation,
                          cap_subject_id_t actor,
                          cap_subject_id_t subject,
@@ -20,9 +21,9 @@ static void expect_event(size_t index,
     fail(reason);
   }
 
-  if (event.operation != operation || event.actor_subject_id != actor ||
-      event.subject_id != subject || event.capability_id != capability ||
-      event.result != result) {
+  if (event.sequence_id != sequence_id || event.operation != operation ||
+      event.actor_subject_id != actor || event.subject_id != subject ||
+      event.capability_id != capability || event.result != result) {
     fail(reason);
   }
 }
@@ -36,6 +37,7 @@ int main(void) {
     fail("default_deny_result");
   }
   expect_event(0u,
+               0u,
                CAP_AUDIT_OP_CHECK,
                1u,
                1u,
@@ -47,6 +49,7 @@ int main(void) {
     fail("grant_failed");
   }
   expect_event(1u,
+               1u,
                CAP_AUDIT_OP_GRANT,
                1u,
                1u,
@@ -57,12 +60,13 @@ int main(void) {
   if (cap_check(1u, CAP_CONSOLE_WRITE) != CAP_OK) {
     fail("allow_result");
   }
-  expect_event(2u, CAP_AUDIT_OP_CHECK, 1u, 1u, CAP_CONSOLE_WRITE, CAP_OK, "allow_event");
+  expect_event(2u, 2u, CAP_AUDIT_OP_CHECK, 1u, 1u, CAP_CONSOLE_WRITE, CAP_OK, "allow_event");
 
   if (cap_revoke_for_tests(1u, CAP_CONSOLE_WRITE) != CAP_OK) {
     fail("revoke_failed");
   }
   expect_event(3u,
+               3u,
                CAP_AUDIT_OP_REVOKE,
                1u,
                1u,
@@ -74,6 +78,7 @@ int main(void) {
     fail("invalid_subject_result");
   }
   expect_event(4u,
+               4u,
                CAP_AUDIT_OP_CHECK,
                999u,
                999u,
@@ -85,6 +90,7 @@ int main(void) {
     fail("invalid_cap_result");
   }
   expect_event(5u,
+               5u,
                CAP_AUDIT_OP_CHECK,
                1u,
                1u,
@@ -108,6 +114,7 @@ int main(void) {
   }
 
   expect_event(0u,
+               0u,
                CAP_AUDIT_OP_GRANT,
                0u,
                2u,
@@ -115,6 +122,7 @@ int main(void) {
                CAP_OK,
                "grant_as_root_actor_attribution");
   expect_event(1u,
+               1u,
                CAP_AUDIT_OP_GRANT,
                2u,
                3u,
@@ -122,6 +130,7 @@ int main(void) {
                CAP_OK,
                "grant_as_actor_attribution");
   expect_event(2u,
+               2u,
                CAP_AUDIT_OP_REVOKE,
                2u,
                3u,
@@ -129,6 +138,7 @@ int main(void) {
                CAP_OK,
                "revoke_as_actor_attribution");
   expect_event(3u,
+               3u,
                CAP_AUDIT_OP_GRANT,
                2u,
                4u,
@@ -150,6 +160,7 @@ int main(void) {
   }
 
   expect_event(0u,
+               5u,
                CAP_AUDIT_OP_CHECK,
                5u,
                5u,
@@ -157,6 +168,7 @@ int main(void) {
                CAP_ERR_MISSING,
                "audit_ring_oldest_after_wrap");
   expect_event((size_t)CAP_AUDIT_EVENT_MAX - 1u,
+               (uint64_t)CAP_AUDIT_EVENT_MAX + 4u,
                CAP_AUDIT_OP_CHECK,
                (cap_subject_id_t)(CAP_AUDIT_EVENT_MAX + 4u),
                (cap_subject_id_t)(CAP_AUDIT_EVENT_MAX + 4u),
@@ -187,6 +199,7 @@ int main(void) {
   }
 
   expect_event(0u,
+               4u,
                CAP_AUDIT_OP_CHECK,
                1u,
                1u,
@@ -194,6 +207,7 @@ int main(void) {
                CAP_OK,
                "mixed_oldest_expected");
   expect_event((size_t)CAP_AUDIT_EVENT_MAX - 1u,
+               35u,
                CAP_AUDIT_OP_REVOKE,
                11u,
                11u,

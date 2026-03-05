@@ -6,18 +6,21 @@ static cap_audit_event_t cap_audit_events[CAP_AUDIT_EVENT_MAX];
 static size_t cap_audit_next_index;
 static size_t cap_audit_event_count;
 static size_t cap_audit_dropped_count;
+static uint64_t cap_audit_next_sequence_id;
 
 static void cap_audit_record(cap_audit_op_t operation,
                              cap_subject_id_t actor_subject_id,
                              cap_subject_id_t subject_id,
                              capability_id_t capability_id,
                              cap_result_t result) {
+  cap_audit_events[cap_audit_next_index].sequence_id = cap_audit_next_sequence_id;
   cap_audit_events[cap_audit_next_index].operation = operation;
   cap_audit_events[cap_audit_next_index].actor_subject_id = actor_subject_id;
   cap_audit_events[cap_audit_next_index].subject_id = subject_id;
   cap_audit_events[cap_audit_next_index].capability_id = capability_id;
   cap_audit_events[cap_audit_next_index].result = result;
 
+  cap_audit_next_sequence_id++;
   cap_audit_next_index = (cap_audit_next_index + 1u) % CAP_AUDIT_EVENT_MAX;
   if (cap_audit_event_count < CAP_AUDIT_EVENT_MAX) {
     cap_audit_event_count++;
@@ -30,6 +33,7 @@ void cap_audit_reset_for_tests(void) {
   cap_audit_next_index = 0u;
   cap_audit_event_count = 0u;
   cap_audit_dropped_count = 0u;
+  cap_audit_next_sequence_id = 0u;
 }
 
 size_t cap_audit_count_for_tests(void) {
