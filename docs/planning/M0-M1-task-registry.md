@@ -38,7 +38,7 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M1-CAP-014 | M1 | Non-delegable capability-admin grant policy (bootstrap-root only) | M1-CAP-013 | `./build/scripts/test.sh cap_api_contract` | done |
 | M1-CAP-015 | M1 | Capability mutation actor attribution in audit events | M1-CAP-014 | `./build/scripts/test.sh capability_audit` | done |
 | M1-CAP-016 | M1 | Capability audit event monotonic sequence integrity across ring wrap | M1-CAP-015 | `./build/scripts/test.sh capability_audit` | done |
-| M1-CAP-017 | M1 | Tamper-evident capability audit checkpoints across retention windows | M1-CAP-016 | `./build/scripts/test.sh capability_audit` | todo |
+| M1-CAP-017 | M1 | Tamper-evident capability audit checkpoints across retention windows | M1-CAP-016 | `./build/scripts/test.sh capability_audit` | in-progress |
 
 ## Notes
 

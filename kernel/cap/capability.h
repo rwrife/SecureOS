@@ -22,6 +22,8 @@ typedef enum {
 
 enum {
   CAP_AUDIT_EVENT_MAX = 32,
+  CAP_AUDIT_CHECKPOINT_INTERVAL = 8,
+  CAP_AUDIT_CHECKPOINT_MAX = 8,
 };
 
 typedef enum {
@@ -39,6 +41,14 @@ typedef struct {
   cap_result_t result;
 } cap_audit_event_t;
 
+typedef struct {
+  uint64_t checkpoint_id;
+  uint64_t start_sequence_id;
+  uint64_t end_sequence_id;
+  uint64_t seal;
+  size_t dropped_count;
+} cap_audit_checkpoint_t;
+
 void cap_reset_for_tests(void);
 cap_result_t cap_grant_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
 cap_result_t cap_revoke_for_tests(cap_subject_id_t subject_id, capability_id_t capability_id);
@@ -54,5 +64,8 @@ void cap_audit_reset_for_tests(void);
 size_t cap_audit_count_for_tests(void);
 size_t cap_audit_dropped_for_tests(void);
 cap_result_t cap_audit_get_for_tests(size_t index, cap_audit_event_t *out_event);
+size_t cap_audit_checkpoint_count_for_tests(void);
+cap_result_t cap_audit_checkpoint_get_for_tests(size_t index,
+                                                cap_audit_checkpoint_t *out_checkpoint);
 
 #endif
