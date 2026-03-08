@@ -267,6 +267,27 @@ int main(void) {
   }
 
   printf("TEST:PASS:capability_audit_checkpoints\n");
+
+  size_t checkpoint_count = cap_audit_checkpoint_count_for_tests();
+  uint64_t latest_checkpoint_id = 0u;
+  uint64_t latest_checkpoint_seal = 0u;
+  size_t latest_checkpoint_dropped = 0u;
+  if (checkpoint_count > 0u) {
+    cap_audit_checkpoint_t latest_checkpoint = {0};
+    if (cap_audit_checkpoint_get_for_tests(checkpoint_count - 1u, &latest_checkpoint) != CAP_OK) {
+      fail("checkpoint_latest_summary_read");
+    }
+    latest_checkpoint_id = latest_checkpoint.checkpoint_id;
+    latest_checkpoint_seal = latest_checkpoint.seal;
+    latest_checkpoint_dropped = latest_checkpoint.dropped_count;
+  }
+
+  printf("TEST:AUDIT_CHECKPOINT_SUMMARY:count=%zu:latest_id=%llu:latest_seal=%llu:latest_dropped=%zu\n",
+         checkpoint_count,
+         (unsigned long long)latest_checkpoint_id,
+         (unsigned long long)latest_checkpoint_seal,
+         latest_checkpoint_dropped);
+
   printf("TEST:AUDIT_SUMMARY:count=%zu:dropped=%zu\n",
          cap_audit_count_for_tests(),
          cap_audit_dropped_for_tests());

@@ -105,7 +105,16 @@ else:
         summary_check_error = f"invalid JSON in {summary_path}: {exc}"
 
 if summary is not None:
-    required_int_fields = ["schemaVersion", "ringCapacity", "retainedEvents", "droppedEvents"]
+    required_int_fields = [
+        "schemaVersion",
+        "ringCapacity",
+        "retainedEvents",
+        "droppedEvents",
+        "checkpointCount",
+        "latestCheckpointId",
+        "latestCheckpointSeal",
+        "latestCheckpointDroppedCount",
+    ]
     for field in required_int_fields:
         value = summary.get(field)
         if not isinstance(value, int):
@@ -127,6 +136,20 @@ if summary is not None:
             summary_check_error = "retainedEvents must be <= ringCapacity"
         elif summary.get("retainedEvents", 0) + summary.get("droppedEvents", 0) < summary.get("ringCapacity", 0):
             summary_check_error = "retainedEvents + droppedEvents must be >= ringCapacity"
+        elif summary.get("checkpointCount", -1) < 0:
+            summary_check_error = "checkpointCount must be >= 0"
+        elif summary.get("latestCheckpointId", -1) < 0:
+            summary_check_error = "latestCheckpointId must be >= 0"
+        elif summary.get("latestCheckpointSeal", -1) < 0:
+            summary_check_error = "latestCheckpointSeal must be >= 0"
+        elif summary.get("latestCheckpointDroppedCount", -1) < 0:
+            summary_check_error = "latestCheckpointDroppedCount must be >= 0"
+        elif summary.get("checkpointCount", 0) == 0 and (
+            summary.get("latestCheckpointId", 0) != 0
+            or summary.get("latestCheckpointSeal", 0) != 0
+            or summary.get("latestCheckpointDroppedCount", 0) != 0
+        ):
+            summary_check_error = "latest checkpoint fields must be 0 when checkpointCount is 0"
 
 checks.append({
     "name": "capability_audit_summary_contract",
