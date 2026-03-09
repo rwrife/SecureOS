@@ -72,4 +72,5 @@ Validation command:
 - CAP-015 is complete: audit mutation events now carry explicit actor attribution (`actor_subject_id`) for deterministic policy forensics.
 - CAP-016 is complete: capability audit events now carry monotonic `sequence_id` values that preserve strict ordering semantics across ring wrap/overflow windows.
 - CAP-017 is complete: capability audit now tracks deterministic tamper-evident checkpoint seals to detect retained-window divergence without changing authorization behavior.
-- CAP-018 is in progress: capability-audit summary artifacts now surface checkpoint metadata fields that validator contracts enforce in CI.
+- CAP-018 is complete: capability-audit summary artifacts now surface checkpoint metadata fields that validator contracts enforce in CI.
+- CAP-019 is planned: sequence-window attestation will enforce continuity consistency between retained audit events and checkpoint summary windows.
