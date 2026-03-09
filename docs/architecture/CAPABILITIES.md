@@ -71,4 +71,5 @@ Validation command:
 - CAP-014 is complete: `CAP_CAPABILITY_ADMIN` grants are non-delegable and restricted to bootstrap root subject `0`.
 - CAP-015 is complete: audit mutation events now carry explicit actor attribution (`actor_subject_id`) for deterministic policy forensics.
 - CAP-016 is complete: capability audit events now carry monotonic `sequence_id` values that preserve strict ordering semantics across ring wrap/overflow windows.
-- CAP-017 is in progress: capability audit now tracks deterministic tamper-evident checkpoint seals to detect retained-window divergence without changing authorization behavior.
+- CAP-017 is complete: capability audit now tracks deterministic tamper-evident checkpoint seals to detect retained-window divergence without changing authorization behavior.
+- CAP-018 is in progress: capability-audit summary artifacts now surface checkpoint metadata fields that validator contracts enforce in CI.

@@ -23,7 +23,13 @@ SUMMARY_LINE="$(grep 'TEST:AUDIT_SUMMARY:' "$LOG_PATH" | tail -n 1)"
 COUNT="$(echo "$SUMMARY_LINE" | sed -n 's/.*count=\([0-9][0-9]*\).*/\1/p')"
 DROPPED="$(echo "$SUMMARY_LINE" | sed -n 's/.*dropped=\([0-9][0-9]*\).*/\1/p')"
 
-if [[ -z "$COUNT" || -z "$DROPPED" ]]; then
+CHECKPOINT_SUMMARY_LINE="$(grep 'TEST:AUDIT_CHECKPOINT_SUMMARY:' "$LOG_PATH" | tail -n 1)"
+CHECKPOINT_COUNT="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*count=\([0-9][0-9]*\).*/\1/p')"
+LATEST_CHECKPOINT_ID="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*latest_id=\([0-9][0-9]*\).*/\1/p')"
+LATEST_CHECKPOINT_SEAL="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*latest_seal=\([0-9][0-9]*\).*/\1/p')"
+LATEST_CHECKPOINT_DROPPED="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*latest_dropped=\([0-9][0-9]*\).*/\1/p')"
+
+if [[ -z "$COUNT" || -z "$DROPPED" || -z "$CHECKPOINT_COUNT" || -z "$LATEST_CHECKPOINT_ID" || -z "$LATEST_CHECKPOINT_SEAL" || -z "$LATEST_CHECKPOINT_DROPPED" ]]; then
   echo "Missing audit summary markers in capability audit output" >&2
   exit 1
 fi
@@ -34,6 +40,10 @@ cat > "$OUT_DIR/capability_audit_summary.json" <<JSON
   "test": "capability_audit",
   "ringCapacity": ${CAP_AUDIT_EVENT_MAX:-32},
   "retainedEvents": $COUNT,
-  "droppedEvents": $DROPPED
+  "droppedEvents": $DROPPED,
+  "checkpointCount": $CHECKPOINT_COUNT,
+  "latestCheckpointId": $LATEST_CHECKPOINT_ID,
+  "latestCheckpointSeal": $LATEST_CHECKPOINT_SEAL,
+  "latestCheckpointDroppedCount": $LATEST_CHECKPOINT_DROPPED
 }
 JSON

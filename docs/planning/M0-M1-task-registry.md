@@ -39,7 +39,7 @@ This registry tracks the concrete, ordered tasks to move SecureOS from the curre
 | M1-CAP-015 | M1 | Capability mutation actor attribution in audit events | M1-CAP-014 | `./build/scripts/test.sh capability_audit` | done |
 | M1-CAP-016 | M1 | Capability audit event monotonic sequence integrity across ring wrap | M1-CAP-015 | `./build/scripts/test.sh capability_audit` | done |
 | M1-CAP-017 | M1 | Tamper-evident capability audit checkpoints across retention windows | M1-CAP-016 | `./build/scripts/test.sh capability_audit` | done |
-| M1-CAP-018 | M1 | Enforce capability audit checkpoint summary contract in validator artifacts | M1-CAP-017 | `./build/scripts/validate_bundle.sh` | todo |
+| M1-CAP-018 | M1 | Enforce capability audit checkpoint summary contract in validator artifacts | M1-CAP-017 | `./build/scripts/validate_bundle.sh` | in-progress |
 
 ## Notes
 
