@@ -121,6 +121,30 @@ if summary is not None:
             summary_check_error = f"{field} must be integer"
             break
 
+    sequence_window = summary.get("sequenceWindow") if isinstance(summary, dict) else None
+    checkpoint_window = summary.get("checkpointWindow") if isinstance(summary, dict) else None
+
+    if summary_check_error is None and not isinstance(sequence_window, dict):
+        summary_check_error = "sequenceWindow must be object"
+    if summary_check_error is None and not isinstance(checkpoint_window, dict):
+        summary_check_error = "checkpointWindow must be object"
+
+    if summary_check_error is None:
+        for field in ["firstSequenceId", "lastSequenceId", "eventCount"]:
+            if not isinstance(sequence_window.get(field), int):
+                summary_check_error = f"sequenceWindow.{field} must be integer"
+                break
+
+    if summary_check_error is None:
+        if sequence_window.get("coverage") not in ["full", "truncated"]:
+            summary_check_error = "sequenceWindow.coverage must be full or truncated"
+
+    if summary_check_error is None:
+        for field in ["firstCheckpointId", "lastCheckpointId", "count"]:
+            if not isinstance(checkpoint_window.get(field), int):
+                summary_check_error = f"checkpointWindow.{field} must be integer"
+                break
+
     if summary_check_error is None:
         if summary.get("schemaVersion") != 1:
             summary_check_error = "schemaVersion must be 1"
@@ -150,6 +174,28 @@ if summary is not None:
             or summary.get("latestCheckpointDroppedCount", 0) != 0
         ):
             summary_check_error = "latest checkpoint fields must be 0 when checkpointCount is 0"
+        elif sequence_window.get("eventCount") != summary.get("retainedEvents"):
+            summary_check_error = "sequenceWindow.eventCount must match retainedEvents"
+        elif sequence_window.get("coverage") == "truncated" and summary.get("droppedEvents", 0) == 0:
+            summary_check_error = "sequenceWindow.coverage truncated requires droppedEvents > 0"
+        elif sequence_window.get("coverage") == "full" and summary.get("droppedEvents", 0) > 0:
+            summary_check_error = "sequenceWindow.coverage full requires droppedEvents == 0"
+        elif checkpoint_window.get("count") != summary.get("checkpointCount"):
+            summary_check_error = "checkpointWindow.count must match checkpointCount"
+        elif summary.get("retainedEvents", 0) == 0 and (
+            sequence_window.get("firstSequenceId", 0) != 0
+            or sequence_window.get("lastSequenceId", 0) != 0
+        ):
+            summary_check_error = "sequenceWindow IDs must be 0 when retainedEvents is 0"
+        elif summary.get("retainedEvents", 0) > 0 and sequence_window.get("firstSequenceId") > sequence_window.get("lastSequenceId"):
+            summary_check_error = "sequenceWindow.firstSequenceId must be <= lastSequenceId"
+        elif summary.get("checkpointCount", 0) == 0 and (
+            checkpoint_window.get("firstCheckpointId", 0) != 0
+            or checkpoint_window.get("lastCheckpointId", 0) != 0
+        ):
+            summary_check_error = "checkpointWindow IDs must be 0 when checkpointCount is 0"
+        elif summary.get("checkpointCount", 0) > 0 and checkpoint_window.get("firstCheckpointId") > checkpoint_window.get("lastCheckpointId"):
+            summary_check_error = "checkpointWindow.firstCheckpointId must be <= lastCheckpointId"
 
 checks.append({
     "name": "capability_audit_summary_contract",

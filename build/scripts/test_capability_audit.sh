@@ -22,14 +22,18 @@ grep -q "TEST:PASS:capability_audit_mixed_overflow" "$LOG_PATH"
 SUMMARY_LINE="$(grep 'TEST:AUDIT_SUMMARY:' "$LOG_PATH" | tail -n 1)"
 COUNT="$(echo "$SUMMARY_LINE" | sed -n 's/.*count=\([0-9][0-9]*\).*/\1/p')"
 DROPPED="$(echo "$SUMMARY_LINE" | sed -n 's/.*dropped=\([0-9][0-9]*\).*/\1/p')"
+FIRST_SEQ="$(echo "$SUMMARY_LINE" | sed -n 's/.*first_seq=\([0-9][0-9]*\).*/\1/p')"
+LAST_SEQ="$(echo "$SUMMARY_LINE" | sed -n 's/.*last_seq=\([0-9][0-9]*\).*/\1/p')"
+COVERAGE="$(echo "$SUMMARY_LINE" | sed -nE 's/.*coverage=(full|truncated).*/\1/p')"
 
 CHECKPOINT_SUMMARY_LINE="$(grep 'TEST:AUDIT_CHECKPOINT_SUMMARY:' "$LOG_PATH" | tail -n 1)"
 CHECKPOINT_COUNT="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*count=\([0-9][0-9]*\).*/\1/p')"
+FIRST_CHECKPOINT_ID="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*first_id=\([0-9][0-9]*\).*/\1/p')"
 LATEST_CHECKPOINT_ID="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*latest_id=\([0-9][0-9]*\).*/\1/p')"
 LATEST_CHECKPOINT_SEAL="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*latest_seal=\([0-9][0-9]*\).*/\1/p')"
 LATEST_CHECKPOINT_DROPPED="$(echo "$CHECKPOINT_SUMMARY_LINE" | sed -n 's/.*latest_dropped=\([0-9][0-9]*\).*/\1/p')"
 
-if [[ -z "$COUNT" || -z "$DROPPED" || -z "$CHECKPOINT_COUNT" || -z "$LATEST_CHECKPOINT_ID" || -z "$LATEST_CHECKPOINT_SEAL" || -z "$LATEST_CHECKPOINT_DROPPED" ]]; then
+if [[ -z "$COUNT" || -z "$DROPPED" || -z "$FIRST_SEQ" || -z "$LAST_SEQ" || -z "$COVERAGE" || -z "$CHECKPOINT_COUNT" || -z "$FIRST_CHECKPOINT_ID" || -z "$LATEST_CHECKPOINT_ID" || -z "$LATEST_CHECKPOINT_SEAL" || -z "$LATEST_CHECKPOINT_DROPPED" ]]; then
   echo "Missing audit summary markers in capability audit output" >&2
   exit 1
 fi
@@ -44,6 +48,17 @@ cat > "$OUT_DIR/capability_audit_summary.json" <<JSON
   "checkpointCount": $CHECKPOINT_COUNT,
   "latestCheckpointId": $LATEST_CHECKPOINT_ID,
   "latestCheckpointSeal": $LATEST_CHECKPOINT_SEAL,
-  "latestCheckpointDroppedCount": $LATEST_CHECKPOINT_DROPPED
+  "latestCheckpointDroppedCount": $LATEST_CHECKPOINT_DROPPED,
+  "sequenceWindow": {
+    "firstSequenceId": $FIRST_SEQ,
+    "lastSequenceId": $LAST_SEQ,
+    "eventCount": $COUNT,
+    "coverage": "$COVERAGE"
+  },
+  "checkpointWindow": {
+    "firstCheckpointId": $FIRST_CHECKPOINT_ID,
+    "lastCheckpointId": $LATEST_CHECKPOINT_ID,
+    "count": $CHECKPOINT_COUNT
+  }
 }
 JSON

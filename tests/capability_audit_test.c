@@ -268,29 +268,56 @@ int main(void) {
 
   printf("TEST:PASS:capability_audit_checkpoints\n");
 
+  size_t retained_count = cap_audit_count_for_tests();
+  size_t dropped_count = cap_audit_dropped_for_tests();
+  uint64_t first_sequence_id = 0u;
+  uint64_t last_sequence_id = 0u;
+  if (retained_count > 0u) {
+    cap_audit_event_t first_event = {0};
+    cap_audit_event_t last_event = {0};
+    if (cap_audit_get_for_tests(0u, &first_event) != CAP_OK) {
+      fail("audit_first_event_summary_read");
+    }
+    if (cap_audit_get_for_tests(retained_count - 1u, &last_event) != CAP_OK) {
+      fail("audit_last_event_summary_read");
+    }
+    first_sequence_id = first_event.sequence_id;
+    last_sequence_id = last_event.sequence_id;
+  }
+
   size_t checkpoint_count = cap_audit_checkpoint_count_for_tests();
+  uint64_t first_checkpoint_id = 0u;
   uint64_t latest_checkpoint_id = 0u;
   uint64_t latest_checkpoint_seal = 0u;
   size_t latest_checkpoint_dropped = 0u;
   if (checkpoint_count > 0u) {
+    cap_audit_checkpoint_t first_checkpoint = {0};
     cap_audit_checkpoint_t latest_checkpoint = {0};
+    if (cap_audit_checkpoint_get_for_tests(0u, &first_checkpoint) != CAP_OK) {
+      fail("checkpoint_first_summary_read");
+    }
     if (cap_audit_checkpoint_get_for_tests(checkpoint_count - 1u, &latest_checkpoint) != CAP_OK) {
       fail("checkpoint_latest_summary_read");
     }
+    first_checkpoint_id = first_checkpoint.checkpoint_id;
     latest_checkpoint_id = latest_checkpoint.checkpoint_id;
     latest_checkpoint_seal = latest_checkpoint.seal;
     latest_checkpoint_dropped = latest_checkpoint.dropped_count;
   }
 
-  printf("TEST:AUDIT_CHECKPOINT_SUMMARY:count=%zu:latest_id=%llu:latest_seal=%llu:latest_dropped=%zu\n",
+  printf("TEST:AUDIT_CHECKPOINT_SUMMARY:count=%zu:first_id=%llu:latest_id=%llu:latest_seal=%llu:latest_dropped=%zu\n",
          checkpoint_count,
+         (unsigned long long)first_checkpoint_id,
          (unsigned long long)latest_checkpoint_id,
          (unsigned long long)latest_checkpoint_seal,
          latest_checkpoint_dropped);
 
-  printf("TEST:AUDIT_SUMMARY:count=%zu:dropped=%zu\n",
-         cap_audit_count_for_tests(),
-         cap_audit_dropped_for_tests());
+  printf("TEST:AUDIT_SUMMARY:count=%zu:dropped=%zu:first_seq=%llu:last_seq=%llu:coverage=%s\n",
+         retained_count,
+         dropped_count,
+         (unsigned long long)first_sequence_id,
+         (unsigned long long)last_sequence_id,
+         dropped_count > 0u ? "truncated" : "full");
 
   return 0;
 }
