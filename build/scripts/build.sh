@@ -60,6 +60,9 @@ case "$TARGET" in
   disk)
     "$ROOT_DIR/build/scripts/build_disk_image.sh"
     ;;
+  console)
+    "$ROOT_DIR/build/scripts/boot_console.sh"
+    ;;
   *)
     echo "Unknown target: $TARGET"
     usage

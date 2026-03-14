@@ -28,6 +28,7 @@ $dockerfile = Get-ToolchainDockerfile -RootDir $rootDir
 
 Assert-DockerAvailable
 Ensure-ToolchainImage -RootDir $rootDir -ImageTag $imageTag -Dockerfile $dockerfile
+Stop-SecureOSActiveInstances -RootDir $rootDir -ImageTag $imageTag
 
 $testScript = switch ($TestName) {
   "hello_boot" { "./build/scripts/test_boot_sector.sh; ./build/scripts/run_qemu.sh --test hello_boot" }

@@ -16,7 +16,7 @@ function Show-Usage {
     [string]$ImageTag
   )
 
-  Write-Host "Usage: build.ps1 [kernel|modules|image|run|test-boot|user-app|disk]"
+  Write-Host "Usage: build.ps1 [kernel|modules|image|run|test-boot|user-app|disk|console]"
   Write-Host ""
   Write-Host "Builds SecureOS targets using the pinned toolchain container."
   Write-Host "Environment overrides:"
@@ -65,6 +65,10 @@ switch ($Target) {
   }
   "disk" {
     & (Join-Path $PSScriptRoot "build_disk_image.ps1")
+    break
+  }
+  "console" {
+    & (Join-Path $PSScriptRoot "boot_console.ps1")
     break
   }
   default {

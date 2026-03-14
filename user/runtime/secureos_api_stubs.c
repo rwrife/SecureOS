@@ -26,3 +26,34 @@ os_status_t os_fs_write_file(const char *path, const char *content, int append) 
   (void)append;
   return OS_STATUS_OK;
 }
+
+os_status_t os_fs_mkdir(const char *path) {
+  (void)path;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_process_chdir(const char *path) {
+  (void)path;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size) {
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return OS_STATUS_OK;
+}
+
+os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size) {
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return OS_STATUS_OK;
+}
+
+os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size) {
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return OS_STATUS_OK;
+}

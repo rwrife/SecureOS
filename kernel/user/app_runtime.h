@@ -7,11 +7,15 @@
 
 typedef void (*app_runtime_output_fn)(const char *message);
 typedef cap_access_state_t (*app_runtime_authorize_fn)(const char *operation, const char *path);
+typedef void (*app_runtime_path_resolve_fn)(const char *input_path, char *out_path, size_t out_path_size);
+typedef int (*app_runtime_change_dir_fn)(const char *absolute_path);
 
 typedef struct {
   cap_subject_id_t subject_id;
   app_runtime_output_fn output;
   app_runtime_authorize_fn authorize_disk_io;
+  app_runtime_path_resolve_fn resolve_path;
+  app_runtime_change_dir_fn change_directory;
 } app_runtime_context_t;
 
 typedef enum {
@@ -21,9 +25,12 @@ typedef enum {
   APP_RUNTIME_ERR_CAPABILITY = 3,
   APP_RUNTIME_ERR_DENIED = 4,
   APP_RUNTIME_ERR_STORAGE = 5,
+  APP_RUNTIME_ERR_FORMAT = 6,
 } app_runtime_result_t;
 
 size_t app_runtime_list(char *out_buffer, size_t out_buffer_size);
-app_runtime_result_t app_runtime_run(const char *app_name, const app_runtime_context_t *context);
+app_runtime_result_t app_runtime_run(const char *app_name,
+                                     const char *app_args,
+                                     const app_runtime_context_t *context);
 
 #endif

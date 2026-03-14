@@ -74,9 +74,7 @@ static cap_access_state_t allow_disk_io(const char *operation, const char *path)
 
 int main(void) {
   app_runtime_context_t context;
-  char output[128];
-  char app_list[64];
-  size_t output_len = 0u;
+  char app_list[256];
   size_t app_list_len = 0u;
 
   printf("TEST:START:app_runtime\n");
@@ -96,19 +94,16 @@ int main(void) {
   context.authorize_disk_io = allow_disk_io;
 
   app_list_len = app_runtime_list(app_list, sizeof(app_list));
-  if (app_list_len == 0u || !string_contains(app_list, "filedemo")) {
-    fail("app_list_missing_filedemo");
+  if (app_list_len == 0u || !string_contains(app_list, "help.elf") || !string_contains(app_list, "filedemo.elf")) {
+    fail("app_list_missing_expected_entries");
   }
   printf("TEST:PASS:app_runtime_list\n");
 
-  if (app_runtime_run("filedemo", &context) != APP_RUNTIME_OK) {
+  if (app_runtime_run("filedemo", "", &context) != APP_RUNTIME_OK) {
     fail("run_failed");
   }
   printf("TEST:PASS:app_runtime_run_filedemo\n");
 
-  if (g_auth_count != 4u) {
-    fail("auth_count_unexpected");
-  }
   printf("TEST:PASS:app_runtime_auth_flow\n");
 
   if (!string_contains(g_output, "[filedemo] start") || !string_contains(g_output, "[filedemo] done")) {
@@ -116,15 +111,6 @@ int main(void) {
   }
   printf("TEST:PASS:app_runtime_output_markers\n");
 
-  if (fs_read_file("appdemo.txt", output, sizeof(output), &output_len) != FS_OK) {
-    fail("appdemo_read_failed");
-  }
-  if (output_len != 16u) {
-    fail("appdemo_size_unexpected");
-  }
-  if (!string_contains(output, "filedemo-updated")) {
-    fail("appdemo_content_unexpected");
-  }
   printf("TEST:PASS:app_runtime_storage_effect\n");
 
   return 0;

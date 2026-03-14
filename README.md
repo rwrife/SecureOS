@@ -108,6 +108,26 @@ Inside the kernel console, the current demo flow is:
 - `cat appdemo.txt`
 - `exit pass`
 
+### 5) Boot To Interactive Command Prompt
+
+Use the dedicated interactive boot wrappers to get a live `secureos>` prompt:
+
+```bash
+./build/scripts/build.sh console
+```
+
+Windows PowerShell:
+
+```powershell
+.\build\scripts\build.ps1 console
+```
+
+This boots the kernel ISO with the attached disk image and leaves QEMU interactive.
+Type commands directly at `secureos>`. Use `exit pass` to stop QEMU cleanly.
+
+If a previous SecureOS QEMU/container session is still running, the boot and disk-image scripts
+now stop those stale instances automatically so `secureos-disk.img` can be reused.
+
 ## Repo Pointers
 
 - Roadmap: `BUILD_ROADMAP.md`

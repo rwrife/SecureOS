@@ -10,6 +10,28 @@ static void fail(const char *reason) {
   exit(1);
 }
 
+static int string_contains(const char *haystack, const char *needle) {
+  size_t i = 0u;
+  size_t j = 0u;
+
+  if (needle[0] == '\0') {
+    return 1;
+  }
+
+  while (haystack[i] != '\0') {
+    j = 0u;
+    while (haystack[i + j] != '\0' && needle[j] != '\0' && haystack[i + j] == needle[j]) {
+      ++j;
+    }
+    if (needle[j] == '\0') {
+      return 1;
+    }
+    ++i;
+  }
+
+  return 0;
+}
+
 int main(void) {
   char output[512];
   uint8_t boot[512];
@@ -35,10 +57,18 @@ int main(void) {
   if (output_len == 0u) {
     fail("list_root_empty");
   }
-  if (!(output[0] == 'r' || output[0] == 'n')) {
-    fail("list_root_unexpected_names");
+  if (!string_contains(output, "os/\n") || !string_contains(output, "apps/\n")) {
+    fail("list_root_missing_system_dirs");
   }
   printf("TEST:PASS:fs_service_list_root\n");
+
+  if (fs_list_dir("/os", output, sizeof(output), &output_len) != FS_OK) {
+    fail("list_os_failed");
+  }
+  if (!string_contains(output, "help.elf\n")) {
+    fail("list_os_missing_help");
+  }
+  printf("TEST:PASS:fs_service_list_os\n");
 
   if (fs_read_file("readme.txt", output, sizeof(output), &output_len) != FS_OK) {
     fail("read_seed_file_failed");
@@ -72,6 +102,20 @@ int main(void) {
     fail("read_after_append_content");
   }
   printf("TEST:PASS:fs_service_append\n");
+
+  if (fs_mkdir("scratch") != FS_OK) {
+    fail("mkdir_failed");
+  }
+  if (fs_write_file("scratch/todo.txt", "task", 0) != FS_OK) {
+    fail("write_nested_failed");
+  }
+  if (fs_read_file("scratch/todo.txt", output, sizeof(output), &output_len) != FS_OK) {
+    fail("read_nested_failed");
+  }
+  if (!string_contains(output, "task")) {
+    fail("read_nested_unexpected_content");
+  }
+  printf("TEST:PASS:fs_service_nested_paths\n");
 
   return 0;
 }

@@ -8,7 +8,6 @@
 #include "../cap/cap_table.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
-#include "../hal/storage_hal.h"
 #include "../user/app_runtime.h"
 
 #define CONSOLE_LINE_MAX 128
@@ -18,6 +17,7 @@ static cap_subject_id_t console_subject_id;
 static char console_line[CONSOLE_LINE_MAX];
 static size_t console_line_len;
 static uint64_t console_next_correlation_id;
+static char console_cwd[64];
 
 static void console_idle_wait(void) {
   volatile int spin = 0;
@@ -45,37 +45,6 @@ static size_t string_len(const char *value) {
     ++len;
   }
   return len;
-}
-
-static size_t append_u32_decimal(char *dst, size_t dst_size, size_t cursor, uint32_t value) {
-  char digits[10];
-  size_t count = 0u;
-  size_t i = 0u;
-
-  if (value == 0u) {
-    if (cursor + 1u < dst_size) {
-      dst[cursor++] = '0';
-      dst[cursor] = '\0';
-    }
-    return cursor;
-  }
-
-  while (value > 0u && count < sizeof(digits)) {
-    digits[count++] = (char)('0' + (value % 10u));
-    value /= 10u;
-  }
-
-  for (i = 0u; i < count; ++i) {
-    if (cursor + 1u >= dst_size) {
-      break;
-    }
-    dst[cursor++] = digits[count - i - 1u];
-  }
-
-  if (cursor < dst_size) {
-    dst[cursor] = '\0';
-  }
-  return cursor;
 }
 
 static int char_is_space(char value) {
@@ -135,6 +104,180 @@ static size_t append_string(char *dst, size_t dst_size, size_t cursor, const cha
     dst[cursor] = '\0';
   }
   return cursor;
+}
+
+static void copy_path_component(const char *src, char *dst, size_t dst_size) {
+  size_t i = 0u;
+
+  if (dst_size == 0u) {
+    return;
+  }
+
+  while (src[i] != '\0' && src[i] != '/' && src[i] != '\\' && i + 1u < dst_size) {
+    dst[i] = src[i];
+    ++i;
+  }
+  dst[i] = '\0';
+}
+
+static void normalize_absolute_path(const char *input, char *out, size_t out_size) {
+  const char *cursor = input;
+  char component[32];
+  size_t cursor_out = 0u;
+
+  if (out_size == 0u) {
+    return;
+  }
+
+  out[0] = '/';
+  out[1] = '\0';
+
+  if (input == 0 || input[0] == '\0') {
+    return;
+  }
+
+  while (*cursor == '/' || *cursor == '\\') {
+    ++cursor;
+  }
+
+  while (*cursor != '\0') {
+    while (*cursor == '/' || *cursor == '\\') {
+      ++cursor;
+    }
+    if (*cursor == '\0') {
+      break;
+    }
+
+    copy_path_component(cursor, component, sizeof(component));
+
+    if (string_equals(component, ".")) {
+      while (*cursor != '\0' && *cursor != '/' && *cursor != '\\') {
+        ++cursor;
+      }
+      continue;
+    }
+
+    if (string_equals(component, "..")) {
+      size_t len = string_len(out);
+      if (len > 1u) {
+        while (len > 1u && out[len - 1u] != '/') {
+          out[len - 1u] = '\0';
+          --len;
+        }
+        if (len > 1u) {
+          out[len - 1u] = '\0';
+        }
+      }
+      while (*cursor != '\0' && *cursor != '/' && *cursor != '\\') {
+        ++cursor;
+      }
+      continue;
+    }
+
+    cursor_out = string_len(out);
+    if (cursor_out + 1u < out_size && out[cursor_out - 1u] != '/') {
+      out[cursor_out++] = '/';
+      out[cursor_out] = '\0';
+    }
+    append_string(out, out_size, cursor_out, component);
+
+    while (*cursor != '\0' && *cursor != '/' && *cursor != '\\') {
+      ++cursor;
+    }
+  }
+}
+
+static void resolve_path(const char *path, char *out, size_t out_size) {
+  char raw[64];
+  size_t cursor = 0u;
+
+  if (out_size == 0u) {
+    return;
+  }
+
+  if (path == 0 || path[0] == '\0') {
+    copy_string(out, out_size, console_cwd);
+    return;
+  }
+
+  raw[0] = '\0';
+
+  if (path[0] == '/' || path[0] == '\\') {
+    copy_string(raw, sizeof(raw), path);
+    normalize_absolute_path(raw, out, out_size);
+    return;
+  }
+
+  cursor = append_string(raw, sizeof(raw), cursor, console_cwd);
+  if (cursor + 1u < sizeof(raw) && raw[cursor - 1u] != '/') {
+    raw[cursor++] = '/';
+    raw[cursor] = '\0';
+  }
+  append_string(raw, sizeof(raw), cursor, path);
+  normalize_absolute_path(raw, out, out_size);
+}
+
+static int console_directory_exists(const char *absolute_path) {
+  char probe[4];
+  size_t probe_len = 0u;
+
+  if (absolute_path == 0 || absolute_path[0] == '\0') {
+    return 0;
+  }
+
+  return fs_list_dir(absolute_path, probe, sizeof(probe), &probe_len) == FS_OK;
+}
+
+static int console_change_directory(const char *absolute_path) {
+  if (!console_directory_exists(absolute_path)) {
+    return 0;
+  }
+
+  copy_string(console_cwd, sizeof(console_cwd), absolute_path);
+  return 1;
+}
+
+static int string_has_suffix(const char *value, const char *suffix) {
+  size_t value_len = string_len(value);
+  size_t suffix_len = string_len(suffix);
+  size_t start = 0u;
+
+  if (suffix_len > value_len) {
+    return 0;
+  }
+
+  start = value_len - suffix_len;
+  while (*suffix != '\0') {
+    if (value[start++] != *suffix++) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+static void console_resolve_app_path(const char *app_name, char *out_path, size_t out_path_size) {
+  size_t cursor = 0u;
+
+  if (out_path == 0 || out_path_size == 0u) {
+    return;
+  }
+
+  out_path[0] = '\0';
+
+  if (app_name == 0 || app_name[0] == '\0') {
+    return;
+  }
+
+  if (app_name[0] == '/' || app_name[0] == '\\') {
+    cursor = append_string(out_path, out_path_size, cursor, app_name);
+  } else {
+    cursor = append_string(out_path, out_path_size, cursor, "/os/");
+    cursor = append_string(out_path, out_path_size, cursor, app_name);
+  }
+
+  if (!string_has_suffix(out_path, ".elf")) {
+    (void)append_string(out_path, out_path_size, cursor, ".elf");
+  }
 }
 
 static void console_write(const char *message) {
@@ -240,105 +383,10 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
   return CAP_ACCESS_DENY;
 }
 
-static void console_command_ls(void) {
-  char output[CONSOLE_OUTPUT_MAX];
-  size_t len = 0u;
-
-  if (cap_table_check(console_subject_id, CAP_FS_READ) != CAP_OK) {
-    console_write("denied: missing CAP_FS_READ\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (console_authorize_disk_io("ls", "/") != CAP_ACCESS_ALLOW) {
-    console_write("disk access denied\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (fs_list_root(output, sizeof(output), &len) != FS_OK) {
-    console_write("ls failed\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (len == 0u) {
-    console_write("(empty)\n");
-  } else {
-    console_write(output);
-  }
-  console_write_prompt();
-}
-
-static void console_command_cat(const char *path) {
-  char output[CONSOLE_OUTPUT_MAX];
-  size_t len = 0u;
-
-  if (path == 0 || path[0] == '\0') {
-    console_write("usage: cat <file>\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (cap_table_check(console_subject_id, CAP_FS_READ) != CAP_OK) {
-    console_write("denied: missing CAP_FS_READ\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (console_authorize_disk_io("cat", path) != CAP_ACCESS_ALLOW) {
-    console_write("disk access denied\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (fs_read_file(path, output, sizeof(output), &len) != FS_OK) {
-    console_write("file not found\n");
-    console_write_prompt();
-    return;
-  }
-
-  console_write(output);
-  console_write("\n");
-  console_write_prompt();
-}
-
-static void console_command_write_like(const char *path, const char *content, int append) {
-  if (path == 0 || path[0] == '\0' || content == 0 || content[0] == '\0') {
-    if (append) {
-      console_write("usage: append <file> <text>\n");
-    } else {
-      console_write("usage: write <file> <text>\n");
-    }
-    console_write_prompt();
-    return;
-  }
-
-  if (cap_table_check(console_subject_id, CAP_FS_WRITE) != CAP_OK) {
-    console_write("denied: missing CAP_FS_WRITE\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (console_authorize_disk_io(append ? "append" : "write", path) != CAP_ACCESS_ALLOW) {
-    console_write("disk access denied\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (fs_write_file(path, content, append) != FS_OK) {
-    console_write("write failed\n");
-    console_write_prompt();
-    return;
-  }
-
-  console_write("ok\n");
-  console_write_prompt();
-}
-
-static void console_command_run(const char *app_name) {
+static void console_command_run(const char *app_name, const char *app_args) {
   app_runtime_context_t context;
   app_runtime_result_t result;
+  char executable_path[64];
 
   if (app_name == 0 || app_name[0] == '\0') {
     console_write("usage: run <app>\n");
@@ -346,29 +394,56 @@ static void console_command_run(const char *app_name) {
     return;
   }
 
+  console_resolve_app_path(app_name, executable_path, sizeof(executable_path));
+
   context.subject_id = 1u;
   context.output = console_write;
   context.authorize_disk_io = console_authorize_disk_io;
+  context.resolve_path = resolve_path;
+  context.change_directory = console_change_directory;
 
-  result = app_runtime_run(app_name, &context);
+  result = app_runtime_run(executable_path, app_args, &context);
   if (result == APP_RUNTIME_OK) {
     console_write_prompt();
     return;
   }
 
   if (result == APP_RUNTIME_ERR_NOT_FOUND) {
-    console_write("app not found\n");
+    console_write("not found\n");
   } else if (result == APP_RUNTIME_ERR_CAPABILITY) {
     console_write("app denied: missing capability\n");
   } else if (result == APP_RUNTIME_ERR_DENIED) {
     console_write("app denied: authorization rejected\n");
   } else if (result == APP_RUNTIME_ERR_STORAGE) {
     console_write("app failed: storage error\n");
+  } else if (result == APP_RUNTIME_ERR_FORMAT) {
+    console_write("app failed: invalid elf\n");
   } else {
     console_write("app failed\n");
   }
 
   console_write_prompt();
+}
+
+static int console_try_run_os_command(const char *command, const char *arg1, const char *arg2) {
+  char app_args[CONSOLE_LINE_MAX];
+  size_t cursor = 0u;
+
+  if (command == 0 || command[0] == '\0') {
+    return 0;
+  }
+
+  app_args[0] = '\0';
+  if (arg1 != 0 && arg1[0] != '\0') {
+    cursor = append_string(app_args, sizeof(app_args), cursor, arg1);
+    if (arg2 != 0 && arg2[0] != '\0') {
+      cursor = append_string(app_args, sizeof(app_args), cursor, " ");
+      (void)append_string(app_args, sizeof(app_args), cursor, arg2);
+    }
+  }
+
+  console_command_run(command, app_args);
+  return 1;
 }
 
 static void console_command_exit(const char *mode) {
@@ -400,39 +475,6 @@ static void console_command_exit(const char *mode) {
   debug_exit_qemu(exit_code);
 }
 
-static void console_command_apps(void) {
-  char output[CONSOLE_OUTPUT_MAX];
-  size_t len = 0u;
-
-  len = app_runtime_list(output, sizeof(output));
-  if (len == 0u) {
-    console_write("(no apps)\n");
-    console_write_prompt();
-    return;
-  }
-
-  console_write(output);
-  console_write_prompt();
-}
-
-static void console_command_storage(void) {
-  char output[CONSOLE_OUTPUT_MAX];
-  size_t cursor = 0u;
-
-  cursor = append_string(output, sizeof(output), cursor, "storage backend=");
-  cursor = append_string(output, sizeof(output), cursor, storage_hal_backend_name());
-  cursor = append_string(output, sizeof(output), cursor, " blocks=");
-  cursor = append_u32_decimal(output, sizeof(output), cursor, storage_hal_block_count());
-  cursor = append_string(output, sizeof(output), cursor, " block_size=");
-  cursor = append_u32_decimal(output, sizeof(output), cursor, storage_hal_block_size());
-  cursor = append_string(output, sizeof(output), cursor, "\n");
-
-  if (cursor > 0u) {
-    console_write(output);
-  }
-  console_write_prompt();
-}
-
 static void console_handle_command(void) {
   char command[16];
   char arg1[64];
@@ -450,61 +492,8 @@ static void console_handle_command(void) {
   cursor = skip_spaces(cursor);
   copy_string(arg2, sizeof(arg2), cursor);
 
-  if (string_equals(command, "help")) {
-    console_write("commands: help, ping, echo <text>, ls, cat <file>, write <file> <text>, append <file> <text>, storage, apps, run <app>, exit <pass|fail>\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (string_equals(command, "ping")) {
-    console_write("pong\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (string_equals(command, "echo")) {
-    console_write(arg1);
-    if (arg2[0] != '\0') {
-      console_write(" ");
-      console_write(arg2);
-    }
-    console_write("\n");
-    console_write_prompt();
-    return;
-  }
-
-  if (string_equals(command, "ls")) {
-    console_command_ls();
-    return;
-  }
-
-  if (string_equals(command, "cat")) {
-    console_command_cat(arg1);
-    return;
-  }
-
-  if (string_equals(command, "write")) {
-    console_command_write_like(arg1, arg2, 0);
-    return;
-  }
-
-  if (string_equals(command, "append")) {
-    console_command_write_like(arg1, arg2, 1);
-    return;
-  }
-
-  if (string_equals(command, "apps")) {
-    console_command_apps();
-    return;
-  }
-
-  if (string_equals(command, "storage")) {
-    console_command_storage();
-    return;
-  }
-
   if (string_equals(command, "run")) {
-    console_command_run(arg1);
+    console_command_run(arg1, arg2);
     return;
   }
 
@@ -513,14 +502,14 @@ static void console_handle_command(void) {
     return;
   }
 
-  console_write("unknown command\n");
-  console_write_prompt();
+  (void)console_try_run_os_command(command, arg1, arg2);
 }
 
 void console_init(cap_subject_id_t subject_id) {
   console_subject_id = subject_id;
   console_reset_line();
   console_next_correlation_id = 1u;
+  copy_string(console_cwd, sizeof(console_cwd), "/");
 
   console_write("TEST:START:console\n");
   console_write("SecureOS console ready\n");

@@ -14,6 +14,7 @@ Usage: $(basename "$0") --test <name>
 Supported tests:
   hello_boot       Uses experiments/bootloader/boot.bin as pass fixture
   hello_boot_fail  Uses experiments/bootloader/boot_fail.bin as intentional fail fixture
+  kernel_prompt    Boots the kernel ISO interactively at secureos>
   kernel_console   Boots the kernel ISO and checks console markers
   kernel_filedemo  Boots the kernel ISO, runs filedemo, and checks app markers
   kernel_persistence  Boots the kernel ISO with the seeded disk and checks persisted file contents
@@ -182,7 +183,7 @@ PY
     set -e
     exit $EXIT_CODE
     ;;
-  kernel_console|kernel_filedemo|kernel_persistence)
+  kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence)
     ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
     DISK_PATH="$ROOT_DIR/artifacts/disk/secureos-disk.img"
 
@@ -195,6 +196,29 @@ PY
       echo "Missing disk image: $DISK_PATH"
       echo "Run build/scripts/build.sh disk first."
       exit 1
+    fi
+
+    if [[ "$TEST_NAME" == "kernel_prompt" ]]; then
+      mapfile -t RAW_ARGS < <(sed -e 's/\r$//' -e '/^\s*#/d' -e '/^\s*$/d' "$QEMU_ARGS_FILE")
+      echo "Interactive kernel console started."
+      echo "Type commands at secureos>. Use 'exit pass' to stop cleanly."
+      qemu-system-x86_64 \
+        -cdrom "$ISO_PATH" \
+        -boot d \
+        -drive "format=raw,file=$DISK_PATH,if=ide,index=0,media=disk" \
+        -device isa-debug-exit,iobase=0xf4,iosize=0x04 \
+        "${RAW_ARGS[@]}"
+      QEMU_EXIT=$?
+      if [[ "$QEMU_EXIT" -eq 33 ]]; then
+        echo "QEMU_PASS:kernel_prompt"
+        exit 0
+      fi
+      if [[ "$QEMU_EXIT" -eq 35 ]]; then
+        echo "QEMU_FAIL:kernel_prompt:debug_exit=fail"
+        exit 1
+      fi
+      echo "QEMU_FAIL:kernel_prompt:qemu_rc=$QEMU_EXIT"
+      exit "$QEMU_EXIT"
     fi
 
     set +e
@@ -225,7 +249,7 @@ scripts = {
     ('secureos> ', 'help\nstorage\nexit pass\n'),
     ],
     'kernel_filedemo': [
-        ('secureos> ', 'apps\nrun filedemo\ny\ny\ny\ny\nexit pass\n'),
+      ('secureos> ', 'apps\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_persistence': [
       ('secureos> ', 'cat appdemo.txt\ny\nexit pass\n'),
@@ -240,7 +264,7 @@ expected_markers = {
         'TEST:START:console',
         'TEST:PASS:console',
         'SecureOS console ready',
-      'commands: help, ping, echo <text>, ls, cat <file>, write <file> <text>, append <file> <text>, storage, apps, run <app>, exit <pass|fail>',
+        'commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, storage, apps, run <app>, exit <pass|fail>',
       'storage backend=',
     ],
     'kernel_filedemo': [
@@ -254,7 +278,7 @@ expected_markers = {
     'kernel_persistence': [
       'TEST:START:boot_entry',
       'TEST:PASS:console',
-      '[auth-session] operation=cat path=appdemo.txt',
+      '[auth-session] operation=cat path=/appdemo.txt',
       'filedemo-updated',
     ],
 }

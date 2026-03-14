@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet("hello_boot", "hello_boot_fail", "kernel_console", "kernel_filedemo", "kernel_persistence")]
+  [ValidateSet("hello_boot", "hello_boot_fail", "kernel_prompt", "kernel_console", "kernel_filedemo", "kernel_persistence")]
   [string]$Test = "hello_boot",
 
   [switch]$Help
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: run_qemu.ps1 -Test <hello_boot|hello_boot_fail|kernel_console|kernel_filedemo|kernel_persistence>"
+  Write-Host "Usage: run_qemu.ps1 -Test <hello_boot|hello_boot_fail|kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence>"
   Write-Host ""
   Write-Host "Runs the QEMU harness inside the pinned toolchain container."
   Write-Host "Outputs:"
@@ -31,5 +31,6 @@ $dockerfile = Get-ToolchainDockerfile -RootDir $rootDir
 
 Assert-DockerAvailable
 Ensure-ToolchainImage -RootDir $rootDir -ImageTag $imageTag -Dockerfile $dockerfile
+Stop-SecureOSActiveInstances -RootDir $rootDir -ImageTag $imageTag
 
 Invoke-ToolchainScript -RootDir $rootDir -ImageTag $imageTag -ScriptText "./build/scripts/run_qemu.sh --test $Test"

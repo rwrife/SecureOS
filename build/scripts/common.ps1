@@ -94,3 +94,43 @@ function Invoke-ToolchainScript {
     throw "Toolchain command failed with exit code $LASTEXITCODE"
   }
 }
+
+function Stop-SecureOSActiveInstances {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RootDir,
+
+    [Parameter(Mandatory = $true)]
+    [string]$ImageTag
+  )
+
+  if (Get-Command docker -ErrorAction SilentlyContinue) {
+    $containerIds = @()
+    $dockerPs = docker ps --filter "ancestor=$ImageTag" --format "{{.ID}}"
+    if ($LASTEXITCODE -eq 0 -and $dockerPs) {
+      $containerIds = @($dockerPs | Where-Object { $_ -and $_.Trim().Length -gt 0 })
+    }
+
+    if ($containerIds.Count -gt 0) {
+      Write-Host "Stopping existing SecureOS toolchain containers..."
+      docker stop $containerIds *> $null
+    }
+  }
+
+  $normalizedRoot = $RootDir.Replace('\\', '/').ToLowerInvariant()
+  $qemuProcs = Get-CimInstance Win32_Process -Filter "Name='qemu-system-x86_64.exe'" -ErrorAction SilentlyContinue
+  foreach ($proc in $qemuProcs) {
+    $cmd = [string]$proc.CommandLine
+    if (-not $cmd) {
+      continue
+    }
+
+    $cmdNorm = $cmd.Replace('\\', '/').ToLowerInvariant()
+    if ($cmdNorm.Contains($normalizedRoot) -or $cmdNorm.Contains("secureos-disk.img") -or $cmdNorm.Contains("secureos.iso")) {
+      try {
+        Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+      } catch {
+      }
+    }
+  }
+}
