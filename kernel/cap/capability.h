@@ -11,6 +11,11 @@ typedef enum {
   CAP_SERIAL_WRITE = 2,
   CAP_DEBUG_EXIT = 3,
   CAP_CAPABILITY_ADMIN = 4,
+  CAP_DISK_IO_REQUEST = 5,
+  CAP_FS_READ = 6,
+  CAP_FS_WRITE = 7,
+  CAP_EVENT_SUBSCRIBE = 8,
+  CAP_EVENT_PUBLISH = 9,
 } capability_id_t;
 
 typedef enum {
@@ -19,6 +24,12 @@ typedef enum {
   CAP_ERR_SUBJECT_INVALID = 2,
   CAP_ERR_CAP_INVALID = 3,
 } cap_result_t;
+
+typedef enum {
+  CAP_ACCESS_DENY = 0,
+  CAP_ACCESS_ALLOW = 1,
+  CAP_ACCESS_PENDING = 2,
+} cap_access_state_t;
 
 enum {
   CAP_AUDIT_EVENT_MAX = 32,

@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     qemu-system-x86 \
     xorriso \
     grub-common \
+    grub-pc-bin \
     mtools \
     git \
     jq \

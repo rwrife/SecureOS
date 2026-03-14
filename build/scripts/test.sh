@@ -6,7 +6,7 @@ TEST_NAME="${1:-hello_boot}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence]
 
 Runs SecureOS test targets.
 EOF
@@ -37,6 +37,28 @@ case "$TEST_NAME" in
     ;;
   capability_audit)
     "$ROOT_DIR/build/scripts/test_capability_audit.sh"
+    ;;
+  event_bus)
+    "$ROOT_DIR/build/scripts/test_event_bus.sh"
+    ;;
+  fs_service)
+    "$ROOT_DIR/build/scripts/test_fs_service.sh"
+    ;;
+  app_runtime)
+    "$ROOT_DIR/build/scripts/test_app_runtime.sh"
+    ;;
+  kernel_console)
+    "$ROOT_DIR/build/scripts/build_kernel_image.sh"
+    "$ROOT_DIR/build/scripts/build_disk_image.sh"
+    "$ROOT_DIR/build/scripts/run_qemu.sh" --test kernel_console
+    ;;
+  kernel_filedemo)
+    "$ROOT_DIR/build/scripts/build_kernel_image.sh"
+    "$ROOT_DIR/build/scripts/build_disk_image.sh"
+    "$ROOT_DIR/build/scripts/run_qemu.sh" --test kernel_filedemo
+    ;;
+  kernel_persistence)
+    "$ROOT_DIR/build/scripts/test_kernel_persistence.sh"
     ;;
   *)
     echo "Unknown test: $TEST_NAME"

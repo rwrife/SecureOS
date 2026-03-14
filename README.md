@@ -32,15 +32,30 @@ In progress:
 ./scripts/setup-macos.sh
 ```
 
-### 2) Run the current smoke validation
+### 2) Run the current validation paths
 
 ```bash
 ./build/scripts/test.sh hello_boot
+./build/scripts/test.sh kernel_console
+./build/scripts/test.sh kernel_filedemo
+./build/scripts/test.sh kernel_persistence
+```
+
+Windows PowerShell:
+
+```powershell
+.\build\scripts\test.ps1 hello_boot
+.\build\scripts\test.ps1 kernel_console
+.\build\scripts\test.ps1 kernel_filedemo
+.\build\scripts\test.ps1 kernel_persistence
 ```
 
 Expected success markers include:
 - `SecureOS boot sector OK`
 - `QEMU_PASS:hello_boot`
+- `QEMU_PASS:kernel_console`
+- `QEMU_PASS:kernel_filedemo`
+- `QEMU_PASS:kernel_persistence`
 
 ### 3) Check artifacts
 
@@ -50,11 +65,48 @@ ls -la artifacts/qemu/
 ls -la artifacts/runs/
 ```
 
+Windows PowerShell:
+
+```powershell
+Get-ChildItem artifacts\qemu
+.\build\scripts\validate_bundle.ps1
+Get-ChildItem artifacts\runs
+```
+
 You should see:
 - `artifacts/qemu/hello_boot.log`
 - `artifacts/qemu/hello_boot.meta.json`
+- `artifacts/qemu/kernel_console.log`
+- `artifacts/qemu/kernel_filedemo.log`
+- `artifacts/qemu/kernel_persistence.log`
+- `artifacts/kernel/secureos.iso`
+- `artifacts/disk/secureos-disk.img`
 - `artifacts/runs/<run-id>/build_metadata.json`
 - `artifacts/runs/<run-id>/validator_report.json`
+
+### 4) Build the sample user app
+
+```bash
+./build/scripts/build.sh user-app
+```
+
+Windows PowerShell:
+
+```powershell
+.\build\scripts\build.ps1 user-app
+```
+
+This produces:
+- `artifacts/user/filedemo.o`
+- `artifacts/user/filedemo.elf`
+
+Inside the kernel console, the current demo flow is:
+- `help`
+- `storage`
+- `apps`
+- `run filedemo`
+- `cat appdemo.txt`
+- `exit pass`
 
 ## Repo Pointers
 

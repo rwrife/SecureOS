@@ -1,6 +1,17 @@
 #include "cap_gate.h"
 
-#include <string.h>
+static size_t cap_message_len(const char *message) {
+  size_t len = 0u;
+  if (message == 0) {
+    return 0u;
+  }
+
+  while (message[len] != '\0') {
+    ++len;
+  }
+
+  return len;
+}
 
 static cap_result_t cap_write_gate(cap_subject_id_t subject_id,
                                    capability_id_t required_capability,
@@ -12,11 +23,7 @@ static cap_result_t cap_write_gate(cap_subject_id_t subject_id,
   }
 
   if (bytes_written != NULL) {
-    if (message == NULL) {
-      *bytes_written = 0u;
-    } else {
-      *bytes_written = strlen(message);
-    }
+    *bytes_written = cap_message_len(message);
   }
 
   return CAP_OK;

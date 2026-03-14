@@ -25,6 +25,30 @@ int main(void) {
   if (CAP_CAPABILITY_ADMIN != 4) {
     fail("cap_capability_admin_id_stability");
   }
+  if (CAP_DISK_IO_REQUEST != 5) {
+    fail("cap_disk_io_request_id_stability");
+  }
+  if (CAP_FS_READ != 6) {
+    fail("cap_fs_read_id_stability");
+  }
+  if (CAP_FS_WRITE != 7) {
+    fail("cap_fs_write_id_stability");
+  }
+  if (CAP_EVENT_SUBSCRIBE != 8) {
+    fail("cap_event_subscribe_id_stability");
+  }
+  if (CAP_EVENT_PUBLISH != 9) {
+    fail("cap_event_publish_id_stability");
+  }
+  if (CAP_ACCESS_DENY != 0) {
+    fail("cap_access_deny_state_stability");
+  }
+  if (CAP_ACCESS_ALLOW != 1) {
+    fail("cap_access_allow_state_stability");
+  }
+  if (CAP_ACCESS_PENDING != 2) {
+    fail("cap_access_pending_state_stability");
+  }
   printf("TEST:PASS:cap_api_contract_id_stability\n");
 
   if (cap_check(0u, CAP_CONSOLE_WRITE) != CAP_ERR_MISSING) {
@@ -32,6 +56,12 @@ int main(void) {
   }
   if (cap_check(0u, CAP_SERIAL_WRITE) != CAP_ERR_MISSING) {
     fail("default_deny_serial");
+  }
+  if (cap_check(0u, CAP_FS_READ) != CAP_ERR_MISSING) {
+    fail("default_deny_fs_read");
+  }
+  if (cap_check(0u, CAP_FS_WRITE) != CAP_ERR_MISSING) {
+    fail("default_deny_fs_write");
   }
   printf("TEST:PASS:cap_api_contract_default_deny\n");
 

@@ -9,14 +9,51 @@ Canonical wrapper scripts for deterministic local/agent workflows.
 ./build/scripts/build.sh image
 ./build/scripts/build.sh run
 ./build/scripts/build.sh test-boot
+./build/scripts/build.sh user-app
+./build/scripts/build.sh disk
+./build/scripts/build_user_app.sh filedemo
+```
+
+PowerShell (Windows):
+
+```powershell
+.\build\scripts\build.ps1 kernel
+.\build\scripts\build.ps1 image
+.\build\scripts\build.ps1 run
+.\build\scripts\build.ps1 test-boot
+.\build\scripts\build.ps1 user-app
+.\build\scripts\build.ps1 disk
+.\build\scripts\build_user_app.ps1 filedemo
 ```
 
 ## Direct test/run
 
 ```bash
 ./build/scripts/test.sh hello_boot
+./build/scripts/test.sh app_runtime
+./build/scripts/test.sh kernel_console
+./build/scripts/test.sh kernel_filedemo
+./build/scripts/test.sh kernel_persistence
 ./build/scripts/run_qemu.sh --test hello_boot
+./build/scripts/run_qemu.sh --test kernel_console
+./build/scripts/run_qemu.sh --test kernel_filedemo
+./build/scripts/run_qemu.sh --test kernel_persistence
 ./build/scripts/validate_bundle.sh
+```
+
+PowerShell (Windows):
+
+```powershell
+.\build\scripts\test.ps1 hello_boot
+.\build\scripts\test.ps1 app_runtime
+.\build\scripts\test.ps1 kernel_console
+.\build\scripts\test.ps1 kernel_filedemo
+.\build\scripts\test.ps1 kernel_persistence
+.\build\scripts\run_qemu.ps1 -Test hello_boot
+.\build\scripts\run_qemu.ps1 -Test kernel_console
+.\build\scripts\run_qemu.ps1 -Test kernel_filedemo
+.\build\scripts\run_qemu.ps1 -Test kernel_persistence
+.\build\scripts\validate_bundle.ps1
 ```
 
 ## Notes
@@ -26,3 +63,8 @@ Canonical wrapper scripts for deterministic local/agent workflows.
 - Deterministic QEMU flags live in `build/qemu/x86_64-headless.args`.
 - QEMU logs are written to `artifacts/qemu/<test>.log`.
 - Per-run metadata is written to `artifacts/qemu/<test>.meta.json`.
+- The kernel ISO is written to `artifacts/kernel/secureos.iso`.
+- The attached raw disk image is written to `artifacts/disk/secureos-disk.img`.
+- In the kernel console, `storage` reports the active backend and geometry.
+- Windows wrappers execute the same bash harness inside the pinned toolchain container.
+- User app artifacts are written to `artifacts/user/<app>.o` and `artifacts/user/<app>.elf`.

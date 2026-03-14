@@ -26,6 +26,23 @@ static int serial_tx_empty(void) {
   return inb(COM1 + 5) & 0x20;
 }
 
+static int serial_rx_ready(void) {
+  return inb(COM1 + 5) & 0x01;
+}
+
+int serial_try_read_char(char *out_char) {
+  if (out_char == 0) {
+    return 0;
+  }
+
+  if (!serial_rx_ready()) {
+    return 0;
+  }
+
+  *out_char = (char)inb(COM1);
+  return 1;
+}
+
 static void serial_write_char(char c) {
   while (!serial_tx_empty()) {
   }

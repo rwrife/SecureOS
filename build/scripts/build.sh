@@ -8,7 +8,7 @@ TARGET="${1:-image}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [kernel|modules|image|run|test-boot]
+Usage: $(basename "$0") [kernel|modules|image|run|test-boot|user-app|disk]
 
 Builds SecureOS targets using the pinned toolchain container.
 Environment overrides:
@@ -24,7 +24,11 @@ fi
 
 command -v docker >/dev/null 2>&1 || { echo "docker is required"; exit 1; }
 
-if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+toolchain_image_valid() {
+  docker run --rm "$IMAGE_TAG" bash -lc 'command -v grub-mkrescue >/dev/null 2>&1; test -d /usr/lib/grub/i386-pc' >/dev/null 2>&1
+}
+
+if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1 || ! toolchain_image_valid; then
   echo "Toolchain image not found: $IMAGE_TAG"
   echo "Building it from: $DOCKERFILE"
   docker build -f "$DOCKERFILE" -t "$IMAGE_TAG" "$ROOT_DIR"
@@ -35,15 +39,26 @@ case "$TARGET" in
     "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
     ;;
   modules|image)
-    echo "[build] target=$TARGET"
-    docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
-      bash -lc "echo TODO: implement $TARGET target build graph"
+    if [[ "$TARGET" == "image" ]]; then
+      "$ROOT_DIR/build/scripts/build_kernel_image.sh"
+    else
+      echo "[build] target=$TARGET"
+      docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
+        bash -lc "echo TODO: implement $TARGET target build graph"
+    fi
     ;;
   run)
-    "$ROOT_DIR/build/scripts/run_qemu.sh" --test hello_boot
+    "$ROOT_DIR/build/scripts/build_kernel_image.sh"
+    "$ROOT_DIR/build/scripts/run_qemu.sh" --test kernel_console
     ;;
   test-boot)
     "$ROOT_DIR/build/scripts/test.sh" hello_boot
+    ;;
+  user-app)
+    "$ROOT_DIR/build/scripts/build_user_app.sh" filedemo
+    ;;
+  disk)
+    "$ROOT_DIR/build/scripts/build_disk_image.sh"
     ;;
   *)
     echo "Unknown target: $TARGET"

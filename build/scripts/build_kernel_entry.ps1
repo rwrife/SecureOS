@@ -1,0 +1,47 @@
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot "common.ps1")
+
+$rootDir = Get-SecureOSRootDir -ScriptRoot $PSScriptRoot
+$outDir = Join-Path $rootDir "artifacts/kernel"
+$imageTag = Get-ToolchainImage
+$dockerfile = Get-ToolchainDockerfile -RootDir $rootDir
+
+New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+Assert-DockerAvailable
+Ensure-ToolchainImage -RootDir $rootDir -ImageTag $imageTag -Dockerfile $dockerfile
+
+$buildScript = @'
+set -euo pipefail
+nasm -f elf32 kernel/arch/x86/boot/entry.asm -o artifacts/kernel/entry.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/core/kmain.c -o artifacts/kernel/kmain.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/core/console.c -o artifacts/kernel/console.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/drivers/disk/ata_pio.c -o artifacts/kernel/ata_pio.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/arch/x86/debug_exit.c -o artifacts/kernel/debug_exit.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/arch/x86/serial.c -o artifacts/kernel/serial.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/arch/x86/vga.c -o artifacts/kernel/vga.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/cap/cap_table.c -o artifacts/kernel/cap_table.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/event/event_bus.c -o artifacts/kernel/event_bus.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/hal/storage_hal.c -o artifacts/kernel/storage_hal.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/drivers/disk/ramdisk.c -o artifacts/kernel/ramdisk.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/fs/fs_service.c -o artifacts/kernel/fs_service.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/user/app_runtime.c -o artifacts/kernel/app_runtime.o
+ld.lld -m elf_i386 -T kernel/arch/x86/boot/linker.ld \
+  -Map=artifacts/kernel/kernel.map \
+  -o artifacts/kernel/kernel.elf \
+  artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/fs_service.o artifacts/kernel/app_runtime.o
+if command -v llvm-objdump >/dev/null 2>&1; then
+  llvm-objdump -h artifacts/kernel/kernel.elf > artifacts/kernel/kernel.sections.txt
+else
+  objdump -h artifacts/kernel/kernel.elf > artifacts/kernel/kernel.sections.txt
+fi
+echo "Built artifacts/kernel/kernel.elf"
+'@
+
+Invoke-ToolchainScript -RootDir $rootDir -ImageTag $imageTag -ScriptText $buildScript
+Write-Host "PASS: kernel entry/linker build"

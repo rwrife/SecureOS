@@ -1,0 +1,77 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "../kernel/drivers/disk/ramdisk.h"
+#include "../kernel/fs/fs_service.h"
+#include "../kernel/hal/storage_hal.h"
+
+static void fail(const char *reason) {
+  printf("TEST:FAIL:fs_service:%s\n", reason);
+  exit(1);
+}
+
+int main(void) {
+  char output[512];
+  uint8_t boot[512];
+  size_t output_len = 0u;
+
+  printf("TEST:START:fs_service\n");
+
+  storage_hal_reset_for_tests();
+  ramdisk_init();
+  fs_service_init();
+
+  if (storage_hal_read(0u, boot, sizeof(boot)) != STORAGE_OK) {
+    fail("boot_sector_read_failed");
+  }
+  if (!(boot[510] == 0x55 && boot[511] == 0xAA)) {
+    fail("boot_signature_invalid");
+  }
+  printf("TEST:PASS:fs_service_fat32_boot_signature\n");
+
+  if (fs_list_root(output, sizeof(output), &output_len) != FS_OK) {
+    fail("list_root_failed");
+  }
+  if (output_len == 0u) {
+    fail("list_root_empty");
+  }
+  if (!(output[0] == 'r' || output[0] == 'n')) {
+    fail("list_root_unexpected_names");
+  }
+  printf("TEST:PASS:fs_service_list_root\n");
+
+  if (fs_read_file("readme.txt", output, sizeof(output), &output_len) != FS_OK) {
+    fail("read_seed_file_failed");
+  }
+  if (output_len == 0u) {
+    fail("read_seed_file_empty");
+  }
+  printf("TEST:PASS:fs_service_read_seed\n");
+
+  if (fs_write_file("demo.txt", "alpha", 0) != FS_OK) {
+    fail("write_create_failed");
+  }
+  if (fs_read_file("demo.txt", output, sizeof(output), &output_len) != FS_OK) {
+    fail("read_after_create_failed");
+  }
+  if (output_len != 5u) {
+    fail("read_after_create_len");
+  }
+  printf("TEST:PASS:fs_service_write_create\n");
+
+  if (fs_write_file("demo.txt", "-beta", 1) != FS_OK) {
+    fail("append_failed");
+  }
+  if (fs_read_file("demo.txt", output, sizeof(output), &output_len) != FS_OK) {
+    fail("read_after_append_failed");
+  }
+  if (output_len != 10u) {
+    fail("read_after_append_len");
+  }
+  if (!(output[0] == 'a' && output[5] == '-' && output[9] == 'a')) {
+    fail("read_after_append_content");
+  }
+  printf("TEST:PASS:fs_service_append\n");
+
+  return 0;
+}

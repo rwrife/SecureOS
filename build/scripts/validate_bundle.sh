@@ -17,6 +17,12 @@ TEST_TARGETS=(
   capability_table
   capability_gate
   capability_audit
+    event_bus
+    fs_service
+    app_runtime
+    kernel_console
+    kernel_filedemo
+    kernel_persistence
 )
 
 STATUS_LINES=()
@@ -36,7 +42,7 @@ for target in "${TEST_TARGETS[@]}"; do
 done
 
 # Copy known QEMU artifacts when present.
-for qemu_name in hello_boot hello_boot_fail; do
+for qemu_name in hello_boot hello_boot_fail kernel_console kernel_filedemo kernel_persistence; do
   if [[ -f "$ROOT_DIR/artifacts/qemu/${qemu_name}.log" ]]; then
     cp "$ROOT_DIR/artifacts/qemu/${qemu_name}.log" "$RUN_QEMU_DIR/"
   fi
@@ -45,14 +51,24 @@ for qemu_name in hello_boot hello_boot_fail; do
   fi
 done
 
+if [[ -f "$ROOT_DIR/artifacts/kernel/secureos.iso" ]]; then
+    cp "$ROOT_DIR/artifacts/kernel/secureos.iso" "$RUN_DIR/"
+fi
+
 if [[ -d "$ROOT_DIR/artifacts/tests" ]]; then
   find "$ROOT_DIR/artifacts/tests" -maxdepth 1 -type f -exec cp {} "$RUN_TESTS_DIR/" \;
 fi
 
 BOOT_BIN="$ROOT_DIR/experiments/bootloader/boot.bin"
+KERNEL_ISO="$ROOT_DIR/artifacts/kernel/secureos.iso"
 IMAGE_HASH=""
 if [[ -f "$BOOT_BIN" ]]; then
   IMAGE_HASH="$(shasum -a 256 "$BOOT_BIN" | awk '{print $1}')"
+fi
+
+KERNEL_ISO_HASH=""
+if [[ -f "$KERNEL_ISO" ]]; then
+    KERNEL_ISO_HASH="$(shasum -a 256 "$KERNEL_ISO" | awk '{print $1}')"
 fi
 
 GIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
@@ -60,7 +76,7 @@ GIT_REF="$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD)"
 FINISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 STATUS_LINES_JSON="$(printf '%s\n' "${STATUS_LINES[@]}")"
-export ROOT_DIR RUN_DIR RUN_ID STARTED_AT FINISHED_AT GIT_SHA GIT_REF IMAGE_HASH STATUS_LINES_JSON
+export ROOT_DIR RUN_DIR RUN_ID STARTED_AT FINISHED_AT GIT_SHA GIT_REF IMAGE_HASH KERNEL_ISO_HASH STATUS_LINES_JSON
 
 python3 - <<'PY'
 import json
@@ -84,13 +100,15 @@ for line in status_lines:
     if status != "pass":
         failed.append(name)
 
-qemu_meta = run_dir / "qemu" / "hello_boot.meta.json"
-qemu_command = []
-if qemu_meta.exists():
+qemu_commands = {}
+for meta_name in ["hello_boot", "kernel_console", "kernel_filedemo", "kernel_persistence"]:
+    qemu_meta = run_dir / "qemu" / f"{meta_name}.meta.json"
+    if not qemu_meta.exists():
+        continue
     try:
-        qemu_command = json.loads(qemu_meta.read_text()).get("command", [])
+        qemu_commands[meta_name] = json.loads(qemu_meta.read_text()).get("command", [])
     except Exception:
-        qemu_command = []
+        qemu_commands[meta_name] = []
 
 summary_check_error = None
 summary_path = run_dir / "tests" / "capability_audit_summary.json"
@@ -235,11 +253,18 @@ report = {
       "path": "experiments/bootloader/boot.bin",
       "sha256": os.environ.get("IMAGE_HASH", ""),
     },
+        "kernelIso": {
+            "path": "secureos.iso",
+            "sha256": os.environ.get("KERNEL_ISO_HASH", ""),
+        },
     "qemu": {
-      "command": qemu_command,
+            "commands": qemu_commands,
       "serialLogs": [
         "qemu/hello_boot.log",
-        "qemu/hello_boot_fail.log"
+                "qemu/hello_boot_fail.log",
+                "qemu/kernel_console.log",
+                "qemu/kernel_filedemo.log",
+                "qemu/kernel_persistence.log"
       ]
     }
 }
