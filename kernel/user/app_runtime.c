@@ -1,3 +1,28 @@
+/**
+ * @file app_runtime.c
+ * @brief User-space application loader and script interpreter.
+ *
+ * Purpose:
+ *   Loads ELF binaries from the filesystem, validates their format,
+ *   and executes them.  Supports both native user-space entry points
+ *   and a built-in script interpreter for lightweight shell commands.
+ *   Manages per-invocation argument passing, environment variable
+ *   expansion, and capability-gated disk I/O authorization.
+ *
+ * Interactions:
+ *   - fs_service.c: reads application ELF files from the filesystem
+ *     via fs_read_file_bytes.
+ *   - cap_table.c: checks CAP_APP_EXEC before allowing execution and
+ *     CAP_DISK_IO_REQUEST for storage operations.
+ *   - console.c: the console dispatches user commands through
+ *     app_runtime_run, providing output and authorization callbacks.
+ *   - storage_hal.c: storage info queries are forwarded to the HAL.
+ *
+ * Launched by:
+ *   app_runtime_run() is called by console.c when the user invokes a
+ *   command.  Not a standalone process; compiled into the kernel image.
+ */
+
 #include "app_runtime.h"
 
 #include <stdint.h>
@@ -22,6 +47,11 @@ typedef struct {
   const char *raw_args;
 } app_invocation_args_t;
 
+static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
+                                                  size_t elf_len,
+                                                  const uint8_t **out_program,
+                                                  size_t *out_program_len);
+
 static int app_string_equals(const char *left, const char *right) {
   while (*left != '\0' && *right != '\0') {
     if (*left != *right) {
@@ -32,6 +62,53 @@ static int app_string_equals(const char *left, const char *right) {
   }
 
   return *left == *right;
+}
+
+static size_t app_string_len(const char *value) {
+  size_t len = 0u;
+
+  if (value == 0) {
+    return 0u;
+  }
+
+  while (value[len] != '\0') {
+    ++len;
+  }
+
+  return len;
+}
+
+static int app_string_starts_with(const char *value, const char *prefix) {
+  if (value == 0 || prefix == 0) {
+    return 0;
+  }
+
+  while (*prefix != '\0') {
+    if (*value == '\0' || *value != *prefix) {
+      return 0;
+    }
+    ++value;
+    ++prefix;
+  }
+
+  return 1;
+}
+
+static int app_string_ends_with(const char *value, const char *suffix) {
+  size_t value_len = 0u;
+  size_t suffix_len = 0u;
+
+  if (value == 0 || suffix == 0) {
+    return 0;
+  }
+
+  value_len = app_string_len(value);
+  suffix_len = app_string_len(suffix);
+  if (suffix_len > value_len) {
+    return 0;
+  }
+
+  return app_string_equals(value + (value_len - suffix_len), suffix);
 }
 
 static int app_char_is_space(char value) {
@@ -80,6 +157,21 @@ static void app_copy_until_space(char *dst, size_t dst_size, const char *src, co
   }
 }
 
+static const char *app_find_char(const char *value, char needle) {
+  if (value == 0) {
+    return 0;
+  }
+
+  while (*value != '\0') {
+    if (*value == needle) {
+      return value;
+    }
+    ++value;
+  }
+
+  return 0;
+}
+
 static size_t app_append_string(char *dst, size_t dst_size, size_t cursor, const char *src) {
   size_t i = 0u;
 
@@ -126,6 +218,31 @@ static size_t app_append_u32_decimal(char *dst, size_t dst_size, size_t cursor, 
     dst[cursor] = '\0';
   }
   return cursor;
+}
+
+static unsigned int app_parse_u32(const char *value, int *ok) {
+  unsigned int parsed = 0u;
+  size_t i = 0u;
+
+  if (ok != 0) {
+    *ok = 0;
+  }
+  if (value == 0 || value[0] == '\0') {
+    return 0u;
+  }
+
+  while (value[i] != '\0') {
+    if (value[i] < '0' || value[i] > '9') {
+      return 0u;
+    }
+    parsed = (parsed * 10u) + (unsigned int)(value[i] - '0');
+    ++i;
+  }
+
+  if (ok != 0) {
+    *ok = 1;
+  }
+  return parsed;
 }
 
 static uint16_t app_read_u16(const uint8_t *buffer, size_t offset) {
@@ -425,6 +542,603 @@ static app_runtime_result_t app_sys_storage(const app_runtime_context_t *context
   return APP_RUNTIME_OK;
 }
 
+static app_runtime_result_t app_sys_uselib(const app_runtime_context_t *context, const char *handle_arg);
+static app_runtime_result_t app_sys_releaselib(const app_runtime_context_t *context, const char *handle_arg);
+
+static app_runtime_result_t app_sys_libs(const app_runtime_context_t *context, const char *args) {
+  char output[APP_OUTPUT_MAX];
+  size_t len = 0u;
+
+  if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
+    return APP_RUNTIME_ERR_CAPABILITY;
+  }
+
+  if (args != 0 && app_string_equals(args, "loaded")) {
+    if (context->list_loaded_libraries == 0) {
+      app_emit(context, "(no loaded libraries)\n");
+      return APP_RUNTIME_OK;
+    }
+
+    len = context->list_loaded_libraries(output, sizeof(output));
+    if (len > 0u) {
+      app_emit(context, output);
+    } else {
+      app_emit(context, "(no loaded libraries)\n");
+    }
+    return APP_RUNTIME_OK;
+  }
+
+  if (args != 0 && app_string_starts_with(args, "use ")) {
+    return app_sys_uselib(context, app_skip_spaces(args + 4u));
+  }
+
+  if (args != 0 && app_string_starts_with(args, "release ")) {
+    return app_sys_releaselib(context, app_skip_spaces(args + 8u));
+  }
+
+  len = app_runtime_list_libraries(output, sizeof(output));
+  if (len == 0u) {
+    app_emit(context, "(no libraries)\n");
+  } else {
+    app_emit(context, output);
+  }
+
+  return APP_RUNTIME_OK;
+}
+
+static app_runtime_result_t app_sys_loadlib(const app_runtime_context_t *context, const char *library_name) {
+  app_runtime_library_info_t library_info;
+  unsigned int handle = 0u;
+  char handle_text[24];
+  size_t cursor = 0u;
+  app_runtime_result_t result = APP_RUNTIME_OK;
+
+  if (library_name == 0 || library_name[0] == '\0') {
+    return APP_RUNTIME_ERR_INVALID_ARG;
+  }
+
+  result = app_runtime_load_library(library_name, context, &library_info);
+  if (result != APP_RUNTIME_OK) {
+    return result;
+  }
+
+  if (context->register_loaded_library != 0) {
+    if (!context->register_loaded_library(
+            library_info.resolved_path,
+            library_info.program_len,
+            context->actor_name,
+            &handle)) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+  }
+
+  app_emit(context, "[lib] loaded ");
+  app_emit(context, library_info.resolved_path);
+  if (handle != 0u) {
+    cursor = app_append_string(handle_text, sizeof(handle_text), cursor, " handle=");
+    cursor = app_append_u32_decimal(handle_text, sizeof(handle_text), cursor, handle);
+    app_emit(context, handle_text);
+  }
+  app_emit(context, "\n");
+  return APP_RUNTIME_OK;
+}
+
+static app_runtime_result_t app_sys_unloadlib(const app_runtime_context_t *context, const char *handle_arg) {
+  char path[APP_RUNTIME_LIBRARY_PATH_MAX];
+  char handle_text[24];
+  unsigned int handle = 0u;
+  unsigned int ref_count = 0u;
+  int ok = 0;
+  size_t cursor = 0u;
+
+  if (context == 0 || context->unregister_loaded_library == 0) {
+    return APP_RUNTIME_ERR_DENIED;
+  }
+
+  handle = app_parse_u32(handle_arg, &ok);
+  if (!ok) {
+    return APP_RUNTIME_ERR_INVALID_ARG;
+  }
+
+  if (context->get_loaded_library_ref_count != 0) {
+    if (!context->get_loaded_library_ref_count(handle, &ref_count)) {
+      return APP_RUNTIME_ERR_NOT_FOUND;
+    }
+    if (ref_count > 0u) {
+      return APP_RUNTIME_ERR_IN_USE;
+    }
+  }
+
+  if (!context->unregister_loaded_library(handle, path, sizeof(path))) {
+    return APP_RUNTIME_ERR_NOT_FOUND;
+  }
+
+  app_emit(context, "[lib] unloaded handle=");
+  cursor = app_append_u32_decimal(handle_text, sizeof(handle_text), cursor, handle);
+  if (cursor > 0u) {
+    app_emit(context, handle_text);
+  }
+  if (path[0] != '\0') {
+    app_emit(context, " path=");
+    app_emit(context, path);
+  }
+  app_emit(context, "\n");
+  return APP_RUNTIME_OK;
+}
+
+static app_runtime_result_t app_sys_uselib(const app_runtime_context_t *context, const char *handle_arg) {
+  unsigned int handle = 0u;
+  unsigned int ref_count = 0u;
+  int ok = 0;
+  char text[24];
+  size_t cursor = 0u;
+
+  if (context == 0 || context->acquire_loaded_library == 0) {
+    return APP_RUNTIME_ERR_DENIED;
+  }
+
+  handle = app_parse_u32(handle_arg, &ok);
+  if (!ok) {
+    return APP_RUNTIME_ERR_INVALID_ARG;
+  }
+
+  if (!context->acquire_loaded_library(handle, &ref_count)) {
+    return APP_RUNTIME_ERR_NOT_FOUND;
+  }
+
+  app_emit(context, "[lib] use handle=");
+  cursor = app_append_u32_decimal(text, sizeof(text), cursor, handle);
+  if (cursor > 0u) {
+    app_emit(context, text);
+  }
+  cursor = 0u;
+  cursor = app_append_string(text, sizeof(text), cursor, " refs=");
+  cursor = app_append_u32_decimal(text, sizeof(text), cursor, ref_count);
+  app_emit(context, text);
+  app_emit(context, "\n");
+  return APP_RUNTIME_OK;
+}
+
+static app_runtime_result_t app_sys_releaselib(const app_runtime_context_t *context, const char *handle_arg) {
+  unsigned int handle = 0u;
+  unsigned int ref_count = 0u;
+  int ok = 0;
+  char text[24];
+  size_t cursor = 0u;
+
+  if (context == 0 || context->release_loaded_library == 0) {
+    return APP_RUNTIME_ERR_DENIED;
+  }
+
+  handle = app_parse_u32(handle_arg, &ok);
+  if (!ok) {
+    return APP_RUNTIME_ERR_INVALID_ARG;
+  }
+
+  if (!context->release_loaded_library(handle, &ref_count)) {
+    return APP_RUNTIME_ERR_NOT_FOUND;
+  }
+
+  app_emit(context, "[lib] release handle=");
+  cursor = app_append_u32_decimal(text, sizeof(text), cursor, handle);
+  if (cursor > 0u) {
+    app_emit(context, text);
+  }
+  cursor = 0u;
+  cursor = app_append_string(text, sizeof(text), cursor, " refs=");
+  cursor = app_append_u32_decimal(text, sizeof(text), cursor, ref_count);
+  app_emit(context, text);
+  app_emit(context, "\n");
+  return APP_RUNTIME_OK;
+}
+
+static int app_env_read_quoted(const char *src,
+                               char *out_value,
+                               size_t out_value_size,
+                               const char **out_next) {
+  size_t i = 0u;
+  size_t cursor = 0u;
+
+  if (src == 0 || src[0] != '"' || out_value == 0 || out_value_size == 0u) {
+    return 0;
+  }
+
+  i = 1u;
+  out_value[0] = '\0';
+  while (src[i] != '\0') {
+    char ch = src[i];
+
+    if (ch == '"') {
+      if (out_next != 0) {
+        *out_next = src + i + 1u;
+      }
+      out_value[cursor] = '\0';
+      return 1;
+    }
+
+    if ((ch == '\\' || ch == '/') && (src[i + 1u] == '"' || src[i + 1u] == '\\' || src[i + 1u] == '/')) {
+      ch = src[i + 1u];
+      i += 2u;
+    } else {
+      ++i;
+    }
+
+    if (cursor + 1u < out_value_size) {
+      out_value[cursor++] = ch;
+      out_value[cursor] = '\0';
+    }
+  }
+
+  return 0;
+}
+
+static void app_env_copy_unquoted_token(const char *src,
+                                        char *out_value,
+                                        size_t out_value_size,
+                                        const char **out_next) {
+  size_t i = 0u;
+
+  if (out_value == 0 || out_value_size == 0u) {
+    if (out_next != 0) {
+      *out_next = src;
+    }
+    return;
+  }
+
+  while (src[i] != '\0' && !app_char_is_space(src[i]) && i + 1u < out_value_size) {
+    out_value[i] = src[i];
+    ++i;
+  }
+  out_value[i] = '\0';
+
+  if (out_next != 0) {
+    *out_next = src + i;
+  }
+}
+
+static void app_env_copy_trimmed_tail(const char *src, char *out_value, size_t out_value_size) {
+  size_t len = 0u;
+  size_t end = 0u;
+  size_t i = 0u;
+
+  if (out_value == 0 || out_value_size == 0u) {
+    return;
+  }
+
+  out_value[0] = '\0';
+  if (src == 0) {
+    return;
+  }
+
+  src = app_skip_spaces(src);
+  len = app_string_len(src);
+  end = len;
+  while (end > 0u && app_char_is_space(src[end - 1u])) {
+    --end;
+  }
+
+  while (i < end && i + 1u < out_value_size) {
+    out_value[i] = src[i];
+    ++i;
+  }
+  out_value[i] = '\0';
+}
+
+static int app_env_extract_named_arg(const char *args,
+                                     const char *name,
+                                     char *out_value,
+                                     size_t out_value_size) {
+  const char *cursor = app_skip_spaces(args);
+
+  if (args == 0 || name == 0 || out_value == 0 || out_value_size == 0u) {
+    return 0;
+  }
+
+  out_value[0] = '\0';
+  while (cursor[0] != '\0') {
+    char token_name[APP_TOKEN_MAX];
+    size_t token_len = 0u;
+    const char *value_start = 0;
+    const char *next = 0;
+
+    while (cursor[token_len] != '\0' && cursor[token_len] != '=' && !app_char_is_space(cursor[token_len])) {
+      if (token_len + 1u < sizeof(token_name)) {
+        token_name[token_len] = cursor[token_len];
+      }
+      ++token_len;
+    }
+    if (token_len + 1u < sizeof(token_name)) {
+      token_name[token_len] = '\0';
+    } else {
+      token_name[sizeof(token_name) - 1u] = '\0';
+    }
+
+    if (cursor[token_len] == '=') {
+      value_start = cursor + token_len + 1u;
+      if (value_start[0] == '"') {
+        if (!app_env_read_quoted(value_start, out_value, out_value_size, &next)) {
+          return 0;
+        }
+      } else {
+        app_env_copy_unquoted_token(value_start, out_value, out_value_size, &next);
+      }
+
+      if (app_string_equals(token_name, name)) {
+        return 1;
+      }
+
+      cursor = app_skip_spaces(next);
+      continue;
+    }
+
+    while (cursor[token_len] != '\0' && !app_char_is_space(cursor[token_len])) {
+      ++token_len;
+    }
+    cursor = app_skip_spaces(cursor + token_len);
+  }
+
+  return 0;
+}
+
+static int app_env_find_eq_before_space(const char *args, size_t *out_pos) {
+  size_t i = 0u;
+
+  if (args == 0 || out_pos == 0) {
+    return 0;
+  }
+
+  while (args[i] != '\0') {
+    if (args[i] == '=') {
+      *out_pos = i;
+      return 1;
+    }
+    if (app_char_is_space(args[i])) {
+      return 0;
+    }
+    ++i;
+  }
+
+  return 0;
+}
+
+static app_runtime_result_t app_sys_env(const app_runtime_context_t *context, const char *args) {
+  char key[APP_TOKEN_MAX];
+  char value[APP_LINE_MAX];
+  char set_value[APP_LINE_MAX];
+  char named_key[APP_TOKEN_MAX];
+  char named_value[APP_LINE_MAX];
+  const char *trimmed_args = 0;
+  const char *next = 0;
+  const char *rest = 0;
+  const char *equals = 0;
+  size_t eq_pos = 0u;
+
+  if (context == 0) {
+    return APP_RUNTIME_ERR_INVALID_ARG;
+  }
+
+  trimmed_args = app_skip_spaces(args == 0 ? "" : args);
+  if (trimmed_args[0] == '\0') {
+    size_t listed = 0u;
+    if (context->list_env == 0) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+
+    listed = context->list_env(value, sizeof(value));
+    if (listed == 0u) {
+      app_emit(context, "(empty)\n");
+      return APP_RUNTIME_OK;
+    }
+
+    app_emit(context, value);
+    return APP_RUNTIME_OK;
+  }
+
+  if (app_env_extract_named_arg(trimmed_args, "key", named_key, sizeof(named_key))) {
+    if (app_env_extract_named_arg(trimmed_args, "value", named_value, sizeof(named_value))) {
+      if (context->set_env == 0 || named_key[0] == '\0') {
+        return APP_RUNTIME_ERR_DENIED;
+      }
+      return context->set_env(named_key, named_value) ? APP_RUNTIME_OK : APP_RUNTIME_ERR_DENIED;
+    }
+
+    if (context->get_env == 0) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+    if (!context->get_env(named_key, value, sizeof(value))) {
+      return APP_RUNTIME_ERR_NOT_FOUND;
+    }
+    app_emit(context, value);
+    app_emit(context, "\n");
+    return APP_RUNTIME_OK;
+  }
+
+  if (app_env_find_eq_before_space(trimmed_args, &eq_pos)) {
+    size_t i = 0u;
+
+    if (context->set_env == 0 || eq_pos == 0u || eq_pos >= sizeof(key)) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+
+    for (i = 0u; i < eq_pos && i + 1u < sizeof(key); ++i) {
+      key[i] = trimmed_args[i];
+    }
+    key[i] = '\0';
+
+    rest = trimmed_args + eq_pos + 1u;
+    if (rest[0] == '"') {
+      if (!app_env_read_quoted(rest, set_value, sizeof(set_value), &next)) {
+        return APP_RUNTIME_ERR_FORMAT;
+      }
+      if (app_skip_spaces(next)[0] != '\0') {
+        return APP_RUNTIME_ERR_FORMAT;
+      }
+    } else {
+      app_env_copy_trimmed_tail(rest, set_value, sizeof(set_value));
+    }
+
+    return context->set_env(key, set_value) ? APP_RUNTIME_OK : APP_RUNTIME_ERR_DENIED;
+  }
+
+  app_copy_until_space(key, sizeof(key), trimmed_args, &rest);
+  rest = app_skip_spaces(rest);
+  equals = app_find_char(key, '=');
+
+  if (equals != 0) {
+    size_t key_len = (size_t)(equals - key);
+    size_t i = 0u;
+
+    if (context->set_env == 0 || key_len == 0u) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+
+    app_copy_string(set_value, sizeof(set_value), equals + 1u);
+
+    for (i = key_len; i < sizeof(key); ++i) {
+      key[i] = '\0';
+    }
+    if (!context->set_env(key, set_value)) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+    return APP_RUNTIME_OK;
+  }
+
+  if (rest[0] != '\0') {
+    if (context->set_env == 0) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+
+    if (rest[0] == '"') {
+      if (!app_env_read_quoted(rest, set_value, sizeof(set_value), &next)) {
+        return APP_RUNTIME_ERR_FORMAT;
+      }
+      if (app_skip_spaces(next)[0] != '\0') {
+        return APP_RUNTIME_ERR_FORMAT;
+      }
+      if (!context->set_env(key, set_value)) {
+        return APP_RUNTIME_ERR_DENIED;
+      }
+      return APP_RUNTIME_OK;
+    }
+
+    if (!context->set_env(key, rest)) {
+      return APP_RUNTIME_ERR_DENIED;
+    }
+    return APP_RUNTIME_OK;
+  }
+
+  if (context->get_env == 0) {
+    return APP_RUNTIME_ERR_DENIED;
+  }
+
+  if (!context->get_env(key, value, sizeof(value))) {
+    return APP_RUNTIME_ERR_NOT_FOUND;
+  }
+
+  app_emit(context, value);
+  app_emit(context, "\n");
+  return APP_RUNTIME_OK;
+}
+
+static int app_path_is_library(const char *path) {
+  if (path == 0) {
+    return 0;
+  }
+
+  return app_string_starts_with(path, "/lib/") || app_string_starts_with(path, "\\lib\\") ||
+         app_string_starts_with(path, "lib/") || app_string_starts_with(path, "lib\\");
+}
+
+static void app_build_library_path(char *out_path, size_t out_path_size, const char *library_name) {
+  size_t cursor = 0u;
+
+  if (out_path == 0 || out_path_size == 0u) {
+    return;
+  }
+
+  out_path[0] = '\0';
+  if (library_name == 0 || library_name[0] == '\0') {
+    return;
+  }
+
+  if (app_path_is_library(library_name)) {
+    if (library_name[0] == '/' || library_name[0] == '\\') {
+      app_copy_string(out_path, out_path_size, library_name + 1u);
+    } else {
+      app_copy_string(out_path, out_path_size, library_name);
+    }
+    return;
+  }
+
+  cursor = app_append_string(out_path, out_path_size, cursor, "lib/");
+  cursor = app_append_string(out_path, out_path_size, cursor, library_name);
+  if (!app_string_ends_with(library_name, ".elf")) {
+    (void)app_append_string(out_path, out_path_size, cursor, ".elf");
+  }
+}
+
+size_t app_runtime_list_libraries(char *out_buffer, size_t out_buffer_size) {
+  size_t out_len = 0u;
+
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 0u;
+  }
+
+  out_buffer[0] = '\0';
+  if (fs_list_dir("/lib", out_buffer, out_buffer_size, &out_len) != FS_OK) {
+    return 0u;
+  }
+
+  return out_len;
+}
+
+app_runtime_result_t app_runtime_load_library(const char *library_name,
+                                              const app_runtime_context_t *context,
+                                              app_runtime_library_info_t *out_library) {
+  uint8_t elf_data[APP_FILE_MAX];
+  size_t elf_len = 0u;
+  const uint8_t *program = 0;
+  size_t program_len = 0u;
+  char library_path[APP_TOKEN_MAX];
+  char display_path[APP_TOKEN_MAX];
+  app_runtime_result_t access = APP_RUNTIME_OK;
+  fs_result_t fs_result = FS_OK;
+
+  if (library_name == 0 || library_name[0] == '\0' || context == 0 || out_library == 0) {
+    return APP_RUNTIME_ERR_INVALID_ARG;
+  }
+
+  app_build_library_path(library_path, sizeof(library_path), library_name);
+  if (!app_path_is_library(library_path)) {
+    return APP_RUNTIME_ERR_LIBRARY;
+  }
+
+  display_path[0] = '/';
+  display_path[1] = '\0';
+  (void)app_append_string(display_path, sizeof(display_path), 1u, library_path);
+
+  access = app_require_storage_access(context, CAP_FS_READ, "loadlib", display_path);
+  if (access != APP_RUNTIME_OK) {
+    return access;
+  }
+
+  fs_result = fs_read_file_bytes(library_path, elf_data, sizeof(elf_data), &elf_len);
+  if (fs_result == FS_ERR_NOT_FOUND) {
+    return APP_RUNTIME_ERR_NOT_FOUND;
+  }
+  if (fs_result != FS_OK) {
+    return APP_RUNTIME_ERR_STORAGE;
+  }
+
+  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != APP_RUNTIME_OK) {
+    return APP_RUNTIME_ERR_FORMAT;
+  }
+
+  app_copy_string(out_library->resolved_path, sizeof(out_library->resolved_path), display_path);
+  out_library->program_len = program_len;
+  return APP_RUNTIME_OK;
+}
+
 static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                   size_t elf_len,
                                                   const uint8_t **out_program,
@@ -604,8 +1318,56 @@ static app_runtime_result_t app_execute_script(const uint8_t *script,
       continue;
     }
 
+    if (app_string_equals(command, "libs")) {
+      app_runtime_result_t result = app_sys_libs(context, rest);
+      if (result != APP_RUNTIME_OK) {
+        return result;
+      }
+      continue;
+    }
+
     if (app_string_equals(command, "storage")) {
       app_runtime_result_t result = app_sys_storage(context);
+      if (result != APP_RUNTIME_OK) {
+        return result;
+      }
+      continue;
+    }
+
+    if (app_string_equals(command, "env")) {
+      app_runtime_result_t result = app_sys_env(context, rest);
+      if (result != APP_RUNTIME_OK) {
+        return result;
+      }
+      continue;
+    }
+
+    if (app_string_equals(command, "loadlib")) {
+      app_runtime_result_t result = app_sys_loadlib(context, rest);
+      if (result != APP_RUNTIME_OK) {
+        return result;
+      }
+      continue;
+    }
+
+    if (app_string_equals(command, "unloadlib")) {
+      app_runtime_result_t result = app_sys_unloadlib(context, rest);
+      if (result != APP_RUNTIME_OK) {
+        return result;
+      }
+      continue;
+    }
+
+    if (app_string_equals(command, "uselib")) {
+      app_runtime_result_t result = app_sys_uselib(context, rest);
+      if (result != APP_RUNTIME_OK) {
+        return result;
+      }
+      continue;
+    }
+
+    if (app_string_equals(command, "releaselib")) {
+      app_runtime_result_t result = app_sys_releaselib(context, rest);
       if (result != APP_RUNTIME_OK) {
         return result;
       }
@@ -680,10 +1442,17 @@ app_runtime_result_t app_runtime_run(const char *app_name,
     return APP_RUNTIME_ERR_INVALID_ARG;
   }
 
+  if (app_path_is_library(app_name)) {
+    return APP_RUNTIME_ERR_LIBRARY;
+  }
+
   app_parse_invocation_args(app_args, &args);
 
   if (app_name[0] == '/' || app_name[0] == '\\') {
     app_copy_string(path, sizeof(path), app_name + 1u);
+    if (app_path_is_library(path)) {
+      return APP_RUNTIME_ERR_LIBRARY;
+    }
     fs_result = fs_read_file_bytes(path, elf_data, sizeof(elf_data), &elf_len);
   } else {
     app_build_path(path, sizeof(path), "os", app_name);

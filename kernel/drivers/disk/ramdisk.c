@@ -1,3 +1,23 @@
+/**
+ * @file ramdisk.c
+ * @brief In-memory RAM disk driver.
+ *
+ * Purpose:
+ *   Simulates a block storage device entirely in RAM. Provides sector-level
+ *   read and write operations on a statically-allocated memory buffer, enabling
+ *   filesystem persistence testing without requiring physical disk hardware.
+ *
+ * Interactions:
+ *   - storage_hal.c: registered as the default storage backend. The HAL
+ *     delegates read/write calls to ramdisk_read_sector/ramdisk_write_sector.
+ *   - fs_service.c: indirectly used for filesystem persistence (save/load)
+ *     when the storage HAL routes through the ramdisk backend.
+ *
+ * Launched by:
+ *   ramdisk_init() is called by storage_hal_init() during kernel boot.
+ *   Not a standalone process; compiled into the kernel image.
+ */
+
 #include "ramdisk.h"
 
 #include "../../hal/storage_hal.h"

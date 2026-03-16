@@ -9,6 +9,8 @@ build_kernel_entry_inner() {
   nasm -f elf32 kernel/arch/x86/boot/entry.asm -o artifacts/kernel/entry.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/core/kmain.c -o artifacts/kernel/kmain.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/core/console.c -o artifacts/kernel/console.o
+  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/core/session_manager.c -o artifacts/kernel/session_manager.o
+  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/sched/scheduler.c -o artifacts/kernel/scheduler.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/drivers/disk/ata_pio.c -o artifacts/kernel/ata_pio.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/arch/x86/debug_exit.c -o artifacts/kernel/debug_exit.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/arch/x86/serial.c -o artifacts/kernel/serial.o
@@ -22,7 +24,7 @@ build_kernel_entry_inner() {
   ld.lld -m elf_i386 -T kernel/arch/x86/boot/linker.ld \
     -Map=artifacts/kernel/kernel.map \
     -o artifacts/kernel/kernel.elf \
-    artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/fs_service.o artifacts/kernel/app_runtime.o
+    artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/fs_service.o artifacts/kernel/app_runtime.o
   if command -v llvm-objdump >/dev/null 2>&1; then
     llvm-objdump -h artifacts/kernel/kernel.elf > artifacts/kernel/kernel.sections.txt
   else

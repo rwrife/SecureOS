@@ -1,3 +1,24 @@
+/**
+ * @file capability.c
+ * @brief Capability type definitions and utility functions.
+ *
+ * Purpose:
+ *   Defines the capability type enumeration-to-string mapping (cap_type_name)
+ *   and provides shared constants/types used throughout the capability
+ *   subsystem. Acts as the foundational type layer for capability management.
+ *
+ * Interactions:
+ *   - cap_table.c: uses capability type definitions for grant/revoke/check.
+ *   - cap_gate.c: uses capability type constants to identify required
+ *     capabilities for gated operations.
+ *   - event_bus.c / audit logging: uses cap_type_name() to produce
+ *     human-readable audit event descriptions.
+ *
+ * Launched by:
+ *   Not a standalone process. Provides shared definitions compiled into the
+ *   kernel image and used by the capability subsystem at runtime.
+ */
+
 #include "capability.h"
 
 #include "cap_table.h"

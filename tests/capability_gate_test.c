@@ -1,3 +1,23 @@
+/**
+ * @file capability_gate_test.c
+ * @brief Tests for the capability gate enforcement layer.
+ *
+ * Purpose:
+ *   Validates that gate functions correctly allow or deny operations
+ *   based on the caller's capability set, including console-write,
+ *   serial-write, and debug-exit gates.
+ *
+ * Interactions:
+ *   - cap_gate.c: exercises cap_console_write_gate,
+ *     cap_serial_write_gate, and cap_debug_exit_gate.
+ *   - cap_table.c: grants and revokes capabilities to set up test
+ *     scenarios.
+ *
+ * Launched by:
+ *   Compiled and run by the test harness
+ *   (build/scripts/test_capability_gate.sh).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

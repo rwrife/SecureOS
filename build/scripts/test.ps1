@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -38,11 +38,13 @@ $testScript = switch ($TestName) {
   "capability_gate" { "./build/scripts/test_capability_gate.sh" }
   "capability_audit" { "./build/scripts/test_capability_audit.sh" }
   "event_bus" { "./build/scripts/test_event_bus.sh" }
+  "scheduler" { "./build/scripts/test_scheduler.sh" }
   "fs_service" { "./build/scripts/test_fs_service.sh" }
   "app_runtime" { "./build/scripts/test_app_runtime.sh" }
   "kernel_console" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_console" }
   "kernel_filedemo" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_filedemo" }
   "kernel_persistence" { "./build/scripts/test_kernel_persistence.sh" }
+  "kernel_sessions" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_sessions" }
   default {
     Write-Host "Unknown test: $TestName"
     Show-Usage

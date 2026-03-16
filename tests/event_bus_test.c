@@ -1,3 +1,22 @@
+/**
+ * @file event_bus_test.c
+ * @brief Tests for the ring-buffer event bus.
+ *
+ * Purpose:
+ *   Validates event publishing, subscription, ring-buffer wrapping,
+ *   topic filtering, and overflow behavior of the kernel event bus.
+ *
+ * Interactions:
+ *   - event_bus.c: exercises event_publish, event_subscribe, and
+ *     event_bus_reset along with query helpers.
+ *   - cap_table.c: grants CAP_EVENT_SUBSCRIBE and CAP_EVENT_PUBLISH
+ *     to test subjects.
+ *
+ * Launched by:
+ *   Compiled and run by the test harness
+ *   (build/scripts/test_event_bus.sh).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

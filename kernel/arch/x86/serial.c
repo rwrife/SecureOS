@@ -1,3 +1,26 @@
+/**
+ * @file serial.c
+ * @brief COM1 serial port driver for x86.
+ *
+ * Purpose:
+ *   Initializes the COM1 serial port (I/O base 0x3F8) and provides
+ *   character- and string-level output functions. Serial output is the
+ *   primary debug/logging channel and is used alongside VGA for console
+ *   output.
+ *
+ * Interactions:
+ *   - console.c routes kernel console output through serial_putchar/
+ *     serial_puts (in addition to VGA) so that log output is captured
+ *     on the host terminal.
+ *   - cap_gate.c wraps serial_puts behind the CAP_SERIAL_WRITE
+ *     capability gate for controlled access.
+ *   - Used indirectly by every subsystem that prints to the console.
+ *
+ * Launched by:
+ *   serial_init() is called early in kmain() during kernel boot-up.
+ *   Not a standalone process; compiled into the kernel image.
+ */
+
 #include "serial.h"
 
 #define COM1 0x3F8

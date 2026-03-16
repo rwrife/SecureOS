@@ -22,6 +22,12 @@ os_status_t os_fs_read_file(const char *path, char *out_buffer, unsigned int out
 os_status_t os_fs_write_file(const char *path, const char *content, int append);
 os_status_t os_fs_mkdir(const char *path);
 os_status_t os_process_chdir(const char *path);
+os_status_t os_env_get(const char *key, char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_env_set(const char *key, const char *value);
+os_status_t os_env_list(char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_lib_list(char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_lib_load(const char *path, char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_lib_unload(unsigned int handle);
 os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size);

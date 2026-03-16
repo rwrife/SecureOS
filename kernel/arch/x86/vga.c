@@ -1,3 +1,25 @@
+/**
+ * @file vga.c
+ * @brief VGA text-mode display driver for x86.
+ *
+ * Purpose:
+ *   Provides VGA text-mode output by writing directly to the VGA
+ *   framebuffer at physical address 0xB8000. Supports character and
+ *   string output, screen clearing, scrolling, and backspace handling
+ *   for an 80x25 text console.
+ *
+ * Interactions:
+ *   - console.c uses vga_putchar/vga_puts to render console output
+ *     on the screen alongside serial output.
+ *   - cap_gate.c wraps console output (which includes VGA) behind
+ *     the CAP_CONSOLE_WRITE capability gate.
+ *   - Used indirectly by every subsystem that prints to the console.
+ *
+ * Launched by:
+ *   vga_init() is called early in kmain() during kernel boot-up.
+ *   Not a standalone process; compiled into the kernel image.
+ */
+
 #include "vga.h"
 
 #define VGA_BUFFER ((volatile unsigned short *)0xB8000)

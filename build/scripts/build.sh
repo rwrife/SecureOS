@@ -8,7 +8,7 @@ TARGET="${1:-image}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [kernel|modules|image|run|test-boot|user-app|disk]
+Usage: $(basename "$0") [kernel|modules|image|run|test-boot|user-app|user-lib|disk|console]
 
 Builds SecureOS targets using the pinned toolchain container.
 Environment overrides:
@@ -56,6 +56,9 @@ case "$TARGET" in
     ;;
   user-app)
     "$ROOT_DIR/build/scripts/build_user_app.sh" filedemo
+    ;;
+  user-lib)
+    "$ROOT_DIR/build/scripts/build_user_lib.sh" envlib
     ;;
   disk)
     "$ROOT_DIR/build/scripts/build_disk_image.sh"

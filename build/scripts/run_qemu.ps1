@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet("hello_boot", "hello_boot_fail", "kernel_prompt", "kernel_console", "kernel_filedemo", "kernel_persistence")]
+  [ValidateSet("hello_boot", "hello_boot_fail", "kernel_prompt", "kernel_console", "kernel_filedemo", "kernel_persistence", "kernel_sessions")]
   [string]$Test = "hello_boot",
 
   [switch]$Help
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: run_qemu.ps1 -Test <hello_boot|hello_boot_fail|kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence>"
+  Write-Host "Usage: run_qemu.ps1 -Test <hello_boot|hello_boot_fail|kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions>"
   Write-Host ""
   Write-Host "Runs the QEMU harness inside the pinned toolchain container."
   Write-Host "Outputs:"

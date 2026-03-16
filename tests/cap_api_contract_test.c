@@ -1,3 +1,21 @@
+/**
+ * @file cap_api_contract_test.c
+ * @brief Tests for the capability API contract.
+ *
+ * Purpose:
+ *   Validates that capability type definitions, ID ranges, and string
+ *   representations conform to the expected API contract between user
+ *   and kernel space.
+ *
+ * Interactions:
+ *   - capability.c / capability.h: exercises capability_name and
+ *     validates capability_id_t enum values.
+ *
+ * Launched by:
+ *   Compiled and run by the test harness
+ *   (build/scripts/test_cap_api_contract.sh).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

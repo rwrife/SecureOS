@@ -1,3 +1,22 @@
+/**
+ * @file capability_table_test.c
+ * @brief Tests for the per-subject capability table.
+ *
+ * Purpose:
+ *   Validates grant, revoke, check, and reset operations on the
+ *   capability table, including default-deny semantics, cross-subject
+ *   isolation, and boundary/error conditions.
+ *
+ * Interactions:
+ *   - cap_table.c: exercises cap_table_grant, cap_table_revoke,
+ *     cap_table_check, and cap_table_reset.
+ *   - capability.h: uses capability_id_t constants.
+ *
+ * Launched by:
+ *   Compiled and run by the test harness
+ *   (build/scripts/test_capability_table.sh).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

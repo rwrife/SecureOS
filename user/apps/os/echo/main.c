@@ -1,3 +1,21 @@
+/**
+ * @file main.c
+ * @brief "echo" shell command – prints arguments to the console.
+ *
+ * Purpose:
+ *   Writes its command-line arguments back to the console output,
+ *   followed by a newline.
+ *
+ * Interactions:
+ *   - secureos_api.h: calls os_get_args and os_console_write through
+ *     user-space system-call stubs.
+ *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *
+ * Launched by:
+ *   Invoked as a user-space application when the user types
+ *   "echo <text>" at the console.  Built as a standalone ELF binary.
+ */
+
 #include "secureos_api.h"
 
 enum { ARG_MAX = 128 };

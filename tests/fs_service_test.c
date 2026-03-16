@@ -1,3 +1,22 @@
+/**
+ * @file fs_service_test.c
+ * @brief Tests for the FAT-like filesystem service.
+ *
+ * Purpose:
+ *   Validates filesystem initialization, directory listing, file
+ *   create/read/write/append, nested directory operations, and
+ *   FAT32 boot-sector integrity on a ramdisk-backed storage backend.
+ *
+ * Interactions:
+ *   - fs_service.c: exercises fs_service_init, fs_list_root,
+ *     fs_list_dir, fs_read_file, fs_write_file, and fs_mkdir.
+ *   - ramdisk.c / storage_hal.c: provides the underlying block device.
+ *
+ * Launched by:
+ *   Compiled and run by the test harness
+ *   (build/scripts/test_fs_service.sh).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -57,7 +76,8 @@ int main(void) {
   if (output_len == 0u) {
     fail("list_root_empty");
   }
-  if (!string_contains(output, "os/\n") || !string_contains(output, "apps/\n")) {
+  if (!string_contains(output, "os/\n") || !string_contains(output, "apps/\n") ||
+      !string_contains(output, "lib/\n")) {
     fail("list_root_missing_system_dirs");
   }
   printf("TEST:PASS:fs_service_list_root\n");
@@ -65,10 +85,20 @@ int main(void) {
   if (fs_list_dir("/os", output, sizeof(output), &output_len) != FS_OK) {
     fail("list_os_failed");
   }
-  if (!string_contains(output, "help.elf\n")) {
+  if (!string_contains(output, "help.elf\n") || !string_contains(output, "env.elf\n") ||
+      !string_contains(output, "libs.elf\n") || !string_contains(output, "loadlib.elf\n") ||
+      !string_contains(output, "unload.elf\n")) {
     fail("list_os_missing_help");
   }
   printf("TEST:PASS:fs_service_list_os\n");
+
+  if (fs_list_dir("/lib", output, sizeof(output), &output_len) != FS_OK) {
+    fail("list_lib_failed");
+  }
+  if (!string_contains(output, "envlib.elf\n")) {
+    fail("list_lib_missing_envlib");
+  }
+  printf("TEST:PASS:fs_service_list_lib\n");
 
   if (fs_read_file("readme.txt", output, sizeof(output), &output_len) != FS_OK) {
     fail("read_seed_file_failed");

@@ -18,6 +18,7 @@ Supported tests:
   kernel_console   Boots the kernel ISO and checks console markers
   kernel_filedemo  Boots the kernel ISO, runs filedemo, and checks app markers
   kernel_persistence  Boots the kernel ISO with the seeded disk and checks persisted file contents
+  kernel_sessions  Boots the kernel ISO and verifies session switching and per-session env/cwd isolation
 
 Outputs:
   artifacts/qemu/<test>.log
@@ -183,7 +184,7 @@ PY
     set -e
     exit $EXIT_CODE
     ;;
-  kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence)
+  kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions)
     ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
     DISK_PATH="$ROOT_DIR/artifacts/disk/secureos-disk.img"
 
@@ -246,13 +247,16 @@ cmd = [
 
 scripts = {
     'kernel_console': [
-    ('secureos> ', 'help\nstorage\nexit pass\n'),
+  ('secureos[s0]> ', 'help\nlibs\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\nexit pass\n'),
     ],
     'kernel_filedemo': [
-      ('secureos> ', 'apps\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
+      ('secureos[s0]> ', 'apps\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_persistence': [
-      ('secureos> ', 'cat appdemo.txt\ny\nexit pass\n'),
+      ('secureos[s0]> ', 'cat appdemo.txt\ny\nexit pass\n'),
+    ],
+    'kernel_sessions': [
+      ('secureos[s0]> ', 'env PROJECT=alpha\nenv PROJECT\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nmkdir s0dir\ny\ncd s0dir\nsession new\nsession switch 1\nlibs loaded\nenv PROJECT=beta\nenv PROJECT\nloadlib envlib\ny\nlibs loaded\nmkdir s1dir\ny\ncd s1dir\nsession switch 0\nenv PROJECT\nlibs loaded\nls /\ny\nexit pass\n'),
     ],
 }
 
@@ -261,14 +265,31 @@ expected_markers = {
     'kernel_console': [
         'TEST:START:boot_entry',
         'TEST:PASS:boot_entry',
+      'TEST:START:session_manager',
+      'TEST:PASS:session_manager',
         'TEST:START:console',
         'TEST:PASS:console',
         'SecureOS console ready',
-        'commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, storage, apps, run <app>, exit <pass|fail>',
+        'commands: help, ping, echo <text>',
+        'envlib.elf',
+        '[lib] loaded /lib/envlib.elf',
+      '[lib] use handle=1 refs=1',
+      'app failed: library in use',
+      '[lib] release handle=1 refs=0',
+        'handle=1 path=/lib/envlib.elf',
+      'owner_session=0 owner_subject=0 owner_actor=loadlib',
+      '[lib] unloaded handle=1 path=/lib/envlib.elf',
+      '(no loaded libraries)',
+      'session created: 1',
+      'session 0 (active)',
+      'session 1',
+      'switched to session 1',
+      'secureos[s1]>',
       'storage backend=',
     ],
     'kernel_filedemo': [
         'TEST:START:boot_entry',
+      'TEST:PASS:session_manager',
         'TEST:PASS:console',
         '[filedemo] start',
         '[filedemo] wrote appdemo.txt',
@@ -277,9 +298,32 @@ expected_markers = {
     ],
     'kernel_persistence': [
       'TEST:START:boot_entry',
+      'TEST:PASS:session_manager',
       'TEST:PASS:console',
       '[auth-session] operation=cat path=/appdemo.txt',
       'filedemo-updated',
+    ],
+    'kernel_sessions': [
+      'TEST:START:boot_entry',
+      'TEST:PASS:session_manager',
+      'TEST:PASS:console',
+      'session created: 1',
+      'switched to session 1',
+      'switched to session 0',
+      'secureos[s1]>',
+      'secureos[s0]>',
+      'alpha',
+      'beta',
+      '(no loaded libraries)',
+      '[lib] loaded /lib/envlib.elf handle=1',
+      '[lib] use handle=1 refs=1',
+      'app failed: library in use',
+      '[lib] release handle=1 refs=0',
+      '[lib] unloaded handle=1 path=/lib/envlib.elf',
+      'handle=1 path=/lib/envlib.elf',
+      'owner_session=1 owner_subject=0 owner_actor=loadlib',
+      's0dir/',
+      's1dir/',
     ],
 }
 

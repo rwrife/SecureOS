@@ -1,3 +1,26 @@
+/**
+ * @file event_bus.c
+ * @brief Ring-buffer-based event bus for audit and event logging.
+ *
+ * Purpose:
+ *   Implements a fixed-size ring buffer for publishing, consuming, and
+ *   managing audit/security events. Supports event publishing, sequential
+ *   consumption, checkpoint/seal operations for tamper-evident audit trails,
+ *   and overflow detection. Provides the audit backbone for the zero-trust
+ *   capability system.
+ *
+ * Interactions:
+ *   - cap_table.c: publishes audit events on capability grant/revoke.
+ *   - cap_gate.c: publishes audit events on gated operation success/failure.
+ *   - capability_audit_test.c and other tests: consumes and verifies audit
+ *     events for correctness.
+ *   - Any kernel subsystem can publish events via event_bus_publish().
+ *
+ * Launched by:
+ *   event_bus_init() is called by kmain() during kernel initialization.
+ *   Not a standalone process; compiled into the kernel image.
+ */
+
 #include "event_bus.h"
 
 #include "../cap/cap_table.h"

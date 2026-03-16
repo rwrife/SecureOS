@@ -1,3 +1,29 @@
+/**
+ * @file cap_table.c
+ * @brief Per-subject capability table and access-control enforcement.
+ *
+ * Purpose:
+ *   Maintains a table of capability bitsets indexed by subject ID.
+ *   Provides functions to grant, revoke, check, and delegate
+ *   capabilities as well as to emit audit events for every access-
+ *   control decision.  Supports an admin-gate model where only the
+ *   admin subject may mutate the table.
+ *
+ * Interactions:
+ *   - cap_gate.c: gate functions call cap_check() (via cap_table_check)
+ *     to authorize individual operations.
+ *   - event_bus.c: every grant, revoke, and check operation publishes
+ *     an audit event through the event bus.
+ *   - console.c / kmain.c: the bootstrap subject is granted its initial
+ *     capability set during kernel initialization.
+ *   - capability.c: uses capability_id_t definitions shared across the
+ *     subsystem.
+ *
+ * Launched by:
+ *   cap_table_reset() is called from kmain() at boot.  Not a standalone
+ *   process; compiled into the kernel image.
+ */
+
 #include "cap_table.h"
 
 #include <stdint.h>

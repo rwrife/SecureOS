@@ -1,3 +1,23 @@
+/**
+ * @file capability_audit_test.c
+ * @brief Tests for capability audit event emission.
+ *
+ * Purpose:
+ *   Verifies that capability grant, revoke, and check operations
+ *   correctly emit audit events to the event bus with proper sequence
+ *   IDs, correlation data, and tamper-evident checkpoints.
+ *
+ * Interactions:
+ *   - capability.c / cap_table.c: exercises cap_check, cap_grant, and
+ *     cap_revoke to trigger audit events.
+ *   - event_bus.c: reads back published audit events to verify
+ *     correctness.
+ *
+ * Launched by:
+ *   Compiled and run by the test harness
+ *   (build/scripts/test_capability_audit.sh).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 

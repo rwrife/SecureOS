@@ -1,3 +1,25 @@
+/**
+ * @file ata_pio.c
+ * @brief ATA PIO mode disk driver for x86.
+ *
+ * Purpose:
+ *   Implements sector-level read and write operations for IDE/ATA disks using
+ *   PIO (Programmed I/O) mode via x86 I/O port instructions. Operates on
+ *   512-byte sectors addressed by LBA (Logical Block Addressing).
+ *
+ * Interactions:
+ *   - storage_hal.c: registered as a storage backend. The HAL delegates
+ *     read/write calls to ata_pio_read_sector/ata_pio_write_sector when
+ *     a real disk is selected as the active storage device.
+ *   - fs_service.c: indirectly used for filesystem persistence when the
+ *     storage HAL routes through the ATA PIO backend.
+ *
+ * Launched by:
+ *   Not a standalone process. Functions are called via the storage HAL
+ *   abstraction. The driver is compiled into the kernel image and is
+ *   available as a backend option during storage_hal_init().
+ */
+
 #include "ata_pio.h"
 
 #include "../../hal/storage_hal.h"

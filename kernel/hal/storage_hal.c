@@ -1,3 +1,25 @@
+/**
+ * @file storage_hal.c
+ * @brief Hardware Abstraction Layer for block storage devices.
+ *
+ * Purpose:
+ *   Provides a uniform sector-level read/write interface that decouples
+ *   the filesystem from concrete storage drivers.  The active backend
+ *   (ramdisk or ATA PIO) is registered at init time and all higher-
+ *   level I/O is routed through this abstraction.
+ *
+ * Interactions:
+ *   - ramdisk.c / ata_pio.c: concrete drivers register themselves as
+ *     the primary storage device via storage_hal_init.
+ *   - fs_service.c: all filesystem sector reads and writes call
+ *     storage_hal_read / storage_hal_write.
+ *   - console.c: the "storage" shell command queries HAL status.
+ *
+ * Launched by:
+ *   storage_hal_init() is called from kmain() during kernel boot.
+ *   Not a standalone process; compiled into the kernel image.
+ */
+
 #include "storage_hal.h"
 
 static const storage_device_t *storage_primary_device;

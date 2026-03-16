@@ -1,3 +1,28 @@
+/**
+ * @file fs_service.c
+ * @brief FAT-like in-memory filesystem service.
+ *
+ * Purpose:
+ *   Provides a minimal FAT-inspired filesystem with directory hierarchy,
+ *   file create/read/write/append, directory listing, and ELF binary
+ *   loading.  Operates on 512-byte sectors through the storage HAL and
+ *   supports persistence via save/load to the underlying block device.
+ *
+ * Interactions:
+ *   - storage_hal.c: all sector-level reads and writes are routed
+ *     through the storage HAL abstraction layer.
+ *   - app_runtime.c: uses fs_read_file and fs_load_elf to load user-
+ *     space application binaries from the filesystem.
+ *   - console.c: built-in shell commands (ls, cat, write, mkdir, etc.)
+ *     call fs_service functions directly.
+ *   - event_bus.c: filesystem operations may trigger audit events.
+ *
+ * Launched by:
+ *   fs_init() is called from kmain() during kernel boot to format the
+ *   initial filesystem.  Not a standalone process; compiled into the
+ *   kernel image.
+ */
+
 #include "fs_service.h"
 
 #include "../hal/storage_hal.h"
@@ -23,7 +48,7 @@ enum {
   FS_ATTR_ARCHIVE = 0x20u,
 
   FS_PATH_COMPONENT_MAX = 16,
-  FS_ELF_BUFFER_MAX = 256,
+  FS_ELF_BUFFER_MAX = 512,
 };
 
 static size_t fs_string_len(const char *value) {
@@ -686,10 +711,11 @@ void fs_service_init(void) {
 
   (void)fs_mkdir("os");
   (void)fs_mkdir("apps");
+  (void)fs_mkdir("lib");
   (void)fs_write_file("readme.txt", "SecureOS filesystem", 0);
 
-  if (fs_build_script_elf(
-          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, storage, apps, run <app>, exit <pass|fail>\n",
+    if (fs_build_script_elf(
+          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, run <app>, exit <pass|fail>\n",
           elf_blob,
           sizeof(elf_blob),
           &elf_len) == FS_OK) {
@@ -728,12 +754,32 @@ void fs_service_init(void) {
     (void)fs_write_file_bytes("os/cd.elf", elf_blob, elf_len, 0);
   }
 
+  if (fs_build_script_elf("env $ARGS\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/env.elf", elf_blob, elf_len, 0);
+  }
+
   if (fs_build_script_elf("apps\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
     (void)fs_write_file_bytes("os/apps.elf", elf_blob, elf_len, 0);
   }
 
+  if (fs_build_script_elf("libs $ARGS\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/libs.elf", elf_blob, elf_len, 0);
+  }
+
+  if (fs_build_script_elf("loadlib $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/loadlib.elf", elf_blob, elf_len, 0);
+  }
+
+  if (fs_build_script_elf("unloadlib $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/unload.elf", elf_blob, elf_len, 0);
+  }
+
   if (fs_build_script_elf("storage\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
     (void)fs_write_file_bytes("os/storage.elf", elf_blob, elf_len, 0);
+  }
+
+  if (fs_build_script_elf("print envlib\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
+    (void)fs_write_file_bytes("lib/envlib.elf", elf_blob, elf_len, 0);
   }
 
   if (fs_build_script_elf("print [filedemo] start\n"

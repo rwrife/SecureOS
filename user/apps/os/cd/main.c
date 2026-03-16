@@ -1,3 +1,20 @@
+/**
+ * @file main.c
+ * @brief "cd" shell command – changes the current working directory.
+ *
+ * Purpose:
+ *   Changes the console's working directory to the specified path.
+ *
+ * Interactions:
+ *   - secureos_api.h: calls os_change_directory and os_console_write
+ *     through user-space system-call stubs.
+ *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *
+ * Launched by:
+ *   Invoked as a user-space application when the user types "cd <dir>"
+ *   at the console.  Built as a standalone ELF binary.
+ */
+
 #include "secureos_api.h"
 
 enum { ARG_MAX = 128 };

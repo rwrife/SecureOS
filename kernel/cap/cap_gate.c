@@ -1,3 +1,28 @@
+/**
+ * @file cap_gate.c
+ * @brief Capability-gated entry points for privileged kernel operations.
+ *
+ * Purpose:
+ *   Implements gate functions that check a subject's capabilities before
+ *   allowing access to protected resources.  Each gate wraps a specific
+ *   operation (console write, serial write, debug exit, disk I/O) and
+ *   returns a capability result indicating whether the caller is
+ *   authorized.
+ *
+ * Interactions:
+ *   - cap_table.c: each gate calls cap_check() to verify that the
+ *     subject holds the required capability token.
+ *   - console.c: invokes cap_console_write_gate and cap_debug_exit_gate
+ *     for gated console operations.
+ *   - serial.c: cap_serial_write_gate controls writes to the serial
+ *     port.
+ *   - event_bus.c: cap_audit_read_gate protects audit log access.
+ *
+ * Launched by:
+ *   Not a standalone process.  Gate functions are called on demand by
+ *   kernel subsystems.  Compiled into the kernel image.
+ */
+
 #include "cap_gate.h"
 
 static size_t cap_message_len(const char *message) {

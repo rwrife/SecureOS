@@ -1,3 +1,33 @@
+/**
+ * @file console.c
+ * @brief Interactive kernel console (shell) and command dispatcher.
+ *
+ * Purpose:
+ *   Implements the kernel's interactive command-line shell.  Reads
+ *   characters from the serial port, assembles command lines, parses
+ *   built-in commands (exit, ls, cat, write, etc.), and dispatches
+ *   user-space application binaries through the app runtime.  Also
+ *   manages per-session environment variables and working directory.
+ *
+ * Interactions:
+ *   - serial.c / vga.c: used for character I/O (input from serial,
+ *     output to both serial and VGA).
+ *   - cap_table.c: the console's own subject ID is granted initial
+ *     capabilities during console_init.
+ *   - app_runtime.c: user-space commands are loaded and executed via
+ *     app_runtime_exec.
+ *   - fs_service.c: filesystem operations (list, read, write, mkdir)
+ *     are invoked for built-in file commands.
+ *   - session_manager.c: provides the per-session console_context_t
+ *     that holds shell state (cwd, env, line buffer).
+ *   - event_bus.c: console commands may emit audit events.
+ *
+ * Launched by:
+ *   console_run() is called from kmain() after all subsystems are
+ *   initialized.  Not a standalone process; compiled into the kernel
+ *   image.
+ */
+
 #include "console.h"
 
 #include <stdint.h>
@@ -9,15 +39,20 @@
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../user/app_runtime.h"
+#include "session_manager.h"
 
-#define CONSOLE_LINE_MAX 128
 #define CONSOLE_OUTPUT_MAX 512
 
-static cap_subject_id_t console_subject_id;
-static char console_line[CONSOLE_LINE_MAX];
-static size_t console_line_len;
-static uint64_t console_next_correlation_id;
-static char console_cwd[64];
+static console_context_t *g_console_ctx = 0;
+
+#define console_subject_id (g_console_ctx->subject_id)
+#define console_line (g_console_ctx->line)
+#define console_line_len (g_console_ctx->line_len)
+#define console_next_correlation_id (g_console_ctx->next_correlation_id)
+#define console_cwd (g_console_ctx->cwd)
+#define console_env_entries (g_console_ctx->env_entries)
+#define console_loaded_libs (g_console_ctx->loaded_libs)
+#define console_next_loaded_lib_handle (g_console_ctx->next_loaded_lib_handle)
 
 static void console_idle_wait(void) {
   volatile int spin = 0;
@@ -34,6 +69,22 @@ static int string_equals(const char *a, const char *b) {
   }
 
   return *a == *b;
+}
+
+static int string_starts_with(const char *value, const char *prefix) {
+  if (value == 0 || prefix == 0) {
+    return 0;
+  }
+
+  while (*prefix != '\0') {
+    if (*value == '\0' || *value != *prefix) {
+      return 0;
+    }
+    ++value;
+    ++prefix;
+  }
+
+  return 1;
 }
 
 static size_t string_len(const char *value) {
@@ -103,6 +154,360 @@ static size_t append_string(char *dst, size_t dst_size, size_t cursor, const cha
   if (cursor < dst_size) {
     dst[cursor] = '\0';
   }
+  return cursor;
+}
+
+static size_t append_u32_decimal(char *dst, size_t dst_size, size_t cursor, unsigned int value) {
+  char digits[10];
+  size_t count = 0u;
+  size_t i = 0u;
+
+  if (value == 0u) {
+    if (cursor + 1u < dst_size) {
+      dst[cursor++] = '0';
+      dst[cursor] = '\0';
+    }
+    return cursor;
+  }
+
+  while (value > 0u && count < sizeof(digits)) {
+    digits[count++] = (char)('0' + (value % 10u));
+    value /= 10u;
+  }
+
+  for (i = 0u; i < count && cursor + 1u < dst_size; ++i) {
+    dst[cursor++] = digits[count - i - 1u];
+  }
+
+  if (cursor < dst_size) {
+    dst[cursor] = '\0';
+  }
+  return cursor;
+}
+
+static void console_env_reset(void) {
+  size_t i = 0u;
+  for (i = 0u; i < CONSOLE_ENV_MAX; ++i) {
+    console_env_entries[i].used = 0;
+    console_env_entries[i].key[0] = '\0';
+    console_env_entries[i].value[0] = '\0';
+  }
+}
+
+static int console_env_find_slot(const char *key) {
+  size_t i = 0u;
+  for (i = 0u; i < CONSOLE_ENV_MAX; ++i) {
+    if (console_env_entries[i].used && string_equals(console_env_entries[i].key, key)) {
+      return (int)i;
+    }
+  }
+  return -1;
+}
+
+static int console_env_find_free_slot(void) {
+  size_t i = 0u;
+  for (i = 0u; i < CONSOLE_ENV_MAX; ++i) {
+    if (!console_env_entries[i].used) {
+      return (int)i;
+    }
+  }
+  return -1;
+}
+
+static int console_env_set(const char *key, const char *value) {
+  int slot = -1;
+
+  if (key == 0 || value == 0 || key[0] == '\0') {
+    return 0;
+  }
+
+  slot = console_env_find_slot(key);
+  if (slot < 0) {
+    slot = console_env_find_free_slot();
+  }
+  if (slot < 0) {
+    return 0;
+  }
+
+  console_env_entries[slot].used = 1;
+  copy_string(console_env_entries[slot].key, sizeof(console_env_entries[slot].key), key);
+  copy_string(console_env_entries[slot].value, sizeof(console_env_entries[slot].value), value);
+  return 1;
+}
+
+static int console_env_get(const char *key, char *out_value, size_t out_value_size) {
+  int slot = 0;
+
+  if (key == 0 || out_value == 0 || out_value_size == 0u) {
+    return 0;
+  }
+
+  slot = console_env_find_slot(key);
+  if (slot < 0) {
+    return 0;
+  }
+
+  copy_string(out_value, out_value_size, console_env_entries[slot].value);
+  return 1;
+}
+
+static size_t console_env_list(char *out_buffer, size_t out_buffer_size) {
+  size_t i = 0u;
+  size_t cursor = 0u;
+
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 0u;
+  }
+
+  out_buffer[0] = '\0';
+  for (i = 0u; i < CONSOLE_ENV_MAX; ++i) {
+    if (!console_env_entries[i].used) {
+      continue;
+    }
+
+    cursor = append_string(out_buffer, out_buffer_size, cursor, console_env_entries[i].key);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, "=");
+    cursor = append_string(out_buffer, out_buffer_size, cursor, console_env_entries[i].value);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, "\n");
+  }
+
+  return cursor;
+}
+
+static void console_loaded_libs_reset(void) {
+  size_t i = 0u;
+  for (i = 0u; i < CONSOLE_LOADED_LIB_MAX; ++i) {
+    console_loaded_libs[i].used = 0;
+    console_loaded_libs[i].handle = 0u;
+    console_loaded_libs[i].program_len = 0u;
+    console_loaded_libs[i].ref_count = 0u;
+    console_loaded_libs[i].owner_session_id = 0u;
+    console_loaded_libs[i].owner_subject_id = 0u;
+    console_loaded_libs[i].owner_actor[0] = '\0';
+    console_loaded_libs[i].path[0] = '\0';
+  }
+  console_next_loaded_lib_handle = 1u;
+}
+
+static int console_loaded_lib_find_by_path(const char *path) {
+  size_t i = 0u;
+
+  if (path == 0 || path[0] == '\0') {
+    return -1;
+  }
+
+  for (i = 0u; i < CONSOLE_LOADED_LIB_MAX; ++i) {
+    if (console_loaded_libs[i].used && string_equals(console_loaded_libs[i].path, path)) {
+      return (int)i;
+    }
+  }
+
+  return -1;
+}
+
+static int console_loaded_lib_find_free_slot(void) {
+  size_t i = 0u;
+
+  for (i = 0u; i < CONSOLE_LOADED_LIB_MAX; ++i) {
+    if (!console_loaded_libs[i].used) {
+      return (int)i;
+    }
+  }
+
+  return -1;
+}
+
+static int console_loaded_lib_find_by_handle(unsigned int handle) {
+  size_t i = 0u;
+
+  if (handle == 0u) {
+    return -1;
+  }
+
+  for (i = 0u; i < CONSOLE_LOADED_LIB_MAX; ++i) {
+    if (console_loaded_libs[i].used && console_loaded_libs[i].handle == handle) {
+      return (int)i;
+    }
+  }
+
+  return -1;
+}
+
+static int console_register_loaded_library(const char *resolved_path,
+                                           size_t program_len,
+                                           const char *owner_actor,
+                                           unsigned int *out_handle) {
+  int slot = -1;
+
+  if (resolved_path == 0 || resolved_path[0] == '\0') {
+    return 0;
+  }
+
+  slot = console_loaded_lib_find_by_path(resolved_path);
+  if (slot >= 0) {
+    if (out_handle != 0) {
+      *out_handle = console_loaded_libs[slot].handle;
+    }
+    return 1;
+  }
+
+  slot = console_loaded_lib_find_free_slot();
+  if (slot < 0) {
+    return 0;
+  }
+
+  console_loaded_libs[slot].used = 1;
+  console_loaded_libs[slot].handle = console_next_loaded_lib_handle++;
+  console_loaded_libs[slot].program_len = program_len;
+  console_loaded_libs[slot].ref_count = 0u;
+  console_loaded_libs[slot].owner_session_id = session_manager_active_id();
+  console_loaded_libs[slot].owner_subject_id = console_subject_id;
+  if (owner_actor != 0 && owner_actor[0] != '\0') {
+    copy_string(console_loaded_libs[slot].owner_actor,
+                sizeof(console_loaded_libs[slot].owner_actor),
+                owner_actor);
+  } else {
+    copy_string(console_loaded_libs[slot].owner_actor,
+                sizeof(console_loaded_libs[slot].owner_actor),
+                "unknown");
+  }
+  copy_string(console_loaded_libs[slot].path, sizeof(console_loaded_libs[slot].path), resolved_path);
+  if (out_handle != 0) {
+    *out_handle = console_loaded_libs[slot].handle;
+  }
+
+  return 1;
+}
+
+static int console_unregister_loaded_library(unsigned int handle, char *out_path, size_t out_path_size) {
+  int slot = console_loaded_lib_find_by_handle(handle);
+
+  if (out_path != 0 && out_path_size > 0u) {
+    out_path[0] = '\0';
+  }
+
+  if (slot < 0) {
+    return 0;
+  }
+
+  if (console_loaded_libs[slot].ref_count > 0u) {
+    return 0;
+  }
+
+  if (out_path != 0 && out_path_size > 0u) {
+    copy_string(out_path, out_path_size, console_loaded_libs[slot].path);
+  }
+
+  console_loaded_libs[slot].used = 0;
+  console_loaded_libs[slot].handle = 0u;
+  console_loaded_libs[slot].program_len = 0u;
+  console_loaded_libs[slot].ref_count = 0u;
+  console_loaded_libs[slot].owner_session_id = 0u;
+  console_loaded_libs[slot].owner_subject_id = 0u;
+  console_loaded_libs[slot].owner_actor[0] = '\0';
+  console_loaded_libs[slot].path[0] = '\0';
+  return 1;
+}
+
+static int console_get_loaded_library_ref_count(unsigned int handle, unsigned int *out_ref_count) {
+  int slot = console_loaded_lib_find_by_handle(handle);
+
+  if (out_ref_count != 0) {
+    *out_ref_count = 0u;
+  }
+
+  if (slot < 0) {
+    return 0;
+  }
+
+  if (out_ref_count != 0) {
+    *out_ref_count = console_loaded_libs[slot].ref_count;
+  }
+  return 1;
+}
+
+static int console_acquire_loaded_library(unsigned int handle, unsigned int *out_ref_count) {
+  int slot = console_loaded_lib_find_by_handle(handle);
+
+  if (out_ref_count != 0) {
+    *out_ref_count = 0u;
+  }
+
+  if (slot < 0) {
+    return 0;
+  }
+
+  console_loaded_libs[slot].ref_count += 1u;
+  if (out_ref_count != 0) {
+    *out_ref_count = console_loaded_libs[slot].ref_count;
+  }
+  return 1;
+}
+
+static int console_release_loaded_library(unsigned int handle, unsigned int *out_ref_count) {
+  int slot = console_loaded_lib_find_by_handle(handle);
+
+  if (out_ref_count != 0) {
+    *out_ref_count = 0u;
+  }
+
+  if (slot < 0 || console_loaded_libs[slot].ref_count == 0u) {
+    return 0;
+  }
+
+  console_loaded_libs[slot].ref_count -= 1u;
+  if (out_ref_count != 0) {
+    *out_ref_count = console_loaded_libs[slot].ref_count;
+  }
+  return 1;
+}
+
+static size_t console_list_loaded_libraries(char *out_buffer, size_t out_buffer_size) {
+  size_t i = 0u;
+  size_t cursor = 0u;
+
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 0u;
+  }
+
+  out_buffer[0] = '\0';
+  for (i = 0u; i < CONSOLE_LOADED_LIB_MAX; ++i) {
+    if (!console_loaded_libs[i].used) {
+      continue;
+    }
+
+    cursor = append_string(out_buffer, out_buffer_size, cursor, "handle=");
+    cursor = append_u32_decimal(out_buffer, out_buffer_size, cursor, console_loaded_libs[i].handle);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " path=");
+    cursor = append_string(out_buffer, out_buffer_size, cursor, console_loaded_libs[i].path);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " size=");
+    cursor = append_u32_decimal(out_buffer,
+                                out_buffer_size,
+                                cursor,
+                                (unsigned int)console_loaded_libs[i].program_len);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " refs=");
+    cursor = append_u32_decimal(out_buffer,
+                                out_buffer_size,
+                                cursor,
+                                (unsigned int)console_loaded_libs[i].ref_count);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " owner_session=");
+    cursor = append_u32_decimal(out_buffer,
+                                out_buffer_size,
+                                cursor,
+                                (unsigned int)console_loaded_libs[i].owner_session_id);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " owner_subject=");
+    cursor = append_u32_decimal(out_buffer,
+                                out_buffer_size,
+                                cursor,
+                                (unsigned int)console_loaded_libs[i].owner_subject_id);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " owner_actor=");
+    cursor = append_string(out_buffer,
+                           out_buffer_size,
+                           cursor,
+                           console_loaded_libs[i].owner_actor);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, "\n");
+  }
+
   return cursor;
 }
 
@@ -234,6 +639,7 @@ static int console_change_directory(const char *absolute_path) {
   }
 
   copy_string(console_cwd, sizeof(console_cwd), absolute_path);
+  (void)console_env_set("PWD", absolute_path);
   return 1;
 }
 
@@ -290,7 +696,13 @@ static void console_write(const char *message) {
 }
 
 static void console_write_prompt(void) {
-  console_write("secureos> ");
+  char prompt[32];
+  size_t cursor = 0u;
+
+  cursor = append_string(prompt, sizeof(prompt), cursor, "secureos[s");
+  cursor = append_u32_decimal(prompt, sizeof(prompt), cursor, session_manager_active_id());
+  cursor = append_string(prompt, sizeof(prompt), cursor, "]> ");
+  console_write(prompt);
 }
 
 static void console_emit_char(char value) {
@@ -396,11 +808,27 @@ static void console_command_run(const char *app_name, const char *app_args) {
 
   console_resolve_app_path(app_name, executable_path, sizeof(executable_path));
 
-  context.subject_id = 1u;
+  if (string_starts_with(executable_path, "/lib/") || string_starts_with(executable_path, "\\lib\\")) {
+    console_write("libraries cannot be run directly\n");
+    console_write_prompt();
+    return;
+  }
+
+  context.subject_id = console_subject_id;
+  context.actor_name = app_name;
   context.output = console_write;
   context.authorize_disk_io = console_authorize_disk_io;
   context.resolve_path = resolve_path;
   context.change_directory = console_change_directory;
+  context.get_env = console_env_get;
+  context.set_env = console_env_set;
+  context.list_env = console_env_list;
+  context.register_loaded_library = console_register_loaded_library;
+  context.unregister_loaded_library = console_unregister_loaded_library;
+  context.get_loaded_library_ref_count = console_get_loaded_library_ref_count;
+  context.acquire_loaded_library = console_acquire_loaded_library;
+  context.release_loaded_library = console_release_loaded_library;
+  context.list_loaded_libraries = console_list_loaded_libraries;
 
   result = app_runtime_run(executable_path, app_args, &context);
   if (result == APP_RUNTIME_OK) {
@@ -418,6 +846,10 @@ static void console_command_run(const char *app_name, const char *app_args) {
     console_write("app failed: storage error\n");
   } else if (result == APP_RUNTIME_ERR_FORMAT) {
     console_write("app failed: invalid elf\n");
+  } else if (result == APP_RUNTIME_ERR_LIBRARY) {
+    console_write("app failed: libraries are not user-invokable\n");
+  } else if (result == APP_RUNTIME_ERR_IN_USE) {
+    console_write("app failed: library in use\n");
   } else {
     console_write("app failed\n");
   }
@@ -475,6 +907,105 @@ static void console_command_exit(const char *mode) {
   debug_exit_qemu(exit_code);
 }
 
+static unsigned int console_parse_u32(const char *value, int *ok) {
+  unsigned int parsed = 0u;
+  size_t i = 0u;
+
+  if (ok != 0) {
+    *ok = 0;
+  }
+  if (value == 0 || value[0] == '\0') {
+    return 0u;
+  }
+
+  while (value[i] != '\0') {
+    if (value[i] < '0' || value[i] > '9') {
+      return 0u;
+    }
+    parsed = (parsed * 10u) + (unsigned int)(value[i] - '0');
+    ++i;
+  }
+
+  if (ok != 0) {
+    *ok = 1;
+  }
+  return parsed;
+}
+
+static void console_command_session(const char *arg1, const char *arg2) {
+  char listing[256];
+  unsigned int session_id = 0u;
+  int ok = 0;
+
+  if (arg1 == 0 || arg1[0] == '\0' || string_equals(arg1, "list")) {
+    if (session_manager_list(listing, sizeof(listing)) > 0u) {
+      console_write(listing);
+    }
+    console_write_prompt();
+    return;
+  }
+
+  if (string_equals(arg1, "new")) {
+    if (!session_manager_create(console_subject_id, &session_id)) {
+      console_write("session create failed\n");
+      console_write_prompt();
+      return;
+    }
+
+    console_write("session created: ");
+    listing[0] = '\0';
+    (void)append_u32_decimal(listing, sizeof(listing), 0u, session_id);
+    console_write(listing);
+    console_write("\n");
+    console_write_prompt();
+    return;
+  }
+
+  if (string_equals(arg1, "switch")) {
+    session_id = console_parse_u32(arg2, &ok);
+    if (!ok || !session_manager_switch(session_id)) {
+      console_write("session switch failed\n");
+      console_write_prompt();
+      return;
+    }
+
+    console_write("switched to session ");
+    listing[0] = '\0';
+    (void)append_u32_decimal(listing, sizeof(listing), 0u, session_id);
+    console_write(listing);
+    console_write("\n");
+    console_write_prompt();
+    return;
+  }
+
+  console_write("usage: session [list|new|switch <id>]\n");
+  console_write_prompt();
+}
+
+static void console_handle_session_hotkey(char key_code) {
+  unsigned int target_session = 0u;
+  char value[16];
+
+  if (key_code < 'P' || key_code > 'S') {
+    return;
+  }
+
+  target_session = (unsigned int)(key_code - 'P');
+  if (!session_manager_switch(target_session)) {
+    console_write("session switch failed\n");
+    console_write_prompt();
+    return;
+  }
+
+  value[0] = '\0';
+  (void)append_u32_decimal(value, sizeof(value), 0u, target_session);
+  console_write("\nswitched to session ");
+  console_write(value);
+  console_write("\n");
+  console_reset_line();
+  console_write_prompt();
+}
+
 static void console_handle_command(void) {
   char command[16];
   char arg1[64];
@@ -502,14 +1033,28 @@ static void console_handle_command(void) {
     return;
   }
 
+  if (string_equals(command, "session")) {
+    console_command_session(arg1, arg2);
+    return;
+  }
+
   (void)console_try_run_os_command(command, arg1, arg2);
 }
 
-void console_init(cap_subject_id_t subject_id) {
+void console_init(console_context_t *context, cap_subject_id_t subject_id) {
+  if (context == 0) {
+    return;
+  }
+
+  g_console_ctx = context;
   console_subject_id = subject_id;
   console_reset_line();
   console_next_correlation_id = 1u;
   copy_string(console_cwd, sizeof(console_cwd), "/");
+  g_console_ctx->escape_state = 0u;
+  console_env_reset();
+  console_loaded_libs_reset();
+  (void)console_env_set("PWD", "/");
 
   console_write("TEST:START:console\n");
   console_write("SecureOS console ready\n");
@@ -518,12 +1063,42 @@ void console_init(cap_subject_id_t subject_id) {
   console_write("TEST:PASS:console\n");
 }
 
+void console_bind_context(console_context_t *context) {
+  if (context != 0) {
+    g_console_ctx = context;
+  }
+}
+
 void console_run(void) {
+  if (g_console_ctx == 0) {
+    return;
+  }
+
   for (;;) {
     char input = '\0';
 
     if (!serial_try_read_char(&input)) {
       console_idle_wait();
+      continue;
+    }
+
+    if (g_console_ctx->escape_state == 0u && input == 0x1Bu) {
+      g_console_ctx->escape_state = 1u;
+      continue;
+    }
+
+    if (g_console_ctx->escape_state == 1u) {
+      if (input == 'O') {
+        g_console_ctx->escape_state = 2u;
+      } else {
+        g_console_ctx->escape_state = 0u;
+      }
+      continue;
+    }
+
+    if (g_console_ctx->escape_state == 2u) {
+      g_console_ctx->escape_state = 0u;
+      console_handle_session_hotkey(input);
       continue;
     }
 

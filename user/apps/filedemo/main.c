@@ -1,3 +1,23 @@
+/**
+ * @file main.c
+ * @brief File-system demonstration application.
+ *
+ * Purpose:
+ *   Exercises the SecureOS filesystem API by listing the root directory,
+ *   reading a file, and performing write and append operations.  Serves
+ *   as an integration smoke-test for the user-space file I/O path.
+ *
+ * Interactions:
+ *   - secureos_api.h: calls os_fs_list_root, os_fs_read_file, and
+ *     os_fs_write_file through the user-space system-call stubs.
+ *   - app_runtime.c: loaded and executed by the kernel app runtime
+ *     when the user runs the "filedemo" command.
+ *
+ * Launched by:
+ *   Invoked as a user-space application via the console "run filedemo"
+ *   command.  Built as a standalone ELF binary.
+ */
+
 #include "secureos_api.h"
 
 static void app_log(const char *message) {

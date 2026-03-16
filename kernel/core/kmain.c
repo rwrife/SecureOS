@@ -1,3 +1,34 @@
+/**
+ * @file kmain.c
+ * @brief Kernel entry point – initializes all subsystems and starts the console.
+ *
+ * Purpose:
+ *   Contains kmain(), the C-language entry point of the kernel. Responsible
+ *   for initializing all kernel subsystems in the correct order and then
+ *   entering the interactive console loop. This is the orchestration hub
+ *   that brings up the entire operating system.
+ *
+ * Initialization order:
+ *   1. serial_init()       – COM1 serial port for debug output
+ *   2. vga_init()          – VGA text-mode display
+ *   3. cap_table_init()    – Capability table (zero-trust security)
+ *   4. event_bus_init()    – Audit event ring buffer
+ *   5. Initial cap_grant() – Bootstrap capabilities for subject 0
+ *   6. storage_hal_init()  – Storage HAL (ramdisk backend)
+ *   7. fs_init()           – In-memory filesystem
+ *   8. app_runtime_init()  – User application registry
+ *   9. console_init()      – Interactive console + command loop
+ *
+ * Interactions:
+ *   - Calls init functions from every major kernel subsystem.
+ *   - After initialization, enters the console loop which handles all
+ *     further user interaction and command dispatch.
+ *
+ * Launched by:
+ *   Called from the assembly boot entry point (kernel/arch/x86/boot/entry.asm)
+ *   after the CPU is set up in protected/long mode and the stack is ready.
+ */
+
 #include "../arch/x86/serial.h"
 #include "../arch/x86/vga.h"
 #include "../cap/cap_table.h"
@@ -5,7 +36,8 @@
 #include "../drivers/disk/ramdisk.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
-#include "console.h"
+#include "../sched/scheduler.h"
+#include "session_manager.h"
 
 static const cap_subject_id_t KERNEL_BOOTSTRAP_SUBJECT = 0u;
 static const cap_subject_id_t FILEDEMO_SUBJECT = 1u;
@@ -41,6 +73,6 @@ void kmain(void) {
   serial_write("KMAIN_REACHED\n");
   serial_write("TEST:PASS:boot_entry\n");
 
-  console_init(KERNEL_BOOTSTRAP_SUBJECT);
-  console_run();
+  sched_init();
+  session_manager_start(KERNEL_BOOTSTRAP_SUBJECT);
 }

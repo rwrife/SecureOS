@@ -1,3 +1,21 @@
+/**
+ * @file main.c
+ * @brief "write" shell command – writes text to a file.
+ *
+ * Purpose:
+ *   Creates or overwrites a file with the supplied text content.
+ *
+ * Interactions:
+ *   - secureos_api.h: calls os_fs_write_file and os_console_write
+ *     through user-space system-call stubs.
+ *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *
+ * Launched by:
+ *   Invoked as a user-space application when the user types
+ *   "write <file> <text>" at the console.  Built as a standalone
+ *   ELF binary.
+ */
+
 #include "secureos_api.h"
 
 enum { ARG_MAX = 128 };
