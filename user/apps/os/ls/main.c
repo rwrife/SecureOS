@@ -9,7 +9,7 @@
  * Interactions:
  *   - lib/fslib.h: calls fslib_list/fslib_list_cwd for directory views.
  *   - secureos_api.h: used indirectly via fslib plus os_console_write.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *   - process.c: loaded and executed by the kernel process subsystem.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types "ls [dir]"

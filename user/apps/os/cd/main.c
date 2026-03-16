@@ -8,7 +8,7 @@
  * Interactions:
  *   - lib/fslib.h: calls fslib_chdir and status helpers.
  *   - secureos_api.h: used indirectly through fslib wrappers.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *   - process.c: loaded and executed by the kernel process subsystem.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types "cd <dir>"

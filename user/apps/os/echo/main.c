@@ -9,7 +9,7 @@
  * Interactions:
  *   - secureos_api.h: calls os_get_args and os_console_write through
  *     user-space system-call stubs.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *   - process.c: loaded and executed by the kernel process subsystem.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types

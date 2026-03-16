@@ -6,7 +6,7 @@
  *   Implements the kernel's interactive command-line shell.  Reads
  *   characters from the serial port, assembles command lines, parses
  *   built-in commands (exit, ls, cat, write, etc.), and dispatches
- *   user-space application binaries through the app runtime.  Also
+ *   user-space application binaries through the process subsystem.  Also
  *   manages per-session environment variables and working directory.
  *
  * Interactions:
@@ -14,8 +14,8 @@
  *     output to both serial and VGA).
  *   - cap_table.c: the console's own subject ID is granted initial
  *     capabilities during console_init.
- *   - app_runtime.c: user-space commands are loaded and executed via
- *     app_runtime_exec.
+ *   - process.c: user-space commands are loaded and executed
+ *     through the process execution module.
  *   - fs_service.c: filesystem operations (list, read, write, mkdir)
  *     are invoked for built-in file commands.
  *   - session_manager.c: provides the per-session console_context_t
@@ -38,7 +38,7 @@
 #include "../cap/cap_table.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
-#include "../user/app_runtime.h"
+#include "../user/process.h"
 #include "session_manager.h"
 
 #define CONSOLE_OUTPUT_MAX 512
@@ -702,7 +702,82 @@ static int string_has_suffix(const char *value, const char *suffix) {
   return 1;
 }
 
-static void console_resolve_app_path(const char *app_name, char *out_path, size_t out_path_size) {
+static const char *console_skip_path_delimiters(const char *value) {
+  const char *cursor = value;
+
+  if (cursor == 0) {
+    return "";
+  }
+
+  while (*cursor == ' ' || *cursor == '\t' || *cursor == ';' || *cursor == ':') {
+    ++cursor;
+  }
+
+  return cursor;
+}
+
+static const char *console_next_path_entry(const char *cursor,
+                                           char *out_entry,
+                                           size_t out_entry_size) {
+  size_t write = 0u;
+
+  if (out_entry == 0 || out_entry_size == 0u) {
+    return 0;
+  }
+
+  out_entry[0] = '\0';
+  if (cursor == 0) {
+    return 0;
+  }
+
+  cursor = console_skip_path_delimiters(cursor);
+  if (*cursor == '\0') {
+    return 0;
+  }
+
+  while (cursor[write] != '\0' && cursor[write] != ';' && cursor[write] != ':') {
+    if (write + 1u < out_entry_size) {
+      out_entry[write] = cursor[write];
+    }
+    ++write;
+  }
+
+  if (out_entry_size > 0u) {
+    size_t cap = out_entry_size - 1u;
+    size_t len = write < cap ? write : cap;
+
+    while (len > 0u && (out_entry[len - 1u] == ' ' || out_entry[len - 1u] == '\t')) {
+      --len;
+    }
+    out_entry[len] = '\0';
+  }
+
+  cursor += write;
+  while (*cursor == ';' || *cursor == ':') {
+    ++cursor;
+  }
+  return cursor;
+}
+
+static void console_append_elf_suffix(char *path, size_t path_size) {
+  size_t len = 0u;
+
+  if (path == 0 || path_size == 0u) {
+    return;
+  }
+
+  if (string_has_suffix(path, ".elf")) {
+    return;
+  }
+
+  len = string_len(path);
+  (void)append_string(path, path_size, len, ".elf");
+}
+
+static void console_build_app_candidate_from_dir(const char *base_dir,
+                                                 const char *app_name,
+                                                 char *out_path,
+                                                 size_t out_path_size) {
   size_t cursor = 0u;
 
   if (out_path == 0 || out_path_size == 0u) {
@@ -715,16 +790,38 @@ static void console_resolve_app_path(const char *app_name, char *out_path, size_
     return;
   }
 
-  if (app_name[0] == '/' || app_name[0] == '\\') {
-    cursor = append_string(out_path, out_path_size, cursor, app_name);
-  } else {
-    cursor = append_string(out_path, out_path_size, cursor, "/os/");
-    cursor = append_string(out_path, out_path_size, cursor, app_name);
+  cursor = append_string(out_path, out_path_size, cursor, base_dir);
+  if (cursor > 0u && out_path[cursor - 1u] != '/' && out_path[cursor - 1u] != '\\') {
+    if (cursor + 1u < out_path_size) {
+      out_path[cursor++] = '/';
+      out_path[cursor] = '\0';
+    }
+  }
+  cursor = append_string(out_path, out_path_size, cursor, app_name);
+
+  (void)cursor;
+  console_append_elf_suffix(out_path, out_path_size);
+}
+
+static process_result_t console_try_run_candidate(const char *candidate_path,
+                                                const char *app_args,
+                                                const process_context_t *context,
+                                                process_result_t *out_result) {
+  process_result_t result = PROCESS_ERR_NOT_FOUND;
+
+  if (candidate_path == 0 || candidate_path[0] == '\0' || context == 0) {
+    if (out_result != 0) {
+      *out_result = PROCESS_ERR_INVALID_ARG;
+    }
+    return PROCESS_ERR_INVALID_ARG;
   }
 
-  if (!string_has_suffix(out_path, ".elf")) {
-    (void)append_string(out_path, out_path_size, cursor, ".elf");
+  result = process_run(candidate_path, app_args, context);
+  if (out_result != 0) {
+    *out_result = result;
   }
+
+  return result;
 }
 
 static void console_write(const char *message) {
@@ -960,9 +1057,13 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
 }
 
 static void console_command_run(const char *app_name, const char *app_args) {
-  app_runtime_context_t context;
-  app_runtime_result_t result;
+  process_context_t context;
+  process_result_t result;
   char executable_path[128];
+  char path_value[128];
+  char path_entry[64];
+  char base_cwd[64];
+  const char *path_cursor = 0;
 
   if (app_name == 0 || app_name[0] == '\0') {
     console_write("usage: run <app>\n");
@@ -970,9 +1071,8 @@ static void console_command_run(const char *app_name, const char *app_args) {
     return;
   }
 
-  console_resolve_app_path(app_name, executable_path, sizeof(executable_path));
-
-  if (string_starts_with(executable_path, "/lib/") || string_starts_with(executable_path, "\\lib\\")) {
+  if (string_starts_with(app_name, "/lib/") || string_starts_with(app_name, "\\lib\\") ||
+      string_starts_with(app_name, "lib/") || string_starts_with(app_name, "lib\\")) {
     console_write("libraries cannot be run directly\n");
     console_write_prompt();
     return;
@@ -994,45 +1094,56 @@ static void console_command_run(const char *app_name, const char *app_args) {
   context.release_loaded_library = console_release_loaded_library;
   context.list_loaded_libraries = console_list_loaded_libraries;
 
-  result = app_runtime_run(executable_path, app_args, &context);
+  result = PROCESS_ERR_NOT_FOUND;
 
-  if (result == APP_RUNTIME_ERR_NOT_FOUND) {
-    /* Fall back to the current working directory for user apps */
-    char cwd_path[128];
-    char base_cwd[64];
-    size_t len = 0u;
+  if (app_name[0] == '/' || app_name[0] == '\\') {
+    copy_string(executable_path, sizeof(executable_path), app_name);
+    console_append_elf_suffix(executable_path, sizeof(executable_path));
+    (void)console_try_run_candidate(executable_path, app_args, &context, &result);
+  } else {
+    console_build_app_candidate_from_dir("/os", app_name, executable_path, sizeof(executable_path));
+    (void)console_try_run_candidate(executable_path, app_args, &context, &result);
 
     console_get_effective_cwd(base_cwd, sizeof(base_cwd));
-    len = append_string(cwd_path, sizeof(cwd_path), 0u, base_cwd);
-    if (len > 0u && cwd_path[len - 1u] != '/') {
-      cwd_path[len++] = '/';
-      cwd_path[len] = '\0';
+    if (result == PROCESS_ERR_NOT_FOUND) {
+      console_build_app_candidate_from_dir(base_cwd, app_name, executable_path, sizeof(executable_path));
+      (void)console_try_run_candidate(executable_path, app_args, &context, &result);
     }
-    len = append_string(cwd_path, sizeof(cwd_path), len, app_name);
-    if (!string_has_suffix(cwd_path, ".elf")) {
-      (void)append_string(cwd_path, sizeof(cwd_path), len, ".elf");
+
+    if (result == PROCESS_ERR_NOT_FOUND && console_env_get("PATH", path_value, sizeof(path_value))) {
+      path_cursor = path_value;
+      while ((path_cursor = console_next_path_entry(path_cursor, path_entry, sizeof(path_entry))) != 0) {
+        if (path_entry[0] == '\0') {
+          continue;
+        }
+
+        console_build_app_candidate_from_dir(path_entry, app_name, executable_path, sizeof(executable_path));
+        (void)console_try_run_candidate(executable_path, app_args, &context, &result);
+        if (result != PROCESS_ERR_NOT_FOUND) {
+          break;
+        }
+      }
     }
-    result = app_runtime_run(cwd_path, app_args, &context);
   }
 
-  if (result == APP_RUNTIME_OK) {
+  if (result == PROCESS_OK) {
     console_write_prompt();
     return;
   }
 
-  if (result == APP_RUNTIME_ERR_NOT_FOUND) {
+  if (result == PROCESS_ERR_NOT_FOUND) {
     console_write("not found\n");
-  } else if (result == APP_RUNTIME_ERR_CAPABILITY) {
+  } else if (result == PROCESS_ERR_CAPABILITY) {
     console_write("app denied: missing capability\n");
-  } else if (result == APP_RUNTIME_ERR_DENIED) {
+  } else if (result == PROCESS_ERR_DENIED) {
     console_write("app denied: authorization rejected\n");
-  } else if (result == APP_RUNTIME_ERR_STORAGE) {
+  } else if (result == PROCESS_ERR_STORAGE) {
     console_write("app failed: storage error\n");
-  } else if (result == APP_RUNTIME_ERR_FORMAT) {
+  } else if (result == PROCESS_ERR_FORMAT) {
     console_write("app failed: invalid elf\n");
-  } else if (result == APP_RUNTIME_ERR_LIBRARY) {
+  } else if (result == PROCESS_ERR_LIBRARY) {
     console_write("app failed: libraries are not user-invokable\n");
-  } else if (result == APP_RUNTIME_ERR_IN_USE) {
+  } else if (result == PROCESS_ERR_IN_USE) {
     console_write("app failed: library in use\n");
   } else {
     console_write("app failed\n");
@@ -1265,6 +1376,7 @@ void console_init(console_context_t *context, cap_subject_id_t subject_id) {
   console_screen_history_len = 0u;
   console_screen_history[0] = '\0';
   (void)console_env_set("PWD", "/");
+  (void)console_env_set("PATH", "/apps");
 
   console_write("TEST:START:console\n");
   console_write("SecureOS console ready\n");

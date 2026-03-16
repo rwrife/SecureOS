@@ -32,11 +32,11 @@ clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/hal/storage_hal.c -o artifacts/kernel/storage_hal.o
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/drivers/disk/ramdisk.c -o artifacts/kernel/ramdisk.o
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/fs/fs_service.c -o artifacts/kernel/fs_service.o
-clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/user/app_runtime.c -o artifacts/kernel/app_runtime.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/user/process.c -o artifacts/kernel/process.o
 ld.lld -m elf_i386 -T kernel/arch/x86/boot/linker.ld \
   -Map=artifacts/kernel/kernel.map \
   -o artifacts/kernel/kernel.elf \
-  artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/fs_service.o artifacts/kernel/app_runtime.o
+  artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/fs_service.o artifacts/kernel/process.o
 if command -v llvm-objdump >/dev/null 2>&1; then
   llvm-objdump -h artifacts/kernel/kernel.elf > artifacts/kernel/kernel.sections.txt
 else

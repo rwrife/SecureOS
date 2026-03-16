@@ -10,8 +10,8 @@
  * Interactions:
  *   - lib/envlib.h: provides constant and type definitions for
  *     environment variable library handles.
- *   - app_runtime.c: the library ELF is loaded and registered by the
- *     app runtime's loadlib subsystem.
+ *   - process.c: the library ELF is loaded and registered by the
+ *     process subsystem loadlib path.
  *   - console.c: the "loadlib envlib" command loads this library into
  *     the session's loaded-library table.
  *

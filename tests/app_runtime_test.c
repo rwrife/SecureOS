@@ -1,15 +1,15 @@
 /**
  * @file app_runtime_test.c
- * @brief Tests for the user-space application runtime.
+ * @brief Tests for the user-space process module.
  *
  * Purpose:
  *   Validates that ELF binaries can be loaded from the filesystem,
- *   parsed, and executed by the app runtime's script interpreter.
+ *   parsed, and executed by the process module script interpreter.
  *   Covers capability checks, argument passing, environment variable
  *   expansion, and error paths.
  *
  * Interactions:
- *   - app_runtime.c: exercises app_runtime_run and related functions.
+ *   - process.c: exercises process_run and related functions.
  *   - fs_service.c / ramdisk.c / storage_hal.c: sets up a ramdisk-
  *     backed filesystem with test binaries.
  *   - cap_table.c: grants required capabilities to the test subject.
@@ -25,7 +25,7 @@
 #include "../kernel/drivers/disk/ramdisk.h"
 #include "../kernel/fs/fs_service.h"
 #include "../kernel/hal/storage_hal.h"
-#include "../kernel/user/app_runtime.h"
+#include "../kernel/user/process.h"
 
 #define TEST_SUBJECT_ID 7u
 
@@ -36,6 +36,7 @@ enum {
 static char g_output[TEST_OUTPUT_MAX];
 static size_t g_output_len = 0u;
 static size_t g_auth_count = 0u;
+static char g_cwd[64] = "/";
 enum {
   TEST_ENV_MAX = 8,
   TEST_ENV_KEY_MAX = 32,
@@ -220,6 +221,44 @@ static size_t env_list(char *out_buffer, size_t out_buffer_size) {
   return cursor;
 }
 
+static void resolve_path(const char *input_path, char *out_path, size_t out_path_size) {
+  size_t cursor = 0u;
+  size_t i = 0u;
+
+  if (out_path == 0 || out_path_size == 0u) {
+    return;
+  }
+
+  out_path[0] = '\0';
+  if (input_path == 0 || input_path[0] == '\0') {
+    return;
+  }
+
+  if (input_path[0] == '/' || input_path[0] == '\\') {
+    while (input_path[i] != '\0' && i + 1u < out_path_size) {
+      out_path[i] = input_path[i];
+      ++i;
+    }
+    out_path[i] = '\0';
+    return;
+  }
+
+  while (g_cwd[cursor] != '\0' && cursor + 1u < out_path_size) {
+    out_path[cursor] = g_cwd[cursor];
+    ++cursor;
+  }
+
+  if (cursor > 0u && cursor + 1u < out_path_size && out_path[cursor - 1u] != '/') {
+    out_path[cursor++] = '/';
+  }
+
+  i = 0u;
+  while (input_path[i] != '\0' && cursor + 1u < out_path_size) {
+    out_path[cursor++] = input_path[i++];
+  }
+  out_path[cursor] = '\0';
+}
+
 static int register_loaded_library(const char *resolved_path,
                                    size_t program_len,
                                    const char *owner_actor,
@@ -367,10 +406,10 @@ static size_t list_loaded_libraries(char *out_buffer, size_t out_buffer_size) {
 }
 
 int main(void) {
-  app_runtime_context_t context = {0};
+  process_context_t context = {0};
   char app_list[256];
   char lib_list[256];
-  app_runtime_library_info_t library_info;
+  process_library_info_t library_info;
   size_t app_list_len = 0u;
   size_t lib_list_len = 0u;
 
@@ -387,9 +426,10 @@ int main(void) {
   (void)cap_table_grant(TEST_SUBJECT_ID, CAP_FS_WRITE);
 
   context.subject_id = TEST_SUBJECT_ID;
-  context.actor_name = "app_runtime_test";
+  context.actor_name = "process_test";
   context.output = capture_output;
   context.authorize_disk_io = allow_disk_io;
+  context.resolve_path = resolve_path;
   context.get_env = env_get;
   context.set_env = env_set;
   context.list_env = env_list;
@@ -400,121 +440,123 @@ int main(void) {
   context.release_loaded_library = release_loaded_library;
   context.list_loaded_libraries = list_loaded_libraries;
 
-  app_list_len = app_runtime_list(app_list, sizeof(app_list));
+  (void)env_set("PATH", "/apps");
+
+  app_list_len = process_list_apps(app_list, sizeof(app_list));
   if (app_list_len == 0u || !string_contains(app_list, "help.elf") || !string_contains(app_list, "filedemo.elf")) {
     fail("app_list_missing_expected_entries");
   }
-  printf("TEST:PASS:app_runtime_list\n");
+  printf("TEST:PASS:process_list_apps\n");
 
-  lib_list_len = app_runtime_list_libraries(lib_list, sizeof(lib_list));
+  lib_list_len = process_list_libraries(lib_list, sizeof(lib_list));
   if (lib_list_len == 0u || !string_contains(lib_list, "envlib.elf")) {
     fail("library_list_missing_expected_entries");
   }
-  printf("TEST:PASS:app_runtime_library_list\n");
+  printf("TEST:PASS:process_library_list\n");
 
-  if (app_runtime_run("filedemo", "", &context) != APP_RUNTIME_OK) {
+  if (process_run("filedemo", "", &context) != PROCESS_OK) {
     fail("run_failed");
   }
-  printf("TEST:PASS:app_runtime_run_filedemo\n");
+  printf("TEST:PASS:process_run_filedemo\n");
 
-  if (app_runtime_run("/lib/envlib.elf", "", &context) != APP_RUNTIME_ERR_LIBRARY) {
+  if (process_run("/lib/envlib.elf", "", &context) != PROCESS_ERR_LIBRARY) {
     fail("library_invocation_not_blocked");
   }
-  printf("TEST:PASS:app_runtime_library_contract\n");
+  printf("TEST:PASS:process_library_contract\n");
 
-  if (app_runtime_load_library("envlib", &context, &library_info) != APP_RUNTIME_OK) {
+  if (process_load_library("envlib", &context, &library_info) != PROCESS_OK) {
     fail("library_load_failed");
   }
   if (!string_equals(library_info.resolved_path, "/lib/envlib.elf") || library_info.program_len == 0u) {
     fail("library_load_metadata_invalid");
   }
-  if (app_runtime_run("loadlib", "envlib", &context) != APP_RUNTIME_OK) {
+  if (process_run("loadlib", "envlib", &context) != PROCESS_OK) {
     fail("library_load_command_failed");
   }
   if (!string_contains(g_output, "[lib] loaded /lib/envlib.elf handle=1")) {
     fail("library_load_output_missing");
   }
-  if (app_runtime_run("libs", "loaded", &context) != APP_RUNTIME_OK) {
+  if (process_run("libs", "loaded", &context) != PROCESS_OK) {
     fail("library_loaded_list_command_failed");
   }
   if (!string_contains(g_output, "handle=1 path=/lib/envlib.elf")) {
     fail("library_loaded_list_output_missing");
   }
-  if (app_runtime_run("libs", "use 1", &context) != APP_RUNTIME_OK) {
+  if (process_run("libs", "use 1", &context) != PROCESS_OK) {
     fail("library_use_command_failed");
   }
   if (!string_contains(g_output, "[lib] use handle=1 refs=1")) {
     fail("library_use_output_missing");
   }
-  if (app_runtime_run("unload", "1", &context) != APP_RUNTIME_ERR_IN_USE) {
+  if (process_run("unload", "1", &context) != PROCESS_ERR_IN_USE) {
     fail("library_unload_in_use_not_blocked");
   }
-  if (app_runtime_run("libs", "release 1", &context) != APP_RUNTIME_OK) {
+  if (process_run("libs", "release 1", &context) != PROCESS_OK) {
     fail("library_release_command_failed");
   }
   if (!string_contains(g_output, "[lib] release handle=1 refs=0")) {
     fail("library_release_output_missing");
   }
-  if (app_runtime_run("unload", "1", &context) != APP_RUNTIME_OK) {
+  if (process_run("unload", "1", &context) != PROCESS_OK) {
     fail("library_unload_command_failed");
   }
   if (!string_contains(g_output, "[lib] unloaded handle=1 path=/lib/envlib.elf")) {
     fail("library_unload_output_missing");
   }
-  if (app_runtime_run("libs", "loaded", &context) != APP_RUNTIME_OK) {
+  if (process_run("libs", "loaded", &context) != PROCESS_OK) {
     fail("library_loaded_list_after_unload_command_failed");
   }
   if (!string_contains(g_output, "(no loaded libraries)")) {
     fail("library_loaded_list_after_unload_missing");
   }
-  printf("TEST:PASS:app_runtime_library_load\n");
+  printf("TEST:PASS:process_library_load\n");
 
-  if (app_runtime_run("env", "PROJECT=SecureOS", &context) != APP_RUNTIME_OK) {
+  if (process_run("env", "PROJECT=SecureOS", &context) != PROCESS_OK) {
     fail("env_set_failed");
   }
-  if (app_runtime_run("env", "GREETING=\"hello world\"", &context) != APP_RUNTIME_OK) {
+  if (process_run("env", "GREETING=\"hello world\"", &context) != PROCESS_OK) {
     fail("env_set_quoted_failed");
   }
-  if (app_runtime_run("env", "key=myvar value=\"hello world\"", &context) != APP_RUNTIME_OK) {
+  if (process_run("env", "key=myvar value=\"hello world\"", &context) != PROCESS_OK) {
     fail("env_set_named_quoted_failed");
   }
-  if (app_runtime_run("env", "key=myquote value=\"\\\"quoted text\\\"\"", &context) != APP_RUNTIME_OK) {
+  if (process_run("env", "key=myquote value=\"\\\"quoted text\\\"\"", &context) != PROCESS_OK) {
     fail("env_set_escaped_quote_failed");
   }
-  if (app_runtime_run("env", "PROJECT", &context) != APP_RUNTIME_OK) {
+  if (process_run("env", "PROJECT", &context) != PROCESS_OK) {
     fail("env_get_failed");
   }
   if (!string_contains(g_output, "SecureOS")) {
     fail("env_get_output_missing");
   }
-  if (app_runtime_run("env", "GREETING", &context) != APP_RUNTIME_OK ||
+  if (process_run("env", "GREETING", &context) != PROCESS_OK ||
       !string_contains(g_output, "hello world")) {
     fail("env_get_quoted_output_missing");
   }
-  if (app_runtime_run("env", "myvar", &context) != APP_RUNTIME_OK ||
+  if (process_run("env", "myvar", &context) != PROCESS_OK ||
       !string_contains(g_output, "hello world")) {
     fail("env_get_named_output_missing");
   }
-  if (app_runtime_run("env", "myquote", &context) != APP_RUNTIME_OK ||
+  if (process_run("env", "myquote", &context) != PROCESS_OK ||
       !string_contains(g_output, "\"quoted text\"")) {
     fail("env_get_escaped_quote_output_missing");
   }
-  if (app_runtime_run("env", "", &context) != APP_RUNTIME_OK) {
+  if (process_run("env", "", &context) != PROCESS_OK) {
     fail("env_list_failed");
   }
   if (!string_contains(g_output, "PROJECT=SecureOS")) {
     fail("env_list_output_missing");
   }
-  printf("TEST:PASS:app_runtime_env_command\n");
+  printf("TEST:PASS:process_env_command\n");
 
-  printf("TEST:PASS:app_runtime_auth_flow\n");
+  printf("TEST:PASS:process_auth_flow\n");
 
   if (!string_contains(g_output, "[filedemo] start") || !string_contains(g_output, "[filedemo] done")) {
     fail("output_markers_missing");
   }
-  printf("TEST:PASS:app_runtime_output_markers\n");
+  printf("TEST:PASS:process_output_markers\n");
 
-  printf("TEST:PASS:app_runtime_storage_effect\n");
+  printf("TEST:PASS:process_storage_effect\n");
 
   return 0;
 }

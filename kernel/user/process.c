@@ -1,6 +1,6 @@
 /**
- * @file app_runtime.c
- * @brief User-space application loader and script interpreter.
+ * @file process.c
+ * @brief User-space process execution and library management.
  *
  * Purpose:
  *   Loads ELF binaries from the filesystem, validates their format,
@@ -15,15 +15,15 @@
  *   - cap_table.c: checks CAP_APP_EXEC before allowing execution and
  *     CAP_DISK_IO_REQUEST for storage operations.
  *   - console.c: the console dispatches user commands through
- *     app_runtime_run, providing output and authorization callbacks.
+ *     process_run, providing output and authorization callbacks.
  *   - storage_hal.c: storage info queries are forwarded to the HAL.
  *
  * Launched by:
- *   app_runtime_run() is called by console.c when the user invokes a
+ *   process_run() is called by console.c when the user invokes a
  *   command.  Not a standalone process; compiled into the kernel image.
  */
 
-#include "app_runtime.h"
+#include "process.h"
 
 #include <stdint.h>
 
@@ -47,10 +47,10 @@ typedef struct {
   const char *raw_args;
 } app_invocation_args_t;
 
-static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
-                                                  size_t elf_len,
-                                                  const uint8_t **out_program,
-                                                  size_t *out_program_len);
+static process_result_t app_parse_elf_program(const uint8_t *elf_data,
+                                               size_t elf_len,
+                                               const uint8_t **out_program,
+                                               size_t *out_program_len);
 
 static int app_string_equals(const char *left, const char *right) {
   while (*left != '\0' && *right != '\0') {
@@ -109,6 +109,10 @@ static int app_string_ends_with(const char *value, const char *suffix) {
   }
 
   return app_string_equals(value + (value_len - suffix_len), suffix);
+}
+
+static int app_path_is_separator(char value) {
+  return value == '/' || value == '\\';
 }
 
 static int app_char_is_space(char value) {
@@ -170,6 +174,63 @@ static const char *app_find_char(const char *value, char needle) {
   }
 
   return 0;
+}
+
+static const char *app_skip_path_delimiters(const char *value) {
+  const char *cursor = value;
+
+  if (cursor == 0) {
+    return "";
+  }
+
+  while (*cursor == ' ' || *cursor == '\t' || *cursor == ';' || *cursor == ':') {
+    ++cursor;
+  }
+
+  return cursor;
+}
+
+static const char *app_next_path_entry(const char *cursor,
+                                       char *out_entry,
+                                       size_t out_entry_size) {
+  size_t write = 0u;
+
+  if (out_entry == 0 || out_entry_size == 0u) {
+    return 0;
+  }
+
+  out_entry[0] = '\0';
+  if (cursor == 0) {
+    return 0;
+  }
+
+  cursor = app_skip_path_delimiters(cursor);
+  if (*cursor == '\0') {
+    return 0;
+  }
+
+  while (cursor[write] != '\0' && cursor[write] != ';' && cursor[write] != ':') {
+    if (write + 1u < out_entry_size) {
+      out_entry[write] = cursor[write];
+    }
+    ++write;
+  }
+
+  if (out_entry_size > 0u) {
+    size_t cap = out_entry_size - 1u;
+    size_t len = write < cap ? write : cap;
+
+    while (len > 0u && (out_entry[len - 1u] == ' ' || out_entry[len - 1u] == '\t')) {
+      --len;
+    }
+    out_entry[len] = '\0';
+  }
+
+  cursor += write;
+  while (*cursor == ';' || *cursor == ':') {
+    ++cursor;
+  }
+  return cursor;
 }
 
 static size_t app_append_string(char *dst, size_t dst_size, size_t cursor, const char *src) {
@@ -256,7 +317,7 @@ static uint32_t app_read_u32(const uint8_t *buffer, size_t offset) {
                     ((uint32_t)buffer[offset + 3u] << 24u));
 }
 
-static void app_emit(const app_runtime_context_t *context, const char *message) {
+static void app_emit(const process_context_t *context, const char *message) {
   if (context != 0 && context->output != 0) {
     context->output(message);
   }
@@ -266,30 +327,30 @@ static int app_require_capability(cap_subject_id_t subject_id, capability_id_t c
   return cap_table_check(subject_id, capability_id) == CAP_OK;
 }
 
-static app_runtime_result_t app_require_storage_access(const app_runtime_context_t *context,
-                                                       capability_id_t capability_id,
-                                                       const char *operation,
-                                                       const char *path) {
+static process_result_t app_require_storage_access(const process_context_t *context,
+                                                    capability_id_t capability_id,
+                                                    const char *operation,
+                                                    const char *path) {
   if (!app_require_capability(context->subject_id, capability_id)) {
-    return APP_RUNTIME_ERR_CAPABILITY;
+    return PROCESS_ERR_CAPABILITY;
   }
 
   if (!app_require_capability(context->subject_id, CAP_DISK_IO_REQUEST)) {
-    return APP_RUNTIME_ERR_CAPABILITY;
+    return PROCESS_ERR_CAPABILITY;
   }
 
   if (context->authorize_disk_io == 0) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
   if (context->authorize_disk_io(operation, path) != CAP_ACCESS_ALLOW) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static void app_resolve_path(const app_runtime_context_t *context,
+static void app_resolve_path(const process_context_t *context,
                              const char *input_path,
                              char *out_path,
                              size_t out_path_size) {
@@ -390,30 +451,30 @@ static void app_expand_invocation_tokens(const char *input,
   }
 }
 
-static app_runtime_result_t app_sys_print(const app_runtime_context_t *context, const char *message) {
+static process_result_t app_sys_print(const process_context_t *context, const char *message) {
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
-    return APP_RUNTIME_ERR_CAPABILITY;
+    return PROCESS_ERR_CAPABILITY;
   }
 
   app_emit(context, message);
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_ls(const app_runtime_context_t *context, const char *path) {
+static process_result_t app_sys_ls(const process_context_t *context, const char *path) {
   char output[APP_OUTPUT_MAX];
   char resolved[APP_TOKEN_MAX];
   size_t out_len = 0u;
-  app_runtime_result_t access = APP_RUNTIME_OK;
+  process_result_t access = PROCESS_OK;
 
   app_resolve_path(context, path, resolved, sizeof(resolved));
 
   access = app_require_storage_access(context, CAP_FS_READ, "ls", resolved);
-  if (access != APP_RUNTIME_OK) {
+  if (access != PROCESS_OK) {
     return access;
   }
 
   if (fs_list_dir(resolved, output, sizeof(output), &out_len) != FS_OK) {
-    return APP_RUNTIME_ERR_STORAGE;
+    return PROCESS_ERR_STORAGE;
   }
 
   if (out_len == 0u) {
@@ -422,109 +483,109 @@ static app_runtime_result_t app_sys_ls(const app_runtime_context_t *context, con
     app_emit(context, output);
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_cat(const app_runtime_context_t *context, const char *path) {
+static process_result_t app_sys_cat(const process_context_t *context, const char *path) {
   char output[APP_OUTPUT_MAX];
   char resolved[APP_TOKEN_MAX];
   size_t out_len = 0u;
-  app_runtime_result_t access = APP_RUNTIME_OK;
+  process_result_t access = PROCESS_OK;
 
   app_resolve_path(context, path, resolved, sizeof(resolved));
 
   access = app_require_storage_access(context, CAP_FS_READ, "cat", resolved);
-  if (access != APP_RUNTIME_OK) {
+  if (access != PROCESS_OK) {
     return access;
   }
 
   if (fs_read_file(resolved, output, sizeof(output), &out_len) != FS_OK) {
-    return APP_RUNTIME_ERR_STORAGE;
+    return PROCESS_ERR_STORAGE;
   }
 
   app_emit(context, output);
   app_emit(context, "\n");
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_write_like(const app_runtime_context_t *context,
-                                               const char *path,
-                                               const char *content,
-                                               int append) {
+static process_result_t app_sys_write_like(const process_context_t *context,
+                                            const char *path,
+                                            const char *content,
+                                            int append) {
   char resolved[APP_TOKEN_MAX];
-  app_runtime_result_t access = APP_RUNTIME_OK;
+  process_result_t access = PROCESS_OK;
 
   app_resolve_path(context, path, resolved, sizeof(resolved));
 
   access = app_require_storage_access(context, CAP_FS_WRITE, append ? "append" : "write", resolved);
-  if (access != APP_RUNTIME_OK) {
+  if (access != PROCESS_OK) {
     return access;
   }
 
   if (fs_write_file(resolved, content, append) != FS_OK) {
-    return APP_RUNTIME_ERR_STORAGE;
+    return PROCESS_ERR_STORAGE;
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_mkdir(const app_runtime_context_t *context, const char *path) {
+static process_result_t app_sys_mkdir(const process_context_t *context, const char *path) {
   char resolved[APP_TOKEN_MAX];
-  app_runtime_result_t access = APP_RUNTIME_OK;
+  process_result_t access = PROCESS_OK;
 
   app_resolve_path(context, path, resolved, sizeof(resolved));
 
   access = app_require_storage_access(context, CAP_FS_WRITE, "mkdir", resolved);
-  if (access != APP_RUNTIME_OK) {
+  if (access != PROCESS_OK) {
     return access;
   }
 
   if (fs_mkdir(resolved) != FS_OK) {
-    return APP_RUNTIME_ERR_STORAGE;
+    return PROCESS_ERR_STORAGE;
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_cd(const app_runtime_context_t *context, const char *path) {
+static process_result_t app_sys_cd(const process_context_t *context, const char *path) {
   char resolved[APP_TOKEN_MAX];
 
   if (context == 0 || context->change_directory == 0) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
   app_resolve_path(context, path, resolved, sizeof(resolved));
   if (!context->change_directory(resolved)) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
+    return PROCESS_ERR_NOT_FOUND;
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_apps(const app_runtime_context_t *context) {
+static process_result_t app_sys_apps(const process_context_t *context) {
   char output[APP_OUTPUT_MAX];
   size_t len = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
-    return APP_RUNTIME_ERR_CAPABILITY;
+    return PROCESS_ERR_CAPABILITY;
   }
 
-  len = app_runtime_list(output, sizeof(output));
+  len = process_list_apps(output, sizeof(output));
   if (len == 0u) {
     app_emit(context, "(no apps)\n");
   } else {
     app_emit(context, output);
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_storage(const app_runtime_context_t *context) {
+static process_result_t app_sys_storage(const process_context_t *context) {
   char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
-    return APP_RUNTIME_ERR_CAPABILITY;
+    return PROCESS_ERR_CAPABILITY;
   }
 
   cursor = app_append_string(output, sizeof(output), cursor, "storage backend=");
@@ -539,24 +600,24 @@ static app_runtime_result_t app_sys_storage(const app_runtime_context_t *context
     app_emit(context, output);
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_uselib(const app_runtime_context_t *context, const char *handle_arg);
-static app_runtime_result_t app_sys_releaselib(const app_runtime_context_t *context, const char *handle_arg);
+static process_result_t app_sys_uselib(const process_context_t *context, const char *handle_arg);
+static process_result_t app_sys_releaselib(const process_context_t *context, const char *handle_arg);
 
-static app_runtime_result_t app_sys_libs(const app_runtime_context_t *context, const char *args) {
+static process_result_t app_sys_libs(const process_context_t *context, const char *args) {
   char output[APP_OUTPUT_MAX];
   size_t len = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
-    return APP_RUNTIME_ERR_CAPABILITY;
+    return PROCESS_ERR_CAPABILITY;
   }
 
   if (args != 0 && app_string_equals(args, "loaded")) {
     if (context->list_loaded_libraries == 0) {
       app_emit(context, "(no loaded libraries)\n");
-      return APP_RUNTIME_OK;
+      return PROCESS_OK;
     }
 
     len = context->list_loaded_libraries(output, sizeof(output));
@@ -565,7 +626,7 @@ static app_runtime_result_t app_sys_libs(const app_runtime_context_t *context, c
     } else {
       app_emit(context, "(no loaded libraries)\n");
     }
-    return APP_RUNTIME_OK;
+    return PROCESS_OK;
   }
 
   if (args != 0 && app_string_starts_with(args, "use ")) {
@@ -576,29 +637,29 @@ static app_runtime_result_t app_sys_libs(const app_runtime_context_t *context, c
     return app_sys_releaselib(context, app_skip_spaces(args + 8u));
   }
 
-  len = app_runtime_list_libraries(output, sizeof(output));
+  len = process_list_libraries(output, sizeof(output));
   if (len == 0u) {
     app_emit(context, "(no libraries)\n");
   } else {
     app_emit(context, output);
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_loadlib(const app_runtime_context_t *context, const char *library_name) {
-  app_runtime_library_info_t library_info;
+static process_result_t app_sys_loadlib(const process_context_t *context, const char *library_name) {
+  process_library_info_t library_info;
   unsigned int handle = 0u;
   char handle_text[24];
   size_t cursor = 0u;
-  app_runtime_result_t result = APP_RUNTIME_OK;
+  process_result_t result = PROCESS_OK;
 
   if (library_name == 0 || library_name[0] == '\0') {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
-  result = app_runtime_load_library(library_name, context, &library_info);
-  if (result != APP_RUNTIME_OK) {
+  result = process_load_library(library_name, context, &library_info);
+  if (result != PROCESS_OK) {
     return result;
   }
 
@@ -608,7 +669,7 @@ static app_runtime_result_t app_sys_loadlib(const app_runtime_context_t *context
             library_info.program_len,
             context->actor_name,
             &handle)) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
   }
 
@@ -620,11 +681,11 @@ static app_runtime_result_t app_sys_loadlib(const app_runtime_context_t *context
     app_emit(context, handle_text);
   }
   app_emit(context, "\n");
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_unloadlib(const app_runtime_context_t *context, const char *handle_arg) {
-  char path[APP_RUNTIME_LIBRARY_PATH_MAX];
+static process_result_t app_sys_unloadlib(const process_context_t *context, const char *handle_arg) {
+  char path[PROCESS_LIBRARY_PATH_MAX];
   char handle_text[24];
   unsigned int handle = 0u;
   unsigned int ref_count = 0u;
@@ -632,25 +693,25 @@ static app_runtime_result_t app_sys_unloadlib(const app_runtime_context_t *conte
   size_t cursor = 0u;
 
   if (context == 0 || context->unregister_loaded_library == 0) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
   handle = app_parse_u32(handle_arg, &ok);
   if (!ok) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   if (context->get_loaded_library_ref_count != 0) {
     if (!context->get_loaded_library_ref_count(handle, &ref_count)) {
-      return APP_RUNTIME_ERR_NOT_FOUND;
+      return PROCESS_ERR_NOT_FOUND;
     }
     if (ref_count > 0u) {
-      return APP_RUNTIME_ERR_IN_USE;
+      return PROCESS_ERR_IN_USE;
     }
   }
 
   if (!context->unregister_loaded_library(handle, path, sizeof(path))) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
+    return PROCESS_ERR_NOT_FOUND;
   }
 
   app_emit(context, "[lib] unloaded handle=");
@@ -663,10 +724,10 @@ static app_runtime_result_t app_sys_unloadlib(const app_runtime_context_t *conte
     app_emit(context, path);
   }
   app_emit(context, "\n");
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_uselib(const app_runtime_context_t *context, const char *handle_arg) {
+static process_result_t app_sys_uselib(const process_context_t *context, const char *handle_arg) {
   unsigned int handle = 0u;
   unsigned int ref_count = 0u;
   int ok = 0;
@@ -674,16 +735,16 @@ static app_runtime_result_t app_sys_uselib(const app_runtime_context_t *context,
   size_t cursor = 0u;
 
   if (context == 0 || context->acquire_loaded_library == 0) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
   handle = app_parse_u32(handle_arg, &ok);
   if (!ok) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   if (!context->acquire_loaded_library(handle, &ref_count)) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
+    return PROCESS_ERR_NOT_FOUND;
   }
 
   app_emit(context, "[lib] use handle=");
@@ -696,10 +757,10 @@ static app_runtime_result_t app_sys_uselib(const app_runtime_context_t *context,
   cursor = app_append_u32_decimal(text, sizeof(text), cursor, ref_count);
   app_emit(context, text);
   app_emit(context, "\n");
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_sys_releaselib(const app_runtime_context_t *context, const char *handle_arg) {
+static process_result_t app_sys_releaselib(const process_context_t *context, const char *handle_arg) {
   unsigned int handle = 0u;
   unsigned int ref_count = 0u;
   int ok = 0;
@@ -707,16 +768,16 @@ static app_runtime_result_t app_sys_releaselib(const app_runtime_context_t *cont
   size_t cursor = 0u;
 
   if (context == 0 || context->release_loaded_library == 0) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
   handle = app_parse_u32(handle_arg, &ok);
   if (!ok) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   if (!context->release_loaded_library(handle, &ref_count)) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
+    return PROCESS_ERR_NOT_FOUND;
   }
 
   app_emit(context, "[lib] release handle=");
@@ -729,7 +790,7 @@ static app_runtime_result_t app_sys_releaselib(const app_runtime_context_t *cont
   cursor = app_append_u32_decimal(text, sizeof(text), cursor, ref_count);
   app_emit(context, text);
   app_emit(context, "\n");
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
 static int app_env_read_quoted(const char *src,
@@ -901,7 +962,7 @@ static int app_env_find_eq_before_space(const char *args, size_t *out_pos) {
   return 0;
 }
 
-static app_runtime_result_t app_sys_env(const app_runtime_context_t *context, const char *args) {
+static process_result_t app_sys_env(const process_context_t *context, const char *args) {
   char key[APP_TOKEN_MAX];
   char value[APP_LINE_MAX];
   char set_value[APP_LINE_MAX];
@@ -914,50 +975,50 @@ static app_runtime_result_t app_sys_env(const app_runtime_context_t *context, co
   size_t eq_pos = 0u;
 
   if (context == 0) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   trimmed_args = app_skip_spaces(args == 0 ? "" : args);
   if (trimmed_args[0] == '\0') {
     size_t listed = 0u;
     if (context->list_env == 0) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
 
     listed = context->list_env(value, sizeof(value));
     if (listed == 0u) {
       app_emit(context, "(empty)\n");
-      return APP_RUNTIME_OK;
+      return PROCESS_OK;
     }
 
     app_emit(context, value);
-    return APP_RUNTIME_OK;
+    return PROCESS_OK;
   }
 
   if (app_env_extract_named_arg(trimmed_args, "key", named_key, sizeof(named_key))) {
     if (app_env_extract_named_arg(trimmed_args, "value", named_value, sizeof(named_value))) {
       if (context->set_env == 0 || named_key[0] == '\0') {
-        return APP_RUNTIME_ERR_DENIED;
+        return PROCESS_ERR_DENIED;
       }
-      return context->set_env(named_key, named_value) ? APP_RUNTIME_OK : APP_RUNTIME_ERR_DENIED;
+      return context->set_env(named_key, named_value) ? PROCESS_OK : PROCESS_ERR_DENIED;
     }
 
     if (context->get_env == 0) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
     if (!context->get_env(named_key, value, sizeof(value))) {
-      return APP_RUNTIME_ERR_NOT_FOUND;
+      return PROCESS_ERR_NOT_FOUND;
     }
     app_emit(context, value);
     app_emit(context, "\n");
-    return APP_RUNTIME_OK;
+    return PROCESS_OK;
   }
 
   if (app_env_find_eq_before_space(trimmed_args, &eq_pos)) {
     size_t i = 0u;
 
     if (context->set_env == 0 || eq_pos == 0u || eq_pos >= sizeof(key)) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
 
     for (i = 0u; i < eq_pos && i + 1u < sizeof(key); ++i) {
@@ -968,16 +1029,16 @@ static app_runtime_result_t app_sys_env(const app_runtime_context_t *context, co
     rest = trimmed_args + eq_pos + 1u;
     if (rest[0] == '"') {
       if (!app_env_read_quoted(rest, set_value, sizeof(set_value), &next)) {
-        return APP_RUNTIME_ERR_FORMAT;
+        return PROCESS_ERR_FORMAT;
       }
       if (app_skip_spaces(next)[0] != '\0') {
-        return APP_RUNTIME_ERR_FORMAT;
+        return PROCESS_ERR_FORMAT;
       }
     } else {
       app_env_copy_trimmed_tail(rest, set_value, sizeof(set_value));
     }
 
-    return context->set_env(key, set_value) ? APP_RUNTIME_OK : APP_RUNTIME_ERR_DENIED;
+    return context->set_env(key, set_value) ? PROCESS_OK : PROCESS_ERR_DENIED;
   }
 
   app_copy_until_space(key, sizeof(key), trimmed_args, &rest);
@@ -989,7 +1050,7 @@ static app_runtime_result_t app_sys_env(const app_runtime_context_t *context, co
     size_t i = 0u;
 
     if (context->set_env == 0 || key_len == 0u) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
 
     app_copy_string(set_value, sizeof(set_value), equals + 1u);
@@ -998,46 +1059,46 @@ static app_runtime_result_t app_sys_env(const app_runtime_context_t *context, co
       key[i] = '\0';
     }
     if (!context->set_env(key, set_value)) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
-    return APP_RUNTIME_OK;
+    return PROCESS_OK;
   }
 
   if (rest[0] != '\0') {
     if (context->set_env == 0) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
 
     if (rest[0] == '"') {
       if (!app_env_read_quoted(rest, set_value, sizeof(set_value), &next)) {
-        return APP_RUNTIME_ERR_FORMAT;
+        return PROCESS_ERR_FORMAT;
       }
       if (app_skip_spaces(next)[0] != '\0') {
-        return APP_RUNTIME_ERR_FORMAT;
+        return PROCESS_ERR_FORMAT;
       }
       if (!context->set_env(key, set_value)) {
-        return APP_RUNTIME_ERR_DENIED;
+        return PROCESS_ERR_DENIED;
       }
-      return APP_RUNTIME_OK;
+      return PROCESS_OK;
     }
 
     if (!context->set_env(key, rest)) {
-      return APP_RUNTIME_ERR_DENIED;
+      return PROCESS_ERR_DENIED;
     }
-    return APP_RUNTIME_OK;
+    return PROCESS_OK;
   }
 
   if (context->get_env == 0) {
-    return APP_RUNTIME_ERR_DENIED;
+    return PROCESS_ERR_DENIED;
   }
 
   if (!context->get_env(key, value, sizeof(value))) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
+    return PROCESS_ERR_NOT_FOUND;
   }
 
   app_emit(context, value);
   app_emit(context, "\n");
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
 static int app_path_is_library(const char *path) {
@@ -1047,6 +1108,64 @@ static int app_path_is_library(const char *path) {
 
   return app_string_starts_with(path, "/lib/") || app_string_starts_with(path, "\\lib\\") ||
          app_string_starts_with(path, "lib/") || app_string_starts_with(path, "lib\\");
+}
+
+static void app_append_elf_suffix(char *path, size_t path_size) {
+  size_t len = 0u;
+
+  if (path == 0 || path_size == 0u) {
+    return;
+  }
+
+  if (app_string_ends_with(path, ".elf")) {
+    return;
+  }
+
+  len = app_string_len(path);
+  (void)app_append_string(path, path_size, len, ".elf");
+}
+
+static void app_build_path_from_dir(char *out_path,
+                                    size_t out_path_size,
+                                    const char *base_dir,
+                                    const char *app_name) {
+  size_t cursor = 0u;
+
+  if (out_path == 0 || out_path_size == 0u) {
+    return;
+  }
+
+  out_path[0] = '\0';
+  if (base_dir == 0 || base_dir[0] == '\0' || app_name == 0 || app_name[0] == '\0') {
+    return;
+  }
+
+  cursor = app_append_string(out_path, out_path_size, cursor, base_dir);
+  if (cursor > 0u && cursor + 1u < out_path_size && !app_path_is_separator(out_path[cursor - 1u])) {
+    out_path[cursor++] = '/';
+    out_path[cursor] = '\0';
+  }
+
+  cursor = app_append_string(out_path, out_path_size, cursor, app_name);
+  (void)cursor;
+  app_append_elf_suffix(out_path, out_path_size);
+}
+
+static fs_result_t app_try_read_app_candidate(const char *candidate_path,
+                                              uint8_t *elf_data,
+                                              size_t elf_data_size,
+                                              size_t *out_len) {
+  const char *fs_path = candidate_path;
+
+  if (candidate_path == 0 || candidate_path[0] == '\0') {
+    return FS_ERR_INVALID_ARG;
+  }
+
+  if (candidate_path[0] == '/' || candidate_path[0] == '\\') {
+    fs_path = candidate_path + 1u;
+  }
+
+  return fs_read_file_bytes(fs_path, elf_data, elf_data_size, out_len);
 }
 
 static void app_build_library_path(char *out_path, size_t out_path_size, const char *library_name) {
@@ -1077,7 +1196,7 @@ static void app_build_library_path(char *out_path, size_t out_path_size, const c
   }
 }
 
-size_t app_runtime_list_libraries(char *out_buffer, size_t out_buffer_size) {
+size_t process_list_libraries(char *out_buffer, size_t out_buffer_size) {
   size_t out_len = 0u;
 
   if (out_buffer == 0 || out_buffer_size == 0u) {
@@ -1092,25 +1211,25 @@ size_t app_runtime_list_libraries(char *out_buffer, size_t out_buffer_size) {
   return out_len;
 }
 
-app_runtime_result_t app_runtime_load_library(const char *library_name,
-                                              const app_runtime_context_t *context,
-                                              app_runtime_library_info_t *out_library) {
+process_result_t process_load_library(const char *library_name,
+                                      const process_context_t *context,
+                                      process_library_info_t *out_library) {
   uint8_t elf_data[APP_FILE_MAX];
   size_t elf_len = 0u;
   const uint8_t *program = 0;
   size_t program_len = 0u;
   char library_path[APP_TOKEN_MAX];
   char display_path[APP_TOKEN_MAX];
-  app_runtime_result_t access = APP_RUNTIME_OK;
-  fs_result_t fs_result = FS_OK;
+  process_result_t access = PROCESS_OK;
+  fs_result_t fs_result = FS_ERR_NOT_FOUND;
 
   if (library_name == 0 || library_name[0] == '\0' || context == 0 || out_library == 0) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   app_build_library_path(library_path, sizeof(library_path), library_name);
   if (!app_path_is_library(library_path)) {
-    return APP_RUNTIME_ERR_LIBRARY;
+    return PROCESS_ERR_LIBRARY;
   }
 
   display_path[0] = '/';
@@ -1118,50 +1237,50 @@ app_runtime_result_t app_runtime_load_library(const char *library_name,
   (void)app_append_string(display_path, sizeof(display_path), 1u, library_path);
 
   access = app_require_storage_access(context, CAP_FS_READ, "loadlib", display_path);
-  if (access != APP_RUNTIME_OK) {
+  if (access != PROCESS_OK) {
     return access;
   }
 
   fs_result = fs_read_file_bytes(library_path, elf_data, sizeof(elf_data), &elf_len);
   if (fs_result == FS_ERR_NOT_FOUND) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
+    return PROCESS_ERR_NOT_FOUND;
   }
   if (fs_result != FS_OK) {
-    return APP_RUNTIME_ERR_STORAGE;
+    return PROCESS_ERR_STORAGE;
   }
 
-  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != APP_RUNTIME_OK) {
-    return APP_RUNTIME_ERR_FORMAT;
+  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != PROCESS_OK) {
+    return PROCESS_ERR_FORMAT;
   }
 
   app_copy_string(out_library->resolved_path, sizeof(out_library->resolved_path), display_path);
   out_library->program_len = program_len;
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
-                                                  size_t elf_len,
-                                                  const uint8_t **out_program,
-                                                  size_t *out_program_len) {
+static process_result_t app_parse_elf_program(const uint8_t *elf_data,
+                                               size_t elf_len,
+                                               const uint8_t **out_program,
+                                               size_t *out_program_len) {
   uint32_t e_phoff = 0u;
   uint16_t e_phentsize = 0u;
   uint16_t e_phnum = 0u;
   uint16_t i = 0u;
 
   if (elf_data == 0 || out_program == 0 || out_program_len == 0) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   if (elf_len < 52u) {
-    return APP_RUNTIME_ERR_FORMAT;
+    return PROCESS_ERR_FORMAT;
   }
 
   if (!(elf_data[0] == 0x7Fu && elf_data[1] == 'E' && elf_data[2] == 'L' && elf_data[3] == 'F')) {
-    return APP_RUNTIME_ERR_FORMAT;
+    return PROCESS_ERR_FORMAT;
   }
 
   if (elf_data[4] != 1u || elf_data[5] != 1u || app_read_u16(elf_data, 18u) != 3u) {
-    return APP_RUNTIME_ERR_FORMAT;
+    return PROCESS_ERR_FORMAT;
   }
 
   e_phoff = app_read_u32(elf_data, 28u);
@@ -1169,7 +1288,7 @@ static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
   e_phnum = app_read_u16(elf_data, 44u);
 
   if (e_phoff >= elf_len || e_phentsize < 32u || e_phnum == 0u) {
-    return APP_RUNTIME_ERR_FORMAT;
+    return PROCESS_ERR_FORMAT;
   }
 
   for (i = 0u; i < e_phnum; ++i) {
@@ -1179,7 +1298,7 @@ static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
     uint32_t p_filesz = 0u;
 
     if (ph_off + 32u > elf_len) {
-      return APP_RUNTIME_ERR_FORMAT;
+      return PROCESS_ERR_FORMAT;
     }
 
     p_type = app_read_u32(elf_data, ph_off + 0u);
@@ -1191,21 +1310,127 @@ static app_runtime_result_t app_parse_elf_program(const uint8_t *elf_data,
     }
 
     if ((size_t)p_offset + (size_t)p_filesz > elf_len) {
-      return APP_RUNTIME_ERR_FORMAT;
+      return PROCESS_ERR_FORMAT;
     }
 
     *out_program = &elf_data[p_offset];
     *out_program_len = p_filesz;
-    return APP_RUNTIME_OK;
+    return PROCESS_OK;
   }
 
-  return APP_RUNTIME_ERR_FORMAT;
+  return PROCESS_ERR_FORMAT;
 }
 
-static app_runtime_result_t app_execute_script(const uint8_t *script,
-                                               size_t script_len,
-                                               const app_runtime_context_t *context,
-                                               const app_invocation_args_t *args) {
+typedef process_result_t (*process_script_command_fn)(const process_context_t *context,
+                                                      const char *args);
+
+typedef struct {
+  const char *name;
+  process_script_command_fn handler;
+  int require_args;
+  const char *default_args;
+} process_script_command_entry_t;
+
+static process_result_t app_script_cmd_print(const process_context_t *context, const char *args) {
+  return app_sys_print(context, args == 0 ? "" : args);
+}
+
+static process_result_t app_script_cmd_ls(const process_context_t *context, const char *args) {
+  return app_sys_ls(context, args == 0 ? "." : args);
+}
+
+static process_result_t app_script_cmd_cat(const process_context_t *context, const char *args) {
+  return app_sys_cat(context, args);
+}
+
+static process_result_t app_script_cmd_mkdir(const process_context_t *context, const char *args) {
+  return app_sys_mkdir(context, args);
+}
+
+static process_result_t app_script_cmd_cd(const process_context_t *context, const char *args) {
+  return app_sys_cd(context, args);
+}
+
+static process_result_t app_script_cmd_apps(const process_context_t *context, const char *args) {
+  (void)args;
+  return app_sys_apps(context);
+}
+
+static process_result_t app_script_cmd_libs(const process_context_t *context, const char *args) {
+  return app_sys_libs(context, args == 0 ? "" : args);
+}
+
+static process_result_t app_script_cmd_storage(const process_context_t *context, const char *args) {
+  (void)args;
+  return app_sys_storage(context);
+}
+
+static process_result_t app_script_cmd_env(const process_context_t *context, const char *args) {
+  return app_sys_env(context, args == 0 ? "" : args);
+}
+
+static process_result_t app_script_cmd_loadlib(const process_context_t *context, const char *args) {
+  return app_sys_loadlib(context, args);
+}
+
+static process_result_t app_script_cmd_unloadlib(const process_context_t *context, const char *args) {
+  return app_sys_unloadlib(context, args);
+}
+
+static process_result_t app_script_cmd_uselib(const process_context_t *context, const char *args) {
+  return app_sys_uselib(context, args);
+}
+
+static process_result_t app_script_cmd_releaselib(const process_context_t *context, const char *args) {
+  return app_sys_releaselib(context, args);
+}
+
+static process_result_t app_execute_named_script_command(const char *command,
+                                                         const char *rest,
+                                                         const process_context_t *context) {
+  static const process_script_command_entry_t command_table[] = {
+      {"print", app_script_cmd_print, 0, ""},
+      {"ls", app_script_cmd_ls, 0, "."},
+      {"cat", app_script_cmd_cat, 1, 0},
+      {"mkdir", app_script_cmd_mkdir, 1, 0},
+      {"cd", app_script_cmd_cd, 1, 0},
+      {"apps", app_script_cmd_apps, 0, ""},
+      {"libs", app_script_cmd_libs, 0, ""},
+      {"storage", app_script_cmd_storage, 0, ""},
+      {"env", app_script_cmd_env, 0, ""},
+      {"loadlib", app_script_cmd_loadlib, 1, 0},
+      {"unloadlib", app_script_cmd_unloadlib, 1, 0},
+      {"uselib", app_script_cmd_uselib, 1, 0},
+      {"releaselib", app_script_cmd_releaselib, 1, 0},
+  };
+  size_t i = 0u;
+
+  for (i = 0u; i < (sizeof(command_table) / sizeof(command_table[0])); ++i) {
+    const process_script_command_entry_t *entry = &command_table[i];
+    const char *effective_args = rest == 0 ? "" : rest;
+
+    if (!app_string_equals(command, entry->name)) {
+      continue;
+    }
+
+    if (effective_args[0] == '\0' && entry->default_args != 0) {
+      effective_args = entry->default_args;
+    }
+
+    if (entry->require_args && effective_args[0] == '\0') {
+      return PROCESS_ERR_FORMAT;
+    }
+
+    return entry->handler(context, effective_args);
+  }
+
+  return PROCESS_ERR_FORMAT;
+}
+
+static process_result_t app_execute_script(const uint8_t *script,
+                                            size_t script_len,
+                                            const process_context_t *context,
+                                            const app_invocation_args_t *args) {
   size_t cursor = 0u;
 
   while (cursor < script_len) {
@@ -1234,170 +1459,39 @@ static app_runtime_result_t app_execute_script(const uint8_t *script,
     app_copy_until_space(command, sizeof(command), line_cursor, &rest);
     rest = app_skip_spaces(rest);
 
-    if (app_string_equals(command, "print")) {
-      app_runtime_result_t result = app_sys_print(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "ls")) {
-      app_runtime_result_t result = app_sys_ls(context, rest[0] == '\0' ? "." : rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "cat")) {
-      if (rest[0] == '\0') {
-        return APP_RUNTIME_ERR_FORMAT;
-      }
-      {
-        app_runtime_result_t result = app_sys_cat(context, rest);
-        if (result != APP_RUNTIME_OK) {
-          return result;
-        }
-      }
-      continue;
-    }
-
     if (app_string_equals(command, "write") || app_string_equals(command, "append")) {
       char arg1[APP_TOKEN_MAX];
       char arg2[APP_LINE_MAX];
       const char *next = 0;
-      app_runtime_result_t result = APP_RUNTIME_OK;
+      process_result_t result = PROCESS_OK;
 
       app_copy_until_space(arg1, sizeof(arg1), rest, &next);
       next = app_skip_spaces(next);
       app_copy_string(arg2, sizeof(arg2), next);
 
       if (arg1[0] == '\0' || arg2[0] == '\0') {
-        return APP_RUNTIME_ERR_FORMAT;
+        return PROCESS_ERR_FORMAT;
       }
 
       result = app_sys_write_like(context, arg1, arg2, app_string_equals(command, "append"));
-      if (result != APP_RUNTIME_OK) {
+      if (result != PROCESS_OK) {
         return result;
       }
       continue;
     }
 
-    if (app_string_equals(command, "mkdir")) {
-      if (rest[0] == '\0') {
-        return APP_RUNTIME_ERR_FORMAT;
-      }
-      {
-        app_runtime_result_t result = app_sys_mkdir(context, rest);
-        if (result != APP_RUNTIME_OK) {
-          return result;
-        }
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "cd")) {
-      if (rest[0] == '\0') {
-        return APP_RUNTIME_ERR_FORMAT;
-      }
-      {
-        app_runtime_result_t result = app_sys_cd(context, rest);
-        if (result != APP_RUNTIME_OK) {
-          return result;
-        }
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "apps")) {
-      app_runtime_result_t result = app_sys_apps(context);
-      if (result != APP_RUNTIME_OK) {
+    {
+      process_result_t result = app_execute_named_script_command(command, rest, context);
+      if (result != PROCESS_OK) {
         return result;
       }
-      continue;
     }
-
-    if (app_string_equals(command, "libs")) {
-      app_runtime_result_t result = app_sys_libs(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "storage")) {
-      app_runtime_result_t result = app_sys_storage(context);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "env")) {
-      app_runtime_result_t result = app_sys_env(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "loadlib")) {
-      app_runtime_result_t result = app_sys_loadlib(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "unloadlib")) {
-      app_runtime_result_t result = app_sys_unloadlib(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "uselib")) {
-      app_runtime_result_t result = app_sys_uselib(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    if (app_string_equals(command, "releaselib")) {
-      app_runtime_result_t result = app_sys_releaselib(context, rest);
-      if (result != APP_RUNTIME_OK) {
-        return result;
-      }
-      continue;
-    }
-
-    return APP_RUNTIME_ERR_FORMAT;
   }
 
-  return APP_RUNTIME_OK;
+  return PROCESS_OK;
 }
 
-static void app_build_path(char *out_path, size_t out_path_size, const char *base_dir, const char *app_name) {
-  size_t cursor = 0u;
-
-  if (out_path == 0 || out_path_size == 0u) {
-    return;
-  }
-
-  out_path[0] = '\0';
-  cursor = app_append_string(out_path, out_path_size, cursor, base_dir);
-  if (cursor + 1u < out_path_size) {
-    out_path[cursor++] = '/';
-    out_path[cursor] = '\0';
-  }
-  cursor = app_append_string(out_path, out_path_size, cursor, app_name);
-  (void)app_append_string(out_path, out_path_size, cursor, ".elf");
-}
-
-size_t app_runtime_list(char *out_buffer, size_t out_buffer_size) {
+size_t process_list_apps(char *out_buffer, size_t out_buffer_size) {
   char os_apps[APP_OUTPUT_MAX];
   char user_apps[APP_OUTPUT_MAX];
   size_t os_len = 0u;
@@ -1423,56 +1517,107 @@ size_t app_runtime_list(char *out_buffer, size_t out_buffer_size) {
   return cursor;
 }
 
-app_runtime_result_t app_runtime_run(const char *app_name,
-                                     const char *app_args,
-                                     const app_runtime_context_t *context) {
+process_result_t process_run(const char *app_name,
+                             const char *app_args,
+                             const process_context_t *context) {
   uint8_t elf_data[APP_FILE_MAX];
   size_t elf_len = 0u;
   const uint8_t *program = 0;
   size_t program_len = 0u;
   char path[APP_TOKEN_MAX];
-  fs_result_t fs_result = FS_OK;
+  char path_env[APP_LINE_MAX];
+  char path_entry[APP_TOKEN_MAX];
+  const char *path_cursor = 0;
+  fs_result_t path_result = FS_ERR_NOT_FOUND;
+  fs_result_t fs_result = FS_ERR_NOT_FOUND;
   app_invocation_args_t args;
 
   if (app_name == 0 || context == 0) {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   if (app_name[0] == '\0') {
-    return APP_RUNTIME_ERR_INVALID_ARG;
+    return PROCESS_ERR_INVALID_ARG;
   }
 
   if (app_path_is_library(app_name)) {
-    return APP_RUNTIME_ERR_LIBRARY;
+    return PROCESS_ERR_LIBRARY;
   }
 
   app_parse_invocation_args(app_args, &args);
 
   if (app_name[0] == '/' || app_name[0] == '\\') {
-    app_copy_string(path, sizeof(path), app_name + 1u);
+    app_copy_string(path, sizeof(path), app_name);
+    app_append_elf_suffix(path, sizeof(path));
     if (app_path_is_library(path)) {
-      return APP_RUNTIME_ERR_LIBRARY;
+      return PROCESS_ERR_LIBRARY;
     }
-    fs_result = fs_read_file_bytes(path, elf_data, sizeof(elf_data), &elf_len);
+    fs_result = app_try_read_app_candidate(path, elf_data, sizeof(elf_data), &elf_len);
   } else {
-    app_build_path(path, sizeof(path), "os", app_name);
-    fs_result = fs_read_file_bytes(path, elf_data, sizeof(elf_data), &elf_len);
+    if (context != 0 && context->resolve_path != 0) {
+      app_resolve_path(context, app_name, path, sizeof(path));
+      app_append_elf_suffix(path, sizeof(path));
+      if (!app_path_is_library(path)) {
+        path_result = app_try_read_app_candidate(path, elf_data, sizeof(elf_data), &elf_len);
+        if (path_result == FS_OK) {
+          fs_result = FS_OK;
+        } else if (path_result != FS_ERR_NOT_FOUND) {
+          fs_result = path_result;
+        }
+      }
+    }
+
+    if (fs_result != FS_OK && context != 0 && context->get_env != 0 &&
+        context->get_env("PATH", path_env, sizeof(path_env))) {
+      path_cursor = path_env;
+      while ((path_cursor = app_next_path_entry(path_cursor, path_entry, sizeof(path_entry))) != 0) {
+        if (path_entry[0] == '\0') {
+          continue;
+        }
+
+        app_build_path_from_dir(path, sizeof(path), path_entry, app_name);
+        if (app_path_is_library(path)) {
+          continue;
+        }
+
+        path_result = app_try_read_app_candidate(path, elf_data, sizeof(elf_data), &elf_len);
+        if (path_result == FS_OK) {
+          fs_result = FS_OK;
+          break;
+        }
+        if (path_result != FS_ERR_NOT_FOUND) {
+          fs_result = path_result;
+          break;
+        }
+      }
+    }
 
     if (fs_result != FS_OK) {
-      app_build_path(path, sizeof(path), "apps", app_name);
-      fs_result = fs_read_file_bytes(path, elf_data, sizeof(elf_data), &elf_len);
+      app_build_path_from_dir(path, sizeof(path), "os", app_name);
+      if (!app_path_is_library(path)) {
+        path_result = app_try_read_app_candidate(path, elf_data, sizeof(elf_data), &elf_len);
+        if (path_result == FS_OK) {
+          fs_result = FS_OK;
+        } else if (path_result != FS_ERR_NOT_FOUND) {
+          fs_result = path_result;
+        }
+      }
     }
   }
 
-  if (fs_result == FS_ERR_NOT_FOUND) {
-    return APP_RUNTIME_ERR_NOT_FOUND;
-  }
   if (fs_result != FS_OK) {
-    return APP_RUNTIME_ERR_STORAGE;
+    if (fs_result == FS_ERR_NOT_FOUND) {
+      return PROCESS_ERR_NOT_FOUND;
+    }
+    return PROCESS_ERR_STORAGE;
   }
 
-  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != APP_RUNTIME_OK) {
-    return APP_RUNTIME_ERR_FORMAT;
+  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != PROCESS_OK) {
+    return PROCESS_ERR_FORMAT;
+  }
+
+  if (program == 0 || program_len == 0u) {
+    return PROCESS_ERR_FORMAT;
   }
 
   return app_execute_script(program, program_len, context, &args);

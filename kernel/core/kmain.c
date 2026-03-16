@@ -16,7 +16,7 @@
  *   5. Initial cap_grant() – Bootstrap capabilities for subject 0
  *   6. storage_hal_init()  – Storage HAL (ramdisk backend)
  *   7. fs_init()           – In-memory filesystem
- *   8. app_runtime_init()  – User application registry
+ *   8. process subsystem setup  – User application registry and launch paths
  *   9. console_init()      – Interactive console + command loop
  *
  * Interactions:

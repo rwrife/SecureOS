@@ -1,0 +1,62 @@
+name: ISO Build And VM Smoke Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-iso-vm-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build pinned toolchain image
+        run: |
+          docker build \
+            -f build/docker/Dockerfile.toolchain \
+            -t secureos/toolchain:bookworm-2026-02-12 \
+            .
+
+      - name: Install VM test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 python3
+
+      - name: Build kernel ISO
+        run: ./build/scripts/build.sh image
+
+      - name: Build seeded disk image
+        run: ./build/scripts/build.sh disk
+
+      - name: VM smoke boot (kernel console)
+        run: ./build/scripts/run_qemu.sh --test kernel_console
+
+      - name: Upload kernel artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-artifacts
+          path: artifacts/kernel/
+          if-no-files-found: error
+
+      - name: Upload disk artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disk-artifacts
+          path: artifacts/disk/
+          if-no-files-found: warn
+
+      - name: Upload qemu artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-artifacts
+          path: artifacts/qemu/
+          if-no-files-found: warn

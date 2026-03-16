@@ -11,7 +11,7 @@
  * Interactions:
  *   - storage_hal.c: all sector-level reads and writes are routed
  *     through the storage HAL abstraction layer.
- *   - app_runtime.c: uses fs_read_file and fs_load_elf to load user-
+ *   - process.c: uses fs_read_file and fs_load_elf to load user-
  *     space application binaries from the filesystem.
  *   - console.c: built-in shell commands (ls, cat, write, mkdir, etc.)
  *     call fs_service functions directly.
