@@ -3,6 +3,8 @@ name: ISO Build And VM Smoke Test
 on:
   push:
     branches: [main]
+    tags:
+      - "v*"
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,6 +13,8 @@ jobs:
   build-iso-vm-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -39,6 +43,13 @@ jobs:
 
       - name: VM smoke boot (kernel console)
         run: ./build/scripts/run_qemu.sh --test kernel_console
+
+      - name: Publish ISO to GitHub Release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/kernel/secureos.iso
+          generate_release_notes: true
 
       - name: Upload kernel artifacts
         if: always()
