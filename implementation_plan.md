@@ -26,6 +26,7 @@ typedef enum {
   SOF_TYPE_INVALID = 0x00,
   SOF_TYPE_BIN     = 0x01,  /* Executable binary */
   SOF_TYPE_LIB     = 0x02,  /* Library */
+  SOF_TYPE_APP     = 0x03,  /* Application bundle (reserved, not yet implemented) */
 } sof_file_type_t;
 ```
 
@@ -140,6 +141,18 @@ typedef struct {
 } sof_build_params_t;
 ```
 
+### `sof_app_bundle_header_t` (struct, `kernel/format/sof.h`) — **RESERVED / STUB**
+Reserved for future `.app` bundle support. An `.app` file is a lightly compressed archive containing `.bin`, `.lib`, and data files. Executing an `.app` will extract and launch its binaries/libraries and mount a virtual HAL disk for data file access. This struct is declared but not used in this iteration.
+```c
+typedef struct {
+  uint32_t entry_count;        /* Number of entries in the bundle (future) */
+  uint32_t manifest_offset;    /* Offset to bundle manifest (future) */
+  uint32_t manifest_size;      /* Size of bundle manifest (future) */
+  uint32_t compression_algo;   /* 0=NONE, future: 1=LZ4, 2=ZSTD */
+  uint32_t reserved[4];        /* Reserved for future use */
+} sof_app_bundle_header_t;
+```
+
 ### Updated enums/constants
 - `APP_FILE_MAX` in `kernel/user/process.c`: increase from 512 to 1024
 - `FS_ELF_BUFFER_MAX` in `kernel/fs/fs_service.c`: rename to `FS_SOF_BUFFER_MAX`, increase from 512 to 1024
@@ -251,6 +264,8 @@ New functions for the SOF format library, and modifications to existing loader a
 6. `int sof_signature_present(const sof_header_t *header)` — Returns 1 if `sig_offset != 0 && sig_size != 0`, 0 otherwise. Currently always returns 0 for newly built files.
 
 7. `sof_result_t sof_verify_signature(const uint8_t *data, size_t data_len, const sof_parsed_file_t *parsed)` — Stub. Always returns `SOF_OK`. Future: will verify the digital signature against the payload hash using the algorithm specified in metadata.
+
+8. `sof_result_t sof_parse_app_bundle(const uint8_t *data, size_t data_len, sof_parsed_file_t *out)` — **STUB.** Reserved for future `.app` bundle parsing. Validates that the SOF header has `file_type == SOF_TYPE_APP`, then returns `SOF_ERR_INVALID_TYPE` with an error indicating bundles are not yet supported. This placeholder ensures the function signature is established for forward compatibility.
 
 **In `kernel/fs/fs_service.c`:**
 
@@ -382,3 +397,20 @@ Implement bottom-up: format library first, then kernel integration, then build p
 10. **Update build scripts** — Modify `build_user_app.ps1/.sh` and `build_user_lib.ps1/.sh` to compile `sof_wrap`, then use it to wrap ELF output into `.bin`/`.lib` SOF files. Update `build.ps1/.sh` to add the `sof-wrap` build target.
 
 11. **Run all tests** — Execute the full test suite via `validate_bundle.sh` to confirm no regressions: `sof_format`, `app_runtime`, `fs_service`, and all other existing tests pass.
+
+---
+
+## Future: `.app` Bundle Support
+
+The `.app` bundle format is **not implemented in this plan** but is accounted for via reserved types and stubs. A future plan will cover:
+
+- **Bundle archive format** — A lightly compressed archive (LZ4 or ZSTD) containing multiple SOF `.bin`, `.lib`, and data files, plus a JSON or binary manifest describing entry points, dependencies, and data file paths.
+- **Bundle manifest** — Declares which `.bin` is the main entry point, which `.lib` files to preload, and data file mount points.
+- **Virtual HAL disk** — Executing a `.app` creates an isolated virtual disk (via the storage HAL layer) that exposes the bundle's data files to the running process. The process sees a sandboxed filesystem containing only its own data.
+- **Process launcher integration** — `process_run()` will detect `SOF_TYPE_APP`, extract the bundle, mount the virtual disk, load libraries, and execute the entry binary.
+- **Compression** — `sof_app_bundle_header_t.compression_algo` will select the decompression algorithm. Initially `0 = NONE` (uncompressed tar-like archive), with LZ4/ZSTD support added later.
+
+Reserved artifacts in this plan:
+- `SOF_TYPE_APP = 0x03` in `sof_file_type_t`
+- `sof_app_bundle_header_t` struct declaration in `sof.h`
+- `sof_parse_app_bundle()` stub function in `sof.c` (returns `SOF_ERR_INVALID_TYPE`)

@@ -16,6 +16,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure build scripts are executable
+        run: find build/scripts -type f -name "*.sh" -exec chmod +x {} +
+
       - name: Build pinned toolchain image
         run: |
           docker build \
