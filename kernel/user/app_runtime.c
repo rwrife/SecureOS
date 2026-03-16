@@ -1243,7 +1243,7 @@ static app_runtime_result_t app_execute_script(const uint8_t *script,
     }
 
     if (app_string_equals(command, "ls")) {
-      app_runtime_result_t result = app_sys_ls(context, rest[0] == '\0' ? "/" : rest);
+      app_runtime_result_t result = app_sys_ls(context, rest[0] == '\0' ? "." : rest);
       if (result != APP_RUNTIME_OK) {
         return result;
       }

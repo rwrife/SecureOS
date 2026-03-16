@@ -8,11 +8,10 @@
  *   (key=<name> value=<val>).  Without arguments, lists all variables.
  *
  * Interactions:
- *   - secureos_api.h: calls os_env_get, os_env_set, os_env_list, and
- *     os_console_write through user-space system-call stubs.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
- *   - session_manager.c: env variables are scoped to the active
- *     console session context.
+ *   - secureos_api.h: calls os_get_args and os_console_write through
+ *     user-space system-call stubs.
+ *   - lib/envlib.h: all environment variable reads, writes, and listings
+ *     go through envlib for a single consistent maintenance point.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types
@@ -21,6 +20,7 @@
  */
 
 #include "secureos_api.h"
+#include "lib/envlib.h"
 
 enum {
   ARG_MAX = 128,
@@ -195,7 +195,7 @@ int main(void) {
   trimmed = skip_spaces(args);
 
   if (trimmed[0] == '\0') {
-    if (os_env_list(out, (unsigned int)sizeof(out)) == OS_STATUS_OK) {
+    if (envlib_list(ENVLIB_HANDLE_INVALID, out, (unsigned int)sizeof(out)) == ENVLIB_STATUS_OK) {
       (void)os_console_write(out);
     }
     return 0;
@@ -203,10 +203,10 @@ int main(void) {
 
   if (extract_named_arg(trimmed, "key", named_key, (unsigned int)sizeof(named_key))) {
     if (extract_named_arg(trimmed, "value", named_value, (unsigned int)sizeof(named_value))) {
-      return os_env_set(named_key, named_value) == OS_STATUS_OK ? 0 : 1;
+      return envlib_set(ENVLIB_HANDLE_INVALID, named_key, named_value) == ENVLIB_STATUS_OK ? 0 : 1;
     }
 
-    if (os_env_get(named_key, out, (unsigned int)sizeof(out)) != OS_STATUS_OK) {
+    if (envlib_get(ENVLIB_HANDLE_INVALID, named_key, out, (unsigned int)sizeof(out)) != ENVLIB_STATUS_OK) {
       return 1;
     }
     while (out[j] != '\0' && j + 2u < (unsigned int)sizeof(out)) {
@@ -236,10 +236,10 @@ int main(void) {
       if (skip_spaces(next)[0] != '\0') {
         return 1;
       }
-      return os_env_set(key, value) == OS_STATUS_OK ? 0 : 1;
+      return envlib_set(ENVLIB_HANDLE_INVALID, key, value) == ENVLIB_STATUS_OK ? 0 : 1;
     }
 
-    return os_env_set(key, trimmed) == OS_STATUS_OK ? 0 : 1;
+    return envlib_set(ENVLIB_HANDLE_INVALID, key, trimmed) == ENVLIB_STATUS_OK ? 0 : 1;
   }
 
   while (trimmed[i] != '\0' && !char_is_space(trimmed[i]) && i + 1u < (unsigned int)sizeof(key)) {
@@ -257,12 +257,12 @@ int main(void) {
       if (skip_spaces(next)[0] != '\0') {
         return 1;
       }
-      return os_env_set(key, value) == OS_STATUS_OK ? 0 : 1;
+      return envlib_set(ENVLIB_HANDLE_INVALID, key, value) == ENVLIB_STATUS_OK ? 0 : 1;
     }
-    return os_env_set(key, trimmed) == OS_STATUS_OK ? 0 : 1;
+    return envlib_set(ENVLIB_HANDLE_INVALID, key, trimmed) == ENVLIB_STATUS_OK ? 0 : 1;
   }
 
-  if (os_env_get(key, out, (unsigned int)sizeof(out)) != OS_STATUS_OK) {
+  if (envlib_get(ENVLIB_HANDLE_INVALID, key, out, (unsigned int)sizeof(out)) != ENVLIB_STATUS_OK) {
     return 1;
   }
 

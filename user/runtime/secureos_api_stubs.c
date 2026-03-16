@@ -33,6 +33,22 @@ os_status_t os_fs_list_root(char *out_buffer, unsigned int out_buffer_size) {
   return OS_STATUS_OK;
 }
 
+os_status_t os_fs_list_dir(const char *path, char *out_buffer, unsigned int out_buffer_size) {
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+
+  if (path == 0 || path[0] == '\0') {
+    return OS_STATUS_ERROR;
+  }
+
+  if (path[0] == '/' && path[1] == '\0') {
+    return os_fs_list_root(out_buffer, out_buffer_size);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
 os_status_t os_fs_read_file(const char *path, char *out_buffer, unsigned int out_buffer_size) {
   (void)path;
   if (out_buffer != 0 && out_buffer_size > 0u) {
@@ -55,6 +71,16 @@ os_status_t os_fs_mkdir(const char *path) {
 
 os_status_t os_process_chdir(const char *path) {
   (void)path;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_process_getcwd(char *out_buffer, unsigned int out_buffer_size) {
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '/';
+    if (out_buffer_size > 1u) {
+      out_buffer[1] = '\0';
+    }
+  }
   return OS_STATUS_OK;
 }
 

@@ -8,9 +8,10 @@
  *   command.
  *
  * Interactions:
- *   - secureos_api.h: calls os_fs_write_file (append mode) and
- *     os_console_write through user-space system-call stubs.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *   - secureos_api.h: calls os_get_args and os_console_write through
+ *     user-space system-call stubs.
+ *   - lib/fslib.h: file write (append mode) goes through fslib for
+ *     consistent path resolution against the current working directory.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types "append"
@@ -18,6 +19,7 @@
  */
 
 #include "secureos_api.h"
+#include "lib/fslib.h"
 
 enum { ARG_MAX = 128 };
 
@@ -32,7 +34,7 @@ int main(void) {
   }
 
   /* Placeholder split behavior until argv-style user ABI is finalized. */
-  if (os_fs_write_file(args, "", 1) != OS_STATUS_OK) {
+  if (fslib_write(FSLIB_HANDLE_INVALID, args, "", 1) != FSLIB_STATUS_OK) {
     (void)os_console_write("append failed\n");
     return 1;
   }

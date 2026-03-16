@@ -48,11 +48,23 @@ static console_context_t *g_console_ctx = 0;
 #define console_subject_id (g_console_ctx->subject_id)
 #define console_line (g_console_ctx->line)
 #define console_line_len (g_console_ctx->line_len)
+#define console_pending_line (g_console_ctx->pending_line)
+#define console_pending_line_len (g_console_ctx->pending_line_len)
+#define console_history (g_console_ctx->history)
+#define console_history_count (g_console_ctx->history_count)
+#define console_history_next (g_console_ctx->history_next)
+#define console_history_browse_index (g_console_ctx->history_browse_index)
+#define console_screen_history (g_console_ctx->screen_history)
+#define console_screen_history_len (g_console_ctx->screen_history_len)
 #define console_next_correlation_id (g_console_ctx->next_correlation_id)
 #define console_cwd (g_console_ctx->cwd)
 #define console_env_entries (g_console_ctx->env_entries)
 #define console_loaded_libs (g_console_ctx->loaded_libs)
 #define console_next_loaded_lib_handle (g_console_ctx->next_loaded_lib_handle)
+
+static int g_console_restoring_history = 0;
+
+static int console_directory_exists(const char *absolute_path);
 
 static void console_idle_wait(void) {
   volatile int spin = 0;
@@ -592,16 +604,43 @@ static void normalize_absolute_path(const char *input, char *out, size_t out_siz
   }
 }
 
+static void console_get_effective_cwd(char *out, size_t out_size) {
+  char env_pwd[64];
+
+  if (out == 0 || out_size == 0u) {
+    return;
+  }
+
+  if (console_env_get("PWD", env_pwd, sizeof(env_pwd)) && console_directory_exists(env_pwd)) {
+    copy_string(console_cwd, sizeof(console_cwd), env_pwd);
+    copy_string(out, out_size, env_pwd);
+    return;
+  }
+
+  if (console_directory_exists(console_cwd)) {
+    (void)console_env_set("PWD", console_cwd);
+    copy_string(out, out_size, console_cwd);
+    return;
+  }
+
+  copy_string(console_cwd, sizeof(console_cwd), "/");
+  (void)console_env_set("PWD", "/");
+  copy_string(out, out_size, "/");
+}
+
 static void resolve_path(const char *path, char *out, size_t out_size) {
-  char raw[64];
+  char raw[128];
+  char base_cwd[64];
   size_t cursor = 0u;
 
   if (out_size == 0u) {
     return;
   }
 
+  console_get_effective_cwd(base_cwd, sizeof(base_cwd));
+
   if (path == 0 || path[0] == '\0') {
-    copy_string(out, out_size, console_cwd);
+    copy_string(out, out_size, base_cwd);
     return;
   }
 
@@ -613,7 +652,7 @@ static void resolve_path(const char *path, char *out, size_t out_size) {
     return;
   }
 
-  cursor = append_string(raw, sizeof(raw), cursor, console_cwd);
+  cursor = append_string(raw, sizeof(raw), cursor, base_cwd);
   if (cursor + 1u < sizeof(raw) && raw[cursor - 1u] != '/') {
     raw[cursor++] = '/';
     raw[cursor] = '\0';
@@ -625,12 +664,14 @@ static void resolve_path(const char *path, char *out, size_t out_size) {
 static int console_directory_exists(const char *absolute_path) {
   char probe[4];
   size_t probe_len = 0u;
+  fs_result_t result = FS_ERR_INVALID_ARG;
 
   if (absolute_path == 0 || absolute_path[0] == '\0') {
     return 0;
   }
 
-  return fs_list_dir(absolute_path, probe, sizeof(probe), &probe_len) == FS_OK;
+  result = fs_list_dir(absolute_path, probe, sizeof(probe), &probe_len);
+  return result == FS_OK || result == FS_ERR_NO_SPACE;
 }
 
 static int console_change_directory(const char *absolute_path) {
@@ -687,12 +728,40 @@ static void console_resolve_app_path(const char *app_name, char *out_path, size_
 }
 
 static void console_write(const char *message) {
+  size_t i = 0u;
+
   if (cap_table_check(console_subject_id, CAP_CONSOLE_WRITE) != CAP_OK) {
     return;
   }
 
+  if (!g_console_restoring_history && message != 0) {
+    for (i = 0u; message[i] != '\0'; ++i) {
+      if (console_screen_history_len + 1u >= CONSOLE_SCREEN_HISTORY_MAX) {
+        break;
+      }
+      console_screen_history[console_screen_history_len++] = message[i];
+    }
+    console_screen_history[console_screen_history_len] = '\0';
+  }
+
   serial_write(message);
   vga_write(message);
+}
+
+static void console_clear_hardware(void) {
+  vga_clear();
+}
+
+static void console_restore_screen_history(void) {
+  console_clear_hardware();
+
+  if (console_screen_history_len == 0u || console_screen_history[0] == '\0') {
+    return;
+  }
+
+  g_console_restoring_history = 1;
+  console_write(console_screen_history);
+  g_console_restoring_history = 0;
 }
 
 static void console_write_prompt(void) {
@@ -715,6 +784,101 @@ static void console_emit_char(char value) {
 static void console_reset_line(void) {
   console_line_len = 0u;
   console_line[0] = '\0';
+}
+
+static size_t console_history_slot_to_index(size_t slot_from_newest) {
+  size_t newest = (console_history_next + CONSOLE_HISTORY_MAX - 1u) % CONSOLE_HISTORY_MAX;
+  return (newest + CONSOLE_HISTORY_MAX - slot_from_newest) % CONSOLE_HISTORY_MAX;
+}
+
+static void console_history_push_current_line(void) {
+  size_t i = 0u;
+  size_t newest_index = 0u;
+
+  if (console_line_len == 0u) {
+    return;
+  }
+
+  if (console_history_count > 0u) {
+    newest_index = console_history_slot_to_index(0u);
+    if (string_equals(console_history[newest_index], console_line)) {
+      return;
+    }
+  }
+
+  for (i = 0u; i + 1u < CONSOLE_LINE_MAX && console_line[i] != '\0'; ++i) {
+    console_history[console_history_next][i] = console_line[i];
+  }
+  console_history[console_history_next][i] = '\0';
+
+  console_history_next = (console_history_next + 1u) % CONSOLE_HISTORY_MAX;
+  if (console_history_count < CONSOLE_HISTORY_MAX) {
+    ++console_history_count;
+  }
+}
+
+static void console_replace_input_line(const char *value) {
+  size_t old_len = console_line_len;
+  size_t i = 0u;
+
+  while (value[i] != '\0' && i + 1u < CONSOLE_LINE_MAX) {
+    console_line[i] = value[i];
+    ++i;
+  }
+  console_line[i] = '\0';
+  console_line_len = i;
+
+  console_write("\r");
+  console_write_prompt();
+  console_write(console_line);
+
+  while (i < old_len) {
+    console_write(" ");
+    ++i;
+  }
+
+  while (old_len > console_line_len) {
+    console_write("\b");
+    --old_len;
+  }
+}
+
+static void console_history_recall_up(void) {
+  size_t index = 0u;
+
+  if (console_history_count == 0u) {
+    return;
+  }
+
+  if (console_history_browse_index < 0) {
+    copy_string(console_pending_line, sizeof(console_pending_line), console_line);
+    console_pending_line_len = console_line_len;
+    console_history_browse_index = 0;
+  } else if ((size_t)(console_history_browse_index + 1) < console_history_count) {
+    ++console_history_browse_index;
+  }
+
+  index = console_history_slot_to_index((size_t)console_history_browse_index);
+  console_replace_input_line(console_history[index]);
+}
+
+static void console_history_recall_down(void) {
+  size_t index = 0u;
+
+  if (console_history_count == 0u || console_history_browse_index < 0) {
+    return;
+  }
+
+  if (console_history_browse_index == 0) {
+    console_history_browse_index = -1;
+    console_replace_input_line(console_pending_line);
+    console_pending_line_len = console_line_len;
+    return;
+  }
+
+  --console_history_browse_index;
+  index = console_history_slot_to_index((size_t)console_history_browse_index);
+  console_replace_input_line(console_history[index]);
 }
 
 static char console_wait_for_yes_no(void) {
@@ -798,7 +962,7 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
 static void console_command_run(const char *app_name, const char *app_args) {
   app_runtime_context_t context;
   app_runtime_result_t result;
-  char executable_path[64];
+  char executable_path[128];
 
   if (app_name == 0 || app_name[0] == '\0') {
     console_write("usage: run <app>\n");
@@ -831,6 +995,26 @@ static void console_command_run(const char *app_name, const char *app_args) {
   context.list_loaded_libraries = console_list_loaded_libraries;
 
   result = app_runtime_run(executable_path, app_args, &context);
+
+  if (result == APP_RUNTIME_ERR_NOT_FOUND) {
+    /* Fall back to the current working directory for user apps */
+    char cwd_path[128];
+    char base_cwd[64];
+    size_t len = 0u;
+
+    console_get_effective_cwd(base_cwd, sizeof(base_cwd));
+    len = append_string(cwd_path, sizeof(cwd_path), 0u, base_cwd);
+    if (len > 0u && cwd_path[len - 1u] != '/') {
+      cwd_path[len++] = '/';
+      cwd_path[len] = '\0';
+    }
+    len = append_string(cwd_path, sizeof(cwd_path), len, app_name);
+    if (!string_has_suffix(cwd_path, ".elf")) {
+      (void)append_string(cwd_path, sizeof(cwd_path), len, ".elf");
+    }
+    result = app_runtime_run(cwd_path, app_args, &context);
+  }
+
   if (result == APP_RUNTIME_OK) {
     console_write_prompt();
     return;
@@ -969,6 +1153,12 @@ static void console_command_session(const char *arg1, const char *arg2) {
       return;
     }
 
+    g_console_ctx->escape_state = 0u;
+    console_reset_line();
+    console_history_browse_index = -1;
+    console_pending_line[0] = '\0';
+    console_pending_line_len = 0u;
+    console_restore_screen_history();
     console_write("switched to session ");
     listing[0] = '\0';
     (void)append_u32_decimal(listing, sizeof(listing), 0u, session_id);
@@ -997,12 +1187,17 @@ static void console_handle_session_hotkey(char key_code) {
     return;
   }
 
+  g_console_ctx->escape_state = 0u;
+  console_reset_line();
+  console_history_browse_index = -1;
+  console_pending_line[0] = '\0';
+  console_pending_line_len = 0u;
+  console_restore_screen_history();
   value[0] = '\0';
   (void)append_u32_decimal(value, sizeof(value), 0u, target_session);
-  console_write("\nswitched to session ");
+  console_write("switched to session ");
   console_write(value);
   console_write("\n");
-  console_reset_line();
   console_write_prompt();
 }
 
@@ -1028,6 +1223,14 @@ static void console_handle_command(void) {
     return;
   }
 
+  if (string_equals(command, "clear")) {
+    console_screen_history_len = 0u;
+    console_screen_history[0] = '\0';
+    console_clear_hardware();
+    console_write_prompt();
+    return;
+  }
+
   if (string_equals(command, "exit")) {
     console_command_exit(arg1);
     return;
@@ -1049,11 +1252,18 @@ void console_init(console_context_t *context, cap_subject_id_t subject_id) {
   g_console_ctx = context;
   console_subject_id = subject_id;
   console_reset_line();
+  console_pending_line_len = 0u;
+  console_pending_line[0] = '\0';
+  console_history_browse_index = -1;
   console_next_correlation_id = 1u;
   copy_string(console_cwd, sizeof(console_cwd), "/");
   g_console_ctx->escape_state = 0u;
   console_env_reset();
   console_loaded_libs_reset();
+  console_history_count = 0u;
+  console_history_next = 0u;
+  console_screen_history_len = 0u;
+  console_screen_history[0] = '\0';
   (void)console_env_set("PWD", "/");
 
   console_write("TEST:START:console\n");
@@ -1066,6 +1276,10 @@ void console_init(console_context_t *context, cap_subject_id_t subject_id) {
 void console_bind_context(console_context_t *context) {
   if (context != 0) {
     g_console_ctx = context;
+    g_console_ctx->escape_state = 0u;
+    console_history_browse_index = -1;
+    console_pending_line[0] = '\0';
+    console_pending_line_len = 0u;
   }
 }
 
@@ -1090,6 +1304,8 @@ void console_run(void) {
     if (g_console_ctx->escape_state == 1u) {
       if (input == 'O') {
         g_console_ctx->escape_state = 2u;
+      } else if (input == '[') {
+        g_console_ctx->escape_state = 3u;
       } else {
         g_console_ctx->escape_state = 0u;
       }
@@ -1102,9 +1318,23 @@ void console_run(void) {
       continue;
     }
 
+    if (g_console_ctx->escape_state == 3u) {
+      g_console_ctx->escape_state = 0u;
+      if (input == 'A') {
+        console_history_recall_up();
+      } else if (input == 'B') {
+        console_history_recall_down();
+      }
+      continue;
+    }
+
     if (input == '\r' || input == '\n') {
       console_write("\n");
       console_line[console_line_len] = '\0';
+      console_history_push_current_line();
+      console_history_browse_index = -1;
+      console_pending_line[0] = '\0';
+      console_pending_line_len = 0u;
       console_handle_command();
       console_reset_line();
       continue;

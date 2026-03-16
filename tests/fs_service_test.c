@@ -98,6 +98,9 @@ int main(void) {
   if (!string_contains(output, "envlib.elf\n")) {
     fail("list_lib_missing_envlib");
   }
+  if (!string_contains(output, "fslib.elf\n")) {
+    fail("list_lib_missing_fslib");
+  }
   printf("TEST:PASS:fs_service_list_lib\n");
 
   if (fs_read_file("readme.txt", output, sizeof(output), &output_len) != FS_OK) {

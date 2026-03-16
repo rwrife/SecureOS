@@ -8,9 +8,10 @@
  *   as an integration smoke-test for the user-space file I/O path.
  *
  * Interactions:
- *   - secureos_api.h: calls os_fs_list_root, os_fs_read_file, and
- *     os_fs_write_file through the user-space system-call stubs.
- *   - app_runtime.c: loaded and executed by the kernel app runtime
+ *   - secureos_api.h: calls os_fs_list_root and os_get_args through
+ *     user-space system-call stubs.
+ *   - lib/fslib.h: all file reads and writes go through fslib, which
+ *     resolves paths against PWD via envlib for cwd-correct access.
  *     when the user runs the "filedemo" command.
  *
  * Launched by:
@@ -19,6 +20,7 @@
  */
 
 #include "secureos_api.h"
+#include "lib/fslib.h"
 
 static void app_log(const char *message) {
   (void)os_console_write(message);
@@ -34,12 +36,14 @@ int main(void) {
     app_log("[filedemo] ls ok\n");
   }
 
-  if (os_fs_read_file("readme.txt", file_output, sizeof(file_output)) == OS_STATUS_OK) {
+  /* readme.txt lives at the filesystem root — always use its absolute path */
+  if (fslib_read(FSLIB_HANDLE_INVALID, "/readme.txt", file_output, sizeof(file_output)) == FSLIB_STATUS_OK) {
     app_log("[filedemo] cat ok\n");
   }
 
-  (void)os_fs_write_file("demo.txt", "hello", 0);
-  (void)os_fs_write_file("demo.txt", " world", 1);
+  /* Write demo output relative to the current working directory via PWD */
+  (void)fslib_write(FSLIB_HANDLE_INVALID, "demo.txt", "hello", 0);
+  (void)fslib_write(FSLIB_HANDLE_INVALID, "demo.txt", " world", 1);
 
   app_log("[filedemo] done\n");
   return 0;

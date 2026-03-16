@@ -714,8 +714,8 @@ void fs_service_init(void) {
   (void)fs_mkdir("lib");
   (void)fs_write_file("readme.txt", "SecureOS filesystem", 0);
 
-    if (fs_build_script_elf(
-          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, run <app>, exit <pass|fail>\n",
+  if (fs_build_script_elf(
+          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, run <app>, exit <pass|fail>\n",
           elf_blob,
           sizeof(elf_blob),
           &elf_len) == FS_OK) {
@@ -782,9 +782,13 @@ void fs_service_init(void) {
     (void)fs_write_file_bytes("lib/envlib.elf", elf_blob, elf_len, 0);
   }
 
+  if (fs_build_script_elf("print fslib\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
+    (void)fs_write_file_bytes("lib/fslib.elf", elf_blob, elf_len, 0);
+  }
+
   if (fs_build_script_elf("print [filedemo] start\n"
           "ls /\n"
-          "cat readme.txt\n"
+          "cat /readme.txt\n"
           "write appdemo.txt filedemo\n"
           "append appdemo.txt -updated\n"
           "print [filedemo] wrote appdemo.txt\n"

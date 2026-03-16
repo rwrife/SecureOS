@@ -7,8 +7,8 @@
  *   directory and prints the result to the console.
  *
  * Interactions:
- *   - secureos_api.h: calls os_fs_list_root and os_console_write
- *     through user-space system-call stubs.
+ *   - lib/fslib.h: calls fslib_list/fslib_list_cwd for directory views.
+ *   - secureos_api.h: used indirectly via fslib plus os_console_write.
  *   - app_runtime.c: loaded and executed by the kernel app runtime.
  *
  * Launched by:
@@ -17,23 +17,29 @@
  */
 
 #include "secureos_api.h"
+#include "lib/fslib.h"
 
 enum { BUF_MAX = 256, ARG_MAX = 128 };
 
 int main(void) {
   char out[BUF_MAX];
   char args[ARG_MAX];
-  const char *path = "/";
+  fslib_status_t status = FSLIB_STATUS_ERROR;
 
   args[0] = '\0';
   (void)os_get_args(args, (unsigned int)sizeof(args));
-  if (args[0] != '\0') {
-    path = args;
+
+  if (args[0] == '\0') {
+    status = fslib_list_cwd(FSLIB_HANDLE_INVALID, out, (unsigned int)sizeof(out));
+  } else {
+    status = fslib_list(FSLIB_HANDLE_INVALID, args, out, (unsigned int)sizeof(out));
   }
 
-  if (os_fs_list_root(out, (unsigned int)sizeof(out)) == OS_STATUS_OK) {
-    (void)path;
-    (void)os_console_write(out);
+  if (status != FSLIB_STATUS_OK) {
+    (void)os_console_write("ls failed\n");
+    return 1;
   }
+
+  (void)os_console_write(out);
   return 0;
 }

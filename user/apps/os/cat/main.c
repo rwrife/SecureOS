@@ -7,9 +7,10 @@
  *   it to the console.
  *
  * Interactions:
- *   - secureos_api.h: calls os_fs_read_file and os_console_write
- *     through user-space system-call stubs.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *   - secureos_api.h: calls os_get_args and os_console_write through
+ *     user-space system-call stubs.
+ *   - lib/fslib.h: file reads go through fslib, which resolves paths
+ *     against the PWD environment variable via envlib.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types "cat <file>"
@@ -17,6 +18,7 @@
  */
 
 #include "secureos_api.h"
+#include "lib/fslib.h"
 
 enum { BUF_MAX = 256, ARG_MAX = 128 };
 
@@ -31,7 +33,7 @@ int main(void) {
     return 1;
   }
 
-  if (os_fs_read_file(path, out, (unsigned int)sizeof(out)) != OS_STATUS_OK) {
+  if (fslib_read(FSLIB_HANDLE_INVALID, path, out, (unsigned int)sizeof(out)) != FSLIB_STATUS_OK) {
     (void)os_console_write("not found\n");
     return 1;
   }

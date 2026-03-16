@@ -247,7 +247,7 @@ cmd = [
 
 scripts = {
     'kernel_console': [
-  ('secureos[s0]> ', 'help\nlibs\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\nexit pass\n'),
+  ('secureos[s0]> ', 'help\ncd os\nls\ny\nlibs\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\nexit pass\n'),
     ],
     'kernel_filedemo': [
       ('secureos[s0]> ', 'apps\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
@@ -271,6 +271,7 @@ expected_markers = {
         'TEST:PASS:console',
         'SecureOS console ready',
         'commands: help, ping, echo <text>',
+        'help.elf',
         'envlib.elf',
         '[lib] loaded /lib/envlib.elf',
       '[lib] use handle=1 refs=1',

@@ -6,9 +6,10 @@
  *   Creates a new directory at the specified path in the filesystem.
  *
  * Interactions:
- *   - secureos_api.h: calls os_fs_mkdir and os_console_write through
+ *   - secureos_api.h: calls os_get_args and os_console_write through
  *     user-space system-call stubs.
- *   - app_runtime.c: loaded and executed by the kernel app runtime.
+ *   - lib/fslib.h: directory creation goes through fslib for consistent
+ *     path resolution against the current working directory.
  *
  * Launched by:
  *   Invoked as a user-space application when the user types
@@ -16,6 +17,7 @@
  */
 
 #include "secureos_api.h"
+#include "lib/fslib.h"
 
 enum { ARG_MAX = 128 };
 
@@ -29,7 +31,7 @@ int main(void) {
     return 1;
   }
 
-  if (os_fs_mkdir(path) != OS_STATUS_OK) {
+  if (fslib_mkdir(FSLIB_HANDLE_INVALID, path) != FSLIB_STATUS_OK) {
     (void)os_console_write("mkdir failed\n");
     return 1;
   }

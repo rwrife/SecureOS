@@ -15,6 +15,7 @@ Canonical wrapper scripts for deterministic local/agent workflows.
 ./build/scripts/build.sh console
 ./build/scripts/build_user_app.sh filedemo
 ./build/scripts/build_user_lib.sh envlib
+./build/scripts/build_user_lib.sh fslib
 ./build/scripts/boot_console.sh
 ```
 
@@ -31,6 +32,7 @@ PowerShell (Windows):
 .\build\scripts\build.ps1 console
 .\build\scripts\build_user_app.ps1 filedemo
 .\build\scripts\build_user_lib.ps1 envlib
+.\build\scripts\build_user_lib.ps1 fslib
 .\build\scripts\boot_console.ps1
 ```
 

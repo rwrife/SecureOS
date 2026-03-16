@@ -71,10 +71,21 @@ static void session_init_context(console_context_t *context, cap_subject_id_t su
   context->subject_id = subject_id;
   context->line[0] = '\0';
   context->line_len = 0u;
+  context->pending_line[0] = '\0';
+  context->pending_line_len = 0u;
+  context->history_count = 0u;
+  context->history_next = 0u;
+  context->history_browse_index = -1;
+  context->screen_history[0] = '\0';
+  context->screen_history_len = 0u;
   context->next_correlation_id = 1u;
   session_copy_string(context->cwd, sizeof(context->cwd), "/");
   context->escape_state = 0u;
   context->next_loaded_lib_handle = 1u;
+
+  for (i = 0u; i < CONSOLE_HISTORY_MAX; ++i) {
+    context->history[i][0] = '\0';
+  }
 
   for (i = 0u; i < CONSOLE_ENV_MAX; ++i) {
     context->env_entries[i].used = 0;

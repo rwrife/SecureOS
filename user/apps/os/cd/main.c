@@ -6,8 +6,8 @@
  *   Changes the console's working directory to the specified path.
  *
  * Interactions:
- *   - secureos_api.h: calls os_change_directory and os_console_write
- *     through user-space system-call stubs.
+ *   - lib/fslib.h: calls fslib_chdir and status helpers.
+ *   - secureos_api.h: used indirectly through fslib wrappers.
  *   - app_runtime.c: loaded and executed by the kernel app runtime.
  *
  * Launched by:
@@ -16,6 +16,7 @@
  */
 
 #include "secureos_api.h"
+#include "lib/fslib.h"
 
 enum { ARG_MAX = 128 };
 
@@ -29,7 +30,7 @@ int main(void) {
     return 1;
   }
 
-  if (os_process_chdir(path) != OS_STATUS_OK) {
+  if (fslib_chdir(FSLIB_HANDLE_INVALID, path) != FSLIB_STATUS_OK) {
     (void)os_console_write("cd failed\n");
     return 1;
   }
