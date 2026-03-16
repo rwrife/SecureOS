@@ -18,7 +18,18 @@ build_user_app_inner() {
     -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
   ld.lld -m elf_i386 -nostdlib -e main \
     -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o
-  echo "Built artifacts/user/$APP_NAME.elf"
+
+  # Build sof_wrap if not already built
+  if [ ! -f "tools/sof_wrap/sof_wrap" ]; then
+    make -C tools/sof_wrap
+  fi
+
+  # Wrap ELF in SOF container
+  ./tools/sof_wrap/sof_wrap \
+    --type bin --name "$APP_NAME" --author "SecureOS" --version "1.0.0" \
+    --date "$(date -u +%Y-%m-%d)" \
+    "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.bin"
+  echo "Built artifacts/user/$APP_NAME.bin"
 }
 
 mkdir -p "$OUT_DIR"

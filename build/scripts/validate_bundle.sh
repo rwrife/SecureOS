@@ -18,6 +18,7 @@ TEST_TARGETS=(
   capability_gate
   capability_audit
     event_bus
+    sof_format
     fs_service
     app_runtime
     kernel_console

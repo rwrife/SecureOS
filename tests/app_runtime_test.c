@@ -443,13 +443,13 @@ int main(void) {
   (void)env_set("PATH", "/apps");
 
   app_list_len = process_list_apps(app_list, sizeof(app_list));
-  if (app_list_len == 0u || !string_contains(app_list, "help.elf") || !string_contains(app_list, "filedemo.elf")) {
+  if (app_list_len == 0u || !string_contains(app_list, "help.bin") || !string_contains(app_list, "filedemo.bin")) {
     fail("app_list_missing_expected_entries");
   }
   printf("TEST:PASS:process_list_apps\n");
 
   lib_list_len = process_list_libraries(lib_list, sizeof(lib_list));
-  if (lib_list_len == 0u || !string_contains(lib_list, "envlib.elf")) {
+  if (lib_list_len == 0u || !string_contains(lib_list, "envlib.lib")) {
     fail("library_list_missing_expected_entries");
   }
   printf("TEST:PASS:process_library_list\n");
@@ -459,7 +459,7 @@ int main(void) {
   }
   printf("TEST:PASS:process_run_filedemo\n");
 
-  if (process_run("/lib/envlib.elf", "", &context) != PROCESS_ERR_LIBRARY) {
+  if (process_run("/lib/envlib.lib", "", &context) != PROCESS_ERR_LIBRARY) {
     fail("library_invocation_not_blocked");
   }
   printf("TEST:PASS:process_library_contract\n");
@@ -467,19 +467,19 @@ int main(void) {
   if (process_load_library("envlib", &context, &library_info) != PROCESS_OK) {
     fail("library_load_failed");
   }
-  if (!string_equals(library_info.resolved_path, "/lib/envlib.elf") || library_info.program_len == 0u) {
+  if (!string_equals(library_info.resolved_path, "/lib/envlib.lib") || library_info.program_len == 0u) {
     fail("library_load_metadata_invalid");
   }
   if (process_run("loadlib", "envlib", &context) != PROCESS_OK) {
     fail("library_load_command_failed");
   }
-  if (!string_contains(g_output, "[lib] loaded /lib/envlib.elf handle=1")) {
+  if (!string_contains(g_output, "[lib] loaded /lib/envlib.lib handle=1")) {
     fail("library_load_output_missing");
   }
   if (process_run("libs", "loaded", &context) != PROCESS_OK) {
     fail("library_loaded_list_command_failed");
   }
-  if (!string_contains(g_output, "handle=1 path=/lib/envlib.elf")) {
+  if (!string_contains(g_output, "handle=1 path=/lib/envlib.lib")) {
     fail("library_loaded_list_output_missing");
   }
   if (process_run("libs", "use 1", &context) != PROCESS_OK) {
@@ -500,7 +500,7 @@ int main(void) {
   if (process_run("unload", "1", &context) != PROCESS_OK) {
     fail("library_unload_command_failed");
   }
-  if (!string_contains(g_output, "[lib] unloaded handle=1 path=/lib/envlib.elf")) {
+  if (!string_contains(g_output, "[lib] unloaded handle=1 path=/lib/envlib.lib")) {
     fail("library_unload_output_missing");
   }
   if (process_run("libs", "loaded", &context) != PROCESS_OK) {

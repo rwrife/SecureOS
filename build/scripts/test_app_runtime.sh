@@ -8,6 +8,7 @@ mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
+  "$ROOT_DIR/kernel/format/sof.c" \
   "$ROOT_DIR/kernel/hal/storage_hal.c" \
   "$ROOT_DIR/kernel/drivers/disk/ramdisk.c" \
   "$ROOT_DIR/kernel/fs/fs_service.c" \

@@ -30,6 +30,7 @@
 #include <stddef.h>
 
 #include "../cap/capability.h"
+#include "../format/sof.h"
 
 typedef void (*process_output_fn)(const char *message);
 typedef cap_access_state_t (*process_authorize_fn)(const char *operation, const char *path);

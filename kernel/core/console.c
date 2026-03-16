@@ -766,12 +766,12 @@ static void console_append_elf_suffix(char *path, size_t path_size) {
     return;
   }
 
-  if (string_has_suffix(path, ".elf")) {
+  if (string_has_suffix(path, ".bin")) {
     return;
   }
 
   len = string_len(path);
-  (void)append_string(path, path_size, len, ".elf");
+  (void)append_string(path, path_size, len, ".bin");
 }
 
 static void console_build_app_candidate_from_dir(const char *base_dir,
@@ -865,7 +865,7 @@ static void console_write_prompt(void) {
   char prompt[32];
   size_t cursor = 0u;
 
-  cursor = append_string(prompt, sizeof(prompt), cursor, "secureos[s");
+  cursor = append_string(prompt, sizeof(prompt), cursor, "\nsecureos[s");
   cursor = append_u32_decimal(prompt, sizeof(prompt), cursor, session_manager_active_id());
   cursor = append_string(prompt, sizeof(prompt), cursor, "]> ");
   console_write(prompt);

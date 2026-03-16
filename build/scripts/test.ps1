@@ -39,6 +39,7 @@ $testScript = switch ($TestName) {
   "capability_audit" { "./build/scripts/test_capability_audit.sh" }
   "event_bus" { "./build/scripts/test_event_bus.sh" }
   "scheduler" { "./build/scripts/test_scheduler.sh" }
+  "sof_format" { "./build/scripts/test_sof_format.sh" }
   "fs_service" { "./build/scripts/test_fs_service.sh" }
   "app_runtime" { "./build/scripts/test_app_runtime.sh" }
   "kernel_console" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_console" }

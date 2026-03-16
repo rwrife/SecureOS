@@ -28,11 +28,12 @@
 #include <stdint.h>
 
 #include "../cap/cap_table.h"
+#include "../format/sof.h"
 #include "../fs/fs_service.h"
 #include "../hal/storage_hal.h"
 
 enum {
-  APP_FILE_MAX = 512,
+  APP_FILE_MAX = 1024,
   APP_OUTPUT_MAX = 512,
   APP_LINE_MAX = 192,
   APP_TOKEN_MAX = 64,
@@ -1110,19 +1111,19 @@ static int app_path_is_library(const char *path) {
          app_string_starts_with(path, "lib/") || app_string_starts_with(path, "lib\\");
 }
 
-static void app_append_elf_suffix(char *path, size_t path_size) {
+static void app_append_bin_suffix(char *path, size_t path_size) {
   size_t len = 0u;
 
   if (path == 0 || path_size == 0u) {
     return;
   }
 
-  if (app_string_ends_with(path, ".elf")) {
+  if (app_string_ends_with(path, ".bin")) {
     return;
   }
 
   len = app_string_len(path);
-  (void)app_append_string(path, path_size, len, ".elf");
+  (void)app_append_string(path, path_size, len, ".bin");
 }
 
 static void app_build_path_from_dir(char *out_path,
@@ -1148,7 +1149,7 @@ static void app_build_path_from_dir(char *out_path,
 
   cursor = app_append_string(out_path, out_path_size, cursor, app_name);
   (void)cursor;
-  app_append_elf_suffix(out_path, out_path_size);
+  app_append_bin_suffix(out_path, out_path_size);
 }
 
 static fs_result_t app_try_read_app_candidate(const char *candidate_path,
@@ -1191,8 +1192,8 @@ static void app_build_library_path(char *out_path, size_t out_path_size, const c
 
   cursor = app_append_string(out_path, out_path_size, cursor, "lib/");
   cursor = app_append_string(out_path, out_path_size, cursor, library_name);
-  if (!app_string_ends_with(library_name, ".elf")) {
-    (void)app_append_string(out_path, out_path_size, cursor, ".elf");
+  if (!app_string_ends_with(library_name, ".lib")) {
+    (void)app_append_string(out_path, out_path_size, cursor, ".lib");
   }
 }
 
@@ -1249,8 +1250,21 @@ process_result_t process_load_library(const char *library_name,
     return PROCESS_ERR_STORAGE;
   }
 
-  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != PROCESS_OK) {
-    return PROCESS_ERR_FORMAT;
+  {
+    sof_parsed_file_t sof_parsed;
+    if (sof_parse(elf_data, elf_len, &sof_parsed) != SOF_OK) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (sof_parsed.header.file_type != SOF_TYPE_LIB) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (sof_verify_signature(elf_data, elf_len, &sof_parsed) != SOF_OK) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (app_parse_elf_program(sof_parsed.payload, sof_parsed.payload_size,
+                               &program, &program_len) != PROCESS_OK) {
+      return PROCESS_ERR_FORMAT;
+    }
   }
 
   app_copy_string(out_library->resolved_path, sizeof(out_library->resolved_path), display_path);
@@ -1548,7 +1562,7 @@ process_result_t process_run(const char *app_name,
 
   if (app_name[0] == '/' || app_name[0] == '\\') {
     app_copy_string(path, sizeof(path), app_name);
-    app_append_elf_suffix(path, sizeof(path));
+    app_append_bin_suffix(path, sizeof(path));
     if (app_path_is_library(path)) {
       return PROCESS_ERR_LIBRARY;
     }
@@ -1556,7 +1570,7 @@ process_result_t process_run(const char *app_name,
   } else {
     if (context != 0 && context->resolve_path != 0) {
       app_resolve_path(context, app_name, path, sizeof(path));
-      app_append_elf_suffix(path, sizeof(path));
+      app_append_bin_suffix(path, sizeof(path));
       if (!app_path_is_library(path)) {
         path_result = app_try_read_app_candidate(path, elf_data, sizeof(elf_data), &elf_len);
         if (path_result == FS_OK) {
@@ -1612,8 +1626,21 @@ process_result_t process_run(const char *app_name,
     return PROCESS_ERR_STORAGE;
   }
 
-  if (app_parse_elf_program(elf_data, elf_len, &program, &program_len) != PROCESS_OK) {
-    return PROCESS_ERR_FORMAT;
+  {
+    sof_parsed_file_t sof_parsed;
+    if (sof_parse(elf_data, elf_len, &sof_parsed) != SOF_OK) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (sof_parsed.header.file_type != SOF_TYPE_BIN) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (sof_verify_signature(elf_data, elf_len, &sof_parsed) != SOF_OK) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (app_parse_elf_program(sof_parsed.payload, sof_parsed.payload_size,
+                               &program, &program_len) != PROCESS_OK) {
+      return PROCESS_ERR_FORMAT;
+    }
   }
 
   if (program == 0 || program_len == 0u) {

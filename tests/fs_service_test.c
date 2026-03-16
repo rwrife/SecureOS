@@ -85,9 +85,9 @@ int main(void) {
   if (fs_list_dir("/os", output, sizeof(output), &output_len) != FS_OK) {
     fail("list_os_failed");
   }
-  if (!string_contains(output, "help.elf\n") || !string_contains(output, "env.elf\n") ||
-      !string_contains(output, "libs.elf\n") || !string_contains(output, "loadlib.elf\n") ||
-      !string_contains(output, "unload.elf\n")) {
+  if (!string_contains(output, "help.bin\n") || !string_contains(output, "env.bin\n") ||
+      !string_contains(output, "libs.bin\n") || !string_contains(output, "loadlib.bin\n") ||
+      !string_contains(output, "unload.bin\n")) {
     fail("list_os_missing_help");
   }
   printf("TEST:PASS:fs_service_list_os\n");
@@ -95,10 +95,10 @@ int main(void) {
   if (fs_list_dir("/lib", output, sizeof(output), &output_len) != FS_OK) {
     fail("list_lib_failed");
   }
-  if (!string_contains(output, "envlib.elf\n")) {
+  if (!string_contains(output, "envlib.lib\n")) {
     fail("list_lib_missing_envlib");
   }
-  if (!string_contains(output, "fslib.elf\n")) {
+  if (!string_contains(output, "fslib.lib\n")) {
     fail("list_lib_missing_fslib");
   }
   printf("TEST:PASS:fs_service_list_lib\n");

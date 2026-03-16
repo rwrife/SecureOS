@@ -61,11 +61,13 @@ void kmain(void) {
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_FS_WRITE);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_EVENT_SUBSCRIBE);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_EVENT_PUBLISH);
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_APP_EXEC);
 
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_CONSOLE_WRITE);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_DISK_IO_REQUEST);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_FS_READ);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_FS_WRITE);
+  (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_APP_EXEC);
 
   serial_write("TEST:START:boot_entry\n");
   serial_write("Hello, SecureOS\n");

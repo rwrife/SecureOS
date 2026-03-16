@@ -61,6 +61,9 @@ case "$TEST_NAME" in
   scheduler)
     "$ROOT_DIR/build/scripts/test_scheduler.sh"
     ;;
+  sof_format)
+    "$ROOT_DIR/build/scripts/test_sof_format.sh"
+    ;;
   fs_service)
     "$ROOT_DIR/build/scripts/test_fs_service.sh"
     ;;

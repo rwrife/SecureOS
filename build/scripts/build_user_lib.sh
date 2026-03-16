@@ -18,7 +18,18 @@ build_user_lib_inner() {
     -c user/runtime/secureos_api_stubs.c -o artifacts/lib/secureos_api_stubs.o
   ld.lld -m elf_i386 -nostdlib -e main \
     -o "artifacts/lib/$LIB_NAME.elf" "artifacts/lib/$LIB_NAME.o" artifacts/lib/secureos_api_stubs.o
-  echo "Built artifacts/lib/$LIB_NAME.elf"
+
+  # Build sof_wrap if not already built
+  if [ ! -f "tools/sof_wrap/sof_wrap" ]; then
+    make -C tools/sof_wrap
+  fi
+
+  # Wrap ELF in SOF container
+  ./tools/sof_wrap/sof_wrap \
+    --type lib --name "$LIB_NAME" --author "SecureOS" --version "1.0.0" \
+    --date "$(date -u +%Y-%m-%d)" \
+    "artifacts/lib/$LIB_NAME.elf" "artifacts/lib/$LIB_NAME.lib"
+  echo "Built artifacts/lib/$LIB_NAME.lib"
 }
 
 mkdir -p "$OUT_DIR"

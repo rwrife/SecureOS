@@ -24,7 +24,9 @@ mkdir -p artifacts/lib
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c "$LIB_DIR/main.c" -o "artifacts/lib/__LIB_NAME__.o"
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/runtime/secureos_api_stubs.c -o artifacts/lib/secureos_api_stubs.o
 ld.lld -m elf_i386 -nostdlib -e main -o "artifacts/lib/__LIB_NAME__.elf" "artifacts/lib/__LIB_NAME__.o" artifacts/lib/secureos_api_stubs.o
-echo "Built artifacts/lib/__LIB_NAME__.elf"
+if [ ! -f "tools/sof_wrap/sof_wrap" ]; then make -C tools/sof_wrap; fi
+./tools/sof_wrap/sof_wrap --type lib --name "__LIB_NAME__" --author "SecureOS" --version "1.0.0" --date "$(date -u +%Y-%m-%d)" "artifacts/lib/__LIB_NAME__.elf" "artifacts/lib/__LIB_NAME__.lib"
+echo "Built artifacts/lib/__LIB_NAME__.lib"
 '@
 
 $buildScript = $buildScript.Replace('__LIB_NAME__', $LibName)

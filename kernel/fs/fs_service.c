@@ -25,6 +25,7 @@
 
 #include "fs_service.h"
 
+#include "../format/sof.h"
 #include "../hal/storage_hal.h"
 
 enum {
@@ -48,7 +49,7 @@ enum {
   FS_ATTR_ARCHIVE = 0x20u,
 
   FS_PATH_COMPONENT_MAX = 16,
-  FS_ELF_BUFFER_MAX = 512,
+  FS_SOF_BUFFER_MAX = 1024,
 };
 
 static size_t fs_string_len(const char *value) {
@@ -611,7 +612,8 @@ static fs_result_t fs_write_entry_content(uint32_t first_cluster,
     return FS_ERR_INVALID_ARG;
   }
 
-  if (content_len > FS_BLOCK_SIZE) {
+  /* Support up to 2 clusters (FS_BLOCK_SIZE * 2 = 1024 bytes) */
+  if (content_len > (FS_BLOCK_SIZE * 2u)) {
     return FS_ERR_NO_SPACE;
   }
 
@@ -623,21 +625,61 @@ static fs_result_t fs_write_entry_content(uint32_t first_cluster,
     start = *out_size;
   }
 
-  if (start + content_len > FS_BLOCK_SIZE) {
-    return FS_ERR_NO_SPACE;
-  }
-
   if (!append) {
     fs_zero_bytes(data, sizeof(data));
     start = 0u;
   }
 
-  for (i = 0u; i < content_len; ++i) {
-    data[start + i] = content[i];
-  }
+  /* Write data that fits in the first cluster */
+  {
+    size_t first_chunk = content_len;
+    if (start + first_chunk > FS_BLOCK_SIZE) {
+      first_chunk = (start < FS_BLOCK_SIZE) ? (FS_BLOCK_SIZE - start) : 0u;
+    }
 
-  if (fs_write_cluster(first_cluster, data) != FS_OK) {
-    return FS_ERR_STORAGE;
+    for (i = 0u; i < first_chunk; ++i) {
+      data[start + i] = content[i];
+    }
+
+    if (fs_write_cluster(first_cluster, data) != FS_OK) {
+      return FS_ERR_STORAGE;
+    }
+
+    /* If there's overflow into a second cluster, chain via FAT */
+    if (start + content_len > FS_BLOCK_SIZE) {
+      uint8_t fat[FS_BLOCK_SIZE];
+      uint8_t data2[FS_BLOCK_SIZE];
+      uint32_t second_cluster = 0u;
+      size_t second_offset = first_chunk;
+      size_t second_len = content_len - first_chunk;
+
+      if (fs_load_fat(fat) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+
+      /* Check if a second cluster is already chained */
+      second_cluster = fs_fat_get_entry(fat, first_cluster);
+      if (second_cluster == FS_FAT_ENTRY_EOC || second_cluster == FS_FAT_ENTRY_FREE) {
+        /* Allocate a new cluster */
+        if (fs_find_free_cluster(fat, &second_cluster) != FS_OK) {
+          return FS_ERR_NO_SPACE;
+        }
+        fs_fat_set_entry(fat, first_cluster, second_cluster);
+        fs_fat_set_entry(fat, second_cluster, FS_FAT_ENTRY_EOC);
+        if (fs_store_fat(fat) != FS_OK) {
+          return FS_ERR_STORAGE;
+        }
+      }
+
+      fs_zero_bytes(data2, sizeof(data2));
+      for (i = 0u; i < second_len; ++i) {
+        data2[i] = content[second_offset + i];
+      }
+
+      if (fs_write_cluster(second_cluster, data2) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+    }
   }
 
   if (out_size != 0) {
@@ -701,9 +743,69 @@ static fs_result_t fs_build_script_elf(const char *script,
   return FS_OK;
 }
 
-void fs_service_init(void) {
-  uint8_t elf_blob[FS_ELF_BUFFER_MAX];
+static fs_result_t fs_build_sof_binary(const char *script,
+                                        const char *name,
+                                        uint8_t *out_buffer,
+                                        size_t out_buffer_size,
+                                        size_t *out_len) {
+  uint8_t elf_buf[FS_SOF_BUFFER_MAX];
   size_t elf_len = 0u;
+  sof_build_params_t params;
+
+  if (fs_build_script_elf(script, elf_buf, sizeof(elf_buf), &elf_len) != FS_OK) {
+    return FS_ERR_NO_SPACE;
+  }
+
+  params.file_type = SOF_TYPE_BIN;
+  params.name = name;
+  params.description = name;
+  params.author = "SecureOS";
+  params.version = "1.0.0";
+  params.date = "2026-03-16";
+  params.icon = 0;
+  params.elf_payload = elf_buf;
+  params.elf_payload_size = elf_len;
+
+  if (sof_build(&params, out_buffer, out_buffer_size, out_len) != SOF_OK) {
+    return FS_ERR_NO_SPACE;
+  }
+
+  return FS_OK;
+}
+
+static fs_result_t fs_build_sof_library(const char *script,
+                                         const char *name,
+                                         uint8_t *out_buffer,
+                                         size_t out_buffer_size,
+                                         size_t *out_len) {
+  uint8_t elf_buf[FS_SOF_BUFFER_MAX];
+  size_t elf_len = 0u;
+  sof_build_params_t params;
+
+  if (fs_build_script_elf(script, elf_buf, sizeof(elf_buf), &elf_len) != FS_OK) {
+    return FS_ERR_NO_SPACE;
+  }
+
+  params.file_type = SOF_TYPE_LIB;
+  params.name = name;
+  params.description = name;
+  params.author = "SecureOS";
+  params.version = "1.0.0";
+  params.date = "2026-03-16";
+  params.icon = 0;
+  params.elf_payload = elf_buf;
+  params.elf_payload_size = elf_len;
+
+  if (sof_build(&params, out_buffer, out_buffer_size, out_len) != SOF_OK) {
+    return FS_ERR_NO_SPACE;
+  }
+
+  return FS_OK;
+}
+
+void fs_service_init(void) {
+  uint8_t sof_blob[FS_SOF_BUFFER_MAX];
+  size_t sof_len = 0u;
 
   if (fs_ensure_initialized() != FS_OK) {
     return;
@@ -714,89 +816,85 @@ void fs_service_init(void) {
   (void)fs_mkdir("lib");
   (void)fs_write_file("readme.txt", "SecureOS filesystem", 0);
 
-  if (fs_build_script_elf(
+  if (fs_build_sof_binary(
           "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, run <app>, exit <pass|fail>\n",
-          elf_blob,
-          sizeof(elf_blob),
-          &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/help.elf", elf_blob, elf_len, 0);
+          "help", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/help.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("print pong\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/ping.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("print pong\n", "ping", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/ping.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("print $ARGS\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/echo.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("print $ARGS\n", "echo", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/echo.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("ls $ARGS\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/ls.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("ls $ARGS\n", "ls", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/ls.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("cat $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/cat.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("cat $1\n", "cat", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/cat.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("write $1 $2\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/write.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("write $1 $2\n", "write", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/write.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("append $1 $2\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/append.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("append $1 $2\n", "append", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/append.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("mkdir $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/mkdir.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("mkdir $1\n", "mkdir", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/mkdir.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("cd $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/cd.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("cd $1\n", "cd", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/cd.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("env $ARGS\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/env.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("env $ARGS\n", "env", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/env.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("apps\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/apps.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("apps\n", "apps", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/apps.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("libs $ARGS\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/libs.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("libs $ARGS\n", "libs", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/libs.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("loadlib $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/loadlib.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("loadlib $1\n", "loadlib", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/loadlib.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("unloadlib $1\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/unload.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("unloadlib $1\n", "unload", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/unload.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("storage\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("os/storage.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_binary("storage\n", "storage", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/storage.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("print envlib\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("lib/envlib.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_library("print envlib\n", "envlib", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("lib/envlib.lib", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("print fslib\n", elf_blob, sizeof(elf_blob), &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("lib/fslib.elf", elf_blob, elf_len, 0);
+  if (fs_build_sof_library("print fslib\n", "fslib", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("lib/fslib.lib", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_script_elf("print [filedemo] start\n"
+  if (fs_build_sof_binary("print [filedemo] start\n"
           "ls /\n"
           "cat /readme.txt\n"
           "write appdemo.txt filedemo\n"
           "append appdemo.txt -updated\n"
           "print [filedemo] wrote appdemo.txt\n"
           "print [filedemo] done\n",
-          elf_blob,
-          sizeof(elf_blob),
-          &elf_len) == FS_OK) {
-    (void)fs_write_file_bytes("apps/filedemo.elf", elf_blob, elf_len, 0);
+          "filedemo", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("apps/filedemo.bin", sof_blob, sof_len, 0);
   }
 }
 
@@ -917,7 +1015,7 @@ fs_result_t fs_read_file_bytes(const char *path,
   first_cluster = fs_entry_cluster(&parent_dir[offset]);
   file_size = fs_read_u32(parent_dir, offset + 28u);
 
-  if (file_size > out_buffer_size || file_size > FS_BLOCK_SIZE) {
+  if (file_size > out_buffer_size || file_size > (FS_BLOCK_SIZE * 2u)) {
     return FS_ERR_NO_SPACE;
   }
 
@@ -925,8 +1023,40 @@ fs_result_t fs_read_file_bytes(const char *path,
     return FS_ERR_STORAGE;
   }
 
-  for (i = 0u; i < file_size; ++i) {
-    out_buffer[i] = file_data[i];
+  {
+    size_t first_chunk = file_size;
+    if (first_chunk > FS_BLOCK_SIZE) {
+      first_chunk = FS_BLOCK_SIZE;
+    }
+
+    for (i = 0u; i < first_chunk; ++i) {
+      out_buffer[i] = file_data[i];
+    }
+
+    /* Follow FAT chain for second cluster if file > 512 bytes */
+    if (file_size > FS_BLOCK_SIZE) {
+      uint8_t fat[FS_BLOCK_SIZE];
+      uint8_t file_data2[FS_BLOCK_SIZE];
+      uint32_t second_cluster = 0u;
+      size_t remaining = file_size - FS_BLOCK_SIZE;
+
+      if (fs_load_fat(fat) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+
+      second_cluster = fs_fat_get_entry(fat, first_cluster);
+      if (second_cluster < FS_CLUSTER_MIN_ALLOC || second_cluster > FS_CLUSTER_MAX_ALLOC) {
+        return FS_ERR_STORAGE;
+      }
+
+      if (fs_read_cluster(second_cluster, file_data2) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+
+      for (i = 0u; i < remaining; ++i) {
+        out_buffer[FS_BLOCK_SIZE + i] = file_data2[i];
+      }
+    }
   }
 
   *out_len = (size_t)file_size;
