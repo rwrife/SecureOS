@@ -1,0 +1,2 @@
+usage: libs [loaded|use <handle>|release <handle>]
+manages loaded shared libraries and reference counts.

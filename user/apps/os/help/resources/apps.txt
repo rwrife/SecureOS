@@ -1,0 +1,2 @@
+usage: apps
+lists installed applications.

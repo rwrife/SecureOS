@@ -1,0 +1,2 @@
+usage: loadlib <lib>
+loads a shared library from /lib.

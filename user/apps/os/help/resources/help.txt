@@ -1,0 +1,5 @@
+usage: help [command]
+examples:
+  help
+  help ls
+  help env

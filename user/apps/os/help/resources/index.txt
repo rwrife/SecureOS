@@ -1,0 +1,2 @@
+commands: help, ping, echo <text>, ls [dir], env [key[=value]|key value], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about, run <app>, exit <pass|fail>
+tip: run "help <command>" for command-specific details.

@@ -1,0 +1,2 @@
+usage: write <file> <text>
+writes text to a file, replacing existing contents.

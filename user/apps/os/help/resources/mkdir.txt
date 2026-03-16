@@ -1,0 +1,2 @@
+usage: mkdir <dir>
+creates a directory.

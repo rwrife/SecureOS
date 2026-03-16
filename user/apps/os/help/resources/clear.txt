@@ -1,0 +1,2 @@
+usage: clear
+clears the console output.

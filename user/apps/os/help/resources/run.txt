@@ -1,0 +1,2 @@
+usage: run <app>
+launches an app binary from the filesystem.

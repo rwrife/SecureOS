@@ -1,0 +1,2 @@
+usage: ls [dir]
+lists directory contents. when omitted, lists current working directory.

@@ -819,7 +819,7 @@ void fs_service_init(void) {
   (void)fs_write_file("readme.txt", "SecureOS filesystem", 0);
 
   if (fs_build_sof_binary(
-          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about <file>, run <app>, exit <pass|fail>\n",
+      "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about <file>, run <app>, exit <pass|fail>\n",
           "help",
           "Display available shell commands",
           sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {

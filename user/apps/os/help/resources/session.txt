@@ -1,0 +1,5 @@
+usage:
+  session list
+  session new
+  session switch <id>
+manages interactive shell sessions.

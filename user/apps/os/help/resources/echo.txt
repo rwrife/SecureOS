@@ -1,0 +1,2 @@
+usage: echo <text>
+prints the provided argument text.

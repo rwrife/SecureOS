@@ -1,0 +1,2 @@
+usage: append <file> <text>
+appends text to the end of a file.

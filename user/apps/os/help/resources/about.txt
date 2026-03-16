@@ -1,0 +1,2 @@
+usage: about [file]
+shows information about SecureOS or a target file.

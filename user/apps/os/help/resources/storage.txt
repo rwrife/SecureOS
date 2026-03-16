@@ -1,0 +1,2 @@
+usage: storage
+shows storage backend and capacity information.

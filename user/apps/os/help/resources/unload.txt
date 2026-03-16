@@ -1,0 +1,2 @@
+usage: unload <handle>
+unloads a previously loaded shared library handle.

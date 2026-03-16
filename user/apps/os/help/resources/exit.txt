@@ -1,0 +1,2 @@
+usage: exit <pass|fail>
+requests emulator exit with a pass/fail status code.

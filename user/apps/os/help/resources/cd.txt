@@ -1,0 +1,2 @@
+usage: cd <dir>
+changes the current working directory.
