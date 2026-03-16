@@ -1383,6 +1383,139 @@ static process_result_t app_script_cmd_env(const process_context_t *context, con
   return app_sys_env(context, args == 0 ? "" : args);
 }
 
+static process_result_t app_sys_about(const process_context_t *context, const char *path) {
+  uint8_t file_data[APP_FILE_MAX];
+  size_t file_len = 0u;
+  char resolved[APP_TOKEN_MAX];
+  char output[APP_OUTPUT_MAX];
+  size_t cursor = 0u;
+  sof_parsed_file_t parsed;
+  const char *meta_value = 0;
+  size_t meta_len = 0u;
+  process_result_t access = PROCESS_OK;
+
+  if (path == 0 || path[0] == '\0') {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  app_resolve_path(context, path, resolved, sizeof(resolved));
+
+  access = app_require_storage_access(context, CAP_FS_READ, "about", resolved);
+  if (access != PROCESS_OK) {
+    return access;
+  }
+
+  {
+    const char *fs_path = resolved;
+    if (fs_path[0] == '/' || fs_path[0] == '\\') {
+      fs_path = fs_path + 1u;
+    }
+    if (fs_read_file_bytes(fs_path, file_data, sizeof(file_data), &file_len) != FS_OK) {
+      return PROCESS_ERR_NOT_FOUND;
+    }
+  }
+
+  if (!sof_is_sof(file_data, file_len)) {
+    app_emit(context, "not a SOF file\n");
+    return PROCESS_OK;
+  }
+
+  if (sof_parse(file_data, file_len, &parsed) != SOF_OK) {
+    app_emit(context, "invalid SOF file\n");
+    return PROCESS_OK;
+  }
+
+  /* File type */
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "type:        ");
+  switch (parsed.header.file_type) {
+    case SOF_TYPE_BIN: cursor = app_append_string(output, sizeof(output), cursor, "binary (.bin)"); break;
+    case SOF_TYPE_LIB: cursor = app_append_string(output, sizeof(output), cursor, "library (.lib)"); break;
+    case SOF_TYPE_APP: cursor = app_append_string(output, sizeof(output), cursor, "application (.app)"); break;
+    default:           cursor = app_append_string(output, sizeof(output), cursor, "unknown"); break;
+  }
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  app_emit(context, output);
+
+  /* Name */
+  if (sof_get_meta(&parsed, SOF_META_NAME, &meta_value, &meta_len) == SOF_OK) {
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "name:        ");
+    cursor = app_append_string(output, sizeof(output), cursor, meta_value);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+  }
+
+  /* Description */
+  if (sof_get_meta(&parsed, SOF_META_DESCRIPTION, &meta_value, &meta_len) == SOF_OK) {
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "description: ");
+    cursor = app_append_string(output, sizeof(output), cursor, meta_value);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+  }
+
+  /* Author */
+  if (sof_get_meta(&parsed, SOF_META_AUTHOR, &meta_value, &meta_len) == SOF_OK) {
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "author:      ");
+    cursor = app_append_string(output, sizeof(output), cursor, meta_value);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+  }
+
+  /* Version */
+  if (sof_get_meta(&parsed, SOF_META_VERSION, &meta_value, &meta_len) == SOF_OK) {
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "version:     ");
+    cursor = app_append_string(output, sizeof(output), cursor, meta_value);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+  }
+
+  /* Date */
+  if (sof_get_meta(&parsed, SOF_META_DATE, &meta_value, &meta_len) == SOF_OK) {
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "date:        ");
+    cursor = app_append_string(output, sizeof(output), cursor, meta_value);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+  }
+
+  /* Format version */
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "format:      v");
+  cursor = app_append_u32_decimal(output, sizeof(output), cursor, (uint32_t)parsed.header.format_version);
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  app_emit(context, output);
+
+  /* Sizes */
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "total_size:  ");
+  cursor = app_append_u32_decimal(output, sizeof(output), cursor, parsed.header.total_size);
+  cursor = app_append_string(output, sizeof(output), cursor, " bytes\n");
+  app_emit(context, output);
+
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "payload:     ");
+  cursor = app_append_u32_decimal(output, sizeof(output), cursor, parsed.header.payload_size);
+  cursor = app_append_string(output, sizeof(output), cursor, " bytes\n");
+  app_emit(context, output);
+
+  /* Signature status */
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "signed:      ");
+  cursor = app_append_string(output, sizeof(output), cursor, parsed.has_signature ? "yes" : "no");
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  app_emit(context, output);
+
+  return PROCESS_OK;
+}
+
+static process_result_t app_script_cmd_about(const process_context_t *context, const char *args) {
+  return app_sys_about(context, args);
+}
+
 static process_result_t app_script_cmd_loadlib(const process_context_t *context, const char *args) {
   return app_sys_loadlib(context, args);
 }
@@ -1412,6 +1545,7 @@ static process_result_t app_execute_named_script_command(const char *command,
       {"libs", app_script_cmd_libs, 0, ""},
       {"storage", app_script_cmd_storage, 0, ""},
       {"env", app_script_cmd_env, 0, ""},
+      {"about", app_script_cmd_about, 1, 0},
       {"loadlib", app_script_cmd_loadlib, 1, 0},
       {"unloadlib", app_script_cmd_unloadlib, 1, 0},
       {"uselib", app_script_cmd_uselib, 1, 0},

@@ -745,6 +745,7 @@ static fs_result_t fs_build_script_elf(const char *script,
 
 static fs_result_t fs_build_sof_binary(const char *script,
                                         const char *name,
+                                        const char *description,
                                         uint8_t *out_buffer,
                                         size_t out_buffer_size,
                                         size_t *out_len) {
@@ -758,7 +759,7 @@ static fs_result_t fs_build_sof_binary(const char *script,
 
   params.file_type = SOF_TYPE_BIN;
   params.name = name;
-  params.description = name;
+  params.description = (description != 0) ? description : name;
   params.author = "SecureOS";
   params.version = "1.0.0";
   params.date = "2026-03-16";
@@ -775,6 +776,7 @@ static fs_result_t fs_build_sof_binary(const char *script,
 
 static fs_result_t fs_build_sof_library(const char *script,
                                          const char *name,
+                                         const char *description,
                                          uint8_t *out_buffer,
                                          size_t out_buffer_size,
                                          size_t *out_len) {
@@ -788,7 +790,7 @@ static fs_result_t fs_build_sof_library(const char *script,
 
   params.file_type = SOF_TYPE_LIB;
   params.name = name;
-  params.description = name;
+  params.description = (description != 0) ? description : name;
   params.author = "SecureOS";
   params.version = "1.0.0";
   params.date = "2026-03-16";
@@ -817,73 +819,137 @@ void fs_service_init(void) {
   (void)fs_write_file("readme.txt", "SecureOS filesystem", 0);
 
   if (fs_build_sof_binary(
-          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, run <app>, exit <pass|fail>\n",
-          "help", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+          "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about <file>, run <app>, exit <pass|fail>\n",
+          "help",
+          "Display available shell commands",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/help.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("print pong\n", "ping", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("print pong\n",
+          "ping",
+          "Test connectivity with a pong response",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/ping.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("print $ARGS\n", "echo", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("print $ARGS\n",
+          "echo",
+          "Print text to the console",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/echo.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("ls $ARGS\n", "ls", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("ls $ARGS\n",
+          "ls",
+          "List directory contents",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/ls.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("cat $1\n", "cat", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("cat $1\n",
+          "cat",
+          "Display file contents",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/cat.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("write $1 $2\n", "write", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("write $1 $2\n",
+          "write",
+          "Write text to a file",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/write.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("append $1 $2\n", "append", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("append $1 $2\n",
+          "append",
+          "Append text to an existing file",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/append.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("mkdir $1\n", "mkdir", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("mkdir $1\n",
+          "mkdir",
+          "Create a new directory",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/mkdir.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("cd $1\n", "cd", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("cd $1\n",
+          "cd",
+          "Change the current working directory",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/cd.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("env $ARGS\n", "env", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("env $ARGS\n",
+          "env",
+          "View or set environment variables",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/env.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("apps\n", "apps", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("apps\n",
+          "apps",
+          "List installed applications",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/apps.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("libs $ARGS\n", "libs", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("libs $ARGS\n",
+          "libs",
+          "List or manage loaded libraries",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/libs.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("loadlib $1\n", "loadlib", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("loadlib $1\n",
+          "loadlib",
+          "Load a shared library into memory",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/loadlib.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("unloadlib $1\n", "unload", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("unloadlib $1\n",
+          "unload",
+          "Unload a previously loaded library",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/unload.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("storage\n", "storage", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("storage\n",
+          "storage",
+          "Display storage backend information",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/storage.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_library("print envlib\n", "envlib", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_binary("about $1\n",
+          "about",
+          "Show SOF file metadata for a binary or library",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("os/about.bin", sof_blob, sof_len, 0);
+  }
+
+  if (fs_build_sof_library("print envlib\n",
+          "envlib",
+          "Environment variable access library",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("lib/envlib.lib", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_library("print fslib\n", "fslib", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+  if (fs_build_sof_library("print fslib\n",
+          "fslib",
+          "Filesystem operations library",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("lib/fslib.lib", sof_blob, sof_len, 0);
+  }
+
+  if (fs_build_sof_library("print soflib\n",
+          "soflib",
+          "SOF metadata extraction library",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("lib/soflib.lib", sof_blob, sof_len, 0);
   }
 
   if (fs_build_sof_binary("print [filedemo] start\n"
@@ -893,7 +959,9 @@ void fs_service_init(void) {
           "append appdemo.txt -updated\n"
           "print [filedemo] wrote appdemo.txt\n"
           "print [filedemo] done\n",
-          "filedemo", sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+          "filedemo",
+          "Demonstrates filesystem read and write operations",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("apps/filedemo.bin", sof_blob, sof_len, 0);
   }
 }
