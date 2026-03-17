@@ -1,3 +1,4 @@
+
 /**
  * @file sof_format_test.c
  * @brief Unit tests for the SecureOS File Format (SOF) library.
@@ -213,7 +214,7 @@ static void test_sof_build_and_parse_lib(void) {
   params.name = "test-lib";
   params.description = "A test library";
   params.author = "SecureOS";
-  params.version = "1.0.0";
+  params.version = "0.0.1";
   params.date = "2026-03-16";
   params.icon = 0;
   params.elf_payload = elf_buf;

@@ -17,6 +17,7 @@ typedef enum {
   CAP_EVENT_SUBSCRIBE = 8,
   CAP_EVENT_PUBLISH = 9,
   CAP_APP_EXEC = 10,
+  CAP_CODESIGN_BYPASS = 11,
 } capability_id_t;
 
 typedef enum {

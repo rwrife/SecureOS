@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../../kernel/crypto/ed25519.h"
+#include "../../kernel/crypto/cert.h"
 #include "../../kernel/format/sof.h"
 
 enum {
@@ -36,8 +38,20 @@ static void usage(const char *prog) {
   fprintf(stderr,
           "Usage: %s --type <bin|lib> --name <name> [--author <author>]\n"
           "       [--version <version>] [--date <date>] [--description <desc>]\n"
-          "       [--icon <icon>] <input.elf> <output.bin|output.lib>\n",
+          "       [--icon <icon>] [--sign-key <seed.bin>] [--sign-cert <cert.bin>]\n"
+          "       <input.elf> <output.bin|output.lib>\n",
           prog);
+}
+
+static int read_binary_file(const char *path, uint8_t *out, size_t expected_size) {
+  FILE *fp = fopen(path, "rb");
+  if (fp == NULL) { return 0; }
+  if (fread(out, 1, expected_size, fp) != expected_size) {
+    fclose(fp);
+    return 0;
+  }
+  fclose(fp);
+  return 1;
 }
 
 int main(int argc, char **argv) {
@@ -48,6 +62,8 @@ int main(int argc, char **argv) {
   const char *date = NULL;
   const char *description = NULL;
   const char *icon = NULL;
+  const char *sign_key_path = NULL;
+  const char *sign_cert_path = NULL;
   const char *input_path = NULL;
   const char *output_path = NULL;
   sof_file_type_t file_type = SOF_TYPE_INVALID;
@@ -76,6 +92,10 @@ int main(int argc, char **argv) {
       description = argv[++i];
     } else if (strcmp(argv[i], "--icon") == 0 && i + 1 < argc) {
       icon = argv[++i];
+    } else if (strcmp(argv[i], "--sign-key") == 0 && i + 1 < argc) {
+      sign_key_path = argv[++i];
+    } else if (strcmp(argv[i], "--sign-cert") == 0 && i + 1 < argc) {
+      sign_cert_path = argv[++i];
     } else if (argv[i][0] != '-' && input_path == NULL) {
       input_path = argv[i];
     } else if (argv[i][0] != '-' && output_path == NULL) {
@@ -154,12 +174,50 @@ int main(int argc, char **argv) {
   params.elf_payload = elf_data;
   params.elf_payload_size = elf_size;
 
-  result = sof_build(&params, sof_data, SOF_WRAP_MAX_OUTPUT_SIZE, &sof_size);
-  if (result != SOF_OK) {
-    fprintf(stderr, "Error: sof_build failed with code %d.\n", (int)result);
+  if (sign_key_path != NULL && sign_cert_path != NULL) {
+    uint8_t seed[32];
+    uint8_t pub[32];
+    uint8_t priv[64];
+    uint8_t cert_data[SECUREOS_CERT_SIZE];
+
+    if (!read_binary_file(sign_key_path, seed, 32)) {
+      fprintf(stderr, "Error: cannot read 32-byte signing key from '%s'.\n", sign_key_path);
+      free(sof_data);
+      free(elf_data);
+      return 1;
+    }
+
+    if (!read_binary_file(sign_cert_path, cert_data, SECUREOS_CERT_SIZE)) {
+      fprintf(stderr, "Error: cannot read %d-byte certificate from '%s'.\n",
+              SECUREOS_CERT_SIZE, sign_cert_path);
+      free(sof_data);
+      free(elf_data);
+      return 1;
+    }
+
+    ed25519_create_keypair(pub, priv, seed);
+
+    result = sof_build_signed(&params, priv, pub, cert_data, SECUREOS_CERT_SIZE,
+                               sof_data, SOF_WRAP_MAX_OUTPUT_SIZE, &sof_size);
+    if (result != SOF_OK) {
+      fprintf(stderr, "Error: sof_build_signed failed with code %d.\n", (int)result);
+      free(sof_data);
+      free(elf_data);
+      return 1;
+    }
+  } else if (sign_key_path != NULL || sign_cert_path != NULL) {
+    fprintf(stderr, "Error: both --sign-key and --sign-cert must be provided together.\n");
     free(sof_data);
     free(elf_data);
     return 1;
+  } else {
+    result = sof_build(&params, sof_data, SOF_WRAP_MAX_OUTPUT_SIZE, &sof_size);
+    if (result != SOF_OK) {
+      fprintf(stderr, "Error: sof_build failed with code %d.\n", (int)result);
+      free(sof_data);
+      free(elf_data);
+      return 1;
+    }
   }
 
   /* Write output SOF file */
@@ -183,7 +241,8 @@ int main(int argc, char **argv) {
   free(sof_data);
   free(elf_data);
 
-  printf("sof_wrap: %s -> %s (%zu bytes, type=%s)\n",
-         input_path, output_path, sof_size, type_str);
+  printf("sof_wrap: %s -> %s (%zu bytes, type=%s, signed=%s)\n",
+         input_path, output_path, sof_size, type_str,
+         (sign_key_path != NULL) ? "yes" : "no");
   return 0;
 }

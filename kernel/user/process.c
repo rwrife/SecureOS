@@ -28,9 +28,78 @@
 #include <stdint.h>
 
 #include "../cap/cap_table.h"
+#include "../crypto/cert.h"
+#include "../crypto/ed25519.h"
+#include "../crypto/sha512.h"
 #include "../format/sof.h"
 #include "../fs/fs_service.h"
 #include "../hal/storage_hal.h"
+
+/* Forward declaration — used by app_validate_codesign before full definition */
+static void app_emit(const process_context_t *context, const char *message);
+
+/**
+ * @brief Validate code signature on a parsed SOF binary.
+ *
+ * Logic:
+ *   1. If signature present and valid → allow silently
+ *   2. If signature present but INVALID → warn and allow (dev mode)
+ *   3. If unsigned:
+ *      a. If subject has CAP_CODESIGN_BYPASS → allow silently
+ *      b. If authorize_unsigned callback exists → prompt user (y/n)
+ *      c. Otherwise → warn and allow (dev mode)
+ *
+ * TODO: In production, cases 2 and 3c should block (PROCESS_ERR_SIGNATURE).
+ */
+static process_result_t app_validate_codesign(const uint8_t *file_data,
+                                               size_t file_len,
+                                               const sof_parsed_file_t *parsed,
+                                               const char *display_path,
+                                               const process_context_t *context) {
+  sof_result_t sig_result;
+
+  if (parsed == 0 || context == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  if (!parsed->has_signature) {
+    /* Unsigned binary — check bypass capability first (silent) */
+    if (cap_table_check(context->subject_id, CAP_CODESIGN_BYPASS) == CAP_OK) {
+      return PROCESS_OK;
+    }
+
+    /* Prompt user for consent if callback available */
+    if (context->authorize_unsigned != 0) {
+      cap_access_state_t consent = context->authorize_unsigned(
+          display_path != 0 ? display_path : "(unknown)");
+      if (consent != CAP_ACCESS_ALLOW) {
+        app_emit(context, "[codesign] BLOCKED by user: ");
+        app_emit(context, display_path != 0 ? display_path : "(unknown)");
+        app_emit(context, "\n");
+        return PROCESS_ERR_SIGNATURE;
+      }
+      return PROCESS_OK;
+    }
+
+    /* No callback — warn and allow (development default) */
+    app_emit(context, "[codesign] WARNING: unsigned binary: ");
+    app_emit(context, display_path != 0 ? display_path : "(unknown)");
+    app_emit(context, "\n");
+    return PROCESS_OK;
+  }
+
+  /* Signature is present — verify it */
+  sig_result = sof_verify_signature(file_data, file_len, parsed);
+  if (sig_result == SOF_OK) {
+    return PROCESS_OK;
+  }
+
+  /* Signature invalid — warn and allow (development default) */
+  app_emit(context, "[codesign] WARNING: signature verification failed: ");
+  app_emit(context, display_path != 0 ? display_path : "(unknown)");
+  app_emit(context, "\n");
+  return PROCESS_OK;
+}
 
 enum {
   APP_FILE_MAX = 1024,
@@ -1252,15 +1321,20 @@ process_result_t process_load_library(const char *library_name,
 
   {
     sof_parsed_file_t sof_parsed;
+    process_result_t codesign_result;
+
     if (sof_parse(elf_data, elf_len, &sof_parsed) != SOF_OK) {
       return PROCESS_ERR_FORMAT;
     }
     if (sof_parsed.header.file_type != SOF_TYPE_LIB) {
       return PROCESS_ERR_FORMAT;
     }
-    if (sof_verify_signature(elf_data, elf_len, &sof_parsed) != SOF_OK) {
-      return PROCESS_ERR_FORMAT;
+
+    codesign_result = app_validate_codesign(elf_data, elf_len, &sof_parsed, display_path, context);
+    if (codesign_result != PROCESS_OK) {
+      return codesign_result;
     }
+
     if (app_parse_elf_program(sof_parsed.payload, sof_parsed.payload_size,
                                &program, &program_len) != PROCESS_OK) {
       return PROCESS_ERR_FORMAT;
@@ -1508,6 +1582,77 @@ static process_result_t app_sys_about(const process_context_t *context, const ch
   cursor = app_append_string(output, sizeof(output), cursor, parsed.has_signature ? "yes" : "no");
   cursor = app_append_string(output, sizeof(output), cursor, "\n");
   app_emit(context, output);
+
+  /* Detailed signature diagnostics */
+  if (parsed.has_signature) {
+    sof_result_t verify_result;
+
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "sig_offset:  ");
+    cursor = app_append_u32_decimal(output, sizeof(output), cursor, parsed.header.sig_offset);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "sig_size:    ");
+    cursor = app_append_u32_decimal(output, sizeof(output), cursor, parsed.header.sig_size);
+    cursor = app_append_string(output, sizeof(output), cursor, " bytes\n");
+    app_emit(context, output);
+
+    /* Show cert subject key (first 4 bytes hex) */
+    if (parsed.header.sig_size >= 132u) {
+      const uint8_t *sig_section = &file_data[parsed.header.sig_offset];
+      static const char hex[] = "0123456789abcdef";
+      size_t k;
+
+      cursor = 0u;
+      cursor = app_append_string(output, sizeof(output), cursor, "cert_subject:");
+      for (k = 0; k < 8u && k + 36u < 132u; ++k) {
+        if (cursor + 2u < sizeof(output)) {
+          output[cursor++] = hex[(sig_section[36u + k] >> 4u) & 0x0Fu];
+          output[cursor++] = hex[sig_section[36u + k] & 0x0Fu];
+        }
+      }
+      output[cursor] = '\0';
+      cursor = app_append_string(output, sizeof(output), cursor, "...\n");
+      app_emit(context, output);
+
+      cursor = 0u;
+      cursor = app_append_string(output, sizeof(output), cursor, "cert_issuer: ");
+      for (k = 0; k < 8u && k + 4u < 36u; ++k) {
+        if (cursor + 2u < sizeof(output)) {
+          output[cursor++] = hex[(sig_section[4u + k] >> 4u) & 0x0Fu];
+          output[cursor++] = hex[sig_section[4u + k] & 0x0Fu];
+        }
+      }
+      output[cursor] = '\0';
+      cursor = app_append_string(output, sizeof(output), cursor, "...\n");
+      app_emit(context, output);
+    }
+
+    /* Certificate parse diagnostic */
+    if (parsed.header.sig_size >= SECUREOS_CERT_TOTAL_SIZE) {
+      const uint8_t *sig_sec = &file_data[parsed.header.sig_offset];
+      secureos_cert_t diag_cert;
+      cert_result_t cr;
+
+      cr = cert_parse(sig_sec, SECUREOS_CERT_TOTAL_SIZE, &diag_cert);
+      cursor = 0u;
+      cursor = app_append_string(output, sizeof(output), cursor, "cert_parse:  ");
+      cursor = app_append_string(output, sizeof(output), cursor, cr == CERT_OK ? "ok" : "FAIL(");
+      if (cr != CERT_OK) { cursor = app_append_u32_decimal(output, sizeof(output), cursor, (uint32_t)cr); cursor = app_append_string(output, sizeof(output), cursor, ")"); }
+      cursor = app_append_string(output, sizeof(output), cursor, "\n");
+      app_emit(context, output);
+    }
+
+    /* Overall verify */
+    verify_result = sof_verify_signature(file_data, file_len, &parsed);
+    cursor = 0u;
+    cursor = app_append_string(output, sizeof(output), cursor, "sig_verify:  ");
+    cursor = app_append_string(output, sizeof(output), cursor, verify_result == SOF_OK ? "PASS" : "FAIL");
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+  }
 
   return PROCESS_OK;
 }
@@ -1762,15 +1907,20 @@ process_result_t process_run(const char *app_name,
 
   {
     sof_parsed_file_t sof_parsed;
+    process_result_t codesign_result;
+
     if (sof_parse(elf_data, elf_len, &sof_parsed) != SOF_OK) {
       return PROCESS_ERR_FORMAT;
     }
     if (sof_parsed.header.file_type != SOF_TYPE_BIN) {
       return PROCESS_ERR_FORMAT;
     }
-    if (sof_verify_signature(elf_data, elf_len, &sof_parsed) != SOF_OK) {
-      return PROCESS_ERR_FORMAT;
+
+    codesign_result = app_validate_codesign(elf_data, elf_len, &sof_parsed, path, context);
+    if (codesign_result != PROCESS_OK) {
+      return codesign_result;
     }
+
     if (app_parse_elf_program(sof_parsed.payload, sof_parsed.payload_size,
                                &program, &program_len) != PROCESS_OK) {
       return PROCESS_ERR_FORMAT;

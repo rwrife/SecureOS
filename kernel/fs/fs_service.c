@@ -25,6 +25,9 @@
 
 #include "fs_service.h"
 
+#include "../crypto/cert.h"
+#include "../crypto/ed25519.h"
+#include "../crypto/root_key.h"
 #include "../format/sof.h"
 #include "../hal/storage_hal.h"
 
@@ -743,6 +746,70 @@ static fs_result_t fs_build_script_elf(const char *script,
   return FS_OK;
 }
 
+static int fs_get_signing_keys(uint8_t *priv, uint8_t *pub,
+                                uint8_t *cert_buf, size_t cert_buf_size,
+                                size_t *out_cert_len) {
+  uint8_t root_pub[32], root_priv[64];
+  uint8_t root_seed_copy[32], int_seed_copy[32];
+  secureos_cert_t cert;
+  size_t i;
+
+  if (cert_buf_size < SECUREOS_CERT_TOTAL_SIZE) { return 0; }
+
+  /* Copy const seeds to mutable buffers for ed25519_create_keypair */
+  for (i = 0; i < 32; ++i) { root_seed_copy[i] = SECUREOS_ROOT_SEED[i]; }
+  for (i = 0; i < 32; ++i) { int_seed_copy[i] = SECUREOS_INTERMEDIATE_SEED[i]; }
+
+  ed25519_create_keypair(root_seed_copy, root_pub, root_priv);
+  ed25519_create_keypair(int_seed_copy, pub, priv);
+
+  /* Cache root public key so verification uses the same derived key */
+  cert_set_root_public_key(root_pub);
+
+  /* cert_build(issuer_pub, issuer_priv, subject_pub, out) */
+  cert_build(root_pub, root_priv, pub, &cert);
+
+  /* cert_serialize(cert, out_buf) — exactly 2 args */
+  cert_serialize(&cert, cert_buf);
+
+  *out_cert_len = SECUREOS_CERT_TOTAL_SIZE;
+  return 1;
+}
+
+/**
+ * Build a SOF binary WITHOUT code signing (for testing unsigned binary flow).
+ */
+static fs_result_t fs_build_sof_binary_unsigned(const char *script,
+                                                 const char *name,
+                                                 const char *description,
+                                                 uint8_t *out_buffer,
+                                                 size_t out_buffer_size,
+                                                 size_t *out_len) {
+  uint8_t elf_buf[FS_SOF_BUFFER_MAX];
+  size_t elf_len = 0u;
+  sof_build_params_t params;
+
+  if (fs_build_script_elf(script, elf_buf, sizeof(elf_buf), &elf_len) != FS_OK) {
+    return FS_ERR_NO_SPACE;
+  }
+
+  params.file_type = SOF_TYPE_BIN;
+  params.name = name;
+  params.description = (description != 0) ? description : name;
+  params.author = "SecureOS";
+  params.version = "0.0.1";
+  params.date = "2026-03-16";
+  params.icon = 0;
+  params.elf_payload = elf_buf;
+  params.elf_payload_size = elf_len;
+
+  if (sof_build(&params, out_buffer, out_buffer_size, out_len) != SOF_OK) {
+    return FS_ERR_NO_SPACE;
+  }
+
+  return FS_OK;
+}
+
 static fs_result_t fs_build_sof_binary(const char *script,
                                         const char *name,
                                         const char *description,
@@ -752,6 +819,8 @@ static fs_result_t fs_build_sof_binary(const char *script,
   uint8_t elf_buf[FS_SOF_BUFFER_MAX];
   size_t elf_len = 0u;
   sof_build_params_t params;
+  uint8_t ipriv[64], ipub[32], cbuf[SECUREOS_CERT_TOTAL_SIZE];
+  size_t clen = 0u;
 
   if (fs_build_script_elf(script, elf_buf, sizeof(elf_buf), &elf_len) != FS_OK) {
     return FS_ERR_NO_SPACE;
@@ -766,6 +835,13 @@ static fs_result_t fs_build_sof_binary(const char *script,
   params.icon = 0;
   params.elf_payload = elf_buf;
   params.elf_payload_size = elf_len;
+
+  if (fs_get_signing_keys(ipriv, ipub, cbuf, sizeof(cbuf), &clen)) {
+    if (sof_build_signed(&params, ipriv, ipub, cbuf, clen,
+                          out_buffer, out_buffer_size, out_len) == SOF_OK) {
+      return FS_OK;
+    }
+  }
 
   if (sof_build(&params, out_buffer, out_buffer_size, out_len) != SOF_OK) {
     return FS_ERR_NO_SPACE;
@@ -783,6 +859,8 @@ static fs_result_t fs_build_sof_library(const char *script,
   uint8_t elf_buf[FS_SOF_BUFFER_MAX];
   size_t elf_len = 0u;
   sof_build_params_t params;
+  uint8_t ipriv[64], ipub[32], cbuf[SECUREOS_CERT_TOTAL_SIZE];
+  size_t clen = 0u;
 
   if (fs_build_script_elf(script, elf_buf, sizeof(elf_buf), &elf_len) != FS_OK) {
     return FS_ERR_NO_SPACE;
@@ -797,6 +875,13 @@ static fs_result_t fs_build_sof_library(const char *script,
   params.icon = 0;
   params.elf_payload = elf_buf;
   params.elf_payload_size = elf_len;
+
+  if (fs_get_signing_keys(ipriv, ipub, cbuf, sizeof(cbuf), &clen)) {
+    if (sof_build_signed(&params, ipriv, ipub, cbuf, clen,
+                          out_buffer, out_buffer_size, out_len) == SOF_OK) {
+      return FS_OK;
+    }
+  }
 
   if (sof_build(&params, out_buffer, out_buffer_size, out_len) != SOF_OK) {
     return FS_ERR_NO_SPACE;
@@ -826,9 +911,10 @@ void fs_service_init(void) {
     (void)fs_write_file_bytes("os/help.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("print pong\n",
+  /* ping.bin is intentionally UNSIGNED for testing the unsigned binary flow */
+  if (fs_build_sof_binary_unsigned("print pong\n",
           "ping",
-          "Test connectivity with a pong response",
+          "Test connectivity with a pong response (unsigned)",
           sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/ping.bin", sof_blob, sof_len, 0);
   }

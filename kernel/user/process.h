@@ -34,6 +34,7 @@
 
 typedef void (*process_output_fn)(const char *message);
 typedef cap_access_state_t (*process_authorize_fn)(const char *operation, const char *path);
+typedef cap_access_state_t (*process_authorize_unsigned_fn)(const char *binary_path);
 typedef void (*process_path_resolve_fn)(const char *input_path, char *out_path, size_t out_path_size);
 typedef int (*process_change_dir_fn)(const char *absolute_path);
 typedef int (*process_get_env_fn)(const char *key, char *out_value, size_t out_value_size);
@@ -59,6 +60,7 @@ typedef struct {
   const char *actor_name;
   process_output_fn output;
   process_authorize_fn authorize_disk_io;
+  process_authorize_unsigned_fn authorize_unsigned;
   process_path_resolve_fn resolve_path;
   process_change_dir_fn change_directory;
   process_get_env_fn get_env;
@@ -82,6 +84,7 @@ typedef enum {
   PROCESS_ERR_FORMAT = 6,
   PROCESS_ERR_LIBRARY = 7,
   PROCESS_ERR_IN_USE = 8,
+  PROCESS_ERR_SIGNATURE = 9,
 } process_result_t;
 
 enum {

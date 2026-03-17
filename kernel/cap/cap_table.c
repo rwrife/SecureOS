@@ -29,7 +29,7 @@
 #include <stdint.h>
 
 #define CAP_ID_MIN CAP_CONSOLE_WRITE
-#define CAP_ID_MAX CAP_EVENT_PUBLISH
+#define CAP_ID_MAX CAP_CODESIGN_BYPASS
 
 #define CAPABILITY_COUNT ((uint32_t)(CAP_ID_MAX - CAP_ID_MIN + 1u))
 #define CAP_WORD_BITS 8u

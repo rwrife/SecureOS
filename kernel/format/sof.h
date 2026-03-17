@@ -102,6 +102,7 @@ typedef enum {
   SOF_ERR_BUFFER_TOO_SMALL  = 6,
   SOF_ERR_NO_PAYLOAD        = 7,
   SOF_ERR_SIGNATURE_REQUIRED = 8, /* Future: unsigned file rejected */
+  SOF_ERR_SIGNATURE_INVALID = 9, /* Signature present but verification failed */
 } sof_result_t;
 
 /* ---- Parsed SOF file (in-memory) --------------------------------------- */
@@ -187,12 +188,27 @@ sof_result_t sof_build(const sof_build_params_t *params,
 int sof_signature_present(const sof_header_t *header);
 
 /**
- * Stub — always returns SOF_OK.
- * Future: verify digital signature against payload hash.
+ * Verify the Ed25519 signature in a SOF file against the baked-in root key.
+ * The signature section contains: [secureos_cert_t (132 bytes)] [Ed25519 sig (64 bytes)].
+ * Returns SOF_OK if signed and valid, SOF_ERR_SIGNATURE_INVALID if signed but
+ * invalid, or SOF_OK if unsigned (caller checks sof_signature_present separately).
  */
 sof_result_t sof_verify_signature(const uint8_t *data,
                                    size_t data_len,
                                    const sof_parsed_file_t *parsed);
+
+/**
+ * Build a signed SOF file.  Appends a signature section containing the
+ * certificate and an Ed25519 signature over the SHA-512 hash of the payload.
+ */
+sof_result_t sof_build_signed(const sof_build_params_t *params,
+                               const uint8_t *signing_private_key,
+                               const uint8_t *signing_public_key,
+                               const uint8_t *cert_data,
+                               size_t cert_data_len,
+                               uint8_t *out_buffer,
+                               size_t out_buffer_size,
+                               size_t *out_total_size);
 
 /**
  * STUB — Reserved for future .app bundle parsing.

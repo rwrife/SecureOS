@@ -1056,6 +1056,59 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
   return CAP_ACCESS_DENY;
 }
 
+static cap_access_state_t console_authorize_unsigned_binary(const char *binary_path) {
+  uint8_t request_payload[EVENT_PAYLOAD_MAX];
+  uint8_t decision_payload[EVENT_PAYLOAD_MAX];
+  size_t request_len = 0u;
+  uint64_t correlation_id = console_next_correlation_id++;
+  uint64_t sequence_id = 0u;
+  char answer = '\0';
+
+  request_len = append_string((char *)request_payload, sizeof(request_payload), 0u, "unsigned:");
+  request_len = append_string((char *)request_payload, sizeof(request_payload), request_len,
+                              binary_path != 0 ? binary_path : "(unknown)");
+
+  (void)event_publish(console_subject_id,
+                      EVENT_TOPIC_DISK_IO_REQUEST,
+                      console_subject_id,
+                      correlation_id,
+                      request_payload,
+                      request_len,
+                      &sequence_id);
+
+  console_write("\n[codesign] WARNING: unsigned binary detected\n");
+  console_write("[codesign] path=");
+  console_write(binary_path != 0 ? binary_path : "(unknown)");
+  console_write("\n");
+  console_write("[codesign] This binary has no code signature.\n");
+  console_write("[codesign] Run anyway? (y/n): ");
+  answer = console_wait_for_yes_no();
+
+  if (answer == 'y') {
+    copy_string((char *)decision_payload, sizeof(decision_payload), "allow-unsigned");
+    (void)event_publish(console_subject_id,
+                        EVENT_TOPIC_DISK_IO_DECISION,
+                        console_subject_id,
+                        correlation_id,
+                        decision_payload,
+                        string_len((const char *)decision_payload),
+                        &sequence_id);
+    console_write("[codesign] decision=allow (user accepted risk)\n");
+    return CAP_ACCESS_ALLOW;
+  }
+
+  copy_string((char *)decision_payload, sizeof(decision_payload), "deny-unsigned");
+  (void)event_publish(console_subject_id,
+                      EVENT_TOPIC_DISK_IO_DECISION,
+                      console_subject_id,
+                      correlation_id,
+                      decision_payload,
+                      string_len((const char *)decision_payload),
+                      &sequence_id);
+  console_write("[codesign] decision=deny\n");
+  return CAP_ACCESS_DENY;
+}
+
 static void console_command_run(const char *app_name, const char *app_args) {
   process_context_t context;
   process_result_t result;
@@ -1082,6 +1135,7 @@ static void console_command_run(const char *app_name, const char *app_args) {
   context.actor_name = app_name;
   context.output = console_write;
   context.authorize_disk_io = console_authorize_disk_io;
+  context.authorize_unsigned = console_authorize_unsigned_binary;
   context.resolve_path = resolve_path;
   context.change_directory = console_change_directory;
   context.get_env = console_env_get;
@@ -1145,6 +1199,8 @@ static void console_command_run(const char *app_name, const char *app_args) {
     console_write("app failed: libraries are not user-invokable\n");
   } else if (result == PROCESS_ERR_IN_USE) {
     console_write("app failed: library in use\n");
+  } else if (result == PROCESS_ERR_SIGNATURE) {
+    console_write("app blocked: code signature validation failed\n");
   } else {
     console_write("app failed\n");
   }

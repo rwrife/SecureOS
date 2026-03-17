@@ -64,6 +64,15 @@ case "$TEST_NAME" in
   sof_format)
     "$ROOT_DIR/build/scripts/test_sof_format.sh"
     ;;
+  ed25519)
+    "$ROOT_DIR/build/scripts/test_ed25519.sh"
+    ;;
+  cert_chain)
+    "$ROOT_DIR/build/scripts/test_cert_chain.sh"
+    ;;
+  codesign)
+    "$ROOT_DIR/build/scripts/test_codesign.sh"
+    ;;
   fs_service)
     "$ROOT_DIR/build/scripts/test_fs_service.sh"
     ;;

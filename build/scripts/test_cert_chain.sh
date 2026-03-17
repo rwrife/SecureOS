@@ -10,11 +10,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/crypto/sha512.c" \
   "$ROOT_DIR/kernel/crypto/ed25519.c" \
   "$ROOT_DIR/kernel/crypto/cert.c" \
-  "$ROOT_DIR/kernel/format/sof.c" \
-  "$ROOT_DIR/kernel/hal/storage_hal.c" \
-  "$ROOT_DIR/kernel/drivers/disk/ramdisk.c" \
-  "$ROOT_DIR/kernel/fs/fs_service.c" \
-  "$ROOT_DIR/tests/fs_service_test.c" \
-  -o "$OUT_DIR/fs_service_test"
+  "$ROOT_DIR/tests/cert_chain_test.c" \
+  -o "$OUT_DIR/cert_chain_test"
 
-"$OUT_DIR/fs_service_test"
+"$OUT_DIR/cert_chain_test"

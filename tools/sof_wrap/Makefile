@@ -7,15 +7,16 @@
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2
 
-KERNEL_DIR = ../../kernel/format
-SRC        = main.c $(KERNEL_DIR)/sof.c
-OUT        = sof_wrap
+KERNEL_DIR   = ../../kernel/format
+CRYPTO_DIR   = ../../kernel/crypto
+SRC          = main.c $(KERNEL_DIR)/sof.c $(CRYPTO_DIR)/sha512.c $(CRYPTO_DIR)/ed25519.c $(CRYPTO_DIR)/cert.c
+OUT          = sof_wrap
 
 .PHONY: all clean
 
 all: $(OUT)
 
-$(OUT): $(SRC) $(KERNEL_DIR)/sof.h
+$(OUT): $(SRC) $(KERNEL_DIR)/sof.h $(CRYPTO_DIR)/sha512.h $(CRYPTO_DIR)/ed25519.h $(CRYPTO_DIR)/cert.h
 	$(CC) $(CFLAGS) -o $(OUT) $(SRC)
 
 clean:

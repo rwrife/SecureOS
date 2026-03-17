@@ -121,6 +121,11 @@ static cap_access_state_t allow_disk_io(const char *operation, const char *path)
   return CAP_ACCESS_ALLOW;
 }
 
+static cap_access_state_t allow_unsigned(const char *binary_path) {
+  (void)binary_path;
+  return CAP_ACCESS_ALLOW;
+}
+
 static int env_get(const char *key, char *out_value, size_t out_value_size) {
   size_t i = 0u;
   size_t cursor = 0u;
@@ -424,11 +429,13 @@ int main(void) {
   (void)cap_table_grant(TEST_SUBJECT_ID, CAP_DISK_IO_REQUEST);
   (void)cap_table_grant(TEST_SUBJECT_ID, CAP_FS_READ);
   (void)cap_table_grant(TEST_SUBJECT_ID, CAP_FS_WRITE);
+  (void)cap_table_grant(TEST_SUBJECT_ID, CAP_CODESIGN_BYPASS);
 
   context.subject_id = TEST_SUBJECT_ID;
   context.actor_name = "process_test";
   context.output = capture_output;
   context.authorize_disk_io = allow_disk_io;
+  context.authorize_unsigned = allow_unsigned;
   context.resolve_path = resolve_path;
   context.get_env = env_get;
   context.set_env = env_set;
