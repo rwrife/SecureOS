@@ -1,10 +1,23 @@
-usage: http <url> [GET|POST] [-H name:value] [body]
+usage: http <url> [METHOD] [-H name:value]... [-v] [-I] [body]
 performs a blocking HTTP/1.1 request over the kernel network stack.
+
+methods: GET (default), POST, PUT, DELETE, HEAD
+
+flags:
+  -H name:value   add a custom request header (repeatable; values may contain spaces)
+  -v              verbose: print response headers before the body
+  -I              HEAD request: fetch headers only, no body
+
 examples:
   http http://example.com
+  http http://example.com -v
+  http http://example.com -I
   http http://example.com POST hello
-  http http://example.com/api POST -H Content-Type:text/plain hello
+  http http://example.com/api POST -H Content-Type:application/json {"key":"val"}
+  http http://api.example.com GET -H Authorization:Bearer mytoken -v
+
 notes:
   - only plain HTTP is supported in v1; HTTPS is not implemented.
-  - custom headers use repeated -H name:value tokens.
+  - custom headers use repeated -H name:value tokens (value extends until next flag).
   - response output is truncated to fit the shell output buffer.
+  - up to 8 custom request headers and 24 response headers are supported.

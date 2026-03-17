@@ -1692,7 +1692,8 @@ static process_result_t app_sys_http(const process_context_t *context, const cha
   http_header_t headers[HTTP_MAX_HEADERS];
   char method[8];
   char url[HTTP_MAX_URL_LEN];
-  char header_spec[APP_LINE_MAX];
+  char header_name[HTTP_MAX_HEADER_NAME];
+  char header_value[HTTP_MAX_HEADER_VAL];
   char body_display[APP_OUTPUT_MAX + 1u];
   const char *cursor = 0;
   const char *next = 0;
@@ -1702,6 +1703,8 @@ static process_result_t app_sys_http(const process_context_t *context, const cha
   size_t display_len = 0u;
   size_t i = 0u;
   size_t header_count = 0u;
+  int flag_verbose = 0;   /* -v : print response headers */
+  int flag_head    = 0;   /* -I : HEAD request (headers only, no body) */
 
   if (context == 0 || args == 0 || args[0] == '\0') {
     return PROCESS_ERR_INVALID_ARG;
@@ -1717,7 +1720,7 @@ static process_result_t app_sys_http(const process_context_t *context, const cha
     return PROCESS_ERR_CAPABILITY;
   }
 
-  /* Parse args: URL [GET|POST] [-H Name:Value]... [body] */
+  /* Parse args:  URL [GET|POST|HEAD] [-H Name:Value]... [-v] [-I] [body] */
   cursor = app_skip_spaces(args);
   app_copy_until_space(url, sizeof(url), cursor, &next);
   cursor = app_skip_spaces(next);
@@ -1725,69 +1728,137 @@ static process_result_t app_sys_http(const process_context_t *context, const cha
   /* Default to GET */
   method[0] = 'G'; method[1] = 'E'; method[2] = 'T'; method[3] = '\0';
 
+  /* Optional method word */
   if (cursor[0] != '\0') {
     char maybe_method[8];
     app_copy_until_space(maybe_method, sizeof(maybe_method), cursor, &next);
-    if (app_string_equals(maybe_method, "GET") || app_string_equals(maybe_method, "POST")) {
-      if (app_string_equals(maybe_method, "GET")) {
-        method[0] = 'G'; method[1] = 'E'; method[2] = 'T'; method[3] = '\0';
-      } else {
-        method[0] = 'P'; method[1] = 'O'; method[2] = 'S'; method[3] = 'T'; method[4] = '\0';
+    if (app_string_equals(maybe_method, "GET") ||
+        app_string_equals(maybe_method, "POST") ||
+        app_string_equals(maybe_method, "HEAD") ||
+        app_string_equals(maybe_method, "PUT") ||
+        app_string_equals(maybe_method, "DELETE")) {
+      size_t mi = 0u;
+      while (maybe_method[mi] != '\0' && mi + 1u < sizeof(method)) {
+        method[mi] = maybe_method[mi];
+        ++mi;
       }
+      method[mi] = '\0';
       cursor = app_skip_spaces(next);
     }
   }
 
-  while (cursor[0] != '\0' && header_count < HTTP_MAX_HEADERS) {
-    char token[4];
-    size_t name_len = 0u;
-    size_t value_len = 0u;
-    size_t header_i = 0u;
-    const char *value_src = 0;
+  /* Flags and headers */
+  while (cursor[0] == '-' && cursor[1] != '\0') {
+    char flag[4];
+    app_copy_until_space(flag, sizeof(flag), cursor, &next);
 
-    app_copy_until_space(token, sizeof(token), cursor, &next);
-    if (!app_string_equals(token, "-H")) {
-      break;
+    if (app_string_equals(flag, "-v")) {
+      flag_verbose = 1;
+      cursor = app_skip_spaces(next);
+      continue;
     }
 
-    cursor = app_skip_spaces(next);
-    if (cursor[0] == '\0') {
-      return PROCESS_ERR_FORMAT;
+    if (app_string_equals(flag, "-I")) {
+      flag_head = 1;
+      method[0] = 'H'; method[1] = 'E'; method[2] = 'A'; method[3] = 'D'; method[4] = '\0';
+      cursor = app_skip_spaces(next);
+      continue;
     }
 
-    app_copy_until_space(header_spec, sizeof(header_spec), cursor, &next);
-    colon = app_find_char(header_spec, ':');
-    if (colon == 0) {
-      return PROCESS_ERR_FORMAT;
+    if (app_string_equals(flag, "-H") && header_count < HTTP_MAX_HEADERS) {
+      size_t name_len = 0u;
+      size_t value_len = 0u;
+      size_t hi = 0u;
+      const char *val_start = 0;
+
+      /* Header spec is everything up to the next '-' flag or end.
+       * Read the name token (up to ':'), then the rest of the line is value. */
+      cursor = app_skip_spaces(next);
+      if (cursor[0] == '\0') {
+        return PROCESS_ERR_FORMAT;
+      }
+
+      /* Find ':' in what follows */
+      colon = app_find_char(cursor, ':');
+      if (colon == 0) {
+        return PROCESS_ERR_FORMAT;
+      }
+
+      name_len = (size_t)(colon - cursor);
+      if (name_len == 0u || name_len >= sizeof(header_name)) {
+        return PROCESS_ERR_FORMAT;
+      }
+      for (hi = 0u; hi < name_len; ++hi) {
+        header_name[hi] = cursor[hi];
+      }
+      header_name[hi] = '\0';
+
+      /* Value: everything after ':' up to next '-H'/'-v'/'-I' flag or body.
+       * We read token-by-token until we see a '-' flag. */
+      val_start = colon + 1u;
+      while (*val_start == ' ') {
+        ++val_start;
+      }
+
+      /* Collect value: scan ahead to find boundary.
+       * The value is from val_start until a ' -' sequence (start of another flag)
+       * or end of string. */
+      value_len = 0u;
+      {
+        const char *scan = val_start;
+        /* Consume until we hit " -[vIH]" or end */
+        while (*scan != '\0') {
+          /* Check for flag boundary: space followed by '-' */
+          if (scan[0] == ' ' && scan[1] == '-' &&
+              (scan[2] == 'H' || scan[2] == 'v' || scan[2] == 'I') &&
+              (scan[3] == '\0' || scan[3] == ' ')) {
+            break;
+          }
+          ++scan;
+        }
+        value_len = (size_t)(scan - val_start);
+        /* Trim trailing spaces */
+        while (value_len > 0u && val_start[value_len - 1u] == ' ') {
+          --value_len;
+        }
+        /* Advance cursor past the value */
+        next = scan;
+      }
+
+      if (value_len >= sizeof(header_value)) {
+        value_len = sizeof(header_value) - 1u;
+      }
+      for (hi = 0u; hi < value_len; ++hi) {
+        header_value[hi] = val_start[hi];
+      }
+      header_value[hi] = '\0';
+
+      for (hi = 0u; hi < sizeof(headers[header_count].name) - 1u && header_name[hi] != '\0'; ++hi) {
+        headers[header_count].name[hi] = header_name[hi];
+      }
+      headers[header_count].name[hi] = '\0';
+
+      for (hi = 0u; hi < sizeof(headers[header_count].value) - 1u && header_value[hi] != '\0'; ++hi) {
+        headers[header_count].value[hi] = header_value[hi];
+      }
+      headers[header_count].value[hi] = '\0';
+
+      ++header_count;
+      cursor = app_skip_spaces(next);
+      continue;
     }
 
-    name_len = (size_t)(colon - header_spec);
-    value_src = colon + 1u;
-    while (value_src[value_len] != '\0') {
-      ++value_len;
-    }
-
-    for (header_i = 0u; header_i < name_len && header_i + 1u < sizeof(headers[header_count].name); ++header_i) {
-      headers[header_count].name[header_i] = header_spec[header_i];
-    }
-    headers[header_count].name[header_i] = '\0';
-
-    for (header_i = 0u; header_i < value_len && header_i + 1u < sizeof(headers[header_count].value); ++header_i) {
-      headers[header_count].value[header_i] = value_src[header_i];
-    }
-    headers[header_count].value[header_i] = '\0';
-
-    ++header_count;
-    cursor = app_skip_spaces(next);
+    /* Unknown flag — stop parsing flags, treat rest as body */
+    break;
   }
 
-  req.method           = method;
-  req.url              = url;
-  req.extra_headers    = header_count > 0u ? headers : 0;
+  req.method             = method;
+  req.url                = url;
+  req.extra_headers      = header_count > 0u ? headers : 0;
   req.extra_header_count = header_count;
-  req.body             = (cursor[0] != '\0') ? cursor : 0;
-  req.body_len         = 0u;
-  if (cursor[0] != '\0') {
+  req.body               = (!flag_head && cursor[0] != '\0') ? cursor : 0;
+  req.body_len           = 0u;
+  if (req.body != 0) {
     while (cursor[req.body_len] != '\0') {
       ++req.body_len;
     }
@@ -1814,17 +1885,32 @@ static process_result_t app_sys_http(const process_context_t *context, const cha
       break;
   }
 
+  /* Status line */
   app_emit(context, g_http_resp.status_line);
   app_emit(context, "\n");
 
-  body_len = g_http_resp.body_len;
-  display_len = body_len < (size_t)APP_OUTPUT_MAX ? body_len : (size_t)APP_OUTPUT_MAX;
-  for (i = 0u; i < display_len; ++i) {
-    body_display[i] = (char)g_http_resp.body[i];
+  /* Response headers (verbose or HEAD) */
+  if (flag_verbose || flag_head) {
+    for (i = 0u; i < g_http_resp.resp_header_count; ++i) {
+      app_emit(context, g_http_resp.resp_headers[i].name);
+      app_emit(context, ": ");
+      app_emit(context, g_http_resp.resp_headers[i].value);
+      app_emit(context, "\n");
+    }
+    app_emit(context, "\n");
   }
-  body_display[display_len] = '\0';
-  app_emit(context, body_display);
-  app_emit(context, "\n");
+
+  /* Body (skip for HEAD or pure header inspection requests) */
+  if (!flag_head) {
+    body_len = g_http_resp.body_len;
+    display_len = body_len < (size_t)APP_OUTPUT_MAX ? body_len : (size_t)APP_OUTPUT_MAX;
+    for (i = 0u; i < display_len; ++i) {
+      body_display[i] = (char)g_http_resp.body[i];
+    }
+    body_display[display_len] = '\0';
+    app_emit(context, body_display);
+    app_emit(context, "\n");
+  }
 
   return PROCESS_OK;
 }

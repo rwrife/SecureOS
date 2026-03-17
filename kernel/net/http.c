@@ -266,6 +266,106 @@ static const uint8_t *http_find_body(const uint8_t *resp, size_t resp_len,
   return sep;
 }
 
+/* Parse response header fields (the lines between status line and blank line)
+ * into resp->resp_headers[].  Stops at HTTP_MAX_RESP_HEADERS or blank line. */
+static void http_parse_resp_headers(const uint8_t *resp, size_t resp_len,
+                                     http_response_t *out) {
+  const uint8_t *cursor = 0;
+  const uint8_t *end = resp + resp_len;
+  const uint8_t *crlf = 0;
+
+  out->resp_header_count = 0u;
+
+  /* Skip first line (status line) */
+  crlf = http_find_bytes(resp, resp_len, "\r\n", 2u);
+  if (crlf == 0) {
+    return;
+  }
+  cursor = crlf + 2u;
+
+  while (cursor < end && out->resp_header_count < (size_t)HTTP_MAX_RESP_HEADERS) {
+    size_t line_len = 0u;
+    const uint8_t *colon = 0;
+    size_t name_len = 0u;
+    size_t value_len = 0u;
+    size_t vi = 0u;
+    http_header_t *hdr = 0;
+
+    /* Find end of this header line */
+    crlf = 0;
+    {
+      const uint8_t *search = cursor;
+      while (search + 1u < end) {
+        if (search[0] == '\r' && search[1] == '\n') {
+          crlf = search;
+          break;
+        }
+        ++search;
+      }
+    }
+    if (crlf == 0) {
+      break; /* no terminating CRLF */
+    }
+
+    line_len = (size_t)(crlf - cursor);
+    if (line_len == 0u) {
+      break; /* blank line = end of headers */
+    }
+
+    /* Find ':' within the line */
+    colon = 0;
+    {
+      size_t ci = 0u;
+      for (ci = 0u; ci < line_len; ++ci) {
+        if (cursor[ci] == ':') {
+          colon = cursor + ci;
+          break;
+        }
+      }
+    }
+    if (colon == 0) {
+      cursor = crlf + 2u;
+      continue; /* malformed line, skip */
+    }
+
+    name_len = (size_t)(colon - cursor);
+    if (name_len == 0u || name_len >= (size_t)HTTP_MAX_HEADER_NAME) {
+      cursor = crlf + 2u;
+      continue;
+    }
+
+    hdr = &out->resp_headers[out->resp_header_count];
+
+    /* Copy name */
+    {
+      size_t ni = 0u;
+      for (ni = 0u; ni < name_len; ++ni) {
+        hdr->name[ni] = (char)cursor[ni];
+      }
+      hdr->name[ni] = '\0';
+    }
+
+    /* Copy value: skip leading whitespace after ':' */
+    {
+      const uint8_t *val_start = colon + 1u;
+      while (val_start < crlf && (*val_start == ' ' || *val_start == '\t')) {
+        ++val_start;
+      }
+      value_len = (size_t)(crlf - val_start);
+      if (value_len >= (size_t)HTTP_MAX_HEADER_VAL) {
+        value_len = (size_t)HTTP_MAX_HEADER_VAL - 1u;
+      }
+      for (vi = 0u; vi < value_len; ++vi) {
+        hdr->value[vi] = (char)val_start[vi];
+      }
+      hdr->value[vi] = '\0';
+    }
+
+    ++out->resp_header_count;
+    cursor = crlf + 2u;
+  }
+}
+
 /* -----------------------------------------------------------------------
  * Public: http_request
  * --------------------------------------------------------------------- */
@@ -370,6 +470,8 @@ http_result_t http_request(const http_request_t *req, http_response_t *resp) {
   if (!http_parse_status_line(resp_buf, resp_len, resp)) {
     return HTTP_ERR_RESPONSE;
   }
+
+  http_parse_resp_headers(resp_buf, resp_len, resp);
 
   {
     const uint8_t *body = 0;

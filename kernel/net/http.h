@@ -24,12 +24,13 @@
 #include <stdint.h>
 
 enum {
-  HTTP_MAX_URL_LEN     = 256,
-  HTTP_MAX_HEADER_NAME = 64,
-  HTTP_MAX_HEADER_VAL  = 128,
-  HTTP_MAX_HEADERS     = 8,
-  HTTP_BODY_MAX        = 4096,
-  HTTP_STATUS_LINE_MAX = 128,
+  HTTP_MAX_URL_LEN      = 256,
+  HTTP_MAX_HEADER_NAME  = 64,
+  HTTP_MAX_HEADER_VAL   = 256,  /* large enough for values with spaces */
+  HTTP_MAX_HEADERS      = 8,    /* max request headers caller can inject */
+  HTTP_MAX_RESP_HEADERS = 24,   /* max response headers captured */
+  HTTP_BODY_MAX         = 4096,
+  HTTP_STATUS_LINE_MAX  = 128,
 };
 
 typedef enum {
@@ -57,8 +58,10 @@ typedef struct {
 } http_request_t;
 
 typedef struct {
-  int status_code;                           /* e.g. 200, 404            */
-  char status_line[HTTP_STATUS_LINE_MAX];    /* full first response line */
+  int status_code;                              /* e.g. 200, 404            */
+  char status_line[HTTP_STATUS_LINE_MAX];       /* full first response line */
+  http_header_t resp_headers[HTTP_MAX_RESP_HEADERS]; /* parsed response hdrs */
+  size_t resp_header_count;
   uint8_t body[HTTP_BODY_MAX];
   size_t body_len;
 } http_response_t;
