@@ -911,10 +911,9 @@ void fs_service_init(void) {
     (void)fs_write_file_bytes("os/help.bin", sof_blob, sof_len, 0);
   }
 
-  /* ping.bin is intentionally UNSIGNED for testing the unsigned binary flow */
-  if (fs_build_sof_binary_unsigned("print pong\n",
+  if (fs_build_sof_binary("print pong\n",
           "ping",
-          "Test connectivity with a pong response (unsigned)",
+          "Test connectivity with a pong response",
           sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/ping.bin", sof_blob, sof_len, 0);
   }
