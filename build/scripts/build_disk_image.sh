@@ -23,14 +23,53 @@ stop_secureos_instances() {
 
 stop_secureos_instances
 
-mkdir -p "$DISK_DIR"
+build_disk_image_inner() {
+	local script_path
+	local cmd_name
+	local lib_path
+	local lib_name
+	local os_app
+	local -a app_mappings=()
 
-python3 - <<PY
-from pathlib import Path
-path = Path(r'''$DISK_PATH''')
-blocks = int(r'''$DISK_BLOCKS''')
-path.write_bytes(b'\x00' * (blocks * 512))
-print(f"Built {path}")
-PY
+	mkdir -p "$DISK_DIR" "$ROOT_DIR/artifacts/os" "$ROOT_DIR/artifacts/lib"
+
+	if compgen -G "user/os_commands/*.cmd" >/dev/null 2>&1; then
+		for script_path in user/os_commands/*.cmd; do
+			cmd_name="$(basename "$script_path" .cmd)"
+			./build/scripts/build_os_command.sh "$cmd_name"
+		done
+	fi
+
+	if compgen -G "user/libs/*" >/dev/null 2>&1; then
+		for lib_path in user/libs/*; do
+			if [[ -d "$lib_path" ]]; then
+				lib_name="$(basename "$lib_path")"
+				./build/scripts/build_user_lib.sh "$lib_name"
+			fi
+		done
+	fi
+
+	for os_app in http ifconfig ping; do
+		./build/scripts/build_user_app.sh "os/$os_app"
+		app_mappings+=("artifacts/user/os/$os_app.bin=/os/$os_app.bin")
+	done
+
+	python3 tools/populate_disk_image.py "$DISK_PATH" "$DISK_BLOCKS" \
+		--os-dir artifacts/os \
+		--lib-dir artifacts/lib \
+		"${app_mappings[@]}"
+	echo "Built $DISK_PATH"
+}
+
+if command -v docker >/dev/null 2>&1; then
+	if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+		docker build -f "$ROOT_DIR/build/docker/Dockerfile.toolchain" -t "$IMAGE_TAG" "$ROOT_DIR"
+	fi
+
+	docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
+		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh'
+else
+	build_disk_image_inner
+fi
 
 echo "PASS: disk image build"

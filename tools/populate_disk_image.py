@@ -299,8 +299,6 @@ def main() -> int:
     blocks = int(sys.argv[2])
     image = DiskImage(disk_path, blocks)
     image.mkdir('/os')
-    image.mkdir('/apps')
-    image.mkdir('/apps/os')
     image.mkdir('/lib')
     image.write_file('/readme.txt', b'SecureOS filesystem')
 
