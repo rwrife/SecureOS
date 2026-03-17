@@ -870,7 +870,7 @@ static fs_result_t fs_build_sof_library(const char *script,
   params.name = name;
   params.description = (description != 0) ? description : name;
   params.author = "SecureOS";
-  params.version = "1.0.0";
+  params.version = "0.0.1";
   params.date = "2026-03-16";
   params.icon = 0;
   params.elf_payload = elf_buf;
@@ -903,17 +903,17 @@ void fs_service_init(void) {
   (void)fs_mkdir("lib");
   (void)fs_write_file("readme.txt", "SecureOS filesystem", 0);
 
-  if (fs_build_sof_binary(
-      "print commands: help, ping, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about <file>, run <app>, exit <pass|fail>\n",
+    if (fs_build_sof_binary(
+      "print commands: help, ping <host>, ifconfig, echo <text>, ls [dir], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, cd <dir>, clear, env [key[=value]|key value], session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about <file>, http <url> [GET|POST] [-H k:v] [body], run <app>, exit <pass|fail>\n",
           "help",
           "Display available shell commands",
           sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/help.bin", sof_blob, sof_len, 0);
   }
 
-  if (fs_build_sof_binary("print pong\n",
+  if (fs_build_sof_binary("ping $ARGS\n",
           "ping",
-          "Test connectivity with a pong response",
+          "Resolve a host and test reachability",
           sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("os/ping.bin", sof_blob, sof_len, 0);
   }
@@ -1035,6 +1035,20 @@ void fs_service_init(void) {
           "SOF metadata extraction library",
           sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
     (void)fs_write_file_bytes("lib/soflib.lib", sof_blob, sof_len, 0);
+  }
+
+  if (fs_build_sof_binary("http $ARGS\n",
+          "http",
+          "Fetch or send HTTP content to a URL (GET / POST)",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("apps/http.bin", sof_blob, sof_len, 0);
+  }
+
+  if (fs_build_sof_binary("ifconfig\n",
+          "ifconfig",
+          "Display network interface configuration",
+          sof_blob, sizeof(sof_blob), &sof_len) == FS_OK) {
+    (void)fs_write_file_bytes("apps/ifconfig.bin", sof_blob, sof_len, 0);
   }
 
   if (fs_build_sof_binary("print [filedemo] start\n"

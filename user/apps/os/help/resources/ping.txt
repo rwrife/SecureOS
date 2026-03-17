@@ -1,2 +1,4 @@
-usage: ping
-prints "pong" to verify command execution.
+usage: ping <host>
+resolves a host and attempts a basic reachability probe.
+example:
+	ping example.com

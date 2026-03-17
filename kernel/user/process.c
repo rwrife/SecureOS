@@ -34,6 +34,11 @@
 #include "../format/sof.h"
 #include "../fs/fs_service.h"
 #include "../hal/storage_hal.h"
+#include "../hal/network_hal.h"
+#include "../net/dns.h"
+#include "../net/http.h"
+#include "../net/ipv4.h"
+#include "../net/tcp.h"
 
 /* Forward declaration — used by app_validate_codesign before full definition */
 static void app_emit(const process_context_t *context, const char *message);
@@ -348,6 +353,30 @@ static size_t app_append_u32_decimal(char *dst, size_t dst_size, size_t cursor, 
   if (cursor < dst_size) {
     dst[cursor] = '\0';
   }
+  return cursor;
+}
+
+static size_t app_append_hex_u8(char *dst, size_t dst_size, size_t cursor, uint8_t value) {
+  static const char hex[] = "0123456789abcdef";
+
+  if (cursor + 2u >= dst_size) {
+    return cursor;
+  }
+
+  dst[cursor++] = hex[(value >> 4u) & 0x0Fu];
+  dst[cursor++] = hex[value & 0x0Fu];
+  dst[cursor] = '\0';
+  return cursor;
+}
+
+static size_t app_append_ipv4(char *dst, size_t dst_size, size_t cursor, uint32_t ip_host_order) {
+  cursor = app_append_u32_decimal(dst, dst_size, cursor, (ip_host_order >> 24u) & 0xFFu);
+  cursor = app_append_string(dst, dst_size, cursor, ".");
+  cursor = app_append_u32_decimal(dst, dst_size, cursor, (ip_host_order >> 16u) & 0xFFu);
+  cursor = app_append_string(dst, dst_size, cursor, ".");
+  cursor = app_append_u32_decimal(dst, dst_size, cursor, (ip_host_order >> 8u) & 0xFFu);
+  cursor = app_append_string(dst, dst_size, cursor, ".");
+  cursor = app_append_u32_decimal(dst, dst_size, cursor, ip_host_order & 0xFFu);
   return cursor;
 }
 
@@ -1657,6 +1686,260 @@ static process_result_t app_sys_about(const process_context_t *context, const ch
   return PROCESS_OK;
 }
 
+static process_result_t app_sys_http(const process_context_t *context, const char *args) {
+  static http_response_t g_http_resp;   /* static – body is 4 KB, keep off stack */
+  http_request_t req;
+  http_header_t headers[HTTP_MAX_HEADERS];
+  char method[8];
+  char url[HTTP_MAX_URL_LEN];
+  char header_spec[APP_LINE_MAX];
+  char body_display[APP_OUTPUT_MAX + 1u];
+  const char *cursor = 0;
+  const char *next = 0;
+  const char *colon = 0;
+  http_result_t hresult;
+  size_t body_len = 0u;
+  size_t display_len = 0u;
+  size_t i = 0u;
+  size_t header_count = 0u;
+
+  if (context == 0 || args == 0 || args[0] == '\0') {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  for (i = 0u; i < HTTP_MAX_HEADERS; ++i) {
+    headers[i].name[0] = '\0';
+    headers[i].value[0] = '\0';
+  }
+
+  if (!app_require_capability(context->subject_id, CAP_NETWORK)) {
+    app_emit(context, "[http] error: CAP_NETWORK required\n");
+    return PROCESS_ERR_CAPABILITY;
+  }
+
+  /* Parse args: URL [GET|POST] [-H Name:Value]... [body] */
+  cursor = app_skip_spaces(args);
+  app_copy_until_space(url, sizeof(url), cursor, &next);
+  cursor = app_skip_spaces(next);
+
+  /* Default to GET */
+  method[0] = 'G'; method[1] = 'E'; method[2] = 'T'; method[3] = '\0';
+
+  if (cursor[0] != '\0') {
+    char maybe_method[8];
+    app_copy_until_space(maybe_method, sizeof(maybe_method), cursor, &next);
+    if (app_string_equals(maybe_method, "GET") || app_string_equals(maybe_method, "POST")) {
+      if (app_string_equals(maybe_method, "GET")) {
+        method[0] = 'G'; method[1] = 'E'; method[2] = 'T'; method[3] = '\0';
+      } else {
+        method[0] = 'P'; method[1] = 'O'; method[2] = 'S'; method[3] = 'T'; method[4] = '\0';
+      }
+      cursor = app_skip_spaces(next);
+    }
+  }
+
+  while (cursor[0] != '\0' && header_count < HTTP_MAX_HEADERS) {
+    char token[4];
+    size_t name_len = 0u;
+    size_t value_len = 0u;
+    size_t header_i = 0u;
+    const char *value_src = 0;
+
+    app_copy_until_space(token, sizeof(token), cursor, &next);
+    if (!app_string_equals(token, "-H")) {
+      break;
+    }
+
+    cursor = app_skip_spaces(next);
+    if (cursor[0] == '\0') {
+      return PROCESS_ERR_FORMAT;
+    }
+
+    app_copy_until_space(header_spec, sizeof(header_spec), cursor, &next);
+    colon = app_find_char(header_spec, ':');
+    if (colon == 0) {
+      return PROCESS_ERR_FORMAT;
+    }
+
+    name_len = (size_t)(colon - header_spec);
+    value_src = colon + 1u;
+    while (value_src[value_len] != '\0') {
+      ++value_len;
+    }
+
+    for (header_i = 0u; header_i < name_len && header_i + 1u < sizeof(headers[header_count].name); ++header_i) {
+      headers[header_count].name[header_i] = header_spec[header_i];
+    }
+    headers[header_count].name[header_i] = '\0';
+
+    for (header_i = 0u; header_i < value_len && header_i + 1u < sizeof(headers[header_count].value); ++header_i) {
+      headers[header_count].value[header_i] = value_src[header_i];
+    }
+    headers[header_count].value[header_i] = '\0';
+
+    ++header_count;
+    cursor = app_skip_spaces(next);
+  }
+
+  req.method           = method;
+  req.url              = url;
+  req.extra_headers    = header_count > 0u ? headers : 0;
+  req.extra_header_count = header_count;
+  req.body             = (cursor[0] != '\0') ? cursor : 0;
+  req.body_len         = 0u;
+  if (cursor[0] != '\0') {
+    while (cursor[req.body_len] != '\0') {
+      ++req.body_len;
+    }
+  }
+
+  hresult = http_request(&req, &g_http_resp);
+
+  switch (hresult) {
+    case HTTP_ERR_BAD_URL:
+      app_emit(context, "[http] error: bad URL\n");
+      return PROCESS_OK;
+    case HTTP_ERR_DNS:
+      app_emit(context, "[http] error: DNS resolution failed\n");
+      return PROCESS_OK;
+    case HTTP_ERR_CONNECT:
+      app_emit(context, "[http] error: connection failed\n");
+      return PROCESS_OK;
+    case HTTP_ERR_SEND:
+    case HTTP_ERR_RECV:
+    case HTTP_ERR_RESPONSE:
+      app_emit(context, "[http] error: request failed\n");
+      return PROCESS_OK;
+    default:
+      break;
+  }
+
+  app_emit(context, g_http_resp.status_line);
+  app_emit(context, "\n");
+
+  body_len = g_http_resp.body_len;
+  display_len = body_len < (size_t)APP_OUTPUT_MAX ? body_len : (size_t)APP_OUTPUT_MAX;
+  for (i = 0u; i < display_len; ++i) {
+    body_display[i] = (char)g_http_resp.body[i];
+  }
+  body_display[display_len] = '\0';
+  app_emit(context, body_display);
+  app_emit(context, "\n");
+
+  return PROCESS_OK;
+}
+
+static process_result_t app_sys_ifconfig(const process_context_t *context, const char *args) {
+  char output[APP_OUTPUT_MAX];
+  uint8_t mac[NETWORK_MAC_LEN];
+  size_t cursor = 0u;
+  size_t i = 0u;
+
+  (void)args;
+
+  if (context == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  if (!app_require_capability(context->subject_id, CAP_NETWORK)) {
+    app_emit(context, "[ifconfig] error: CAP_NETWORK required\n");
+    return PROCESS_OK;
+  }
+
+  if (!network_hal_ready()) {
+    app_emit(context, "[ifconfig] link: down (no network backend)\n");
+    return PROCESS_OK;
+  }
+
+  network_hal_get_mac(mac);
+
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "ifconfig\n");
+  cursor = app_append_string(output, sizeof(output), cursor, "  link: up\n");
+  cursor = app_append_string(output, sizeof(output), cursor, "  backend: ");
+  cursor = app_append_string(output, sizeof(output), cursor, network_hal_backend_name());
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  cursor = app_append_string(output, sizeof(output), cursor, "  mac: ");
+  for (i = 0u; i < NETWORK_MAC_LEN; ++i) {
+    cursor = app_append_hex_u8(output, sizeof(output), cursor, mac[i]);
+    if (i + 1u < NETWORK_MAC_LEN) {
+      cursor = app_append_string(output, sizeof(output), cursor, ":");
+    }
+  }
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  cursor = app_append_string(output, sizeof(output), cursor, "  ipv4: ");
+  cursor = app_append_ipv4(output, sizeof(output), cursor, NET_GUEST_IP);
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  cursor = app_append_string(output, sizeof(output), cursor, "  gateway: ");
+  cursor = app_append_ipv4(output, sizeof(output), cursor, NET_GATEWAY_IP);
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  cursor = app_append_string(output, sizeof(output), cursor, "  dns: ");
+  cursor = app_append_ipv4(output, sizeof(output), cursor, NET_DNS_IP);
+  cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  app_emit(context, output);
+
+  return PROCESS_OK;
+}
+
+static process_result_t app_sys_ping(const process_context_t *context, const char *args) {
+  char host[APP_TOKEN_MAX];
+  char output[APP_OUTPUT_MAX];
+  const char *next = 0;
+  uint32_t dst_ip = 0u;
+  tcp_conn_t conn;
+  size_t cursor = 0u;
+
+  if (context == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  if (!app_require_capability(context->subject_id, CAP_NETWORK)) {
+    app_emit(context, "[ping] error: CAP_NETWORK required\n");
+    return PROCESS_OK;
+  }
+
+  app_copy_until_space(host, sizeof(host), app_skip_spaces(args == 0 ? "" : args), &next);
+  (void)next;
+  if (host[0] == '\0') {
+    app_emit(context, "usage: ping <host>\n");
+    return PROCESS_OK;
+  }
+
+  dst_ip = dns_resolve(host);
+  if (dst_ip == 0u) {
+    app_emit(context, "[ping] error: DNS resolution failed\n");
+    return PROCESS_OK;
+  }
+
+  if (tcp_connect(&conn, dst_ip, 80u) != TCP_OK) {
+    app_emit(context, "[ping] error: host unreachable\n");
+    return PROCESS_OK;
+  }
+  tcp_close(&conn);
+
+  cursor = 0u;
+  cursor = app_append_string(output, sizeof(output), cursor, "pong from ");
+  cursor = app_append_string(output, sizeof(output), cursor, host);
+  cursor = app_append_string(output, sizeof(output), cursor, " (");
+  cursor = app_append_ipv4(output, sizeof(output), cursor, dst_ip);
+  cursor = app_append_string(output, sizeof(output), cursor, ")\n");
+  app_emit(context, output);
+
+  return PROCESS_OK;
+}
+
+static process_result_t app_script_cmd_http(const process_context_t *context, const char *args) {
+  return app_sys_http(context, args);
+}
+
+static process_result_t app_script_cmd_ifconfig(const process_context_t *context, const char *args) {
+  return app_sys_ifconfig(context, args);
+}
+
+static process_result_t app_script_cmd_ping(const process_context_t *context, const char *args) {
+  return app_sys_ping(context, args);
+}
+
 static process_result_t app_script_cmd_about(const process_context_t *context, const char *args) {
   return app_sys_about(context, args);
 }
@@ -1695,6 +1978,9 @@ static process_result_t app_execute_named_script_command(const char *command,
       {"unloadlib", app_script_cmd_unloadlib, 1, 0},
       {"uselib", app_script_cmd_uselib, 1, 0},
       {"releaselib", app_script_cmd_releaselib, 1, 0},
+    {"http", app_script_cmd_http, 1, 0},
+        {"ifconfig", app_script_cmd_ifconfig, 0, ""},
+        {"ping", app_script_cmd_ping, 0, ""},
   };
   size_t i = 0u;
 

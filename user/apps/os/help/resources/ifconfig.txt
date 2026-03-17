@@ -1,0 +1,7 @@
+usage: ifconfig
+displays network interface state and IPv4 settings.
+shows:
+  - link status
+  - backend driver name
+  - mac address
+  - ipv4/gateway/dns addresses

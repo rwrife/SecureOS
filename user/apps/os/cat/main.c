@@ -34,7 +34,7 @@ int main(void) {
   }
 
   if (fslib_read(FSLIB_HANDLE_INVALID, path, out, (unsigned int)sizeof(out)) != FSLIB_STATUS_OK) {
-    (void)os_console_write("not found\n");
+    (void)os_console_write("file not found\n");
     return 1;
   }
 

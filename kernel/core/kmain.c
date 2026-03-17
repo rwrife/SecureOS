@@ -34,6 +34,8 @@
 #include "../cap/cap_table.h"
 #include "../drivers/disk/ata_pio.h"
 #include "../drivers/disk/ramdisk.h"
+#include "../drivers/network/virtio_net.h"
+#include "../hal/network_hal.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../sched/scheduler.h"
@@ -51,6 +53,9 @@ void kmain(void) {
   if (!ata_pio_init_primary()) {
     ramdisk_init();
   }
+    if (!virtio_net_init_primary()) {
+      /* virtio-net NIC not found – network HAL remains unregistered */
+    }
   fs_service_init();
 
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_CONSOLE_WRITE);
@@ -62,6 +67,7 @@ void kmain(void) {
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_EVENT_SUBSCRIBE);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_EVENT_PUBLISH);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_APP_EXEC);
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_NETWORK);
 
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_CONSOLE_WRITE);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_DISK_IO_REQUEST);

@@ -1186,7 +1186,7 @@ static void console_command_run(const char *app_name, const char *app_args) {
   }
 
   if (result == PROCESS_ERR_NOT_FOUND) {
-    console_write("not found\n");
+    console_write("command not found\n");
   } else if (result == PROCESS_ERR_CAPABILITY) {
     console_write("app denied: missing capability\n");
   } else if (result == PROCESS_ERR_DENIED) {

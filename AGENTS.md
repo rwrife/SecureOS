@@ -8,6 +8,7 @@ The goal is to build a operating system where all processes are run in total iso
 - Hardware access will always need an HAL layer since we are targeting multiple architectures, additionally the hardware may need to be virtualized in the event the user does not want to grant access to code that requires some level of hardware access
 - Add planning docs to /plans with a unique name so we can review and impliment them later
 - Whenever a new cli commands is created, make sure to add a help command resource file for the user to reference
+- Keep ps1 and sh scripts in sync, specifically the build commands so we can build on windows, linux and macos
 
 ## Output File Structure
 - /os contains all of the OS-level binaries

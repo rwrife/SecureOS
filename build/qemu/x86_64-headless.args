@@ -8,3 +8,7 @@ none
 -smp
 1
 -no-reboot
+-netdev
+user,id=net0
+-device
+virtio-net-pci,disable-modern=on,netdev=net0

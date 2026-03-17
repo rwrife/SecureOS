@@ -12,12 +12,27 @@ Current stable IDs:
 - `CAP_SERIAL_WRITE = 2`
 - `CAP_DEBUG_EXIT = 3`
 - `CAP_CAPABILITY_ADMIN = 4`
+- `CAP_DISK_IO_REQUEST = 5`
+- `CAP_FS_READ = 6`
+- `CAP_FS_WRITE = 7`
+- `CAP_EVENT_SUBSCRIBE = 8`
+- `CAP_EVENT_PUBLISH = 9`
+- `CAP_APP_EXEC = 10`
+- `CAP_CODESIGN_BYPASS = 11`
+- `CAP_NETWORK = 12`
 
 Rules:
 
 - IDs are append-only once merged.
 - Existing numeric IDs are never renumbered.
 - Unknown IDs must return `CAP_ERR_CAP_INVALID`.
+
+### CAP_NETWORK contract
+
+- `CAP_NETWORK` is required before a process may transmit or receive network traffic.
+- The initial implementation gates the `http` command behind `CAP_NETWORK`.
+- Bootstrap subject `0` receives `CAP_NETWORK` during kernel initialization.
+- The v1 network stack targets QEMU user networking via `virtio-net-pci` and supports ARP, IPv4, UDP, DNS A-records, TCP client flows, and HTTP/1.1 GET/POST requests.
 
 ### Check result semantics
 

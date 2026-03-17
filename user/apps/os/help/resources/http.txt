@@ -1,0 +1,10 @@
+usage: http <url> [GET|POST] [-H name:value] [body]
+performs a blocking HTTP/1.1 request over the kernel network stack.
+examples:
+  http http://example.com
+  http http://example.com POST hello
+  http http://example.com/api POST -H Content-Type:text/plain hello
+notes:
+  - only plain HTTP is supported in v1; HTTPS is not implemented.
+  - custom headers use repeated -H name:value tokens.
+  - response output is truncated to fit the shell output buffer.
