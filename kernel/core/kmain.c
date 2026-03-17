@@ -9,7 +9,7 @@
  *   that brings up the entire operating system.
  *
  * Initialization order:
- *   1. serial_init()       – COM1 serial port for debug output
+ *   1. pc_com_serial_init_primary() – default serial backend registration
  *   2. vga_init()          – VGA text-mode display
  *   3. cap_table_init()    – Capability table (zero-trust security)
  *   4. event_bus_init()    – Audit event ring buffer
@@ -29,13 +29,14 @@
  *   after the CPU is set up in protected/long mode and the stack is ready.
  */
 
-#include "../arch/x86/serial.h"
 #include "../arch/x86/vga.h"
 #include "../cap/cap_table.h"
 #include "../drivers/disk/ata_pio.h"
 #include "../drivers/disk/ramdisk.h"
 #include "../drivers/network/virtio_net.h"
+#include "../drivers/serial/pc_com.h"
 #include "../hal/network_hal.h"
+#include "../hal/serial_hal.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../sched/scheduler.h"
@@ -46,7 +47,7 @@ static const cap_subject_id_t FILEDEMO_SUBJECT = 1u;
 
 __attribute__((used))
 void kmain(void) {
-  serial_init();
+  (void)pc_com_serial_init_primary();
   vga_clear();
   cap_table_init();
   event_bus_reset_for_tests();
@@ -75,11 +76,11 @@ void kmain(void) {
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_FS_WRITE);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_APP_EXEC);
 
-  serial_write("TEST:START:boot_entry\n");
-  serial_write("Hello, SecureOS\n");
+  serial_hal_write("TEST:START:boot_entry\n");
+  serial_hal_write("Hello, SecureOS\n");
   vga_write("Hello, SecureOS\n");
-  serial_write("KMAIN_REACHED\n");
-  serial_write("TEST:PASS:boot_entry\n");
+  serial_hal_write("KMAIN_REACHED\n");
+  serial_hal_write("TEST:PASS:boot_entry\n");
 
   sched_init();
   session_manager_start(KERNEL_BOOTSTRAP_SUBJECT);

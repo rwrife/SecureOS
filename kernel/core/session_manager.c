@@ -13,8 +13,8 @@
  *     binds to when the session becomes active.
  *   - scheduler.c: session switches may interact with the cooperative
  *     scheduler to maintain per-session task state.
- *   - serial.c: session status messages are written to the serial port
- *     for debug output.
+ *   - serial_hal.c: session status messages are written via the active
+ *     serial backend for debug output.
  *
  * Launched by:
  *   session_manager_init() is called from kmain() during kernel boot.
@@ -23,7 +23,7 @@
 
 #include "session_manager.h"
 
-#include "../arch/x86/serial.h"
+#include "../hal/serial_hal.h"
 #include "../sched/scheduler.h"
 #include "console.h"
 
@@ -161,23 +161,23 @@ static void session_manager_console_task(void *context) {
 void session_manager_start(cap_subject_id_t bootstrap_subject_id) {
   int session_id = -1;
 
-  serial_write("TEST:START:session_manager\n");
+  serial_hal_write("TEST:START:session_manager\n");
 
   session_manager_reset();
   g_default_subject_id = bootstrap_subject_id;
   session_id = session_manager_create_session(bootstrap_subject_id);
   if (session_id < 0) {
-    serial_write("TEST:FAIL:session_manager:create_session\n");
+    serial_hal_write("TEST:FAIL:session_manager:create_session\n");
     return;
   }
 
   g_active_session_id = (unsigned int)session_id;
   if (sched_spawn("session0-console", session_manager_console_task, &g_sessions[session_id]) < 0) {
-    serial_write("TEST:FAIL:session_manager:spawn_console\n");
+    serial_hal_write("TEST:FAIL:session_manager:spawn_console\n");
     return;
   }
 
-  serial_write("TEST:PASS:session_manager\n");
+  serial_hal_write("TEST:PASS:session_manager\n");
   sched_run_forever();
 }
 

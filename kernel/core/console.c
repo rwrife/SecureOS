@@ -10,7 +10,7 @@
  *   manages per-session environment variables and working directory.
  *
  * Interactions:
- *   - serial.c / vga.c: used for character I/O (input from serial,
+ *   - serial_hal.c / vga.c: used for character I/O (input from serial,
  *     output to both serial and VGA).
  *   - cap_table.c: the console's own subject ID is granted initial
  *     capabilities during console_init.
@@ -33,11 +33,11 @@
 #include <stdint.h>
 
 #include "../arch/x86/debug_exit.h"
-#include "../arch/x86/serial.h"
 #include "../arch/x86/vga.h"
 #include "../cap/cap_table.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
+#include "../hal/serial_hal.h"
 #include "../user/process.h"
 #include "session_manager.h"
 
@@ -831,6 +831,10 @@ static void console_write(const char *message) {
     return;
   }
 
+  if (message == 0) {
+    return;
+  }
+
   if (!g_console_restoring_history && message != 0) {
     for (i = 0u; message[i] != '\0'; ++i) {
       if (console_screen_history_len + 1u >= CONSOLE_SCREEN_HISTORY_MAX) {
@@ -841,7 +845,7 @@ static void console_write(const char *message) {
     console_screen_history[console_screen_history_len] = '\0';
   }
 
-  serial_write(message);
+  serial_hal_write(message);
   vga_write(message);
 }
 
@@ -981,7 +985,7 @@ static void console_history_recall_down(void) {
 static char console_wait_for_yes_no(void) {
   for (;;) {
     char input = '\0';
-    if (!serial_try_read_char(&input)) {
+    if (!serial_hal_try_read_char(&input)) {
       console_idle_wait();
       continue;
     }
@@ -1429,7 +1433,7 @@ void console_run(void) {
   for (;;) {
     char input = '\0';
 
-    if (!serial_try_read_char(&input)) {
+    if (!serial_hal_try_read_char(&input)) {
       console_idle_wait();
       continue;
     }
