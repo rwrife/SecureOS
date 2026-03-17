@@ -10,7 +10,7 @@
  *
  * Initialization order:
  *   1. pc_com_serial_init_primary() – default serial backend registration
- *   2. vga_init()          – VGA text-mode display
+ *   2. vga_text_init_primary() – default video backend registration
  *   3. cap_table_init()    – Capability table (zero-trust security)
  *   4. event_bus_init()    – Audit event ring buffer
  *   5. Initial cap_grant() – Bootstrap capabilities for subject 0
@@ -29,14 +29,17 @@
  *   after the CPU is set up in protected/long mode and the stack is ready.
  */
 
-#include "../arch/x86/vga.h"
 #include "../cap/cap_table.h"
 #include "../drivers/disk/ata_pio.h"
 #include "../drivers/disk/ramdisk.h"
 #include "../drivers/network/virtio_net.h"
+#include "../drivers/video/framebuffer_text_stub.h"
+#include "../drivers/video/gpio_text_stub.h"
 #include "../drivers/serial/pc_com.h"
+#include "../drivers/video/vga_text.h"
 #include "../hal/network_hal.h"
 #include "../hal/serial_hal.h"
+#include "../hal/video_hal.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../sched/scheduler.h"
@@ -48,7 +51,12 @@ static const cap_subject_id_t FILEDEMO_SUBJECT = 1u;
 __attribute__((used))
 void kmain(void) {
   (void)pc_com_serial_init_primary();
-  vga_clear();
+  if (!vga_text_init_primary()) {
+    if (!framebuffer_text_stub_init_primary()) {
+      (void)gpio_text_stub_init_primary();
+    }
+  }
+  video_hal_clear();
   cap_table_init();
   event_bus_reset_for_tests();
   if (!ata_pio_init_primary()) {
@@ -78,7 +86,7 @@ void kmain(void) {
 
   serial_hal_write("TEST:START:boot_entry\n");
   serial_hal_write("Hello, SecureOS\n");
-  vga_write("Hello, SecureOS\n");
+  video_hal_write("Hello, SecureOS\n");
   serial_hal_write("KMAIN_REACHED\n");
   serial_hal_write("TEST:PASS:boot_entry\n");
 

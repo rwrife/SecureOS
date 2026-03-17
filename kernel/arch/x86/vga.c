@@ -1,69 +1,38 @@
 /**
  * @file vga.c
- * @brief VGA text-mode display driver for x86.
+ * @brief Legacy VGA compatibility facade.
  *
  * Purpose:
- *   Provides VGA text-mode output by writing directly to the VGA
- *   framebuffer at physical address 0xB8000. Supports character and
- *   string output, screen clearing, scrolling, and backspace handling
- *   for an 80x25 text console.
+ *   Preserves the historical vga_* API while delegating behavior to the
+ *   architecture-agnostic video HAL and selected backend driver.
  *
  * Interactions:
- *   - console.c uses vga_putchar/vga_puts to render console output
- *     on the screen alongside serial output.
- *   - cap_gate.c wraps console output (which includes VGA) behind
- *     the CAP_CONSOLE_WRITE capability gate.
- *   - Used indirectly by every subsystem that prints to the console.
+ *   - drivers/video/vga_text.c: default text-mode backend for x86.
+ *   - hal/video_hal.c: backend registration and dispatch.
+ *   - core code may still include this facade during migration.
  *
  * Launched by:
- *   vga_init() is called early in kmain() during kernel boot-up.
- *   Not a standalone process; compiled into the kernel image.
+ *   Called by boot and console paths as needed. Not a standalone process;
+ *   compiled into kernel image.
  */
 
 #include "vga.h"
 
-#define VGA_BUFFER ((volatile unsigned short *)0xB8000)
-#define VGA_WIDTH 80
-#define VGA_HEIGHT 25
-#define VGA_ATTR 0x07
-
-static int row = 0;
-static int col = 0;
-
-static inline unsigned short vga_entry(char c) {
-  return (unsigned short)VGA_ATTR << 8 | (unsigned char)c;
-}
+#include "../../drivers/video/vga_text.h"
+#include "../../hal/video_hal.h"
 
 void vga_clear(void) {
-  for (int y = 0; y < VGA_HEIGHT; y++) {
-    for (int x = 0; x < VGA_WIDTH; x++) {
-      VGA_BUFFER[y * VGA_WIDTH + x] = vga_entry(' ');
-    }
-  }
-  row = 0;
-  col = 0;
-}
-
-static void vga_putc(char c) {
-  if (c == '\n') {
-    col = 0;
-    row++;
-  } else {
-    VGA_BUFFER[row * VGA_WIDTH + col] = vga_entry(c);
-    col++;
-    if (col >= VGA_WIDTH) {
-      col = 0;
-      row++;
-    }
+  if (!video_hal_ready()) {
+    (void)vga_text_init_primary();
   }
 
-  if (row >= VGA_HEIGHT) {
-    row = 0;
-  }
+  video_hal_clear();
 }
 
 void vga_write(const char *s) {
-  for (; *s; s++) {
-    vga_putc(*s);
+  if (!video_hal_ready()) {
+    (void)vga_text_init_primary();
   }
+
+  video_hal_write(s);
 }

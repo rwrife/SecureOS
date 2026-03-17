@@ -10,7 +10,7 @@
  *   manages per-session environment variables and working directory.
  *
  * Interactions:
- *   - serial_hal.c / vga.c: used for character I/O (input from serial,
+ *   - serial_hal.c / video_hal.c: used for character I/O (input from serial,
  *     output to both serial and VGA).
  *   - cap_table.c: the console's own subject ID is granted initial
  *     capabilities during console_init.
@@ -33,11 +33,11 @@
 #include <stdint.h>
 
 #include "../arch/x86/debug_exit.h"
-#include "../arch/x86/vga.h"
 #include "../cap/cap_table.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../hal/serial_hal.h"
+#include "../hal/video_hal.h"
 #include "../user/process.h"
 #include "session_manager.h"
 
@@ -846,11 +846,11 @@ static void console_write(const char *message) {
   }
 
   serial_hal_write(message);
-  vga_write(message);
+  video_hal_write(message);
 }
 
 static void console_clear_hardware(void) {
-  vga_clear();
+  video_hal_clear();
 }
 
 static void console_restore_screen_history(void) {

@@ -49,7 +49,7 @@ build_disk_image_inner() {
 		done
 	fi
 
-	for os_app in http ifconfig ping; do
+	for os_app in http ifconfig ping vgahello; do
 		./build/scripts/build_user_app.sh "os/$os_app"
 		app_mappings+=("artifacts/user/os/$os_app.bin=/apps/os/$os_app.bin")
 	done

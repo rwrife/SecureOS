@@ -16,6 +16,7 @@ Current command app sources:
 - `cd/main.c`
 - `apps/main.c`
 - `storage/main.c`
+- `vgahello/main.c`
 
 Note:
 - `http` and `ifconfig` are packaged into `/os/*.bin` from these standalone user app sources.

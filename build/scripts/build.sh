@@ -8,7 +8,7 @@ TARGET="${1:-image}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [kernel|modules|image|run|test-boot|user-app|user-lib|disk|console]
+Usage: $(basename "$0") [kernel|modules|image|run|test-boot|user-app|user-lib|disk|console|graphics]
 
 Builds SecureOS targets using the pinned toolchain container.
 Environment overrides:
@@ -65,6 +65,9 @@ case "$TARGET" in
     ;;
   console)
     "$ROOT_DIR/build/scripts/boot_console.sh"
+    ;;
+  graphics)
+    "$ROOT_DIR/build/scripts/boot_graphics.sh"
     ;;
   *)
     echo "Unknown target: $TARGET"

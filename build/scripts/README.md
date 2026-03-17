@@ -13,10 +13,12 @@ Canonical wrapper scripts for deterministic local/agent workflows.
 ./build/scripts/build.sh user-lib
 ./build/scripts/build.sh disk
 ./build/scripts/build.sh console
+./build/scripts/build.sh graphics
 ./build/scripts/build_user_app.sh filedemo
 ./build/scripts/build_user_lib.sh envlib
 ./build/scripts/build_user_lib.sh fslib
 ./build/scripts/boot_console.sh
+./build/scripts/boot_graphics.sh
 ```
 
 PowerShell (Windows):
@@ -30,10 +32,12 @@ PowerShell (Windows):
 .\build\scripts\build.ps1 user-lib
 .\build\scripts\build.ps1 disk
 .\build\scripts\build.ps1 console
+.\build\scripts\build.ps1 graphics
 .\build\scripts\build_user_app.ps1 filedemo
 .\build\scripts\build_user_lib.ps1 envlib
 .\build\scripts\build_user_lib.ps1 fslib
 .\build\scripts\boot_console.ps1
+.\build\scripts\boot_graphics.ps1
 ```
 
 ## Direct test/run
@@ -76,6 +80,7 @@ PowerShell (Windows):
 - Scripts are intended to run through the pinned toolchain container (`secureos/toolchain:bookworm-2026-02-12`).
 - If the image is missing, `build.sh` bootstraps it from `build/docker/Dockerfile.toolchain`.
 - Deterministic QEMU flags live in `build/qemu/x86_64-headless.args`.
+- Deterministic graphical QEMU flags live in `build/qemu/x86_64-graphical.args`.
 - QEMU logs are written to `artifacts/qemu/<test>.log`.
 - Per-run metadata is written to `artifacts/qemu/<test>.meta.json`.
 - The kernel ISO is written to `artifacts/kernel/secureos.iso`.
