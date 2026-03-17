@@ -504,7 +504,7 @@ static fs_result_t fs_resolve_parent_and_leaf(const char *path,
 
 static fs_result_t fs_initialize_fat32_layout(void) {
   uint8_t boot[FS_BLOCK_SIZE];
-  uint8_t fat[FS_FAT_BUFFER_SIZE];
+  static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint8_t root[FS_BLOCK_SIZE];
 
   fs_zero_bytes(boot, sizeof(boot));
@@ -665,7 +665,7 @@ static fs_result_t fs_write_entry_content(uint32_t first_cluster,
 
     /* If there's overflow into a second cluster, chain via FAT */
     if (start + content_len > FS_BLOCK_SIZE) {
-      uint8_t fat[FS_FAT_BUFFER_SIZE];
+      static uint8_t fat[FS_FAT_BUFFER_SIZE];
       uint8_t data2[FS_BLOCK_SIZE];
       uint32_t second_cluster = 0u;
       size_t second_offset = first_chunk;
@@ -977,7 +977,7 @@ fs_result_t fs_read_file_bytes(const char *path,
                                size_t out_buffer_size,
                                size_t *out_len) {
   uint8_t parent_dir[FS_BLOCK_SIZE];
-  uint8_t fat[FS_FAT_BUFFER_SIZE];
+  static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint8_t file_data[FS_BLOCK_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
   char name83[11];
@@ -1071,7 +1071,7 @@ fs_result_t fs_write_file_bytes(const char *path,
                                 size_t content_len,
                                 int append) {
   uint8_t parent_dir[FS_BLOCK_SIZE];
-  uint8_t fat[FS_FAT_BUFFER_SIZE];
+  static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
   char name83[11];
   uint32_t offset = 0u;
@@ -1158,7 +1158,7 @@ fs_result_t fs_write_file_bytes(const char *path,
 fs_result_t fs_mkdir(const char *path) {
   uint8_t parent_dir[FS_BLOCK_SIZE];
   uint8_t child_dir[FS_BLOCK_SIZE];
-  uint8_t fat[FS_FAT_BUFFER_SIZE];
+  static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
   char name83[11];
   uint32_t offset = 0u;

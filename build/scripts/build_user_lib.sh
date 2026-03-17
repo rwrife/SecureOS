@@ -8,16 +8,30 @@ LIB_NAME="${1:-envlib}"
 
 build_user_lib_inner() {
   LIB_DIR="user/libs/$LIB_NAME"
+  local src_path
+  local object_path
+  local object_files=""
   test -f "$LIB_DIR/main.c"
   mkdir -p artifacts/lib
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-    -I user/include \
-    -c "$LIB_DIR/main.c" -o "artifacts/lib/$LIB_NAME.o"
+
+  for src_path in "$LIB_DIR"/*.c; do
+    case "$src_path" in
+      *_kernel.c)
+        continue
+        ;;
+    esac
+    object_path="artifacts/lib/${LIB_NAME}_$(basename "$src_path" .c).o"
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c "$src_path" -o "$object_path"
+    object_files="$object_files $object_path"
+  done
+
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
     -I user/include \
     -c user/runtime/secureos_api_stubs.c -o artifacts/lib/secureos_api_stubs.o
   ld.lld -m elf_i386 -nostdlib -e main \
-    -o "artifacts/lib/$LIB_NAME.elf" "artifacts/lib/$LIB_NAME.o" artifacts/lib/secureos_api_stubs.o
+    -o "artifacts/lib/$LIB_NAME.elf" $object_files artifacts/lib/secureos_api_stubs.o
 
   # Build sof_wrap if not already built
   if [ ! -f "tools/sof_wrap/sof_wrap" ]; then

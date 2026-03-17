@@ -38,8 +38,8 @@ static void usage(const char *prog) {
   fprintf(stderr,
           "Usage: %s --type <bin|lib> --name <name> [--author <author>]\n"
           "       [--version <version>] [--date <date>] [--description <desc>]\n"
-          "       [--icon <icon>] [--sign-key <seed.bin>] [--sign-cert <cert.bin>]\n"
-          "       <input.elf> <output.bin|output.lib>\n",
+          "       [--icon <icon>] [--syscall-id <id>] [--sign-key <seed.bin>]\n"
+          "       [--sign-cert <cert.bin>] <input.elf> <output.bin|output.lib>\n",
           prog);
 }
 
@@ -62,6 +62,7 @@ int main(int argc, char **argv) {
   const char *date = NULL;
   const char *description = NULL;
   const char *icon = NULL;
+  const char *syscall_id = NULL;
   const char *sign_key_path = NULL;
   const char *sign_cert_path = NULL;
   const char *input_path = NULL;
@@ -92,6 +93,8 @@ int main(int argc, char **argv) {
       description = argv[++i];
     } else if (strcmp(argv[i], "--icon") == 0 && i + 1 < argc) {
       icon = argv[++i];
+    } else if (strcmp(argv[i], "--syscall-id") == 0 && i + 1 < argc) {
+      syscall_id = argv[++i];
     } else if (strcmp(argv[i], "--sign-key") == 0 && i + 1 < argc) {
       sign_key_path = argv[++i];
     } else if (strcmp(argv[i], "--sign-cert") == 0 && i + 1 < argc) {
@@ -171,6 +174,7 @@ int main(int argc, char **argv) {
   params.version = version;
   params.date = date;
   params.icon = icon;
+  params.syscall_id = syscall_id;
   params.elf_payload = elf_data;
   params.elf_payload_size = elf_size;
 
@@ -178,7 +182,7 @@ int main(int argc, char **argv) {
     uint8_t seed[32];
     uint8_t pub[32];
     uint8_t priv[64];
-    uint8_t cert_data[SECUREOS_CERT_SIZE];
+    uint8_t cert_data[SECUREOS_CERT_TOTAL_SIZE];
 
     if (!read_binary_file(sign_key_path, seed, 32)) {
       fprintf(stderr, "Error: cannot read 32-byte signing key from '%s'.\n", sign_key_path);
@@ -187,17 +191,17 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    if (!read_binary_file(sign_cert_path, cert_data, SECUREOS_CERT_SIZE)) {
+    if (!read_binary_file(sign_cert_path, cert_data, SECUREOS_CERT_TOTAL_SIZE)) {
       fprintf(stderr, "Error: cannot read %d-byte certificate from '%s'.\n",
-              SECUREOS_CERT_SIZE, sign_cert_path);
+              SECUREOS_CERT_TOTAL_SIZE, sign_cert_path);
       free(sof_data);
       free(elf_data);
       return 1;
     }
 
-    ed25519_create_keypair(pub, priv, seed);
+    ed25519_create_keypair(seed, pub, priv);
 
-    result = sof_build_signed(&params, priv, pub, cert_data, SECUREOS_CERT_SIZE,
+    result = sof_build_signed(&params, priv, pub, cert_data, SECUREOS_CERT_TOTAL_SIZE,
                                sof_data, SOF_WRAP_MAX_OUTPUT_SIZE, &sof_size);
     if (result != SOF_OK) {
       fprintf(stderr, "Error: sof_build_signed failed with code %d.\n", (int)result);

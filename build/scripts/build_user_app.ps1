@@ -22,6 +22,7 @@ APP_DIR="user/apps/__APP_NAME__"
 APP_OUT_DIR="artifacts/user/$(dirname "__APP_NAME__")"
 test -f "$APP_DIR/main.c"
 EXTRA_OBJECTS=""
+NETLIB_OBJECTS=""
 if [ -d "$APP_DIR/resources" ]; then
 python3 - "$APP_DIR/resources" "artifacts/user/__APP_NAME___resources_gen.c" <<'PY'
 import pathlib
@@ -59,8 +60,20 @@ fi
 mkdir -p artifacts/user
 mkdir -p "$APP_OUT_DIR"
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c "$APP_DIR/main.c" -o "artifacts/user/__APP_NAME__.o"
+if grep -Eq '^[[:space:]]*#include[[:space:]]+"lib/netlib.h"' "$APP_DIR/main.c"; then
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/api.c -o artifacts/user/netlib_api.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/backend_user.c -o artifacts/user/netlib_backend_user.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/eth.c -o artifacts/user/netlib_eth.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/arp.c -o artifacts/user/netlib_arp.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/ipv4.c -o artifacts/user/netlib_ipv4.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/udp.c -o artifacts/user/netlib_udp.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/dns.c -o artifacts/user/netlib_dns.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/tcp.c -o artifacts/user/netlib_tcp.o
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/libs/netlib/http.c -o artifacts/user/netlib_http.o
+NETLIB_OBJECTS="artifacts/user/netlib_api.o artifacts/user/netlib_backend_user.o artifacts/user/netlib_eth.o artifacts/user/netlib_arp.o artifacts/user/netlib_ipv4.o artifacts/user/netlib_udp.o artifacts/user/netlib_dns.o artifacts/user/netlib_tcp.o artifacts/user/netlib_http.o"
+fi
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
-ld.lld -m elf_i386 -nostdlib -e main -o "artifacts/user/__APP_NAME__.elf" "artifacts/user/__APP_NAME__.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS
+ld.lld -m elf_i386 -nostdlib -e main -o "artifacts/user/__APP_NAME__.elf" "artifacts/user/__APP_NAME__.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
 if [ ! -f "tools/sof_wrap/sof_wrap" ]; then make -C tools/sof_wrap; fi
 ./tools/sof_wrap/sof_wrap --type bin --name "__APP_NAME__" --author "SecureOS" --version "1.0.0" --date "$(date -u +%Y-%m-%d)" "artifacts/user/__APP_NAME__.elf" "artifacts/user/__APP_NAME__.bin"
 echo "Built artifacts/user/__APP_NAME__.bin"

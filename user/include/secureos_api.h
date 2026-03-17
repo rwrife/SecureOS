@@ -30,6 +30,16 @@ os_status_t os_env_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_lib_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_lib_load(const char *path, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_lib_unload(unsigned int handle);
+os_status_t os_net_device_ready(void);
+os_status_t os_net_device_backend(char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_net_device_get_mac(unsigned char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_net_frame_send(const unsigned char *frame, unsigned int frame_len);
+os_status_t os_net_frame_recv(unsigned char *out_buffer,
+                              unsigned int out_buffer_size,
+                              unsigned int *out_frame_len);
+os_status_t os_net_ifconfig(char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_net_http_get(const char *url, char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_net_ping(const char *host, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size);

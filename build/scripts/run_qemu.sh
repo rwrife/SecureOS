@@ -16,6 +16,7 @@ Supported tests:
   hello_boot_fail  Uses experiments/bootloader/boot_fail.bin as intentional fail fixture
   kernel_prompt    Boots the kernel ISO interactively at secureos>
   kernel_console   Boots the kernel ISO and checks console markers
+  kernel_network_libs  Boots the kernel ISO and checks network commands use netlib automatically
   kernel_filedemo  Boots the kernel ISO, runs filedemo, and checks app markers
   kernel_persistence  Boots the kernel ISO with the seeded disk and checks persisted file contents
   kernel_sessions  Boots the kernel ISO and verifies session switching and per-session env/cwd isolation
@@ -184,7 +185,7 @@ PY
     set -e
     exit $EXIT_CODE
     ;;
-  kernel_prompt|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions)
+  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_persistence|kernel_sessions)
     ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
     DISK_PATH="$ROOT_DIR/artifacts/disk/secureos-disk.img"
 
@@ -247,7 +248,10 @@ cmd = [
 
 scripts = {
     'kernel_console': [
-  ('secureos[s0]> ', 'help\ncd os\nls\ny\nlibs\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\nexit pass\n'),
+  ('secureos[s0]> ', 'help\ny\ncd os\nls\ny\nlibs\nloadlib envlib\ny\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\ny\nexit pass\n'),
+    ],
+    'kernel_network_libs': [
+      ('secureos[s0]> ', 'ifconfig\ny\ny\ny\nhttp https://example.invalid\ny\ny\ny\nping nowhere.invalid\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_filedemo': [
       ('secureos[s0]> ', 'apps\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
@@ -270,16 +274,14 @@ expected_markers = {
         'TEST:START:console',
         'TEST:PASS:console',
         'SecureOS console ready',
-        'commands: help, ping, echo <text>',
-        'help.elf',
-        'envlib.elf',
-        '[lib] loaded /lib/envlib.elf',
+        'commands: help, ping <host>, ifconfig, echo <text>',
+        '[lib] loaded /lib/envlib.lib',
       '[lib] use handle=1 refs=1',
       'app failed: library in use',
       '[lib] release handle=1 refs=0',
-        'handle=1 path=/lib/envlib.elf',
+        'handle=1 path=/lib/envlib.lib',
       'owner_session=0 owner_subject=0 owner_actor=loadlib',
-      '[lib] unloaded handle=1 path=/lib/envlib.elf',
+      '[lib] unloaded handle=1 path=/lib/envlib.lib',
       '(no loaded libraries)',
       'session created: 1',
       'session 0 (active)',
@@ -287,6 +289,17 @@ expected_markers = {
       'switched to session 1',
       'secureos[s1]>',
       'storage backend=',
+    ],
+    'kernel_network_libs': [
+      'TEST:START:boot_entry',
+      'TEST:PASS:boot_entry',
+      'TEST:PASS:session_manager',
+      'TEST:PASS:console',
+      '[codesign] path=os/ifconfig.bin',
+      '[codesign] path=os/http.bin',
+      '[codesign] path=os/ping.bin',
+      'ifconfig',
+      'secureos[s0]>',
     ],
     'kernel_filedemo': [
         'TEST:START:boot_entry',
@@ -316,12 +329,12 @@ expected_markers = {
       'alpha',
       'beta',
       '(no loaded libraries)',
-      '[lib] loaded /lib/envlib.elf handle=1',
+      '[lib] loaded /lib/envlib.lib handle=1',
       '[lib] use handle=1 refs=1',
       'app failed: library in use',
       '[lib] release handle=1 refs=0',
-      '[lib] unloaded handle=1 path=/lib/envlib.elf',
-      'handle=1 path=/lib/envlib.elf',
+      '[lib] unloaded handle=1 path=/lib/envlib.lib',
+      'handle=1 path=/lib/envlib.lib',
       'owner_session=1 owner_subject=0 owner_actor=loadlib',
       's0dir/',
       's1dir/',

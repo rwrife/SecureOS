@@ -34,11 +34,7 @@
 #include "../format/sof.h"
 #include "../fs/fs_service.h"
 #include "../hal/storage_hal.h"
-#include "../hal/network_hal.h"
-#include "../net/dns.h"
-#include "../net/http.h"
-#include "../net/ipv4.h"
-#include "../net/tcp.h"
+#include "native_net_service.h"
 
 /* Forward declaration — used by app_validate_codesign before full definition */
 static void app_emit(const process_context_t *context, const char *message);
@@ -107,12 +103,18 @@ static process_result_t app_validate_codesign(const uint8_t *file_data,
 }
 
 enum {
-  APP_FILE_MAX = 1024,
+  APP_FILE_MAX = 65536,
+  APP_LIBRARY_FILE_MAX = 32768,
   APP_OUTPUT_MAX = 512,
   APP_LINE_MAX = 192,
   APP_TOKEN_MAX = 64,
   APP_ARGS_MAX = 128,
   APP_ARGV_MAX = 8,
+  APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
+  APP_NATIVE_BRIDGE_VERSION = 1u,
+  APP_NATIVE_BRIDGE_ADDR = 0x003FF000u,
+  APP_NATIVE_LOAD_MIN = 0x00400000u,
+  APP_NATIVE_LOAD_MAX = 0x00800000u,
 };
 
 typedef struct {
@@ -122,10 +124,37 @@ typedef struct {
   const char *raw_args;
 } app_invocation_args_t;
 
+typedef struct {
+  uint32_t magic;
+  uint32_t version;
+  uint32_t reserved0;
+  uint32_t reserved1;
+  int (*console_write)(const char *message);
+  int (*get_args)(char *out_buffer, unsigned int out_buffer_size);
+  int (*net_device_ready)(void);
+  int (*net_device_backend)(char *out_buffer, unsigned int out_buffer_size);
+  int (*net_device_get_mac)(unsigned char *out_buffer, unsigned int out_buffer_size);
+  int (*net_frame_send)(const unsigned char *frame, unsigned int frame_len);
+  int (*net_frame_recv)(unsigned char *out_buffer,
+                        unsigned int out_buffer_size,
+                        unsigned int *out_frame_len);
+  const char *raw_args;
+} app_native_bridge_t;
+
+typedef int (*app_native_entry_fn)(void);
+
+static const process_context_t *g_native_context = 0;
+static const char *g_native_raw_args = "";
+
 static process_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                size_t elf_len,
                                                const uint8_t **out_program,
                                                size_t *out_program_len);
+static int app_require_capability(cap_subject_id_t subject_id, capability_id_t capability_id);
+static process_result_t app_execute_native_elf(const uint8_t *elf_data,
+                                               size_t elf_len,
+                                               const process_context_t *context,
+                                               const app_invocation_args_t *args);
 
 static int app_string_equals(const char *left, const char *right) {
   while (*left != '\0' && *right != '\0') {
@@ -369,17 +398,6 @@ static size_t app_append_hex_u8(char *dst, size_t dst_size, size_t cursor, uint8
   return cursor;
 }
 
-static size_t app_append_ipv4(char *dst, size_t dst_size, size_t cursor, uint32_t ip_host_order) {
-  cursor = app_append_u32_decimal(dst, dst_size, cursor, (ip_host_order >> 24u) & 0xFFu);
-  cursor = app_append_string(dst, dst_size, cursor, ".");
-  cursor = app_append_u32_decimal(dst, dst_size, cursor, (ip_host_order >> 16u) & 0xFFu);
-  cursor = app_append_string(dst, dst_size, cursor, ".");
-  cursor = app_append_u32_decimal(dst, dst_size, cursor, (ip_host_order >> 8u) & 0xFFu);
-  cursor = app_append_string(dst, dst_size, cursor, ".");
-  cursor = app_append_u32_decimal(dst, dst_size, cursor, ip_host_order & 0xFFu);
-  return cursor;
-}
-
 static unsigned int app_parse_u32(const char *value, int *ok) {
   unsigned int parsed = 0u;
   size_t i = 0u;
@@ -414,6 +432,264 @@ static uint32_t app_read_u32(const uint8_t *buffer, size_t offset) {
                     ((uint32_t)buffer[offset + 1u] << 8u) |
                     ((uint32_t)buffer[offset + 2u] << 16u) |
                     ((uint32_t)buffer[offset + 3u] << 24u));
+}
+
+static void app_mem_copy(uint8_t *dst, const uint8_t *src, size_t len) {
+  size_t i = 0u;
+
+  if (dst == 0 || src == 0) {
+    return;
+  }
+
+  for (i = 0u; i < len; ++i) {
+    dst[i] = src[i];
+  }
+}
+
+static void app_mem_zero(uint8_t *dst, size_t len) {
+  size_t i = 0u;
+
+  if (dst == 0) {
+    return;
+  }
+
+  for (i = 0u; i < len; ++i) {
+    dst[i] = 0u;
+  }
+}
+
+static int app_native_console_write(const char *message) {
+  if (g_native_context == 0) {
+    return 3;
+  }
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_CONSOLE_WRITE)) {
+    return 1;
+  }
+
+  app_emit(g_native_context, message == 0 ? "" : message);
+  return 0;
+}
+
+static int app_native_get_args(char *out_buffer, unsigned int out_buffer_size) {
+  size_t copied = 0u;
+
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  if (g_native_raw_args == 0) {
+    out_buffer[0] = '\0';
+    return 0;
+  }
+
+  while (g_native_raw_args[copied] != '\0' && copied + 1u < (size_t)out_buffer_size) {
+    out_buffer[copied] = g_native_raw_args[copied];
+    ++copied;
+  }
+  out_buffer[copied] = '\0';
+  return 0;
+}
+
+static int app_native_net_device_ready(void) {
+  if (g_native_context == 0) {
+    return 3;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_NETWORK)) {
+    return 1;
+  }
+  return native_net_device_ready();
+}
+
+static int app_native_net_device_backend(char *out_buffer, unsigned int out_buffer_size) {
+  if (g_native_context == 0) {
+    return 3;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_NETWORK)) {
+    return 1;
+  }
+  return native_net_device_backend(out_buffer, out_buffer_size);
+}
+
+static int app_native_net_device_get_mac(unsigned char *out_buffer, unsigned int out_buffer_size) {
+  if (g_native_context == 0) {
+    return 3;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_NETWORK)) {
+    return 1;
+  }
+  return native_net_device_get_mac(out_buffer, out_buffer_size);
+}
+
+static int app_native_net_frame_send(const unsigned char *frame, unsigned int frame_len) {
+  if (g_native_context == 0) {
+    return 3;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_NETWORK)) {
+    return 1;
+  }
+  return native_net_frame_send(frame, frame_len);
+}
+
+static int app_native_net_frame_recv(unsigned char *out_buffer,
+                                     unsigned int out_buffer_size,
+                                     unsigned int *out_frame_len) {
+  if (g_native_context == 0) {
+    return 3;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_NETWORK)) {
+    return 1;
+  }
+  return native_net_frame_recv(out_buffer, out_buffer_size, out_frame_len);
+}
+
+static int app_payload_looks_like_script(const uint8_t *program, size_t program_len) {
+  size_t i = 0u;
+  size_t sample_len = program_len;
+
+  if (program == 0 || program_len == 0u) {
+    return 0;
+  }
+
+  if (sample_len > 96u) {
+    sample_len = 96u;
+  }
+
+  for (i = 0u; i < sample_len; ++i) {
+    uint8_t ch = program[i];
+
+    if (ch == '\n' || ch == '\r' || ch == '\t') {
+      continue;
+    }
+    if (ch >= 32u && ch <= 126u) {
+      continue;
+    }
+    return 0;
+  }
+
+  return 1;
+}
+
+static process_result_t app_execute_native_elf(const uint8_t *elf_data,
+                                               size_t elf_len,
+                                               const process_context_t *context,
+                                               const app_invocation_args_t *args) {
+  uint32_t e_entry = 0u;
+  uint32_t e_phoff = 0u;
+  uint16_t e_phentsize = 0u;
+  uint16_t e_phnum = 0u;
+  uint16_t i = 0u;
+  int has_load = 0;
+  app_native_bridge_t *bridge = (app_native_bridge_t *)(uintptr_t)APP_NATIVE_BRIDGE_ADDR;
+  app_native_entry_fn entry = 0;
+
+  if (elf_data == 0 || context == 0 || args == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  if (elf_len < 52u) {
+    return PROCESS_ERR_FORMAT;
+  }
+
+  if (!(elf_data[0] == 0x7Fu && elf_data[1] == 'E' && elf_data[2] == 'L' && elf_data[3] == 'F')) {
+    return PROCESS_ERR_FORMAT;
+  }
+
+  if (elf_data[4] != 1u || elf_data[5] != 1u || app_read_u16(elf_data, 18u) != 3u) {
+    return PROCESS_ERR_FORMAT;
+  }
+
+  e_entry = app_read_u32(elf_data, 24u);
+  e_phoff = app_read_u32(elf_data, 28u);
+  e_phentsize = app_read_u16(elf_data, 42u);
+  e_phnum = app_read_u16(elf_data, 44u);
+
+  if (e_phoff >= elf_len || e_phentsize < 32u || e_phnum == 0u) {
+    return PROCESS_ERR_FORMAT;
+  }
+
+  for (i = 0u; i < e_phnum; ++i) {
+    size_t ph_off = (size_t)e_phoff + ((size_t)i * (size_t)e_phentsize);
+    uint32_t p_type = 0u;
+    uint32_t p_offset = 0u;
+    uint32_t p_vaddr = 0u;
+    uint32_t p_filesz = 0u;
+    uint32_t p_memsz = 0u;
+    uint8_t *dst = 0;
+
+    if (ph_off + 32u > elf_len) {
+      return PROCESS_ERR_FORMAT;
+    }
+
+    p_type = app_read_u32(elf_data, ph_off + 0u);
+    p_offset = app_read_u32(elf_data, ph_off + 4u);
+    p_vaddr = app_read_u32(elf_data, ph_off + 8u);
+    p_filesz = app_read_u32(elf_data, ph_off + 16u);
+    p_memsz = app_read_u32(elf_data, ph_off + 20u);
+
+    if (p_type != 1u) {
+      continue;
+    }
+
+    if (p_filesz > p_memsz) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if ((size_t)p_offset + (size_t)p_filesz > elf_len) {
+      return PROCESS_ERR_FORMAT;
+    }
+    if (p_vaddr < APP_NATIVE_LOAD_MIN || p_vaddr + p_memsz > APP_NATIVE_LOAD_MAX) {
+      return PROCESS_ERR_DENIED;
+    }
+
+    dst = (uint8_t *)(uintptr_t)p_vaddr;
+    app_mem_copy(dst, &elf_data[p_offset], (size_t)p_filesz);
+    if (p_memsz > p_filesz) {
+      app_mem_zero(dst + p_filesz, (size_t)(p_memsz - p_filesz));
+    }
+    has_load = 1;
+  }
+
+  if (!has_load) {
+    return PROCESS_ERR_FORMAT;
+  }
+
+  if (e_entry < APP_NATIVE_LOAD_MIN || e_entry >= APP_NATIVE_LOAD_MAX) {
+    return PROCESS_ERR_DENIED;
+  }
+
+  g_native_context = context;
+  g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
+
+  bridge->magic = APP_NATIVE_BRIDGE_MAGIC;
+  bridge->version = APP_NATIVE_BRIDGE_VERSION;
+  bridge->reserved0 = 0u;
+  bridge->reserved1 = 0u;
+  bridge->console_write = app_native_console_write;
+  bridge->get_args = app_native_get_args;
+  bridge->net_device_ready = app_native_net_device_ready;
+  bridge->net_device_backend = app_native_net_device_backend;
+  bridge->net_device_get_mac = app_native_net_device_get_mac;
+  bridge->net_frame_send = app_native_net_frame_send;
+  bridge->net_frame_recv = app_native_net_frame_recv;
+  bridge->raw_args = g_native_raw_args;
+
+  entry = (app_native_entry_fn)(uintptr_t)e_entry;
+  (void)entry();
+
+  bridge->magic = 0u;
+  bridge->version = 0u;
+  bridge->console_write = 0;
+  bridge->get_args = 0;
+  bridge->net_device_ready = 0;
+  bridge->net_device_backend = 0;
+  bridge->net_device_get_mac = 0;
+  bridge->net_frame_send = 0;
+  bridge->net_frame_recv = 0;
+  bridge->raw_args = 0;
+
+  g_native_context = 0;
+  g_native_raw_args = "";
+  return PROCESS_OK;
 }
 
 static void app_emit(const process_context_t *context, const char *message) {
@@ -705,6 +981,14 @@ static process_result_t app_sys_storage(const process_context_t *context) {
 static process_result_t app_sys_uselib(const process_context_t *context, const char *handle_arg);
 static process_result_t app_sys_releaselib(const process_context_t *context, const char *handle_arg);
 
+typedef struct {
+  unsigned int handle;
+  unsigned int ref_count;
+  int registered;
+  int acquired;
+  char resolved_path[PROCESS_LIBRARY_PATH_MAX];
+} app_auto_library_use_t;
+
 static process_result_t app_sys_libs(const process_context_t *context, const char *args) {
   char output[APP_OUTPUT_MAX];
   size_t len = 0u;
@@ -890,6 +1174,102 @@ static process_result_t app_sys_releaselib(const process_context_t *context, con
   app_emit(context, text);
   app_emit(context, "\n");
   return PROCESS_OK;
+}
+
+static process_result_t app_begin_auto_library_use(const process_context_t *context,
+                                                   const char *library_name,
+                                                   const char *owner_actor,
+                                                   app_auto_library_use_t *state,
+                                                   const char *error_prefix) {
+  process_library_info_t library_info;
+  process_result_t result = PROCESS_OK;
+
+  if (context == 0 || library_name == 0 || state == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  state->handle = 0u;
+  state->ref_count = 0u;
+  state->registered = 0;
+  state->acquired = 0;
+  state->resolved_path[0] = '\0';
+
+  result = process_load_library(library_name, context, &library_info);
+  if (result != PROCESS_OK) {
+    if (error_prefix != 0) {
+      app_emit(context, error_prefix);
+      app_emit(context, " error: ");
+      app_emit(context, library_name);
+      app_emit(context, " unavailable\n");
+    }
+    return result;
+  }
+
+  app_copy_string(state->resolved_path, sizeof(state->resolved_path), library_info.resolved_path);
+
+  if (context->register_loaded_library != 0) {
+    if (!context->register_loaded_library(library_info.resolved_path,
+                                          library_info.program_len,
+                                          owner_actor,
+                                          &state->handle)) {
+      if (error_prefix != 0) {
+        app_emit(context, error_prefix);
+        app_emit(context, " error: ");
+        app_emit(context, library_name);
+        app_emit(context, " register failed\n");
+      }
+      return PROCESS_ERR_DENIED;
+    }
+    state->registered = 1;
+  }
+
+  if (state->handle != 0u && context->acquire_loaded_library != 0) {
+    if (!context->acquire_loaded_library(state->handle, &state->ref_count)) {
+      if (context->unregister_loaded_library != 0) {
+        char unloaded_path[PROCESS_LIBRARY_PATH_MAX];
+        (void)context->unregister_loaded_library(state->handle, unloaded_path, sizeof(unloaded_path));
+      }
+      state->registered = 0;
+      state->handle = 0u;
+      if (error_prefix != 0) {
+        app_emit(context, error_prefix);
+        app_emit(context, " error: ");
+        app_emit(context, library_name);
+        app_emit(context, " acquire failed\n");
+      }
+      return PROCESS_ERR_DENIED;
+    }
+    state->acquired = 1;
+  }
+
+  app_emit(context, "[lib] auto begin path=");
+  app_emit(context, state->resolved_path);
+  app_emit(context, " actor=");
+  app_emit(context, owner_actor != 0 ? owner_actor : "auto");
+  app_emit(context, "\n");
+  return PROCESS_OK;
+}
+
+static void app_end_auto_library_use(const process_context_t *context,
+                                     app_auto_library_use_t *state) {
+  char unloaded_path[PROCESS_LIBRARY_PATH_MAX];
+
+  if (context == 0 || state == 0) {
+    return;
+  }
+
+  if (state->resolved_path[0] != '\0') {
+    app_emit(context, "[lib] auto end path=");
+    app_emit(context, state->resolved_path);
+    app_emit(context, "\n");
+  }
+
+  if (state->acquired && context->release_loaded_library != 0) {
+    (void)context->release_loaded_library(state->handle, &state->ref_count);
+  }
+  if (state->registered && context->unregister_loaded_library != 0) {
+    (void)context->unregister_loaded_library(state->handle, unloaded_path, sizeof(unloaded_path));
+  }
 }
 
 static int app_env_read_quoted(const char *src,
@@ -1313,10 +1693,12 @@ size_t process_list_libraries(char *out_buffer, size_t out_buffer_size) {
 process_result_t process_load_library(const char *library_name,
                                       const process_context_t *context,
                                       process_library_info_t *out_library) {
-  uint8_t elf_data[APP_FILE_MAX];
+  static uint8_t elf_data[APP_LIBRARY_FILE_MAX];
   size_t elf_len = 0u;
   const uint8_t *program = 0;
   size_t program_len = 0u;
+  const uint8_t *payload = 0;
+  size_t payload_len = 0u;
   char library_path[APP_TOKEN_MAX];
   char display_path[APP_TOKEN_MAX];
   process_result_t access = PROCESS_OK;
@@ -1368,6 +1750,9 @@ process_result_t process_load_library(const char *library_name,
                                &program, &program_len) != PROCESS_OK) {
       return PROCESS_ERR_FORMAT;
     }
+
+    payload = sof_parsed.payload;
+    payload_len = sof_parsed.payload_size;
   }
 
   app_copy_string(out_library->resolved_path, sizeof(out_library->resolved_path), display_path);
@@ -1383,6 +1768,8 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
   uint16_t e_phentsize = 0u;
   uint16_t e_phnum = 0u;
   uint16_t i = 0u;
+  const uint8_t *fallback_program = 0;
+  size_t fallback_program_len = 0u;
 
   if (elf_data == 0 || out_program == 0 || out_program_len == 0) {
     return PROCESS_ERR_INVALID_ARG;
@@ -1413,6 +1800,7 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
     uint32_t p_type = 0u;
     uint32_t p_offset = 0u;
     uint32_t p_filesz = 0u;
+    uint32_t p_flags = 0u;
 
     if (ph_off + 32u > elf_len) {
       return PROCESS_ERR_FORMAT;
@@ -1421,6 +1809,7 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
     p_type = app_read_u32(elf_data, ph_off + 0u);
     p_offset = app_read_u32(elf_data, ph_off + 4u);
     p_filesz = app_read_u32(elf_data, ph_off + 16u);
+    p_flags = app_read_u32(elf_data, ph_off + 24u);
 
     if (p_type != 1u || p_filesz == 0u) {
       continue;
@@ -1430,8 +1819,21 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
       return PROCESS_ERR_FORMAT;
     }
 
-    *out_program = &elf_data[p_offset];
-    *out_program_len = p_filesz;
+    if ((p_flags & 0x1u) != 0u) {
+      *out_program = &elf_data[p_offset];
+      *out_program_len = p_filesz;
+      return PROCESS_OK;
+    }
+
+    if (fallback_program == 0) {
+      fallback_program = &elf_data[p_offset];
+      fallback_program_len = p_filesz;
+    }
+  }
+
+  if (fallback_program != 0) {
+    *out_program = fallback_program;
+    *out_program_len = fallback_program_len;
     return PROCESS_OK;
   }
 
@@ -1487,7 +1889,7 @@ static process_result_t app_script_cmd_env(const process_context_t *context, con
 }
 
 static process_result_t app_sys_about(const process_context_t *context, const char *path) {
-  uint8_t file_data[APP_FILE_MAX];
+  static uint8_t file_data[APP_FILE_MAX];
   size_t file_len = 0u;
   char resolved[APP_TOKEN_MAX];
   char output[APP_OUTPUT_MAX];
@@ -1686,346 +2088,6 @@ static process_result_t app_sys_about(const process_context_t *context, const ch
   return PROCESS_OK;
 }
 
-static process_result_t app_sys_http(const process_context_t *context, const char *args) {
-  static http_response_t g_http_resp;   /* static – body is 4 KB, keep off stack */
-  http_request_t req;
-  http_header_t headers[HTTP_MAX_HEADERS];
-  char method[8];
-  char url[HTTP_MAX_URL_LEN];
-  char header_name[HTTP_MAX_HEADER_NAME];
-  char header_value[HTTP_MAX_HEADER_VAL];
-  char body_display[APP_OUTPUT_MAX + 1u];
-  const char *cursor = 0;
-  const char *next = 0;
-  const char *colon = 0;
-  http_result_t hresult;
-  size_t body_len = 0u;
-  size_t display_len = 0u;
-  size_t i = 0u;
-  size_t header_count = 0u;
-  int flag_verbose = 0;   /* -v : print response headers */
-  int flag_head    = 0;   /* -I : HEAD request (headers only, no body) */
-
-  if (context == 0 || args == 0 || args[0] == '\0') {
-    return PROCESS_ERR_INVALID_ARG;
-  }
-
-  for (i = 0u; i < HTTP_MAX_HEADERS; ++i) {
-    headers[i].name[0] = '\0';
-    headers[i].value[0] = '\0';
-  }
-
-  if (!app_require_capability(context->subject_id, CAP_NETWORK)) {
-    app_emit(context, "[http] error: CAP_NETWORK required\n");
-    return PROCESS_ERR_CAPABILITY;
-  }
-
-  /* Parse args:  URL [GET|POST|HEAD] [-H Name:Value]... [-v] [-I] [body] */
-  cursor = app_skip_spaces(args);
-  app_copy_until_space(url, sizeof(url), cursor, &next);
-  cursor = app_skip_spaces(next);
-
-  /* Default to GET */
-  method[0] = 'G'; method[1] = 'E'; method[2] = 'T'; method[3] = '\0';
-
-  /* Optional method word */
-  if (cursor[0] != '\0') {
-    char maybe_method[8];
-    app_copy_until_space(maybe_method, sizeof(maybe_method), cursor, &next);
-    if (app_string_equals(maybe_method, "GET") ||
-        app_string_equals(maybe_method, "POST") ||
-        app_string_equals(maybe_method, "HEAD") ||
-        app_string_equals(maybe_method, "PUT") ||
-        app_string_equals(maybe_method, "DELETE")) {
-      size_t mi = 0u;
-      while (maybe_method[mi] != '\0' && mi + 1u < sizeof(method)) {
-        method[mi] = maybe_method[mi];
-        ++mi;
-      }
-      method[mi] = '\0';
-      cursor = app_skip_spaces(next);
-    }
-  }
-
-  /* Flags and headers */
-  while (cursor[0] == '-' && cursor[1] != '\0') {
-    char flag[4];
-    app_copy_until_space(flag, sizeof(flag), cursor, &next);
-
-    if (app_string_equals(flag, "-v")) {
-      flag_verbose = 1;
-      cursor = app_skip_spaces(next);
-      continue;
-    }
-
-    if (app_string_equals(flag, "-I")) {
-      flag_head = 1;
-      method[0] = 'H'; method[1] = 'E'; method[2] = 'A'; method[3] = 'D'; method[4] = '\0';
-      cursor = app_skip_spaces(next);
-      continue;
-    }
-
-    if (app_string_equals(flag, "-H") && header_count < HTTP_MAX_HEADERS) {
-      size_t name_len = 0u;
-      size_t value_len = 0u;
-      size_t hi = 0u;
-      const char *val_start = 0;
-
-      /* Header spec is everything up to the next '-' flag or end.
-       * Read the name token (up to ':'), then the rest of the line is value. */
-      cursor = app_skip_spaces(next);
-      if (cursor[0] == '\0') {
-        return PROCESS_ERR_FORMAT;
-      }
-
-      /* Find ':' in what follows */
-      colon = app_find_char(cursor, ':');
-      if (colon == 0) {
-        return PROCESS_ERR_FORMAT;
-      }
-
-      name_len = (size_t)(colon - cursor);
-      if (name_len == 0u || name_len >= sizeof(header_name)) {
-        return PROCESS_ERR_FORMAT;
-      }
-      for (hi = 0u; hi < name_len; ++hi) {
-        header_name[hi] = cursor[hi];
-      }
-      header_name[hi] = '\0';
-
-      /* Value: everything after ':' up to next '-H'/'-v'/'-I' flag or body.
-       * We read token-by-token until we see a '-' flag. */
-      val_start = colon + 1u;
-      while (*val_start == ' ') {
-        ++val_start;
-      }
-
-      /* Collect value: scan ahead to find boundary.
-       * The value is from val_start until a ' -' sequence (start of another flag)
-       * or end of string. */
-      value_len = 0u;
-      {
-        const char *scan = val_start;
-        /* Consume until we hit " -[vIH]" or end */
-        while (*scan != '\0') {
-          /* Check for flag boundary: space followed by '-' */
-          if (scan[0] == ' ' && scan[1] == '-' &&
-              (scan[2] == 'H' || scan[2] == 'v' || scan[2] == 'I') &&
-              (scan[3] == '\0' || scan[3] == ' ')) {
-            break;
-          }
-          ++scan;
-        }
-        value_len = (size_t)(scan - val_start);
-        /* Trim trailing spaces */
-        while (value_len > 0u && val_start[value_len - 1u] == ' ') {
-          --value_len;
-        }
-        /* Advance cursor past the value */
-        next = scan;
-      }
-
-      if (value_len >= sizeof(header_value)) {
-        value_len = sizeof(header_value) - 1u;
-      }
-      for (hi = 0u; hi < value_len; ++hi) {
-        header_value[hi] = val_start[hi];
-      }
-      header_value[hi] = '\0';
-
-      for (hi = 0u; hi < sizeof(headers[header_count].name) - 1u && header_name[hi] != '\0'; ++hi) {
-        headers[header_count].name[hi] = header_name[hi];
-      }
-      headers[header_count].name[hi] = '\0';
-
-      for (hi = 0u; hi < sizeof(headers[header_count].value) - 1u && header_value[hi] != '\0'; ++hi) {
-        headers[header_count].value[hi] = header_value[hi];
-      }
-      headers[header_count].value[hi] = '\0';
-
-      ++header_count;
-      cursor = app_skip_spaces(next);
-      continue;
-    }
-
-    /* Unknown flag — stop parsing flags, treat rest as body */
-    break;
-  }
-
-  req.method             = method;
-  req.url                = url;
-  req.extra_headers      = header_count > 0u ? headers : 0;
-  req.extra_header_count = header_count;
-  req.body               = (!flag_head && cursor[0] != '\0') ? cursor : 0;
-  req.body_len           = 0u;
-  if (req.body != 0) {
-    while (cursor[req.body_len] != '\0') {
-      ++req.body_len;
-    }
-  }
-
-  hresult = http_request(&req, &g_http_resp);
-
-  switch (hresult) {
-    case HTTP_ERR_BAD_URL:
-      app_emit(context, "[http] error: bad URL\n");
-      return PROCESS_OK;
-    case HTTP_ERR_DNS:
-      app_emit(context, "[http] error: DNS resolution failed\n");
-      return PROCESS_OK;
-    case HTTP_ERR_CONNECT:
-      app_emit(context, "[http] error: connection failed\n");
-      return PROCESS_OK;
-    case HTTP_ERR_SEND:
-    case HTTP_ERR_RECV:
-    case HTTP_ERR_RESPONSE:
-      app_emit(context, "[http] error: request failed\n");
-      return PROCESS_OK;
-    default:
-      break;
-  }
-
-  /* Status line */
-  app_emit(context, g_http_resp.status_line);
-  app_emit(context, "\n");
-
-  /* Response headers (verbose or HEAD) */
-  if (flag_verbose || flag_head) {
-    for (i = 0u; i < g_http_resp.resp_header_count; ++i) {
-      app_emit(context, g_http_resp.resp_headers[i].name);
-      app_emit(context, ": ");
-      app_emit(context, g_http_resp.resp_headers[i].value);
-      app_emit(context, "\n");
-    }
-    app_emit(context, "\n");
-  }
-
-  /* Body (skip for HEAD or pure header inspection requests) */
-  if (!flag_head) {
-    body_len = g_http_resp.body_len;
-    display_len = body_len < (size_t)APP_OUTPUT_MAX ? body_len : (size_t)APP_OUTPUT_MAX;
-    for (i = 0u; i < display_len; ++i) {
-      body_display[i] = (char)g_http_resp.body[i];
-    }
-    body_display[display_len] = '\0';
-    app_emit(context, body_display);
-    app_emit(context, "\n");
-  }
-
-  return PROCESS_OK;
-}
-
-static process_result_t app_sys_ifconfig(const process_context_t *context, const char *args) {
-  char output[APP_OUTPUT_MAX];
-  uint8_t mac[NETWORK_MAC_LEN];
-  size_t cursor = 0u;
-  size_t i = 0u;
-
-  (void)args;
-
-  if (context == 0) {
-    return PROCESS_ERR_INVALID_ARG;
-  }
-
-  if (!app_require_capability(context->subject_id, CAP_NETWORK)) {
-    app_emit(context, "[ifconfig] error: CAP_NETWORK required\n");
-    return PROCESS_OK;
-  }
-
-  if (!network_hal_ready()) {
-    app_emit(context, "[ifconfig] link: down (no network backend)\n");
-    return PROCESS_OK;
-  }
-
-  network_hal_get_mac(mac);
-
-  cursor = 0u;
-  cursor = app_append_string(output, sizeof(output), cursor, "ifconfig\n");
-  cursor = app_append_string(output, sizeof(output), cursor, "  link: up\n");
-  cursor = app_append_string(output, sizeof(output), cursor, "  backend: ");
-  cursor = app_append_string(output, sizeof(output), cursor, network_hal_backend_name());
-  cursor = app_append_string(output, sizeof(output), cursor, "\n");
-  cursor = app_append_string(output, sizeof(output), cursor, "  mac: ");
-  for (i = 0u; i < NETWORK_MAC_LEN; ++i) {
-    cursor = app_append_hex_u8(output, sizeof(output), cursor, mac[i]);
-    if (i + 1u < NETWORK_MAC_LEN) {
-      cursor = app_append_string(output, sizeof(output), cursor, ":");
-    }
-  }
-  cursor = app_append_string(output, sizeof(output), cursor, "\n");
-  cursor = app_append_string(output, sizeof(output), cursor, "  ipv4: ");
-  cursor = app_append_ipv4(output, sizeof(output), cursor, NET_GUEST_IP);
-  cursor = app_append_string(output, sizeof(output), cursor, "\n");
-  cursor = app_append_string(output, sizeof(output), cursor, "  gateway: ");
-  cursor = app_append_ipv4(output, sizeof(output), cursor, NET_GATEWAY_IP);
-  cursor = app_append_string(output, sizeof(output), cursor, "\n");
-  cursor = app_append_string(output, sizeof(output), cursor, "  dns: ");
-  cursor = app_append_ipv4(output, sizeof(output), cursor, NET_DNS_IP);
-  cursor = app_append_string(output, sizeof(output), cursor, "\n");
-  app_emit(context, output);
-
-  return PROCESS_OK;
-}
-
-static process_result_t app_sys_ping(const process_context_t *context, const char *args) {
-  char host[APP_TOKEN_MAX];
-  char output[APP_OUTPUT_MAX];
-  const char *next = 0;
-  uint32_t dst_ip = 0u;
-  tcp_conn_t conn;
-  size_t cursor = 0u;
-
-  if (context == 0) {
-    return PROCESS_ERR_INVALID_ARG;
-  }
-
-  if (!app_require_capability(context->subject_id, CAP_NETWORK)) {
-    app_emit(context, "[ping] error: CAP_NETWORK required\n");
-    return PROCESS_OK;
-  }
-
-  app_copy_until_space(host, sizeof(host), app_skip_spaces(args == 0 ? "" : args), &next);
-  (void)next;
-  if (host[0] == '\0') {
-    app_emit(context, "usage: ping <host>\n");
-    return PROCESS_OK;
-  }
-
-  dst_ip = dns_resolve(host);
-  if (dst_ip == 0u) {
-    app_emit(context, "[ping] error: DNS resolution failed\n");
-    return PROCESS_OK;
-  }
-
-  if (tcp_connect(&conn, dst_ip, 80u) != TCP_OK) {
-    app_emit(context, "[ping] error: host unreachable\n");
-    return PROCESS_OK;
-  }
-  tcp_close(&conn);
-
-  cursor = 0u;
-  cursor = app_append_string(output, sizeof(output), cursor, "pong from ");
-  cursor = app_append_string(output, sizeof(output), cursor, host);
-  cursor = app_append_string(output, sizeof(output), cursor, " (");
-  cursor = app_append_ipv4(output, sizeof(output), cursor, dst_ip);
-  cursor = app_append_string(output, sizeof(output), cursor, ")\n");
-  app_emit(context, output);
-
-  return PROCESS_OK;
-}
-
-static process_result_t app_script_cmd_http(const process_context_t *context, const char *args) {
-  return app_sys_http(context, args);
-}
-
-static process_result_t app_script_cmd_ifconfig(const process_context_t *context, const char *args) {
-  return app_sys_ifconfig(context, args);
-}
-
-static process_result_t app_script_cmd_ping(const process_context_t *context, const char *args) {
-  return app_sys_ping(context, args);
-}
-
 static process_result_t app_script_cmd_about(const process_context_t *context, const char *args) {
   return app_sys_about(context, args);
 }
@@ -2046,33 +2108,36 @@ static process_result_t app_script_cmd_releaselib(const process_context_t *conte
   return app_sys_releaselib(context, args);
 }
 
-static process_result_t app_execute_named_script_command(const char *command,
-                                                         const char *rest,
-                                                         const process_context_t *context) {
+static process_result_t app_try_execute_builtin_command(const char *command,
+                                                        const char *rest,
+                                                        const process_context_t *context,
+                                                        int *out_handled) {
   static const process_script_command_entry_t command_table[] = {
       {"print", app_script_cmd_print, 0, ""},
       {"ls", app_script_cmd_ls, 0, "."},
       {"cat", app_script_cmd_cat, 1, 0},
       {"mkdir", app_script_cmd_mkdir, 1, 0},
       {"cd", app_script_cmd_cd, 1, 0},
+      {"env", app_script_cmd_env, 0, ""},
       {"apps", app_script_cmd_apps, 0, ""},
       {"libs", app_script_cmd_libs, 0, ""},
       {"storage", app_script_cmd_storage, 0, ""},
-      {"env", app_script_cmd_env, 0, ""},
       {"about", app_script_cmd_about, 1, 0},
       {"loadlib", app_script_cmd_loadlib, 1, 0},
       {"unloadlib", app_script_cmd_unloadlib, 1, 0},
+      {"unload", app_script_cmd_unloadlib, 1, 0},
       {"uselib", app_script_cmd_uselib, 1, 0},
       {"releaselib", app_script_cmd_releaselib, 1, 0},
-    {"http", app_script_cmd_http, 1, 0},
-        {"ifconfig", app_script_cmd_ifconfig, 0, ""},
-        {"ping", app_script_cmd_ping, 0, ""},
   };
+  const char *effective_args = rest == 0 ? "" : rest;
   size_t i = 0u;
+
+  if (out_handled != 0) {
+    *out_handled = 0;
+  }
 
   for (i = 0u; i < (sizeof(command_table) / sizeof(command_table[0])); ++i) {
     const process_script_command_entry_t *entry = &command_table[i];
-    const char *effective_args = rest == 0 ? "" : rest;
 
     if (!app_string_equals(command, entry->name)) {
       continue;
@@ -2083,13 +2148,32 @@ static process_result_t app_execute_named_script_command(const char *command,
     }
 
     if (entry->require_args && effective_args[0] == '\0') {
+      if (out_handled != 0) {
+        *out_handled = 1;
+      }
       return PROCESS_ERR_FORMAT;
     }
 
+    if (out_handled != 0) {
+      *out_handled = 1;
+    }
     return entry->handler(context, effective_args);
   }
 
-  return PROCESS_ERR_FORMAT;
+  return PROCESS_ERR_NOT_FOUND;
+}
+
+static process_result_t app_execute_named_script_command(const char *command,
+                                                         const char *rest,
+                                                         const process_context_t *context) {
+  int handled = 0;
+  process_result_t builtin_result = app_try_execute_builtin_command(command, rest, context, &handled);
+
+  if (handled) {
+    return builtin_result;
+  }
+
+  return process_run(command, rest == 0 ? "" : rest, context);
 }
 
 static process_result_t app_execute_script(const uint8_t *script,
@@ -2185,10 +2269,12 @@ size_t process_list_apps(char *out_buffer, size_t out_buffer_size) {
 process_result_t process_run(const char *app_name,
                              const char *app_args,
                              const process_context_t *context) {
-  uint8_t elf_data[APP_FILE_MAX];
+  static uint8_t elf_data[APP_FILE_MAX];
   size_t elf_len = 0u;
   const uint8_t *program = 0;
   size_t program_len = 0u;
+  const uint8_t *payload = 0;
+  size_t payload_len = 0u;
   char path[APP_TOKEN_MAX];
   char path_env[APP_LINE_MAX];
   char path_entry[APP_TOKEN_MAX];
@@ -2272,6 +2358,11 @@ process_result_t process_run(const char *app_name,
 
   if (fs_result != FS_OK) {
     if (fs_result == FS_ERR_NOT_FOUND) {
+      int handled = 0;
+      process_result_t builtin_result = app_try_execute_builtin_command(app_name, app_args, context, &handled);
+      if (handled) {
+        return builtin_result;
+      }
       return PROCESS_ERR_NOT_FOUND;
     }
     return PROCESS_ERR_STORAGE;
@@ -2297,10 +2388,17 @@ process_result_t process_run(const char *app_name,
                                &program, &program_len) != PROCESS_OK) {
       return PROCESS_ERR_FORMAT;
     }
+
+    payload = sof_parsed.payload;
+    payload_len = sof_parsed.payload_size;
   }
 
   if (program == 0 || program_len == 0u) {
     return PROCESS_ERR_FORMAT;
+  }
+
+  if (!app_payload_looks_like_script(program, program_len)) {
+    return app_execute_native_elf(payload, payload_len, context, &args);
   }
 
   return app_execute_script(program, program_len, context, &args);

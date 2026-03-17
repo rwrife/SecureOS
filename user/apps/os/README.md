@@ -5,6 +5,8 @@ This folder contains standalone source files for shell-level OS commands.
 Current command app sources:
 - `help/main.c`
 - `ping/main.c`
+- `http/main.c`
+- `ifconfig/main.c`
 - `echo/main.c`
 - `ls/main.c`
 - `cat/main.c`
@@ -16,5 +18,5 @@ Current command app sources:
 - `storage/main.c`
 
 Note:
-- The running kernel currently seeds `/os/*.elf` payloads from kernel-side script-backed ELF blobs.
+- `http` and `ifconfig` are packaged into `/os/*.bin` from these standalone user app sources.
 - These `.c` files establish the one-file-per-command layout and are the target for full user-app build/deploy wiring.

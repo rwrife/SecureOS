@@ -21,23 +21,17 @@ build_kernel_entry_inner() {
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/hal/storage_hal.c -o artifacts/kernel/storage_hal.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/drivers/disk/ramdisk.c -o artifacts/kernel/ramdisk.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/drivers/network/virtio_net.c -o artifacts/kernel/virtio_net.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/eth.c -o artifacts/kernel/eth.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/arp.c -o artifacts/kernel/arp.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/ipv4.c -o artifacts/kernel/ipv4.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/udp.c -o artifacts/kernel/udp.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/dns.c -o artifacts/kernel/dns.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/tcp.c -o artifacts/kernel/tcp.o
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/net/http.c -o artifacts/kernel/http.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/crypto/sha512.c -o artifacts/kernel/sha512.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/crypto/ed25519.c -o artifacts/kernel/ed25519.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/crypto/cert.c -o artifacts/kernel/cert.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/format/sof.c -o artifacts/kernel/sof.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/fs/fs_service.c -o artifacts/kernel/fs_service.o
+  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/user/native_net_service.c -o artifacts/kernel/native_net_service.o
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -c kernel/user/process.c -o artifacts/kernel/process.o
   ld.lld -m elf_i386 -T kernel/arch/x86/boot/linker.ld \
     -Map=artifacts/kernel/kernel.map \
     -o artifacts/kernel/kernel.elf \
-    artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/network_hal.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/virtio_net.o artifacts/kernel/eth.o artifacts/kernel/arp.o artifacts/kernel/ipv4.o artifacts/kernel/udp.o artifacts/kernel/dns.o artifacts/kernel/tcp.o artifacts/kernel/http.o artifacts/kernel/sha512.o artifacts/kernel/ed25519.o artifacts/kernel/cert.o artifacts/kernel/sof.o artifacts/kernel/fs_service.o artifacts/kernel/process.o
+    artifacts/kernel/entry.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/network_hal.o artifacts/kernel/storage_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/virtio_net.o artifacts/kernel/sha512.o artifacts/kernel/ed25519.o artifacts/kernel/cert.o artifacts/kernel/sof.o artifacts/kernel/fs_service.o artifacts/kernel/native_net_service.o artifacts/kernel/process.o
   if command -v llvm-objdump >/dev/null 2>&1; then
     llvm-objdump -h artifacts/kernel/kernel.elf > artifacts/kernel/kernel.sections.txt
   else

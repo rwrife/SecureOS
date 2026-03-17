@@ -21,9 +21,19 @@ set -euo pipefail
 LIB_DIR="user/libs/__LIB_NAME__"
 test -f "$LIB_DIR/main.c"
 mkdir -p artifacts/lib
-clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c "$LIB_DIR/main.c" -o "artifacts/lib/__LIB_NAME__.o"
+OBJECT_FILES=""
+for SRC_PATH in "$LIB_DIR"/*.c; do
+case "$SRC_PATH" in
+*_kernel.c)
+continue
+;;
+esac
+OBJECT_PATH="artifacts/lib/__LIB_NAME___$(basename "$SRC_PATH" .c).o"
+clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c "$SRC_PATH" -o "$OBJECT_PATH"
+OBJECT_FILES="$OBJECT_FILES $OBJECT_PATH"
+done
 clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 -I user/include -c user/runtime/secureos_api_stubs.c -o artifacts/lib/secureos_api_stubs.o
-ld.lld -m elf_i386 -nostdlib -e main -o "artifacts/lib/__LIB_NAME__.elf" "artifacts/lib/__LIB_NAME__.o" artifacts/lib/secureos_api_stubs.o
+ld.lld -m elf_i386 -nostdlib -e main -o "artifacts/lib/__LIB_NAME__.elf" $OBJECT_FILES artifacts/lib/secureos_api_stubs.o
 if [ ! -f "tools/sof_wrap/sof_wrap" ]; then make -C tools/sof_wrap; fi
 ./tools/sof_wrap/sof_wrap --type lib --name "__LIB_NAME__" --author "SecureOS" --version "1.0.0" --date "$(date -u +%Y-%m-%d)" "artifacts/lib/__LIB_NAME__.elf" "artifacts/lib/__LIB_NAME__.lib"
 echo "Built artifacts/lib/__LIB_NAME__.lib"

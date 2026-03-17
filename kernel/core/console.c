@@ -1148,37 +1148,7 @@ static void console_command_run(const char *app_name, const char *app_args) {
   context.release_loaded_library = console_release_loaded_library;
   context.list_loaded_libraries = console_list_loaded_libraries;
 
-  result = PROCESS_ERR_NOT_FOUND;
-
-  if (app_name[0] == '/' || app_name[0] == '\\') {
-    copy_string(executable_path, sizeof(executable_path), app_name);
-    console_append_elf_suffix(executable_path, sizeof(executable_path));
-    (void)console_try_run_candidate(executable_path, app_args, &context, &result);
-  } else {
-    console_build_app_candidate_from_dir("/os", app_name, executable_path, sizeof(executable_path));
-    (void)console_try_run_candidate(executable_path, app_args, &context, &result);
-
-    console_get_effective_cwd(base_cwd, sizeof(base_cwd));
-    if (result == PROCESS_ERR_NOT_FOUND) {
-      console_build_app_candidate_from_dir(base_cwd, app_name, executable_path, sizeof(executable_path));
-      (void)console_try_run_candidate(executable_path, app_args, &context, &result);
-    }
-
-    if (result == PROCESS_ERR_NOT_FOUND && console_env_get("PATH", path_value, sizeof(path_value))) {
-      path_cursor = path_value;
-      while ((path_cursor = console_next_path_entry(path_cursor, path_entry, sizeof(path_entry))) != 0) {
-        if (path_entry[0] == '\0') {
-          continue;
-        }
-
-        console_build_app_candidate_from_dir(path_entry, app_name, executable_path, sizeof(executable_path));
-        (void)console_try_run_candidate(executable_path, app_args, &context, &result);
-        if (result != PROCESS_ERR_NOT_FOUND) {
-          break;
-        }
-      }
-    }
-  }
+  result = process_run(app_name, app_args, &context);
 
   if (result == PROCESS_OK) {
     console_write_prompt();

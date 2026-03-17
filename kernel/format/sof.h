@@ -58,6 +58,7 @@ typedef enum {
   SOF_META_SIG_ALGO    = 0x10, /* Future: signature algorithm name */
   SOF_META_SIG_KEYID   = 0x11, /* Future: signing key identifier */
   SOF_META_SIG_HASH    = 0x12, /* Future: payload hash algorithm */
+  SOF_META_SYSCALL_ID  = 0x20, /* Kernel syscall ID for dispatching OS commands */
 } sof_meta_key_t;
 
 /* ---- On-disk header (32 bytes, packed, little-endian) ------------------ */
@@ -128,6 +129,7 @@ typedef struct {
   const char *version;
   const char *date;
   const char *icon; /* May be NULL */
+  const char *syscall_id; /* May be NULL; used for OS command dispatch routing */
   const uint8_t *elf_payload;
   size_t elf_payload_size;
 } sof_build_params_t;

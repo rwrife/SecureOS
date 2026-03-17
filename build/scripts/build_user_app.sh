@@ -11,6 +11,7 @@ build_user_app_inner() {
   APP_OUT_DIR="artifacts/user/$(dirname "$APP_NAME")"
   test -f "$APP_DIR/main.c"
   EXTRA_OBJECTS=""
+  NETLIB_OBJECTS=""
 
   if [ -d "$APP_DIR/resources" ]; then
     python3 - "$APP_DIR/resources" "artifacts/user/${APP_NAME}_resources_gen.c" <<'PY'
@@ -55,11 +56,43 @@ PY
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
     -I user/include \
     -c "$APP_DIR/main.c" -o "artifacts/user/$APP_NAME.o"
+
+  if grep -Eq '^[[:space:]]*#include[[:space:]]+"lib/netlib.h"' "$APP_DIR/main.c"; then
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/api.c -o artifacts/user/netlib_api.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/backend_user.c -o artifacts/user/netlib_backend_user.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/eth.c -o artifacts/user/netlib_eth.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/arp.c -o artifacts/user/netlib_arp.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/ipv4.c -o artifacts/user/netlib_ipv4.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/udp.c -o artifacts/user/netlib_udp.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/dns.c -o artifacts/user/netlib_dns.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/tcp.c -o artifacts/user/netlib_tcp.o
+    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
+      -I user/include \
+      -c user/libs/netlib/http.c -o artifacts/user/netlib_http.o
+    NETLIB_OBJECTS="artifacts/user/netlib_api.o artifacts/user/netlib_backend_user.o artifacts/user/netlib_eth.o artifacts/user/netlib_arp.o artifacts/user/netlib_ipv4.o artifacts/user/netlib_udp.o artifacts/user/netlib_dns.o artifacts/user/netlib_tcp.o artifacts/user/netlib_http.o"
+  fi
+
   clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
     -I user/include \
     -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
   ld.lld -m elf_i386 -nostdlib -e main \
-    -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS
+    -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
 
   # Build sof_wrap if not already built
   if [ ! -f "tools/sof_wrap/sof_wrap" ]; then

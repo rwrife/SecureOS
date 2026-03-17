@@ -86,24 +86,6 @@ static int sof_magic_matches(const uint8_t *data) {
          data[3] == SOF_MAGIC[3];
 }
 
-static void sof_decode_header(const uint8_t *data, sof_header_t *hdr) {
-  hdr->magic[0]       = data[0];
-  hdr->magic[1]       = data[1];
-  hdr->magic[2]       = data[2];
-  hdr->magic[3]       = data[3];
-  hdr->format_version = data[4];
-  hdr->file_type      = data[5];
-  hdr->flags          = sof_read_u16(data, 6);
-  hdr->total_size     = sof_read_u32(data, 8);
-  hdr->meta_offset    = sof_read_u32(data, 12);
-  hdr->meta_count     = sof_read_u16(data, 16);
-  hdr->meta_size      = sof_read_u16(data, 18);
-  hdr->payload_offset = sof_read_u32(data, 20);
-  hdr->payload_size   = sof_read_u32(data, 24);
-  hdr->sig_offset     = sof_read_u32(data, 28);
-  hdr->sig_size       = sof_read_u32(data, 32);
-}
-
 /* ---- Public API -------------------------------------------------------- */
 
 int sof_is_sof(const uint8_t *data, size_t data_len) {
@@ -360,6 +342,10 @@ sof_result_t sof_build(const sof_build_params_t *params,
       dry_meta_size += 2u + sof_strlen(params->icon);
       ++meta_count;
     }
+    if (params->syscall_id != 0) {
+      dry_meta_size += 2u + sof_strlen(params->syscall_id);
+      ++meta_count;
+    }
 
     meta_written = dry_meta_size;
     payload_start = meta_start + meta_written;
@@ -421,6 +407,11 @@ sof_result_t sof_build(const sof_build_params_t *params,
   if (params->icon != 0) {
     written = sof_write_meta_entry(out_buffer, out_buffer_size, meta_cursor,
                                     (uint8_t)SOF_META_ICON, params->icon);
+    meta_cursor += written;
+  }
+  if (params->syscall_id != 0) {
+    written = sof_write_meta_entry(out_buffer, out_buffer_size, meta_cursor,
+                                    (uint8_t)SOF_META_SYSCALL_ID, params->syscall_id);
     meta_cursor += written;
   }
 

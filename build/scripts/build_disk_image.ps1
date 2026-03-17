@@ -12,9 +12,22 @@ $diskPath = Join-Path $diskDir "secureos-disk.img"
 $diskBlocks = if ($env:SECUREOS_DISK_BLOCKS) { [int]$env:SECUREOS_DISK_BLOCKS } else { 4096 }
 $imageTag = Get-ToolchainImage
 
+Assert-DockerAvailable
+Ensure-ToolchainImage -RootDir $rootDir -ImageTag $imageTag -Dockerfile (Get-ToolchainDockerfile -RootDir $rootDir)
+
 Stop-SecureOSActiveInstances -RootDir $rootDir -ImageTag $imageTag
 
-New-Item -ItemType Directory -Path $diskDir -Force | Out-Null
-[System.IO.File]::WriteAllBytes($diskPath, (New-Object byte[] ($diskBlocks * 512)))
-Write-Host "Built $diskPath"
+$previousBlocks = $env:SECUREOS_DISK_BLOCKS
+$env:SECUREOS_DISK_BLOCKS = [string]$diskBlocks
+try {
+	Invoke-ToolchainScript -RootDir $rootDir -ImageTag $imageTag -ScriptText "./build/scripts/build_disk_image.sh"
+}
+finally {
+	if ($null -ne $previousBlocks) {
+		$env:SECUREOS_DISK_BLOCKS = $previousBlocks
+	} else {
+		Remove-Item Env:SECUREOS_DISK_BLOCKS -ErrorAction SilentlyContinue
+	}
+}
+
 Write-Host "PASS: disk image build"
