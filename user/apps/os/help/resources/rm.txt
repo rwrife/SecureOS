@@ -1,0 +1,3 @@
+usage: rm [-f] [-v] [-d] <path> [path ...]
+removes files and empty directories.
+notes: recursive removal (-r/-R) is not supported yet.

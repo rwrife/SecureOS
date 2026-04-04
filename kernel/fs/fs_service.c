@@ -705,6 +705,61 @@ static fs_result_t fs_write_entry_content(uint32_t first_cluster,
   return FS_OK;
 }
 
+static fs_result_t fs_free_cluster_chain(uint32_t first_cluster, uint8_t fat[FS_FAT_BUFFER_SIZE]) {
+  uint32_t current = first_cluster;
+
+  if (current < FS_CLUSTER_MIN_ALLOC || current > FS_CLUSTER_MAX_ALLOC) {
+    return FS_ERR_INVALID_ARG;
+  }
+
+  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC) {
+    uint32_t next = fs_fat_get_entry(fat, current);
+    fs_fat_set_entry(fat, current, FS_FAT_ENTRY_FREE);
+
+    if (next == FS_FAT_ENTRY_EOC || next == FS_FAT_ENTRY_FREE) {
+      return FS_OK;
+    }
+
+    if (next < FS_CLUSTER_MIN_ALLOC || next > FS_CLUSTER_MAX_ALLOC) {
+      return FS_ERR_STORAGE;
+    }
+
+    current = next;
+  }
+
+  return FS_ERR_STORAGE;
+}
+
+static int fs_directory_is_empty(uint32_t dir_cluster) {
+  uint8_t dir_data[FS_BLOCK_SIZE];
+  size_t i = 0u;
+
+  if (dir_cluster < FS_ROOT_CLUSTER || dir_cluster > FS_CLUSTER_MAX_ALLOC) {
+    return 0;
+  }
+
+  if (fs_read_cluster(dir_cluster, dir_data) != FS_OK) {
+    return 0;
+  }
+
+  for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
+    size_t off = i * FS_DIR_ENTRY_SIZE;
+    uint8_t marker = dir_data[off];
+
+    if (marker == 0x00u) {
+      return 1;
+    }
+
+    if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
+      continue;
+    }
+
+    return 0;
+  }
+
+  return 1;
+}
+
 static fs_result_t fs_build_script_elf(const char *script,
                                        uint8_t *out_buffer,
                                        size_t out_buffer_size,
@@ -1185,6 +1240,132 @@ fs_result_t fs_mkdir(const char *path) {
     return FS_ERR_STORAGE;
   }
   if (fs_write_cluster(new_cluster, child_dir) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  return FS_OK;
+}
+
+fs_result_t fs_unlink(const char *path) {
+  uint8_t parent_dir[FS_BLOCK_SIZE];
+  static uint8_t fat[FS_FAT_BUFFER_SIZE];
+  uint32_t parent_cluster = FS_ROOT_CLUSTER;
+  char name83[11];
+  uint32_t offset = 0u;
+  int found = 0;
+  uint32_t first_cluster = 0u;
+  fs_result_t result = FS_OK;
+
+  if (path == 0) {
+    return FS_ERR_INVALID_ARG;
+  }
+
+  if (fs_ensure_initialized() != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  if (fs_load_fat(fat) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  result = fs_resolve_parent_and_leaf(path, &parent_cluster, name83);
+  if (result != FS_OK) {
+    return result;
+  }
+
+  result = fs_find_entry_in_dir(parent_cluster, name83, parent_dir, &offset, &found);
+  if (result != FS_OK) {
+    return result == FS_ERR_NO_SPACE ? FS_ERR_NOT_FOUND : result;
+  }
+  if (!found) {
+    return FS_ERR_NOT_FOUND;
+  }
+
+  if ((parent_dir[offset + 11u] & FS_ATTR_DIRECTORY) != 0u) {
+    return FS_ERR_NOT_DIR;
+  }
+
+  first_cluster = fs_entry_cluster(&parent_dir[offset]);
+  if (first_cluster < FS_CLUSTER_MIN_ALLOC || first_cluster > FS_CLUSTER_MAX_ALLOC) {
+    return FS_ERR_STORAGE;
+  }
+
+  result = fs_free_cluster_chain(first_cluster, fat);
+  if (result != FS_OK) {
+    return result;
+  }
+
+  parent_dir[offset] = 0xE5u;
+
+  if (fs_store_fat(fat) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+  if (fs_write_cluster(parent_cluster, parent_dir) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  return FS_OK;
+}
+
+fs_result_t fs_rmdir(const char *path) {
+  uint8_t parent_dir[FS_BLOCK_SIZE];
+  static uint8_t fat[FS_FAT_BUFFER_SIZE];
+  uint32_t parent_cluster = FS_ROOT_CLUSTER;
+  char name83[11];
+  uint32_t offset = 0u;
+  int found = 0;
+  uint32_t dir_cluster = 0u;
+  fs_result_t result = FS_OK;
+
+  if (path == 0 || path[0] == '\0' || fs_string_equals(path, "/")) {
+    return FS_ERR_INVALID_ARG;
+  }
+
+  if (fs_ensure_initialized() != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  if (fs_load_fat(fat) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  result = fs_resolve_parent_and_leaf(path, &parent_cluster, name83);
+  if (result != FS_OK) {
+    return result;
+  }
+
+  result = fs_find_entry_in_dir(parent_cluster, name83, parent_dir, &offset, &found);
+  if (result != FS_OK) {
+    return result == FS_ERR_NO_SPACE ? FS_ERR_NOT_FOUND : result;
+  }
+  if (!found) {
+    return FS_ERR_NOT_FOUND;
+  }
+
+  if ((parent_dir[offset + 11u] & FS_ATTR_DIRECTORY) == 0u) {
+    return FS_ERR_NOT_DIR;
+  }
+
+  dir_cluster = fs_entry_cluster(&parent_dir[offset]);
+  if (dir_cluster < FS_CLUSTER_MIN_ALLOC || dir_cluster > FS_CLUSTER_MAX_ALLOC) {
+    return FS_ERR_STORAGE;
+  }
+
+  if (!fs_directory_is_empty(dir_cluster)) {
+    return FS_ERR_NOT_EMPTY;
+  }
+
+  result = fs_free_cluster_chain(dir_cluster, fat);
+  if (result != FS_OK) {
+    return result;
+  }
+
+  parent_dir[offset] = 0xE5u;
+
+  if (fs_store_fat(fat) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+  if (fs_write_cluster(parent_cluster, parent_dir) != FS_OK) {
     return FS_ERR_STORAGE;
   }
 

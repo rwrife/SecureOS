@@ -914,6 +914,152 @@ static process_result_t app_sys_mkdir(const process_context_t *context, const ch
   return PROCESS_OK;
 }
 
+static void app_emit_rm_failure(const process_context_t *context,
+                                const char *path,
+                                fs_result_t result,
+                                int directory_mode) {
+  app_emit(context, "rm: cannot remove '");
+  app_emit(context, path == 0 ? "" : path);
+  app_emit(context, "': ");
+
+  if (result == FS_ERR_NOT_FOUND) {
+    app_emit(context, "no such file or directory\n");
+    return;
+  }
+
+  if (result == FS_ERR_NOT_EMPTY) {
+    app_emit(context, "directory not empty\n");
+    return;
+  }
+
+  if (result == FS_ERR_NOT_DIR) {
+    if (directory_mode) {
+      app_emit(context, "not a directory\n");
+    } else {
+      app_emit(context, "is a directory\n");
+    }
+    return;
+  }
+
+  app_emit(context, "operation failed\n");
+}
+
+static process_result_t app_sys_rm(const process_context_t *context, const char *args) {
+  const char *cursor = app_skip_spaces(args == 0 ? "" : args);
+  char token[APP_TOKEN_MAX];
+  int force = 0;
+  int verbose = 0;
+  int stop_options = 0;
+  int saw_operand = 0;
+  int had_error = 0;
+
+  if (context == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  while (cursor != 0 && cursor[0] != '\0') {
+    const char *next = 0;
+    app_copy_until_space(token, sizeof(token), cursor, &next);
+    cursor = app_skip_spaces(next);
+
+    if (token[0] == '\0') {
+      continue;
+    }
+
+    if (!stop_options && token[0] == '-' && token[1] != '\0') {
+      size_t i = 1u;
+
+      if (token[1] == '-' && token[2] == '\0') {
+        stop_options = 1;
+        continue;
+      }
+
+      while (token[i] != '\0') {
+        char option = token[i];
+        if (option == 'd') {
+          /* Compatibility: empty directories are removed by default. */
+        } else if (option == 'f') {
+          force = 1;
+        } else if (option == 'v') {
+          verbose = 1;
+        } else if (option == 'r' || option == 'R') {
+          app_emit(context, "rm: recursive removal is not supported\n");
+          return PROCESS_OK;
+        } else {
+          app_emit(context, "usage: rm [-f] [-v] [-d] <path> [path ...]\n");
+          return PROCESS_OK;
+        }
+        ++i;
+      }
+      continue;
+    }
+
+    {
+      char resolved[APP_TOKEN_MAX];
+      process_result_t access = PROCESS_OK;
+      fs_result_t fs_result = FS_OK;
+
+      saw_operand = 1;
+      app_resolve_path(context, token, resolved, sizeof(resolved));
+
+      access = app_require_storage_access(context, CAP_FS_WRITE, "rm", resolved);
+      if (access != PROCESS_OK) {
+        return access;
+      }
+
+      fs_result = fs_unlink(resolved);
+      if (fs_result == FS_OK) {
+        if (verbose) {
+          app_emit(context, "removed '");
+          app_emit(context, token);
+          app_emit(context, "'\n");
+        }
+        continue;
+      }
+
+      if (fs_result == FS_ERR_NOT_FOUND && force) {
+        continue;
+      }
+
+      if (fs_result == FS_ERR_NOT_DIR) {
+        fs_result = fs_rmdir(resolved);
+        if (fs_result == FS_OK) {
+          if (verbose) {
+            app_emit(context, "removed directory '");
+            app_emit(context, token);
+            app_emit(context, "'\n");
+          }
+          continue;
+        }
+
+        if (fs_result == FS_ERR_NOT_FOUND && force) {
+          continue;
+        }
+
+        if (!force) {
+          app_emit_rm_failure(context, token, fs_result, 1);
+        }
+        had_error = 1;
+        continue;
+      }
+
+      if (!force) {
+        app_emit_rm_failure(context, token, fs_result, 0);
+      }
+      had_error = 1;
+    }
+  }
+
+  if (!saw_operand) {
+    app_emit(context, "usage: rm [-f] [-v] [-d] <path> [path ...]\n");
+    return PROCESS_OK;
+  }
+
+  (void)had_error;
+
+  return PROCESS_OK;
+}
+
 static process_result_t app_sys_cd(const process_context_t *context, const char *path) {
   char resolved[APP_TOKEN_MAX];
 
@@ -1758,6 +1904,10 @@ static process_result_t app_script_cmd_mkdir(const process_context_t *context, c
   return app_sys_mkdir(context, args);
 }
 
+static process_result_t app_script_cmd_rm(const process_context_t *context, const char *args) {
+  return app_sys_rm(context, args);
+}
+
 static process_result_t app_script_cmd_cd(const process_context_t *context, const char *args) {
   return app_sys_cd(context, args);
 }
@@ -2009,6 +2159,8 @@ static process_result_t app_try_execute_builtin_command(const char *command,
       {"ls", app_script_cmd_ls, 0, "."},
       {"cat", app_script_cmd_cat, 1, 0},
       {"mkdir", app_script_cmd_mkdir, 1, 0},
+      {"rm", app_script_cmd_rm, 1, 0},
+      {"__rm", app_script_cmd_rm, 1, 0},
       {"cd", app_script_cmd_cd, 1, 0},
       {"env", app_script_cmd_env, 0, ""},
       {"apps", app_script_cmd_apps, 0, ""},
