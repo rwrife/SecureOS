@@ -32,7 +32,9 @@ Rules:
 - `CAP_NETWORK` is required before a process may transmit or receive network traffic.
 - The initial implementation gates the `http` command behind `CAP_NETWORK`.
 - Bootstrap subject `0` receives `CAP_NETWORK` during kernel initialization.
-- The v1 network stack targets QEMU user networking via `virtio-net-pci` and supports ARP, IPv4, UDP, DNS A-records, TCP client flows, and HTTP/1.1 GET/POST requests.
+- The v1 network stack targets QEMU user networking via `virtio-net-pci` and supports ARP, IPv4, UDP, DNS A-records, TCP client flows, HTTP/1.1 GET/POST requests, and HTTPS (TLS 1.2) via BearSSL.
+- HTTPS support reuses `CAP_NETWORK` — no additional capability is required. The `http` command transparently upgrades `https://` URLs to TLS-backed connections.
+- TLS runs entirely in user-space (netlib). The kernel provides only raw frame I/O; all cryptographic operations occur outside the kernel boundary.
 
 ### Check result semantics
 

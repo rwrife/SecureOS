@@ -12,7 +12,7 @@
  *   - console/video HAL: kernel routes console text to serial and video.
  *
  * Launched by:
- *   Invoked as a user-space application via "run /apps/os/vgahello.bin".
+ *   Invoked as a user-space application via "run /apps/vgahello.bin".
  *   Built as a standalone ELF binary and wrapped as SOF binary.
  */
 

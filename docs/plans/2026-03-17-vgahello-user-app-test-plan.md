@@ -4,17 +4,16 @@
 Provide a user-space sample app to validate video text output through the console -> video HAL path in QEMU.
 
 ## Scope
-- Add `user/apps/os/vgahello/main.c` sample app.
-- Include app in disk-image build mapping so it is present at `/apps/os/vgahello.bin`.
-- Document the app under `user/apps/os/README.md`.
+- Add `user/apps/vgahello/main.c` sample app.
+- Include app in disk-image build mapping so it is present at `/apps/vgahello.bin`.
 
 ## Validation Steps
 1. Build user app:
-- `./build/scripts/build_user_app.sh os/vgahello`
+- `./build/scripts/build_user_app.sh vgahello`
 2. Build disk image:
 - `./build/scripts/build_disk_image.sh`
 3. Boot console and run:
-- `run /apps/os/vgahello.bin`
+- `run /apps/vgahello.bin`
 
 ## Expected Output
 - App prints start/done markers and multiple text-pattern lines.

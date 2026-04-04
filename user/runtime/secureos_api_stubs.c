@@ -250,6 +250,42 @@ os_status_t os_net_http_get(const char *url, char *out_buffer, unsigned int out_
   return OS_STATUS_NOT_FOUND;
 }
 
+os_status_t os_net_https_get(const char *url, char *out_buffer, unsigned int out_buffer_size) {
+  (void)url;
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return OS_STATUS_NOT_FOUND;
+}
+
+/* envlib stub implementations - required for apps that use fslib which includes envlib.h */
+#include "lib/envlib.h"
+
+envlib_status_t envlib_get(envlib_handle_t handle, const char *key, char *out_value,
+                           unsigned int out_value_size) {
+  (void)handle;
+  (void)key;
+  if (out_value != 0 && out_value_size > 0u) {
+    out_value[0] = '\0';
+  }
+  return ENVLIB_STATUS_NOT_FOUND;
+}
+
+envlib_status_t envlib_set(envlib_handle_t handle, const char *key, const char *value) {
+  (void)handle;
+  (void)key;
+  (void)value;
+  return ENVLIB_STATUS_OK;
+}
+
+envlib_status_t envlib_list(envlib_handle_t handle, char *out_buffer, unsigned int out_buffer_size) {
+  (void)handle;
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return ENVLIB_STATUS_OK;
+}
+
 os_status_t os_net_ping(const char *host, char *out_buffer, unsigned int out_buffer_size) {
   (void)host;
   if (out_buffer != 0 && out_buffer_size > 0u) {

@@ -51,6 +51,7 @@ int main(void) {
   (void)os_get_args(args, (unsigned int)sizeof(args));
   if (args[0] == '\0') {
     print_text("usage: http <url>\n");
+    print_text("  Supports http:// and https:// URLs.\n");
     return 1;
   }
 

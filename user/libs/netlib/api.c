@@ -24,6 +24,7 @@
 #include "backend.h"
 #include "dns.h"
 #include "http.h"
+#include "https.h"
 #include "ipv4.h"
 #include "tcp.h"
 
@@ -247,6 +248,46 @@ netlib_status_t netlib_http_get(netlib_handle_t handle,
 
   result = http_request(&req, &resp);
   if (result != HTTP_OK) {
+    out_buffer[0] = '\0';
+    return NETLIB_STATUS_ERROR;
+  }
+
+  copy = resp.body_len;
+  if (copy + 1u > (size_t)out_buffer_size) {
+    copy = (size_t)out_buffer_size - 1u;
+  }
+
+  for (i = 0u; i < copy; ++i) {
+    out_buffer[i] = (char)resp.body[i];
+  }
+  out_buffer[copy] = '\0';
+  return NETLIB_STATUS_OK;
+}
+
+netlib_status_t netlib_https_get(netlib_handle_t handle,
+                                 const char *url,
+                                 char *out_buffer,
+                                 unsigned int out_buffer_size) {
+  http_request_t req;
+  http_response_t resp;
+  https_result_t result;
+  size_t copy = 0u;
+  size_t i = 0u;
+
+  (void)handle;
+  if (url == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return NETLIB_STATUS_ERROR;
+  }
+
+  req.method = "GET";
+  req.url = url;
+  req.extra_headers = 0;
+  req.extra_header_count = 0u;
+  req.body = 0;
+  req.body_len = 0u;
+
+  result = https_request(&req, &resp);
+  if (result != HTTPS_OK) {
     out_buffer[0] = '\0';
     return NETLIB_STATUS_ERROR;
   }
