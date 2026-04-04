@@ -16,7 +16,7 @@ function Show-Usage {
     [string]$ImageTag
   )
 
-  Write-Host "Usage: build.ps1 [kernel|modules|image|run|test-boot|user-app|user-lib|disk|console|graphics]"
+  Write-Host "Usage: build.ps1 [kernel|modules|image|run|test-boot|user-app|user-lib|disk|console|graphics|build-all]"
   Write-Host ""
   Write-Host "Builds SecureOS targets using the pinned toolchain container."
   Write-Host "Environment overrides:"
@@ -77,6 +77,17 @@ switch ($Target) {
   }
   "graphics" {
     & (Join-Path $PSScriptRoot "boot_graphics.ps1")
+    break
+  }
+  "build-all" {
+    Write-Host "[build] target=build-all - building all components for testing"
+    & (Join-Path $PSScriptRoot "build_bearssl.ps1")
+    & (Join-Path $PSScriptRoot "build_kernel_entry.ps1")
+      & (Join-Path $PSScriptRoot "build_user_lib.ps1") envlib
+    & (Join-Path $PSScriptRoot "build_user_app.ps1") filedemo
+    & (Join-Path $PSScriptRoot "build_kernel_image.ps1")
+    & (Join-Path $PSScriptRoot "build_disk_image.ps1")
+      Write-Host "[build] Completed all components for testing"
     break
   }
   default {
