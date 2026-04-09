@@ -250,6 +250,14 @@ os_status_t os_net_http_get(const char *url, char *out_buffer, unsigned int out_
   return OS_STATUS_NOT_FOUND;
 }
 
+os_status_t os_net_https_get(const char *url, char *out_buffer, unsigned int out_buffer_size) {
+  (void)url;
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return OS_STATUS_NOT_FOUND;
+}
+
 os_status_t os_net_ping(const char *host, char *out_buffer, unsigned int out_buffer_size) {
   (void)host;
   if (out_buffer != 0 && out_buffer_size > 0u) {

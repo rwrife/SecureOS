@@ -263,6 +263,20 @@ netlib_status_t netlib_http_get(netlib_handle_t handle,
   return NETLIB_STATUS_OK;
 }
 
+netlib_status_t netlib_https_get(netlib_handle_t handle,
+                                 const char *url,
+                                 char *out_buffer,
+                                 unsigned int out_buffer_size) {
+  (void)handle;
+  (void)url;
+
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+
+  return NETLIB_STATUS_NOT_FOUND;
+}
+
 netlib_status_t netlib_ping(netlib_handle_t handle,
                             const char *host,
                             char *out_buffer,

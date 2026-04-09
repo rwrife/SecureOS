@@ -39,6 +39,7 @@ os_status_t os_net_frame_recv(unsigned char *out_buffer,
                               unsigned int *out_frame_len);
 os_status_t os_net_ifconfig(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_net_http_get(const char *url, char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_net_https_get(const char *url, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_net_ping(const char *host, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size);
