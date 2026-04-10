@@ -64,15 +64,14 @@ netlib_status_t netlib_http_get(netlib_handle_t handle,
                                 const char *url,
                                 char *out_buffer,
                                 unsigned int out_buffer_size);
-netlib_status_t netlib_ping(netlib_handle_t handle,
-                            const char *host,
-                            char *out_buffer,
-                            unsigned int out_buffer_size);
-
 netlib_status_t netlib_https_get(netlib_handle_t handle,
                                  const char *url,
                                  char *out_buffer,
                                  unsigned int out_buffer_size);
+netlib_status_t netlib_ping(netlib_handle_t handle,
+                            const char *host,
+                            char *out_buffer,
+                            unsigned int out_buffer_size);
 
 #ifdef __cplusplus
 }
