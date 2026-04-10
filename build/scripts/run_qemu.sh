@@ -254,7 +254,7 @@ scripts = {
       ('secureos[s0]> ', 'ifconfig\ny\ny\ny\nhttp https://example.invalid\ny\ny\ny\nping nowhere.invalid\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_filedemo': [
-      ('secureos[s0]> ', 'apps\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
+      ('secureos[s0]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_persistence': [
       ('secureos[s0]> ', 'cat appdemo.txt\ny\nexit pass\n'),

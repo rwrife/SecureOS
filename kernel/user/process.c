@@ -113,8 +113,8 @@ enum {
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
   APP_NATIVE_BRIDGE_VERSION = 1u,
   APP_NATIVE_BRIDGE_ADDR = 0x003FF000u,
-  APP_NATIVE_LOAD_MIN = 0x00400000u,
-  APP_NATIVE_LOAD_MAX = 0x00800000u,
+  APP_NATIVE_LOAD_MIN = 0x00200000u,
+  APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
 };
 
 typedef struct {
@@ -385,19 +385,6 @@ static size_t app_append_u32_decimal(char *dst, size_t dst_size, size_t cursor, 
   return cursor;
 }
 
-static size_t app_append_hex_u8(char *dst, size_t dst_size, size_t cursor, uint8_t value) {
-  static const char hex[] = "0123456789abcdef";
-
-  if (cursor + 2u >= dst_size) {
-    return cursor;
-  }
-
-  dst[cursor++] = hex[(value >> 4u) & 0x0Fu];
-  dst[cursor++] = hex[value & 0x0Fu];
-  dst[cursor] = '\0';
-  return cursor;
-}
-
 static unsigned int app_parse_u32(const char *value, int *ok) {
   unsigned int parsed = 0u;
   size_t i = 0u;
@@ -432,6 +419,11 @@ static uint32_t app_read_u32(const uint8_t *buffer, size_t offset) {
                     ((uint32_t)buffer[offset + 1u] << 8u) |
                     ((uint32_t)buffer[offset + 2u] << 16u) |
                     ((uint32_t)buffer[offset + 3u] << 24u));
+}
+
+static uint64_t app_read_u64(const uint8_t *buffer, size_t offset) {
+  return (uint64_t)app_read_u32(buffer, offset) |
+         ((uint64_t)app_read_u32(buffer, offset + 4u) << 32u);
 }
 
 static void app_mem_copy(uint8_t *dst, const uint8_t *src, size_t len) {
@@ -574,8 +566,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
                                                size_t elf_len,
                                                const process_context_t *context,
                                                const app_invocation_args_t *args) {
-  uint32_t e_entry = 0u;
-  uint32_t e_phoff = 0u;
+  uint64_t e_entry = 0u;
+  uint64_t e_phoff = 0u;
   uint16_t e_phentsize = 0u;
   uint16_t e_phnum = 0u;
   uint16_t i = 0u;
@@ -587,7 +579,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
     return PROCESS_ERR_INVALID_ARG;
   }
 
-  if (elf_len < 52u) {
+  if (elf_len < 64u) {
     return PROCESS_ERR_FORMAT;
   }
 
@@ -595,37 +587,37 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
     return PROCESS_ERR_FORMAT;
   }
 
-  if (elf_data[4] != 1u || elf_data[5] != 1u || app_read_u16(elf_data, 18u) != 3u) {
+  if (elf_data[4] != 2u || elf_data[5] != 1u || app_read_u16(elf_data, 18u) != 62u) {
     return PROCESS_ERR_FORMAT;
   }
 
-  e_entry = app_read_u32(elf_data, 24u);
-  e_phoff = app_read_u32(elf_data, 28u);
-  e_phentsize = app_read_u16(elf_data, 42u);
-  e_phnum = app_read_u16(elf_data, 44u);
+  e_entry = app_read_u64(elf_data, 24u);
+  e_phoff = app_read_u64(elf_data, 32u);
+  e_phentsize = app_read_u16(elf_data, 54u);
+  e_phnum = app_read_u16(elf_data, 56u);
 
-  if (e_phoff >= elf_len || e_phentsize < 32u || e_phnum == 0u) {
+  if (e_phoff >= elf_len || e_phentsize < 56u || e_phnum == 0u) {
     return PROCESS_ERR_FORMAT;
   }
 
   for (i = 0u; i < e_phnum; ++i) {
     size_t ph_off = (size_t)e_phoff + ((size_t)i * (size_t)e_phentsize);
     uint32_t p_type = 0u;
-    uint32_t p_offset = 0u;
-    uint32_t p_vaddr = 0u;
-    uint32_t p_filesz = 0u;
-    uint32_t p_memsz = 0u;
+    uint64_t p_offset = 0u;
+    uint64_t p_vaddr = 0u;
+    uint64_t p_filesz = 0u;
+    uint64_t p_memsz = 0u;
     uint8_t *dst = 0;
 
-    if (ph_off + 32u > elf_len) {
+    if (ph_off + 56u > elf_len) {
       return PROCESS_ERR_FORMAT;
     }
 
     p_type = app_read_u32(elf_data, ph_off + 0u);
-    p_offset = app_read_u32(elf_data, ph_off + 4u);
-    p_vaddr = app_read_u32(elf_data, ph_off + 8u);
-    p_filesz = app_read_u32(elf_data, ph_off + 16u);
-    p_memsz = app_read_u32(elf_data, ph_off + 20u);
+    p_offset = app_read_u64(elf_data, ph_off + 8u);
+    p_vaddr = app_read_u64(elf_data, ph_off + 16u);
+    p_filesz = app_read_u64(elf_data, ph_off + 32u);
+    p_memsz = app_read_u64(elf_data, ph_off + 40u);
 
     if (p_type != 1u) {
       continue;
@@ -634,10 +626,10 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
     if (p_filesz > p_memsz) {
       return PROCESS_ERR_FORMAT;
     }
-    if ((size_t)p_offset + (size_t)p_filesz > elf_len) {
+    if (p_offset > (uint64_t)elf_len || p_filesz > (uint64_t)elf_len - p_offset) {
       return PROCESS_ERR_FORMAT;
     }
-    if (p_vaddr < APP_NATIVE_LOAD_MIN || p_vaddr + p_memsz > APP_NATIVE_LOAD_MAX) {
+    if (p_vaddr < APP_NATIVE_LOAD_MIN || p_memsz > (uint64_t)APP_NATIVE_LOAD_MAX - p_vaddr) {
       return PROCESS_ERR_DENIED;
     }
 
@@ -922,6 +914,152 @@ static process_result_t app_sys_mkdir(const process_context_t *context, const ch
   return PROCESS_OK;
 }
 
+static void app_emit_rm_failure(const process_context_t *context,
+                                const char *path,
+                                fs_result_t result,
+                                int directory_mode) {
+  app_emit(context, "rm: cannot remove '");
+  app_emit(context, path == 0 ? "" : path);
+  app_emit(context, "': ");
+
+  if (result == FS_ERR_NOT_FOUND) {
+    app_emit(context, "no such file or directory\n");
+    return;
+  }
+
+  if (result == FS_ERR_NOT_EMPTY) {
+    app_emit(context, "directory not empty\n");
+    return;
+  }
+
+  if (result == FS_ERR_NOT_DIR) {
+    if (directory_mode) {
+      app_emit(context, "not a directory\n");
+    } else {
+      app_emit(context, "is a directory\n");
+    }
+    return;
+  }
+
+  app_emit(context, "operation failed\n");
+}
+
+static process_result_t app_sys_rm(const process_context_t *context, const char *args) {
+  const char *cursor = app_skip_spaces(args == 0 ? "" : args);
+  char token[APP_TOKEN_MAX];
+  int force = 0;
+  int verbose = 0;
+  int stop_options = 0;
+  int saw_operand = 0;
+  int had_error = 0;
+
+  if (context == 0) {
+    return PROCESS_ERR_INVALID_ARG;
+  }
+
+  while (cursor != 0 && cursor[0] != '\0') {
+    const char *next = 0;
+    app_copy_until_space(token, sizeof(token), cursor, &next);
+    cursor = app_skip_spaces(next);
+
+    if (token[0] == '\0') {
+      continue;
+    }
+
+    if (!stop_options && token[0] == '-' && token[1] != '\0') {
+      size_t i = 1u;
+
+      if (token[1] == '-' && token[2] == '\0') {
+        stop_options = 1;
+        continue;
+      }
+
+      while (token[i] != '\0') {
+        char option = token[i];
+        if (option == 'd') {
+          /* Compatibility: empty directories are removed by default. */
+        } else if (option == 'f') {
+          force = 1;
+        } else if (option == 'v') {
+          verbose = 1;
+        } else if (option == 'r' || option == 'R') {
+          app_emit(context, "rm: recursive removal is not supported\n");
+          return PROCESS_OK;
+        } else {
+          app_emit(context, "usage: rm [-f] [-v] [-d] <path> [path ...]\n");
+          return PROCESS_OK;
+        }
+        ++i;
+      }
+      continue;
+    }
+
+    {
+      char resolved[APP_TOKEN_MAX];
+      process_result_t access = PROCESS_OK;
+      fs_result_t fs_result = FS_OK;
+
+      saw_operand = 1;
+      app_resolve_path(context, token, resolved, sizeof(resolved));
+
+      access = app_require_storage_access(context, CAP_FS_WRITE, "rm", resolved);
+      if (access != PROCESS_OK) {
+        return access;
+      }
+
+      fs_result = fs_unlink(resolved);
+      if (fs_result == FS_OK) {
+        if (verbose) {
+          app_emit(context, "removed '");
+          app_emit(context, token);
+          app_emit(context, "'\n");
+        }
+        continue;
+      }
+
+      if (fs_result == FS_ERR_NOT_FOUND && force) {
+        continue;
+      }
+
+      if (fs_result == FS_ERR_NOT_DIR) {
+        fs_result = fs_rmdir(resolved);
+        if (fs_result == FS_OK) {
+          if (verbose) {
+            app_emit(context, "removed directory '");
+            app_emit(context, token);
+            app_emit(context, "'\n");
+          }
+          continue;
+        }
+
+        if (fs_result == FS_ERR_NOT_FOUND && force) {
+          continue;
+        }
+
+        if (!force) {
+          app_emit_rm_failure(context, token, fs_result, 1);
+        }
+        had_error = 1;
+        continue;
+      }
+
+      if (!force) {
+        app_emit_rm_failure(context, token, fs_result, 0);
+      }
+      had_error = 1;
+    }
+  }
+
+  if (!saw_operand) {
+    app_emit(context, "usage: rm [-f] [-v] [-d] <path> [path ...]\n");
+    return PROCESS_OK;
+  }
+
+  (void)had_error;
+
+  return PROCESS_OK;
+}
+
 static process_result_t app_sys_cd(const process_context_t *context, const char *path) {
   char resolved[APP_TOKEN_MAX];
 
@@ -1174,102 +1312,6 @@ static process_result_t app_sys_releaselib(const process_context_t *context, con
   app_emit(context, text);
   app_emit(context, "\n");
   return PROCESS_OK;
-}
-
-static process_result_t app_begin_auto_library_use(const process_context_t *context,
-                                                   const char *library_name,
-                                                   const char *owner_actor,
-                                                   app_auto_library_use_t *state,
-                                                   const char *error_prefix) {
-  process_library_info_t library_info;
-  process_result_t result = PROCESS_OK;
-
-  if (context == 0 || library_name == 0 || state == 0) {
-    return PROCESS_ERR_INVALID_ARG;
-  }
-
-  state->handle = 0u;
-  state->ref_count = 0u;
-  state->registered = 0;
-  state->acquired = 0;
-  state->resolved_path[0] = '\0';
-
-  result = process_load_library(library_name, context, &library_info);
-  if (result != PROCESS_OK) {
-    if (error_prefix != 0) {
-      app_emit(context, error_prefix);
-      app_emit(context, " error: ");
-      app_emit(context, library_name);
-      app_emit(context, " unavailable\n");
-    }
-    return result;
-  }
-
-  app_copy_string(state->resolved_path, sizeof(state->resolved_path), library_info.resolved_path);
-
-  if (context->register_loaded_library != 0) {
-    if (!context->register_loaded_library(library_info.resolved_path,
-                                          library_info.program_len,
-                                          owner_actor,
-                                          &state->handle)) {
-      if (error_prefix != 0) {
-        app_emit(context, error_prefix);
-        app_emit(context, " error: ");
-        app_emit(context, library_name);
-        app_emit(context, " register failed\n");
-      }
-      return PROCESS_ERR_DENIED;
-    }
-    state->registered = 1;
-  }
-
-  if (state->handle != 0u && context->acquire_loaded_library != 0) {
-    if (!context->acquire_loaded_library(state->handle, &state->ref_count)) {
-      if (context->unregister_loaded_library != 0) {
-        char unloaded_path[PROCESS_LIBRARY_PATH_MAX];
-        (void)context->unregister_loaded_library(state->handle, unloaded_path, sizeof(unloaded_path));
-      }
-      state->registered = 0;
-      state->handle = 0u;
-      if (error_prefix != 0) {
-        app_emit(context, error_prefix);
-        app_emit(context, " error: ");
-        app_emit(context, library_name);
-        app_emit(context, " acquire failed\n");
-      }
-      return PROCESS_ERR_DENIED;
-    }
-    state->acquired = 1;
-  }
-
-  app_emit(context, "[lib] auto begin path=");
-  app_emit(context, state->resolved_path);
-  app_emit(context, " actor=");
-  app_emit(context, owner_actor != 0 ? owner_actor : "auto");
-  app_emit(context, "\n");
-  return PROCESS_OK;
-}
-
-static void app_end_auto_library_use(const process_context_t *context,
-                                     app_auto_library_use_t *state) {
-  char unloaded_path[PROCESS_LIBRARY_PATH_MAX];
-
-  if (context == 0 || state == 0) {
-    return;
-  }
-
-  if (state->resolved_path[0] != '\0') {
-    app_emit(context, "[lib] auto end path=");
-    app_emit(context, state->resolved_path);
-    app_emit(context, "\n");
-  }
-
-  if (state->acquired && context->release_loaded_library != 0) {
-    (void)context->release_loaded_library(state->handle, &state->ref_count);
-  }
-  if (state->registered && context->unregister_loaded_library != 0) {
-    (void)context->unregister_loaded_library(state->handle, unloaded_path, sizeof(unloaded_path));
-  }
 }
 
 static int app_env_read_quoted(const char *src,
@@ -1697,8 +1739,6 @@ process_result_t process_load_library(const char *library_name,
   size_t elf_len = 0u;
   const uint8_t *program = 0;
   size_t program_len = 0u;
-  const uint8_t *payload = 0;
-  size_t payload_len = 0u;
   char library_path[APP_TOKEN_MAX];
   char display_path[APP_TOKEN_MAX];
   process_result_t access = PROCESS_OK;
@@ -1751,8 +1791,6 @@ process_result_t process_load_library(const char *library_name,
       return PROCESS_ERR_FORMAT;
     }
 
-    payload = sof_parsed.payload;
-    payload_len = sof_parsed.payload_size;
   }
 
   app_copy_string(out_library->resolved_path, sizeof(out_library->resolved_path), display_path);
@@ -1764,7 +1802,7 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                size_t elf_len,
                                                const uint8_t **out_program,
                                                size_t *out_program_len) {
-  uint32_t e_phoff = 0u;
+  uint64_t e_phoff = 0u;
   uint16_t e_phentsize = 0u;
   uint16_t e_phnum = 0u;
   uint16_t i = 0u;
@@ -1775,7 +1813,7 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
     return PROCESS_ERR_INVALID_ARG;
   }
 
-  if (elf_len < 52u) {
+  if (elf_len < 64u) {
     return PROCESS_ERR_FORMAT;
   }
 
@@ -1783,39 +1821,39 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
     return PROCESS_ERR_FORMAT;
   }
 
-  if (elf_data[4] != 1u || elf_data[5] != 1u || app_read_u16(elf_data, 18u) != 3u) {
+  if (elf_data[4] != 2u || elf_data[5] != 1u || app_read_u16(elf_data, 18u) != 62u) {
     return PROCESS_ERR_FORMAT;
   }
 
-  e_phoff = app_read_u32(elf_data, 28u);
-  e_phentsize = app_read_u16(elf_data, 42u);
-  e_phnum = app_read_u16(elf_data, 44u);
+  e_phoff = app_read_u64(elf_data, 32u);
+  e_phentsize = app_read_u16(elf_data, 54u);
+  e_phnum = app_read_u16(elf_data, 56u);
 
-  if (e_phoff >= elf_len || e_phentsize < 32u || e_phnum == 0u) {
+  if (e_phoff >= elf_len || e_phentsize < 56u || e_phnum == 0u) {
     return PROCESS_ERR_FORMAT;
   }
 
   for (i = 0u; i < e_phnum; ++i) {
     size_t ph_off = (size_t)e_phoff + ((size_t)i * (size_t)e_phentsize);
     uint32_t p_type = 0u;
-    uint32_t p_offset = 0u;
-    uint32_t p_filesz = 0u;
+    uint64_t p_offset = 0u;
+    uint64_t p_filesz = 0u;
     uint32_t p_flags = 0u;
 
-    if (ph_off + 32u > elf_len) {
+    if (ph_off + 56u > elf_len) {
       return PROCESS_ERR_FORMAT;
     }
 
     p_type = app_read_u32(elf_data, ph_off + 0u);
-    p_offset = app_read_u32(elf_data, ph_off + 4u);
-    p_filesz = app_read_u32(elf_data, ph_off + 16u);
-    p_flags = app_read_u32(elf_data, ph_off + 24u);
+    p_flags = app_read_u32(elf_data, ph_off + 4u);
+    p_offset = app_read_u64(elf_data, ph_off + 8u);
+    p_filesz = app_read_u64(elf_data, ph_off + 32u);
 
     if (p_type != 1u || p_filesz == 0u) {
       continue;
     }
 
-    if ((size_t)p_offset + (size_t)p_filesz > elf_len) {
+    if (p_offset > (uint64_t)elf_len || p_filesz > (uint64_t)elf_len - p_offset) {
       return PROCESS_ERR_FORMAT;
     }
 
@@ -1864,6 +1902,10 @@ static process_result_t app_script_cmd_cat(const process_context_t *context, con
 
 static process_result_t app_script_cmd_mkdir(const process_context_t *context, const char *args) {
   return app_sys_mkdir(context, args);
+}
+
+static process_result_t app_script_cmd_rm(const process_context_t *context, const char *args) {
+  return app_sys_rm(context, args);
 }
 
 static process_result_t app_script_cmd_cd(const process_context_t *context, const char *args) {
@@ -2117,6 +2159,8 @@ static process_result_t app_try_execute_builtin_command(const char *command,
       {"ls", app_script_cmd_ls, 0, "."},
       {"cat", app_script_cmd_cat, 1, 0},
       {"mkdir", app_script_cmd_mkdir, 1, 0},
+      {"rm", app_script_cmd_rm, 1, 0},
+      {"__rm", app_script_cmd_rm, 1, 0},
       {"cd", app_script_cmd_cd, 1, 0},
       {"env", app_script_cmd_env, 0, ""},
       {"apps", app_script_cmd_apps, 0, ""},

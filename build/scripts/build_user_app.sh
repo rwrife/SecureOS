@@ -12,6 +12,8 @@ build_user_app_inner() {
   test -f "$APP_DIR/main.c"
   EXTRA_OBJECTS=""
   NETLIB_OBJECTS=""
+  USER_CFLAGS="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -I user/include"
+  USER_LDFLAGS="-m elf_x86_64 -nostdlib -e main"
 
   if [ -d "$APP_DIR/resources" ]; then
     python3 - "$APP_DIR/resources" "artifacts/user/${APP_NAME}_resources_gen.c" <<'PY'
@@ -45,54 +47,72 @@ with out_path.open('w', encoding='utf-8', newline='\n') as f:
     f.write('u;\n')
 PY
 
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c "artifacts/user/${APP_NAME}_resources_gen.c" -o "artifacts/user/${APP_NAME}_resources_gen.o"
+    clang $USER_CFLAGS -c "artifacts/user/${APP_NAME}_resources_gen.c" -o "artifacts/user/${APP_NAME}_resources_gen.o"
     EXTRA_OBJECTS="artifacts/user/${APP_NAME}_resources_gen.o"
   fi
 
   mkdir -p artifacts/user
   mkdir -p "$APP_OUT_DIR"
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-    -I user/include \
-    -c "$APP_DIR/main.c" -o "artifacts/user/$APP_NAME.o"
+  clang $USER_CFLAGS -c "$APP_DIR/main.c" -o "artifacts/user/$APP_NAME.o"
 
+  # Check for netlib dependency
+  NETLIB_OBJECTS=""
   if grep -Eq '^[[:space:]]*#include[[:space:]]+"lib/netlib.h"' "$APP_DIR/main.c"; then
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/api.c -o artifacts/user/netlib_api.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/backend_user.c -o artifacts/user/netlib_backend_user.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/eth.c -o artifacts/user/netlib_eth.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/arp.c -o artifacts/user/netlib_arp.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/ipv4.c -o artifacts/user/netlib_ipv4.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/udp.c -o artifacts/user/netlib_udp.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/dns.c -o artifacts/user/netlib_dns.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/tcp.c -o artifacts/user/netlib_tcp.o
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
-      -c user/libs/netlib/http.c -o artifacts/user/netlib_http.o
+    NETLIB_CFLAGS="$USER_CFLAGS"
+    HAVE_BEARSSL=0
+    if compgen -G "artifacts/bearssl/*.o" >/dev/null; then
+      HAVE_BEARSSL=1
+      NETLIB_CFLAGS="$NETLIB_CFLAGS -I vendor/bearssl/BearSSL/inc"
+    fi
+
+    clang $NETLIB_CFLAGS -c user/libs/netlib/api.c -o artifacts/user/netlib_api.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/backend_user.c -o artifacts/user/netlib_backend_user.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/eth.c -o artifacts/user/netlib_eth.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/arp.c -o artifacts/user/netlib_arp.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/ipv4.c -o artifacts/user/netlib_ipv4.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/udp.c -o artifacts/user/netlib_udp.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/dns.c -o artifacts/user/netlib_dns.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/tcp.c -o artifacts/user/netlib_tcp.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/http.c -o artifacts/user/netlib_http.o
+
     NETLIB_OBJECTS="artifacts/user/netlib_api.o artifacts/user/netlib_backend_user.o artifacts/user/netlib_eth.o artifacts/user/netlib_arp.o artifacts/user/netlib_ipv4.o artifacts/user/netlib_udp.o artifacts/user/netlib_dns.o artifacts/user/netlib_tcp.o artifacts/user/netlib_http.o"
+
+    if [ "$HAVE_BEARSSL" -eq 1 ]; then
+      clang $NETLIB_CFLAGS -c user/libs/netlib/tls.c -o artifacts/user/netlib_tls.o
+      clang $NETLIB_CFLAGS -c user/libs/netlib/https.c -o artifacts/user/netlib_https.o
+      clang $NETLIB_CFLAGS -c user/libs/netlib/entropy.c -o artifacts/user/netlib_entropy.o
+      clang $NETLIB_CFLAGS -c user/libs/netlib/ca_bundle.c -o artifacts/user/netlib_ca_bundle.o
+      NETLIB_OBJECTS="$NETLIB_OBJECTS artifacts/user/netlib_tls.o artifacts/user/netlib_https.o artifacts/user/netlib_entropy.o artifacts/user/netlib_ca_bundle.o"
+    else
+      cat > artifacts/user/netlib_https_stub.c <<'EOF'
+#include "https.h"
+
+https_result_t https_request(const http_request_t *req, http_response_t *resp) {
+  (void)req;
+  (void)resp;
+  return HTTPS_ERR_TLS;
+}
+EOF
+      clang --target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone \
+        -I user/include -I user/libs/netlib \
+        -c artifacts/user/netlib_https_stub.c -o artifacts/user/netlib_https_stub.o
+      NETLIB_OBJECTS="$NETLIB_OBJECTS artifacts/user/netlib_https_stub.o"
+      echo "WARNING: Building netlib without TLS/HTTPS BearSSL support"
+    fi
+
+    # Link BearSSL objects if available
+    BEARSSL_OBJECTS=""
+    if [ "$HAVE_BEARSSL" -eq 1 ] && [ -d "artifacts/bearssl" ]; then
+      for bobj in artifacts/bearssl/*.o; do
+        [ -f "$bobj" ] && BEARSSL_OBJECTS="$BEARSSL_OBJECTS $bobj"
+      done
+    fi
+    NETLIB_OBJECTS="$NETLIB_OBJECTS $BEARSSL_OBJECTS"
   fi
 
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-    -I user/include \
-    -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
-  ld.lld -m elf_i386 -nostdlib -e main \
-    -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
+  clang $USER_CFLAGS -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
+  ld.lld $USER_LDFLAGS \
+      -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
 
   # Build sof_wrap if not already built
   if [ ! -f "tools/sof_wrap/sof_wrap" ]; then

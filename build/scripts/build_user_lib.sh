@@ -11,8 +11,28 @@ build_user_lib_inner() {
   local src_path
   local object_path
   local object_files=""
+  local user_cflags="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -I user/include"
+  local user_ldflags="-m elf_x86_64 -nostdlib -e main"
   test -f "$LIB_DIR/main.c"
   mkdir -p artifacts/lib
+
+  # Skip netlib if BearSSL objects are not available (due to toolchain issues)
+  if [ "$LIB_NAME" = "netlib" ] && ! compgen -G "artifacts/bearssl/*.o" >/dev/null; then
+    echo "WARNING: Skipping netlib build (BearSSL not available)"
+    return 0
+  fi
+
+  # Add BearSSL include path for netlib (TLS/HTTPS support)
+  EXTRA_INCLUDES=""
+  EXTRA_LINK_OBJECTS=""
+  if [ "$LIB_NAME" = "netlib" ] && [ -d "vendor/bearssl/BearSSL/inc" ]; then
+    EXTRA_INCLUDES="-I vendor/bearssl/BearSSL/inc"
+    if [ -d "artifacts/bearssl" ]; then
+      for bobj in artifacts/bearssl/*.o; do
+        [ -f "$bobj" ] && EXTRA_LINK_OBJECTS="$EXTRA_LINK_OBJECTS $bobj"
+      done
+    fi
+  fi
 
   for src_path in "$LIB_DIR"/*.c; do
     case "$src_path" in
@@ -21,17 +41,14 @@ build_user_lib_inner() {
         ;;
     esac
     object_path="artifacts/lib/${LIB_NAME}_$(basename "$src_path" .c).o"
-    clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-      -I user/include \
+    clang $user_cflags $EXTRA_INCLUDES \
       -c "$src_path" -o "$object_path"
     object_files="$object_files $object_path"
   done
 
-  clang --target=i386-unknown-none-elf -ffreestanding -fno-stack-protector -m32 \
-    -I user/include \
-    -c user/runtime/secureos_api_stubs.c -o artifacts/lib/secureos_api_stubs.o
-  ld.lld -m elf_i386 -nostdlib -e main \
-    -o "artifacts/lib/$LIB_NAME.elf" $object_files artifacts/lib/secureos_api_stubs.o
+  clang $user_cflags -c user/runtime/secureos_api_stubs.c -o artifacts/lib/secureos_api_stubs.o
+  ld.lld $user_ldflags \
+    -o "artifacts/lib/$LIB_NAME.elf" $object_files artifacts/lib/secureos_api_stubs.o $EXTRA_LINK_OBJECTS
 
   # Build sof_wrap if not already built
   if [ ! -f "tools/sof_wrap/sof_wrap" ]; then

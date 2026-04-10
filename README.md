@@ -128,6 +128,26 @@ Type commands directly at `secureos>`. Use `exit pass` to stop QEMU cleanly.
 If a previous SecureOS QEMU/container session is still running, the boot and disk-image scripts
 now stop those stale instances automatically so `secureos-disk.img` can be reused.
 
+## Demo Quickstart
+
+After booting the interactive prompt (`secureos>`), run:
+
+```text
+apps
+run filedemo
+cat appdemo.txt
+```
+
+You can also try the networking demos (`ifconfig`, `ping`, `http`) and use `help` for command usage.
+
+Exit cleanly with:
+
+```text
+exit pass
+```
+
+For full contributor setup/build/run guidance, see `CONTRIBUTING.md`.
+
 ## Repo Pointers
 
 - Roadmap: `BUILD_ROADMAP.md`

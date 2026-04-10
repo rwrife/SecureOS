@@ -81,15 +81,15 @@ static void test_assert(int condition, const char *name) {
 /* ---- Sample ELF payload for testing ------------------------------------ */
 
 /*
- * Minimal valid ELF32 header (52 bytes) + program header (32 bytes) +
+ * Minimal valid ELF64 header (64 bytes) + program header (56 bytes) +
  * small script payload.  This matches the format produced by
  * fs_build_script_elf() in fs_service.c.
  */
 static void build_test_elf(uint8_t *buf, size_t buf_size, size_t *out_len) {
   const char *script = "print hello\n";
   size_t script_len = str_len(script);
-  const size_t ehdr_size = 52u;
-  const size_t phdr_size = 32u;
+  const size_t ehdr_size = 64u;
+  const size_t phdr_size = 56u;
   const size_t seg_offset = ehdr_size + phdr_size;
   size_t i = 0u;
 
@@ -103,36 +103,36 @@ static void build_test_elf(uint8_t *buf, size_t buf_size, size_t *out_len) {
 
   /* ELF magic */
   buf[0] = 0x7Fu; buf[1] = 'E'; buf[2] = 'L'; buf[3] = 'F';
-  buf[4] = 1u; /* 32-bit */
+  buf[4] = 2u; /* 64-bit */
   buf[5] = 1u; /* little-endian */
   buf[6] = 1u; /* ELF version */
 
   /* e_type = ET_EXEC */
   buf[16] = 2u; buf[17] = 0u;
-  /* e_machine = EM_386 */
-  buf[18] = 3u; buf[19] = 0u;
+  /* e_machine = EM_X86_64 */
+  buf[18] = 62u; buf[19] = 0u;
   /* e_version */
   buf[20] = 1u;
-  /* e_entry */
+  /* e_entry = 0x1000 */
   buf[24] = 0x00; buf[25] = 0x10;
   /* e_phoff = ehdr_size */
-  buf[28] = (uint8_t)ehdr_size;
+  buf[32] = (uint8_t)ehdr_size;
   /* e_ehsize */
-  buf[40] = (uint8_t)ehdr_size;
+  buf[52] = (uint8_t)ehdr_size;
   /* e_phentsize */
-  buf[42] = (uint8_t)phdr_size;
+  buf[54] = (uint8_t)phdr_size;
   /* e_phnum = 1 */
-  buf[44] = 1u;
+  buf[56] = 1u;
 
   /* Program header: PT_LOAD */
   buf[ehdr_size + 0u] = 1u; /* p_type = PT_LOAD */
-  buf[ehdr_size + 4u] = (uint8_t)seg_offset; /* p_offset */
-  buf[ehdr_size + 8u] = 0x00; buf[ehdr_size + 9u] = 0x10; /* p_vaddr */
-  buf[ehdr_size + 12u] = 0x00; buf[ehdr_size + 13u] = 0x10; /* p_paddr */
-  buf[ehdr_size + 16u] = (uint8_t)script_len; /* p_filesz */
-  buf[ehdr_size + 20u] = (uint8_t)script_len; /* p_memsz */
-  buf[ehdr_size + 24u] = 4u; /* p_flags = PF_R */
-  buf[ehdr_size + 28u] = 1u; /* p_align */
+  buf[ehdr_size + 4u] = 4u; /* p_flags = PF_R */
+  buf[ehdr_size + 8u] = (uint8_t)seg_offset; /* p_offset */
+  buf[ehdr_size + 16u] = 0x00; buf[ehdr_size + 17u] = 0x10; /* p_vaddr */
+  buf[ehdr_size + 24u] = 0x00; buf[ehdr_size + 25u] = 0x10; /* p_paddr */
+  buf[ehdr_size + 32u] = (uint8_t)script_len; /* p_filesz */
+  buf[ehdr_size + 40u] = (uint8_t)script_len; /* p_memsz */
+  buf[ehdr_size + 48u] = 1u; /* p_align */
 
   /* Script payload */
   for (i = 0u; i < script_len; ++i) {

@@ -11,6 +11,7 @@
  * Interactions:
  *   - dns.c resolves the target hostname.
  *   - tcp.c handles connection lifecycle and payload transfer.
+ *   - https.c handles HTTPS requests when an https:// URL is detected.
  *
  * Launched by:
  *   Called on-demand by command handling today and intended to be consumed by
@@ -23,6 +24,7 @@
 #include <stdint.h>
 
 #include "dns.h"
+#include "https.h"
 #include "tcp.h"
 
 static size_t http_strlen(const char *s) {
@@ -94,6 +96,7 @@ typedef struct {
   uint16_t port;
   char path[256];
   int valid;
+  int is_https;
 } http_parsed_url_t;
 
 static void http_parse_url(const char *url, http_parsed_url_t *out) {
@@ -104,25 +107,25 @@ static void http_parse_url(const char *url, http_parsed_url_t *out) {
 
   http_memset(out, 0, sizeof(*out));
   out->port = 80u;
+  out->is_https = 0;
 
   if (url == 0 || url[0] == '\0') {
     return;
   }
 
+  /* Detect https:// scheme */
   if (cursor[0] == 'h' && cursor[1] == 't' && cursor[2] == 't' &&
-      cursor[3] == 'p' && cursor[4] == ':' && cursor[5] == '/' &&
-      cursor[6] == '/') {
+      cursor[3] == 'p' && cursor[4] == 's' && cursor[5] == ':' &&
+      cursor[6] == '/' && cursor[7] == '/') {
+    out->is_https = 1;
+    out->port = 443u;
+    cursor += 8u;
+  } else if (cursor[0] == 'h' && cursor[1] == 't' && cursor[2] == 't' &&
+             cursor[3] == 'p' && cursor[4] == ':' && cursor[5] == '/' &&
+             cursor[6] == '/') {
     cursor += 7u;
   } else if (cursor[0] == '/' && cursor[1] == '/') {
     cursor += 2u;
-  }
-
-  if (cursor[0] == 's' && !http_is_digit(cursor[0])) {
-    const char *u2 = url;
-    if (u2[0] == 'h' && u2[1] == 't' && u2[2] == 't' && u2[3] == 'p' &&
-        u2[4] == 's') {
-      return;
-    }
   }
 
   host_len = 0u;
@@ -359,6 +362,22 @@ http_result_t http_request(const http_request_t *req, http_response_t *resp) {
   http_parse_url(req->url, &parsed);
   if (!parsed.valid) {
     return HTTP_ERR_BAD_URL;
+  }
+
+  /* Delegate HTTPS URLs to the TLS-backed HTTPS client */
+  if (parsed.is_https) {
+    https_result_t hres = https_request(req, resp);
+    switch (hres) {
+      case HTTPS_OK:           return HTTP_OK;
+      case HTTPS_ERR_BAD_URL:  return HTTP_ERR_BAD_URL;
+      case HTTPS_ERR_DNS:      return HTTP_ERR_DNS;
+      case HTTPS_ERR_CONNECT:  return HTTP_ERR_CONNECT;
+      case HTTPS_ERR_TLS:      return HTTP_ERR_CONNECT;
+      case HTTPS_ERR_SEND:     return HTTP_ERR_SEND;
+      case HTTPS_ERR_RECV:     return HTTP_ERR_RECV;
+      case HTTPS_ERR_RESPONSE: return HTTP_ERR_RESPONSE;
+      default:                 return HTTP_ERR_CONNECT;
+    }
   }
 
   remote_ip = dns_resolve(parsed.host);
