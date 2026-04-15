@@ -61,6 +61,7 @@ static console_context_t *g_console_ctx = 0;
 #define console_env_entries (g_console_ctx->env_entries)
 #define console_loaded_libs (g_console_ctx->loaded_libs)
 #define console_next_loaded_lib_handle (g_console_ctx->next_loaded_lib_handle)
+#define console_auth_cache (g_console_ctx->auth_cache)
 
 static int g_console_restoring_history = 0;
 
@@ -517,6 +518,102 @@ static size_t console_list_loaded_libraries(char *out_buffer, size_t out_buffer_
                            out_buffer_size,
                            cursor,
                            console_loaded_libs[i].owner_actor);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, "\n");
+  }
+
+  return cursor;
+}
+
+static void console_auth_cache_reset(void) {
+  size_t i = 0u;
+  for (i = 0u; i < CONSOLE_AUTH_CACHE_MAX; ++i) {
+    console_auth_cache[i].used = 0;
+    console_auth_cache[i].key[0] = '\0';
+    console_auth_cache[i].decision = 0;
+  }
+}
+
+static void console_auth_cache_build_key(char *out_key, size_t out_key_size,
+                                         const char *category,
+                                         const char *operation,
+                                         const char *path) {
+  size_t cursor = 0u;
+
+  if (out_key == 0 || out_key_size == 0u) {
+    return;
+  }
+
+  out_key[0] = '\0';
+  cursor = append_string(out_key, out_key_size, cursor, category);
+  cursor = append_string(out_key, out_key_size, cursor, ":");
+  if (operation != 0 && operation[0] != '\0') {
+    cursor = append_string(out_key, out_key_size, cursor, operation);
+    cursor = append_string(out_key, out_key_size, cursor, ":");
+  }
+  (void)append_string(out_key, out_key_size, cursor, path != 0 ? path : "");
+}
+
+static int console_auth_cache_lookup(const char *key, auth_cache_decision_t *out_decision) {
+  size_t i = 0u;
+
+  if (key == 0 || key[0] == '\0' || out_decision == 0) {
+    return 0;
+  }
+
+  for (i = 0u; i < CONSOLE_AUTH_CACHE_MAX; ++i) {
+    if (console_auth_cache[i].used && string_equals(console_auth_cache[i].key, key)) {
+      *out_decision = console_auth_cache[i].decision;
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static int console_auth_cache_store(const char *key, auth_cache_decision_t decision) {
+  size_t i = 0u;
+
+  if (key == 0 || key[0] == '\0') {
+    return 0;
+  }
+
+  for (i = 0u; i < CONSOLE_AUTH_CACHE_MAX; ++i) {
+    if (console_auth_cache[i].used && string_equals(console_auth_cache[i].key, key)) {
+      console_auth_cache[i].decision = decision;
+      return 1;
+    }
+  }
+
+  for (i = 0u; i < CONSOLE_AUTH_CACHE_MAX; ++i) {
+    if (!console_auth_cache[i].used) {
+      console_auth_cache[i].used = 1;
+      copy_string(console_auth_cache[i].key, sizeof(console_auth_cache[i].key), key);
+      console_auth_cache[i].decision = decision;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+static size_t console_auth_cache_list(char *out_buffer, size_t out_buffer_size) {
+  size_t i = 0u;
+  size_t cursor = 0u;
+
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 0u;
+  }
+
+  out_buffer[0] = '\0';
+  for (i = 0u; i < CONSOLE_AUTH_CACHE_MAX; ++i) {
+    if (!console_auth_cache[i].used) {
+      continue;
+    }
+
+    cursor = append_string(out_buffer, out_buffer_size, cursor, "  ");
+    cursor = append_string(out_buffer, out_buffer_size, cursor, console_auth_cache[i].key);
+    cursor = append_string(out_buffer, out_buffer_size, cursor, " -> ");
+    cursor = append_string(out_buffer, out_buffer_size, cursor,
+                           console_auth_cache[i].decision == AUTH_CACHE_ALLOW ? "allow" : "deny");
     cursor = append_string(out_buffer, out_buffer_size, cursor, "\n");
   }
 
@@ -994,7 +1091,7 @@ static char console_wait_for_yes_no(void) {
       input = (char)(input - 'A' + 'a');
     }
 
-    if (input == 'y' || input == 'n') {
+    if (input == 'y' || input == 'n' || input == 'a') {
       console_emit_char(input);
       console_write("\n");
       return input;
@@ -1009,8 +1106,27 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
   uint64_t correlation_id = console_next_correlation_id++;
   uint64_t sequence_id = 0u;
   char answer = '\0';
+  char cache_key[CONSOLE_AUTH_CACHE_KEY_MAX];
+  auth_cache_decision_t cached_decision;
 
   if (cap_table_check(console_subject_id, CAP_DISK_IO_REQUEST) != CAP_OK) {
+    return CAP_ACCESS_DENY;
+  }
+
+  console_auth_cache_build_key(cache_key, sizeof(cache_key), "disk_io", operation, path);
+
+  if (console_auth_cache_lookup(cache_key, &cached_decision)) {
+    console_write("\n[auth-session] Disk operation requested (cached)\n");
+    console_write("[auth-session] operation=");
+    console_write(operation);
+    console_write(" path=");
+    console_write(path);
+    console_write("\n");
+    if (cached_decision == AUTH_CACHE_ALLOW) {
+      console_write("[auth-session] decision=allow (cached)\n");
+      return CAP_ACCESS_ALLOW;
+    }
+    console_write("[auth-session] decision=deny (cached)\n");
     return CAP_ACCESS_DENY;
   }
 
@@ -1032,10 +1148,13 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
   console_write(" path=");
   console_write(path);
   console_write("\n");
-  console_write("[auth-session] allow? (y/n): ");
+  console_write("[auth-session] allow? (y/n/a=always): ");
   answer = console_wait_for_yes_no();
 
-  if (answer == 'y') {
+  if (answer == 'y' || answer == 'a') {
+    if (answer == 'a') {
+      (void)console_auth_cache_store(cache_key, AUTH_CACHE_ALLOW);
+    }
     copy_string((char *)decision_payload, sizeof(decision_payload), "allow");
     (void)event_publish(console_subject_id,
                         EVENT_TOPIC_DISK_IO_DECISION,
@@ -1044,7 +1163,11 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
                         decision_payload,
                         string_len((const char *)decision_payload),
                         &sequence_id);
-    console_write("[auth-session] decision=allow\n");
+    console_write("[auth-session] decision=allow");
+    if (answer == 'a') {
+      console_write(" (cached)");
+    }
+    console_write("\n");
     return CAP_ACCESS_ALLOW;
   }
 
@@ -1067,6 +1190,24 @@ static cap_access_state_t console_authorize_unsigned_binary(const char *binary_p
   uint64_t correlation_id = console_next_correlation_id++;
   uint64_t sequence_id = 0u;
   char answer = '\0';
+  char cache_key[CONSOLE_AUTH_CACHE_KEY_MAX];
+  auth_cache_decision_t cached_decision;
+
+  console_auth_cache_build_key(cache_key, sizeof(cache_key), "unsigned", 0,
+                               binary_path != 0 ? binary_path : "(unknown)");
+
+  if (console_auth_cache_lookup(cache_key, &cached_decision)) {
+    console_write("\n[codesign] Unsigned binary check (cached)\n");
+    console_write("[codesign] path=");
+    console_write(binary_path != 0 ? binary_path : "(unknown)");
+    console_write("\n");
+    if (cached_decision == AUTH_CACHE_ALLOW) {
+      console_write("[codesign] decision=allow (cached)\n");
+      return CAP_ACCESS_ALLOW;
+    }
+    console_write("[codesign] decision=deny (cached)\n");
+    return CAP_ACCESS_DENY;
+  }
 
   request_len = append_string((char *)request_payload, sizeof(request_payload), 0u, "unsigned:");
   request_len = append_string((char *)request_payload, sizeof(request_payload), request_len,
@@ -1085,10 +1226,13 @@ static cap_access_state_t console_authorize_unsigned_binary(const char *binary_p
   console_write(binary_path != 0 ? binary_path : "(unknown)");
   console_write("\n");
   console_write("[codesign] This binary has no code signature.\n");
-  console_write("[codesign] Run anyway? (y/n): ");
+  console_write("[codesign] Run anyway? (y/n/a=always): ");
   answer = console_wait_for_yes_no();
 
-  if (answer == 'y') {
+  if (answer == 'y' || answer == 'a') {
+    if (answer == 'a') {
+      (void)console_auth_cache_store(cache_key, AUTH_CACHE_ALLOW);
+    }
     copy_string((char *)decision_payload, sizeof(decision_payload), "allow-unsigned");
     (void)event_publish(console_subject_id,
                         EVENT_TOPIC_DISK_IO_DECISION,
@@ -1097,7 +1241,11 @@ static cap_access_state_t console_authorize_unsigned_binary(const char *binary_p
                         decision_payload,
                         string_len((const char *)decision_payload),
                         &sequence_id);
-    console_write("[codesign] decision=allow (user accepted risk)\n");
+    console_write("[codesign] decision=allow (user accepted risk)");
+    if (answer == 'a') {
+      console_write(" (cached)");
+    }
+    console_write("\n");
     return CAP_ACCESS_ALLOW;
   }
 
@@ -1382,6 +1530,30 @@ static void console_handle_command(void) {
     return;
   }
 
+  if (string_equals(command, "auth-cache")) {
+    if (string_equals(arg1, "reset") || string_equals(arg1, "clear")) {
+      console_auth_cache_reset();
+      console_write("auth cache cleared\n");
+      console_write_prompt();
+      return;
+    }
+    if (arg1[0] == '\0' || string_equals(arg1, "list")) {
+      char listing[512];
+      size_t len = console_auth_cache_list(listing, sizeof(listing));
+      if (len == 0u) {
+        console_write("auth cache is empty\n");
+      } else {
+        console_write("cached authorizations:\n");
+        console_write(listing);
+      }
+      console_write_prompt();
+      return;
+    }
+    console_write("usage: auth-cache [list|reset]\n");
+    console_write_prompt();
+    return;
+  }
+
   (void)console_try_run_os_command(command, arg1, arg2);
 }
 
@@ -1401,6 +1573,7 @@ void console_init(console_context_t *context, cap_subject_id_t subject_id) {
   g_console_ctx->escape_state = 0u;
   console_env_reset();
   console_loaded_libs_reset();
+  console_auth_cache_reset();
   console_history_count = 0u;
   console_history_next = 0u;
   console_screen_history_len = 0u;

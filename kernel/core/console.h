@@ -16,6 +16,8 @@ enum {
 	CONSOLE_LIB_PATH_MAX = 64,
 	CONSOLE_LIB_OWNER_ACTOR_MAX = 24,
 	CONSOLE_SCREEN_HISTORY_MAX = 4096,
+	CONSOLE_AUTH_CACHE_MAX = 32,
+	CONSOLE_AUTH_CACHE_KEY_MAX = 128,
 };
 
 typedef struct {
@@ -35,6 +37,17 @@ typedef struct {
 	char path[CONSOLE_LIB_PATH_MAX];
 } console_loaded_lib_entry_t;
 
+typedef enum {
+	AUTH_CACHE_ALLOW = 1,
+	AUTH_CACHE_DENY = 2,
+} auth_cache_decision_t;
+
+typedef struct {
+	int used;
+	char key[CONSOLE_AUTH_CACHE_KEY_MAX];
+	auth_cache_decision_t decision;
+} console_auth_cache_entry_t;
+
 typedef struct {
 	cap_subject_id_t subject_id;
 	char line[CONSOLE_LINE_MAX];
@@ -53,6 +66,7 @@ typedef struct {
 	console_env_entry_t env_entries[CONSOLE_ENV_MAX];
 	unsigned int next_loaded_lib_handle;
 	console_loaded_lib_entry_t loaded_libs[CONSOLE_LOADED_LIB_MAX];
+	console_auth_cache_entry_t auth_cache[CONSOLE_AUTH_CACHE_MAX];
 } console_context_t;
 
 void console_init(console_context_t *context, cap_subject_id_t subject_id);

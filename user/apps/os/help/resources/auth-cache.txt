@@ -1,0 +1,17 @@
+usage: auth-cache [list|reset]
+  list   - show all cached authorization decisions (default)
+  reset  - clear all cached authorization decisions
+
+When prompted for a capability authorization (disk I/O, unsigned binary),
+you can answer:
+  y - yes (allow this one time)
+  n - no  (deny this one time)
+  a - always (allow and cache the decision for future requests)
+
+Cached decisions are per-session and persist until explicitly cleared
+with 'auth-cache reset' or until the session ends.
+
+examples:
+  auth-cache
+  auth-cache list
+  auth-cache reset
