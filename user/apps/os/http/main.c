@@ -55,6 +55,11 @@ int main(void) {
     return 1;
   }
 
+  if (netlib_device_ready(NETLIB_HANDLE_INVALID) != NETLIB_STATUS_OK) {
+    print_text("http: no network device available\n");
+    return 1;
+  }
+
   status = netlib_http_get(NETLIB_HANDLE_INVALID,
                            args,
                            output,

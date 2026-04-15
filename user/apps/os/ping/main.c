@@ -40,6 +40,11 @@ int main(void) {
     return 1;
   }
 
+  if (netlib_device_ready(NETLIB_HANDLE_INVALID) != NETLIB_STATUS_OK) {
+    print_text("ping: no network device available\n");
+    return 1;
+  }
+
   status = netlib_ping(NETLIB_HANDLE_INVALID,
                        args,
                        output,

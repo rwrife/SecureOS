@@ -53,6 +53,14 @@ build_disk_image_inner() {
 		./build/scripts/build_user_app.sh "os/$os_app"
 	done
 
+	# Native apps replace script wrappers so binaries on disk are the real
+	# implementations instead of .cmd redirect scripts.
+	for os_app in http ifconfig ping; do
+		if [ -f "artifacts/user/os/$os_app.bin" ]; then
+			cp "artifacts/user/os/$os_app.bin" "artifacts/os/$os_app.bin"
+		fi
+	done
+
 	./build/scripts/build_user_app.sh "vgahello"
 	app_mappings+=("artifacts/user/vgahello.bin=/apps/vgahello.bin")
 
