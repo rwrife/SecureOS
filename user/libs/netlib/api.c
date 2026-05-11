@@ -27,6 +27,7 @@
 #include "https.h"
 #include "ipv4.h"
 #include "tcp.h"
+#include "url_scheme.h"
 
 static size_t netlib_append_string(char *dst, size_t dst_size, size_t cursor, const char *src) {
   size_t i = 0u;
@@ -224,6 +225,41 @@ netlib_status_t netlib_ifconfig(netlib_handle_t handle,
   return NETLIB_STATUS_OK;
 }
 
+/*
+ * Shared deny-by-default URL classifier used by the http/https command-facing
+ * helpers. Splitting this out keeps both entrypoints on a single dispatch
+ * path so that adding a new transport (or a new deny rule) only has to be
+ * done in one place. The classifier runs before any DNS, TCP, or TLS work so
+ * unsupported schemes (file://, ftp://, javascript:, ...) and empty or
+ * scheme-less URLs are denied without producing externally visible network
+ * activity.
+ */
+static netlib_status_t netlib_url_dispatch_check(const char *url,
+                                                 char *out_buffer,
+                                                 unsigned int out_buffer_size,
+                                                 int allow_http,
+                                                 int allow_https) {
+  netlib_url_scheme_t scheme;
+
+  if (url == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return NETLIB_STATUS_ERROR;
+  }
+
+  out_buffer[0] = '\0';
+
+  scheme = netlib_url_classify_scheme(url);
+  if (scheme == NETLIB_URL_SCHEME_UNKNOWN) {
+    return NETLIB_STATUS_DENIED;
+  }
+  if (scheme == NETLIB_URL_SCHEME_HTTP && !allow_http) {
+    return NETLIB_STATUS_DENIED;
+  }
+  if (scheme == NETLIB_URL_SCHEME_HTTPS && !allow_https) {
+    return NETLIB_STATUS_DENIED;
+  }
+  return NETLIB_STATUS_OK;
+}
+
 netlib_status_t netlib_http_get(netlib_handle_t handle,
                                 const char *url,
                                 char *out_buffer,
@@ -231,12 +267,22 @@ netlib_status_t netlib_http_get(netlib_handle_t handle,
   http_request_t req;
   http_response_t resp;
   http_result_t result;
+  netlib_status_t gate;
   size_t copy = 0u;
   size_t i = 0u;
 
   (void)handle;
-  if (url == 0 || out_buffer == 0 || out_buffer_size == 0u) {
-    return NETLIB_STATUS_ERROR;
+  /*
+   * netlib_http_get is the canonical entrypoint for both http:// and
+   * https:// URLs: http_request() internally re-dispatches to the TLS path
+   * for https URLs. Allowing both schemes here keeps the existing behaviour
+   * but routes everything through the shared scheme classifier so unknown
+   * schemes are explicitly denied instead of being silently fed to the URL
+   * parser.
+   */
+  gate = netlib_url_dispatch_check(url, out_buffer, out_buffer_size, 1, 1);
+  if (gate != NETLIB_STATUS_OK) {
+    return gate;
   }
 
   req.method = "GET";
@@ -271,12 +317,20 @@ netlib_status_t netlib_https_get(netlib_handle_t handle,
   http_request_t req;
   http_response_t resp;
   https_result_t result;
+  netlib_status_t gate;
   size_t copy = 0u;
   size_t i = 0u;
 
   (void)handle;
-  if (url == 0 || out_buffer == 0 || out_buffer_size == 0u) {
-    return NETLIB_STATUS_ERROR;
+  /*
+   * netlib_https_get is the explicitly TLS-only entrypoint: only https://
+   * URLs are accepted. http:// and unknown schemes are denied here so
+   * callers cannot accidentally bypass the deny-by-default policy by
+   * picking the "https" helper for a plaintext URL.
+   */
+  gate = netlib_url_dispatch_check(url, out_buffer, out_buffer_size, 0, 1);
+  if (gate != NETLIB_STATUS_OK) {
+    return gate;
   }
 
   req.method = "GET";

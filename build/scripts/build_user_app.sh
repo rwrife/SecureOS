@@ -74,8 +74,9 @@ PY
     clang $NETLIB_CFLAGS -c user/libs/netlib/dns.c -o artifacts/user/netlib_dns.o
     clang $NETLIB_CFLAGS -c user/libs/netlib/tcp.c -o artifacts/user/netlib_tcp.o
     clang $NETLIB_CFLAGS -c user/libs/netlib/http.c -o artifacts/user/netlib_http.o
+    clang $NETLIB_CFLAGS -c user/libs/netlib/url_scheme.c -o artifacts/user/netlib_url_scheme.o
 
-    NETLIB_OBJECTS="artifacts/user/netlib_api.o artifacts/user/netlib_backend_user.o artifacts/user/netlib_eth.o artifacts/user/netlib_arp.o artifacts/user/netlib_ipv4.o artifacts/user/netlib_udp.o artifacts/user/netlib_dns.o artifacts/user/netlib_tcp.o artifacts/user/netlib_http.o"
+    NETLIB_OBJECTS="artifacts/user/netlib_api.o artifacts/user/netlib_backend_user.o artifacts/user/netlib_eth.o artifacts/user/netlib_arp.o artifacts/user/netlib_ipv4.o artifacts/user/netlib_udp.o artifacts/user/netlib_dns.o artifacts/user/netlib_tcp.o artifacts/user/netlib_http.o artifacts/user/netlib_url_scheme.o"
 
     if [ "$HAVE_BEARSSL" -eq 1 ]; then
       clang $NETLIB_CFLAGS -c user/libs/netlib/tls.c -o artifacts/user/netlib_tls.o
