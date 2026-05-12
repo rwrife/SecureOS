@@ -34,8 +34,9 @@ build_os_command_inner() {
 
   python3 tools/build_script_elf.py "$CMD_FILE" "artifacts/os/$CMD_NAME.elf"
 
-  # Build sof_wrap if not already built
-  if [ ! -f "tools/sof_wrap/sof_wrap" ]; then
+  # Build sof_wrap if not already built (or if present but not executable,
+  # e.g. an accidentally-committed artifact — see #101).
+  if [ ! -x "tools/sof_wrap/sof_wrap" ]; then
     make -C tools/sof_wrap
   fi
 

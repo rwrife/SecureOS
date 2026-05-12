@@ -50,8 +50,9 @@ build_user_lib_inner() {
   ld.lld $user_ldflags \
     -o "artifacts/lib/$LIB_NAME.elf" $object_files artifacts/lib/secureos_api_stubs.o $EXTRA_LINK_OBJECTS
 
-  # Build sof_wrap if not already built
-  if [ ! -f "tools/sof_wrap/sof_wrap" ]; then
+  # Build sof_wrap if not already built (or if present but not executable,
+  # e.g. an accidentally-committed artifact — see #101).
+  if [ ! -x "tools/sof_wrap/sof_wrap" ]; then
     make -C tools/sof_wrap
   fi
 

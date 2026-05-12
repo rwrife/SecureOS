@@ -201,6 +201,7 @@ Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
 - Add plan documents under `docs/plans` for major implementation work
 - Keep hardware access behind HAL abstractions
+- Do **not** commit host build artifacts under `tools/*/` (e.g. compiled wrappers like `tools/sof_wrap/sof_wrap`). They are built deterministically from source by their `Makefile`; committing them at mode `100644` has broken CI before (see #101).
 
 ## Pull Request Checklist
 

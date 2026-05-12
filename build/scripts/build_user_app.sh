@@ -114,8 +114,9 @@ EOF
   ld.lld $USER_LDFLAGS \
       -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
 
-  # Build sof_wrap if not already built
-  if [ ! -f "tools/sof_wrap/sof_wrap" ]; then
+  # Build sof_wrap if not already built (or if present but not executable,
+  # e.g. an accidentally-committed artifact — see #101).
+  if [ ! -x "tools/sof_wrap/sof_wrap" ]; then
     make -C tools/sof_wrap
   fi
 

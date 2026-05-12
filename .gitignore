@@ -1,3 +1,9 @@
 artifacts/
 experiments/bootloader/boot.bin
 experiments/bootloader/boot_fail.bin
+
+# Host build tools (built deterministically from source via their Makefile).
+# These must never be committed (see #101): committing the binary at mode
+# 100644 caused Permission denied in CI when callers invoked it directly.
+tools/sof_wrap/sof_wrap
+
