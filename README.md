@@ -153,6 +153,7 @@ For full contributor setup/build/run guidance, see `CONTRIBUTING.md`.
 - Roadmap: `BUILD_ROADMAP.md`
 - M0→M1 task registry: `docs/planning/M0-M1-task-registry.md`
 - Coding conventions: `docs/CODING_CONVENTIONS.md`
+- ABI reference: `docs/abi/` (syscalls, capabilities, manifest, versioning)
 - ADRs: `docs/adr/`
 - Toolchain container: `build/docker/`
 - Build wrappers: `build/scripts/`
