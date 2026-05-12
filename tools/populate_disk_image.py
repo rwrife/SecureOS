@@ -285,6 +285,18 @@ class DiskImage:
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_bytes(self.data)
+        # The disk image is frequently produced inside the toolchain container
+        # (running as root with a restrictive umask) and then consumed by
+        # qemu-system-x86_64 on the host runner under a different uid. Force
+        # world-readable permissions on the image (and its parent directory)
+        # so the host-side QEMU step does not fail with `Permission denied`.
+        try:
+            self.path.chmod(0o644)
+            self.path.parent.chmod(0o755)
+        except OSError:
+            # Filesystem may not support chmod (e.g. some Windows hosts).
+            # Best-effort only; do not abort the build for this.
+            pass
 
 
 def main() -> int:

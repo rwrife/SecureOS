@@ -78,6 +78,16 @@ if command -v docker >/dev/null 2>&1; then
 
 	docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
 		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh'
+
+	# The container runs as root and writes the disk image with that uid.
+	# Host-side QEMU runs under the runner/user uid and needs to read it,
+	# so make sure the artifact is world-readable after the container exits.
+	if [[ -f "$DISK_PATH" ]]; then
+		chmod a+r "$DISK_PATH" 2>/dev/null || true
+	fi
+	if [[ -d "$DISK_DIR" ]]; then
+		chmod a+rx "$DISK_DIR" 2>/dev/null || true
+	fi
 else
 	build_disk_image_inner
 fi
