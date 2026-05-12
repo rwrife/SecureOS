@@ -24,6 +24,7 @@ TEST_TARGETS=(
     kernel_console
     kernel_filedemo
     kernel_persistence
+    validator_report
 )
 
 STATUS_LINES=()
@@ -89,16 +90,72 @@ run_dir = Path(os.environ["RUN_DIR"])
 status_lines = [line for line in os.environ.get("STATUS_LINES_JSON", "").splitlines() if line.strip()]
 
 checks = []
+targets = []
 failed = []
+harness_errors = []
+
+def _resolve_log_and_artifacts(target_name: str):
+    """Return (logPath, artifacts[]) relative to run_dir for a given target.
+
+    Probes the conventional artifact locations populated earlier in this
+    script (qemu/ and tests/). Returns (None, []) if nothing matched.
+    """
+    qemu_aliases = {
+        "hello_boot":          ["hello_boot"],
+        "hello_boot_negative": ["hello_boot_fail"],
+        "kernel_console":      ["kernel_console"],
+        "kernel_filedemo":     ["kernel_filedemo"],
+        "kernel_persistence":  ["kernel_persistence"],
+    }
+    artifacts_rel = []
+    log_rel = None
+    for stem in qemu_aliases.get(target_name, []):
+        log = run_dir / "qemu" / f"{stem}.log"
+        if log.exists():
+            rel = str(log.relative_to(run_dir))
+            artifacts_rel.append(rel)
+            if log_rel is None:
+                log_rel = rel
+        meta = run_dir / "qemu" / f"{stem}.meta.json"
+        if meta.exists():
+            artifacts_rel.append(str(meta.relative_to(run_dir)))
+    candidates = [
+        run_dir / "tests" / f"{target_name}.log",
+        run_dir / "tests" / f"{target_name}_test.log",
+    ]
+    for cand in candidates:
+        if cand.exists():
+            rel = str(cand.relative_to(run_dir))
+            artifacts_rel.append(rel)
+            if log_rel is None:
+                log_rel = rel
+    return log_rel, artifacts_rel
+
 for line in status_lines:
     name, status, duration = line.split("|", 2)
+    if status not in ("pass", "fail", "harness_error"):
+        # Defensive: treat unknown statuses as fail rather than crash the JSON.
+        status = "fail"
     checks.append({
         "name": name,
         "status": status,
         "pass": status == "pass",
         "durationSeconds": int(duration),
     })
-    if status != "pass":
+    log_path, artifacts_for_target = _resolve_log_and_artifacts(name)
+    targets.append({
+        "name": name,
+        "status": status,
+        "pass": status == "pass",
+        "durationSeconds": int(duration),
+        "logPath": log_path,
+        "reasonCode": None if status == "pass" else status,
+        "artifacts": artifacts_for_target,
+    })
+    if status == "harness_error":
+        harness_errors.append(name)
+        failed.append(name)
+    elif status != "pass":
         failed.append(name)
 
 qemu_commands = {}
@@ -216,14 +273,24 @@ if summary is not None:
         elif summary.get("checkpointCount", 0) > 0 and checkpoint_window.get("firstCheckpointId") > checkpoint_window.get("lastCheckpointId"):
             summary_check_error = "checkpointWindow.firstCheckpointId must be <= lastCheckpointId"
 
+_summary_check_status = "pass" if summary_check_error is None else "fail"
 checks.append({
     "name": "capability_audit_summary_contract",
-    "status": "pass" if summary_check_error is None else "fail",
+    "status": _summary_check_status,
     "pass": summary_check_error is None,
     "durationSeconds": 0,
     "details": {
         "summaryPath": str(summary_path.relative_to(run_dir)),
     },
+})
+targets.append({
+    "name": "capability_audit_summary_contract",
+    "status": _summary_check_status,
+    "pass": summary_check_error is None,
+    "durationSeconds": 0,
+    "logPath": str(summary_path.relative_to(run_dir)) if summary_path.exists() else None,
+    "reasonCode": summary_check_error,
+    "artifacts": [str(summary_path.relative_to(run_dir))] if summary_path.exists() else [],
 })
 
 if summary_check_error is not None:
@@ -241,14 +308,31 @@ build_metadata = {
 }
 (run_dir / "build_metadata.json").write_text(json.dumps(build_metadata, indent=2) + "\n")
 
+summary_total = len(targets)
+summary_passed = sum(1 for t in targets if t["status"] == "pass")
+summary_failed = sum(1 for t in targets if t["status"] == "fail")
+summary_harness = sum(1 for t in targets if t["status"] == "harness_error")
+
 report = {
     "schemaVersion": 1,
     "runId": os.environ["RUN_ID"],
     "startedAt": os.environ["STARTED_AT"],
     "finishedAt": os.environ["FINISHED_AT"],
+    "git": {
+        "sha": os.environ["GIT_SHA"],
+        "ref": os.environ["GIT_REF"],
+    },
     "overallStatus": "pass" if not failed else "fail",
     "pass": len(failed) == 0,
     "failedChecks": failed,
+    "harnessErrors": harness_errors,
+    "summary": {
+        "total":         summary_total,
+        "passed":        summary_passed,
+        "failed":        summary_failed,
+        "harnessErrors": summary_harness,
+    },
+    "targets": targets,
     "checks": checks,
     "image": {
       "path": "experiments/bootloader/boot.bin",
@@ -269,8 +353,62 @@ report = {
       ]
     }
 }
-(run_dir / "validator_report.json").write_text(json.dumps(report, indent=2) + "\n")
-print(f"VALIDATION_REPORT:{run_dir / 'validator_report.json'}")
+report_path = run_dir / "validator_report.json"
+report_path.write_text(json.dumps(report, indent=2) + "\n")
+print(f"VALIDATION_REPORT:{report_path}")
+
+# Lightweight, dependency-free structural validation against
+# docs/test-plans/validator-report.schema.json. Full JSON-Schema
+# validation is best-effort: if `jsonschema` is importable we use it,
+# otherwise we fall back to a minimal hand-rolled check that mirrors
+# the schema's `required` and enum constraints so a green run still
+# proves the file is parseable and well-shaped.
+schema_path = root_dir / "docs" / "test-plans" / "validator-report.schema.json"
+schema_error = None
+if not schema_path.exists():
+    schema_error = f"missing schema: {schema_path}"
+else:
+    try:
+        schema = json.loads(schema_path.read_text())
+    except Exception as exc:
+        schema_error = f"unreadable schema: {exc}"
+    if schema_error is None:
+        try:
+            import jsonschema  # type: ignore
+            jsonschema.validate(report, schema)
+        except ImportError:
+            required = schema.get("required", [])
+            missing = [k for k in required if k not in report]
+            if missing:
+                schema_error = f"missing required top-level fields: {missing}"
+            elif report.get("schemaVersion") != 1:
+                schema_error = "schemaVersion must be 1"
+            elif report.get("overallStatus") not in ("pass", "fail"):
+                schema_error = "overallStatus must be pass|fail"
+            else:
+                for t in report.get("targets", []):
+                    if t.get("status") not in ("pass", "fail", "harness_error"):
+                        schema_error = f"target {t.get('name')} has invalid status"
+                        break
+                    for k in ("name", "status", "durationSeconds"):
+                        if k not in t:
+                            schema_error = f"target missing required field: {k}"
+                            break
+                    if schema_error:
+                        break
+                if schema_error is None:
+                    s = report.get("summary", {})
+                    for k in ("total", "passed", "failed", "harnessErrors"):
+                        if not isinstance(s.get(k), int):
+                            schema_error = f"summary.{k} must be integer"
+                            break
+        except Exception as exc:  # jsonschema.ValidationError or similar
+            schema_error = f"schema validation failed: {exc}"
+
+if schema_error is not None:
+    print(f"VALIDATION_SCHEMA_FAIL:{schema_error}")
+    raise SystemExit(3)
+print(f"VALIDATION_SCHEMA_OK:{schema_path.relative_to(root_dir)}")
 if summary_check_error is not None:
     print(f"VALIDATION_CONTRACT_FAIL:{summary_check_error}")
     raise SystemExit(2)
