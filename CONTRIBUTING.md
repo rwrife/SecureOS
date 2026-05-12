@@ -201,6 +201,8 @@ Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
 - Add plan documents under `docs/plans` for major implementation work
 - Keep hardware access behind HAL abstractions
+- Do not commit host build artifacts under `tools/*/` (e.g. `tools/sof_wrap/sof_wrap`); they are rebuilt deterministically by their adjacent `Makefile` and must stay out of version control
+- New `build/scripts/*.sh` must be committed with the executable bit set (`chmod +x` before `git add`); CI dispatches them directly
 
 ## Pull Request Checklist
 
