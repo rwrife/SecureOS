@@ -45,16 +45,6 @@ static size_t str_len(const char *s) {
   return n;
 }
 
-static void str_copy(char *dst, size_t dst_size, const char *src) {
-  size_t i = 0u;
-  if (dst == 0 || dst_size == 0u) { return; }
-  while (src[i] != '\0' && i + 1u < dst_size) {
-    dst[i] = src[i];
-    ++i;
-  }
-  dst[i] = '\0';
-}
-
 /* Simple serial-style output for test results (stub for hosted environment) */
 #ifdef __linux__
 #include <stdio.h>
