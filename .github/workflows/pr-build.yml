@@ -14,6 +14,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure build scripts are executable
+        # Defensive: mirrors the same step in iso-vm-build.yml.
+        # Several validator scripts have repeatedly landed on `main`
+        # without the `+x` bit (see #90 / #91 / #101), which makes
+        # `build/scripts/test.sh` print a wall of `Permission denied`
+        # before the harness can emit a parseable `TEST:FAIL:` marker.
+        # Restoring the bit here unblocks every PR even if a future
+        # commit drops it again, and complements the dispatch-time
+        # `bash <path>` fallback tracked under #91.
+        run: |
+          find build/scripts -type f -name "*.sh" -exec chmod +x {} +
+          find tools -type f \( -name "*.sh" -o -name "sof_wrap" \) -exec chmod +x {} + 2>/dev/null || true
+
       - name: Build pinned toolchain image
         run: |
           docker build \
