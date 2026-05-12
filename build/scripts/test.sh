@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
 
 Runs SecureOS test targets.
 EOF
@@ -84,6 +84,12 @@ case "$TEST_NAME" in
     ;;
   app_runtime)
     "$ROOT_DIR/build/scripts/test_app_runtime.sh"
+    ;;
+  helloapp_allow)
+    "$ROOT_DIR/build/scripts/test_helloapp_allow.sh"
+    ;;
+  helloapp_deny)
+    "$ROOT_DIR/build/scripts/test_helloapp_deny.sh"
     ;;
   kernel_console)
     "$ROOT_DIR/build/scripts/build_kernel_image.sh"
