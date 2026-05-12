@@ -201,6 +201,7 @@ Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
 - Add plan documents under `docs/plans` for major implementation work
 - Keep hardware access behind HAL abstractions
+- New `build/scripts/*.sh` validator/build scripts must be committed with the executable bit set (`git update-index --chmod=+x <path>`; verify with `ls -la build/scripts/`). CI invokes them directly and a missing exec bit will surface as `Permission denied` in the validation bundle (see issue #90).
 
 ## Pull Request Checklist
 
