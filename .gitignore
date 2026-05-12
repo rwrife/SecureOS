@@ -1,3 +1,4 @@
 artifacts/
+tools/sof_wrap/sof_wrap
 experiments/bootloader/boot.bin
 experiments/bootloader/boot_fail.bin
