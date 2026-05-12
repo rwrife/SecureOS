@@ -201,6 +201,7 @@ Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
 - Add plan documents under `docs/plans` for major implementation work
 - Keep hardware access behind HAL abstractions
+- New validator/build scripts under `build/scripts/` must be committed with the executable bit set (`git update-index --chmod=+x <path>`). The harness in `build/scripts/test.sh` now invokes scripts via `bash <path>` so a missing bit will not silently fail CI, but it will still surface a `TEST:FAIL:harness_missing_script:` marker and a `harness_error` status in the validator JSON report; do not rely on that path for shipping changes. See issues #90 and #91.
 
 ## Pull Request Checklist
 

@@ -24,15 +24,29 @@ TEST_TARGETS=(
     kernel_console
     kernel_filedemo
     kernel_persistence
+    harness_dispatch
 )
 
 STATUS_LINES=()
 FAILED_TESTS=()
+HARNESS_ERRORS=()
+
+# Exit code reserved by build/scripts/test.sh for harness-level dispatch
+# failures (missing/unreadable subordinate scripts). Keep in sync with
+# HARNESS_ERROR_EXIT in test.sh.
+HARNESS_ERROR_EXIT=78
 
 for target in "${TEST_TARGETS[@]}"; do
   test_started="$(date +%s)"
-  if "$ROOT_DIR/build/scripts/test.sh" "$target"; then
+  set +e
+  "$ROOT_DIR/build/scripts/test.sh" "$target"
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
     status="pass"
+  elif [[ $rc -eq $HARNESS_ERROR_EXIT ]]; then
+    status="harness_error"
+    HARNESS_ERRORS+=("$target")
   else
     status="fail"
     FAILED_TESTS+=("$target")
@@ -96,6 +110,7 @@ for line in status_lines:
         "name": name,
         "status": status,
         "pass": status == "pass",
+        "harnessError": status == "harness_error",
         "durationSeconds": int(duration),
     })
     if status != "pass":
@@ -249,6 +264,7 @@ report = {
     "overallStatus": "pass" if not failed else "fail",
     "pass": len(failed) == 0,
     "failedChecks": failed,
+    "harnessErrors": [c["name"] for c in checks if c.get("harnessError")],
     "checks": checks,
     "image": {
       "path": "experiments/bootloader/boot.bin",
@@ -276,8 +292,14 @@ if summary_check_error is not None:
     raise SystemExit(2)
 PY
 
-if [[ ${#FAILED_TESTS[@]} -gt 0 ]]; then
-  echo "VALIDATION_FAIL:${FAILED_TESTS[*]}"
+if [[ ${#HARNESS_ERRORS[@]} -gt 0 ]]; then
+  echo "VALIDATION_HARNESS_ERROR:${HARNESS_ERRORS[*]}"
+fi
+
+if [[ ${#FAILED_TESTS[@]} -gt 0 || ${#HARNESS_ERRORS[@]} -gt 0 ]]; then
+  if [[ ${#FAILED_TESTS[@]} -gt 0 ]]; then
+    echo "VALIDATION_FAIL:${FAILED_TESTS[*]}"
+  fi
   exit 1
 fi
 
