@@ -196,6 +196,7 @@ After successful builds, key outputs include:
 Before opening a PR, review:
 - `AGENTS.md`
 - `docs/CODING_CONVENTIONS.md`
+- `docs/architecture/decisions/` — Architecture Decision Records (start with the [ADR index](docs/architecture/decisions/README.md))
 
 Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
