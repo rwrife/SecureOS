@@ -153,7 +153,7 @@ For full contributor setup/build/run guidance, see `CONTRIBUTING.md`.
 - Roadmap: `BUILD_ROADMAP.md`
 - M0→M1 task registry: `docs/planning/M0-M1-task-registry.md`
 - Coding conventions: `docs/CODING_CONVENTIONS.md`
-- ADRs: `docs/adr/`
+- ADRs: `docs/architecture/decisions/` (start at `0001-boot-protocol-multiboot-long-mode.md`)
 - Toolchain container: `build/docker/`
 - Build wrappers: `build/scripts/`
 - QEMU args: `build/qemu/`

@@ -200,11 +200,15 @@ After successful builds, key outputs include:
 Before opening a PR, review:
 - `AGENTS.md`
 - `docs/CODING_CONVENTIONS.md`
+- `docs/architecture/decisions/` (ADR index — read the relevant ADRs before changing boot, ABI, or other locked contracts)
 
 Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
 - Add plan documents under `docs/plans` for major implementation work
 - Keep hardware access behind HAL abstractions
+- For decisions that pin a wire format, ABI, boot/loader contract, or other
+  durable invariant, add an ADR under `docs/architecture/decisions/`
+  (see that directory's `README.md` for the template and cadence)
 
 ## Pull Request Checklist
 
