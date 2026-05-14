@@ -1,3 +1,10 @@
 artifacts/
 experiments/bootloader/boot.bin
 experiments/bootloader/boot_fail.bin
+
+# BearSSL local build artifacts (issue #117). The freestanding objects are
+# emitted under artifacts/bearssl/ (covered above); this entry covers an
+# upstream BearSSL `make` invocation that drops a build/ directory inside
+# the vendored tree.
+vendor/bearssl/build/
+vendor/bearssl/BearSSL/build/
