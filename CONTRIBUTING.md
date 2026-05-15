@@ -195,6 +195,20 @@ After successful builds, key outputs include:
 - `artifacts/user/**/*.bin`
 - `artifacts/lib/*.lib`
 
+## ABI Surface Discipline
+
+When a PR touches any of the following, the matching doc under `docs/abi/`
+must be updated in the same commit and its `Last verified against commit:`
+line bumped:
+
+- `user/include/secureos_api.h` (any `os_*` syscall) → `docs/abi/syscalls.md`
+- `kernel/cap/capability.h` capability ID enum or audit struct → `docs/abi/capabilities.md`
+- `kernel/format/sof.h` container layout, manifest fields, or signing policy → `docs/abi/manifest.md`
+- `OS_ABI_VERSION` policy or freeze plan → `docs/abi/versioning.md`
+
+This is enforced by review, not (yet) by CI. See `docs/abi/README.md` for the
+rationale.
+
 ## Coding and Planning Expectations
 
 Before opening a PR, review:
