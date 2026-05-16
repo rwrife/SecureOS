@@ -45,6 +45,7 @@ test_launcher_fs
 test_netlib_url_scheme
 test_scheduler
 test_sof_format
+test_sof_verify_at_rest
 test_tls
 test_validator_report
 
