@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|sof_verify_at_rest]
 
 Runs SecureOS test targets.
 EOF
@@ -72,6 +72,9 @@ case "$TEST_NAME" in
     ;;
   codesign)
     "$ROOT_DIR/build/scripts/test_codesign.sh"
+    ;;
+  sof_verify_at_rest)
+    "$ROOT_DIR/build/scripts/test_sof_verify_at_rest.sh"
     ;;
   tls)
     "$ROOT_DIR/build/scripts/test_tls.sh"
