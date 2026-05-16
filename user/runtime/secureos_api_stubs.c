@@ -20,6 +20,7 @@
  */
 
 #include "secureos_api.h"
+#include "secureos_abi.h"
 
 enum {
   SECUREOS_NATIVE_BRIDGE_MAGIC = 0x53524247u,
@@ -55,6 +56,15 @@ static secureos_native_bridge_t *secureos_native_bridge(void) {
     return 0;
   }
   return bridge;
+}
+
+unsigned int os_get_abi_version(void) {
+  /*
+   * Version is a pure compile-time constant from secureos_abi.h. No bridge
+   * call is required; future syscall-backed runtimes may override this if
+   * the runtime needs to disambiguate kernel vs user ABI.
+   */
+  return (unsigned int)OS_ABI_VERSION;
 }
 
 os_status_t os_console_write(const char *message) {

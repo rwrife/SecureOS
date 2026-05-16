@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|abi_version]
 
 Runs SecureOS test targets.
 EOF
@@ -102,6 +102,9 @@ case "$TEST_NAME" in
     "$ROOT_DIR/build/scripts/build_kernel_image.sh"
     "$ROOT_DIR/build/scripts/build_disk_image.sh"
     "$ROOT_DIR/build/scripts/run_qemu.sh" --test kernel_sessions
+    ;;
+  abi_version)
+    "$ROOT_DIR/build/scripts/test_abi_version.sh"
     ;;
   *)
     echo "Unknown test: $TEST_NAME"
