@@ -203,7 +203,7 @@ Before opening a PR, review:
 
 Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
-- Add plan documents under `docs/plans` for major implementation work
+- Add plan documents under the top-level `plans/` directory (canonical, single location — not `docs/plans/`) using the naming convention `YYYY-MM-DD-<slug>.md` for major implementation work; index and grouping in `plans/README.md`
 - Keep hardware access behind HAL abstractions
 
 ## Pull Request Checklist
