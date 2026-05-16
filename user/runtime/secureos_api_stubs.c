@@ -318,5 +318,16 @@ os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size) {
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
   }
+
   return OS_STATUS_OK;
+}
+
+unsigned int os_get_abi_version(void) {
+  /*
+   * Information-only accessor (no capability required).
+   * Returns the compile-time OS_ABI_VERSION the runtime was built
+   * against; a test asserts this matches the caller's view to catch
+   * stale stubs (see tests/abi_version_test.c).
+   */
+  return OS_ABI_VERSION;
 }

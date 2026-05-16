@@ -1,6 +1,8 @@
 #ifndef SECUREOS_API_H
 #define SECUREOS_API_H
 
+#include "secureos_abi.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +46,14 @@ os_status_t os_net_ping(const char *host, char *out_buffer, unsigned int out_buf
 os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size);
+
+/*
+ * ABI version query — information-only, requires no capability.
+ * Returns the packed OS_ABI_VERSION (see secureos_abi.h) the runtime
+ * was built against. A mismatch with the caller's compile-time
+ * OS_ABI_VERSION indicates the runtime stubs are stale.
+ */
+unsigned int os_get_abi_version(void);
 
 #ifdef __cplusplus
 }

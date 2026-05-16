@@ -310,6 +310,10 @@ Suggested policy:
 - freeze to `1` once SDK beta is announced,
 - maintain compatibility shims for at least one major version.
 
+Code-side source of truth: [`user/include/secureos_abi.h`](user/include/secureos_abi.h).
+Versioning reference and bump rules: [`docs/abi/versioning.md`](docs/abi/versioning.md).
+Drift guard: [`tests/abi_version_test.c`](tests/abi_version_test.c) (registered as `abi_version` in `build/scripts/test.sh` and `build/scripts/validate_bundle.sh`).
+
 ## 8) Immediate Next 14 Tasks (actionable backlog)
 
 1. Add pinned toolchain Dockerfile and lock file.

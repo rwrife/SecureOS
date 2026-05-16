@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|abi_version|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
 
 Runs SecureOS test targets.
 EOF
@@ -42,6 +42,9 @@ case "$TEST_NAME" in
   hello_boot_negative)
     "$ROOT_DIR/build/scripts/test_boot_sector_fail.sh"
     "$ROOT_DIR/build/scripts/run_qemu.sh" --test hello_boot_fail
+    ;;
+  abi_version)
+    "$ROOT_DIR/build/scripts/test_abi_version.sh"
     ;;
   cap_api_contract)
     "$ROOT_DIR/build/scripts/test_cap_api_contract.sh"
