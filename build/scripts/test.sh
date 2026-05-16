@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity]
 
 Runs SecureOS test targets.
 EOF
@@ -132,6 +132,9 @@ case "$TEST_NAME" in
     ;;
   abi_version)
     "$ROOT_DIR/build/scripts/test_abi_version.sh"
+    ;;
+  parity)
+    bash "$ROOT_DIR/build/scripts/test_shell_parity.sh"
     ;;
   *)
     echo "Unknown test: $TEST_NAME"

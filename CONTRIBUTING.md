@@ -225,7 +225,11 @@ Before opening a PR, review:
 - `docs/test-plans/` (milestone + task registry; update the `status:` and `pr:#…` tags when a CAP-\* / M-\* task lands)
 
 Project-specific expectations include:
-- Keep PowerShell and shell build scripts in sync
+- Keep PowerShell and shell build scripts in sync. The `parity` test target
+  (`build/scripts/test.sh parity` / `build/scripts/test.ps1 parity`) walks
+  `build/scripts/` and fails on unallowlisted `.sh` ↔ `.ps1` drift; intentional
+  asymmetries belong in `build/scripts/.shell_parity_allowlist` with a comment
+  explaining the exemption (see issue #156 / `plans/2026-05-16-shell-script-parity.md`).
 - Add plan documents under the top-level `plans/` directory (canonical, single location — not `docs/plans/`) using the naming convention `YYYY-MM-DD-<slug>.md` for major implementation work; index and grouping in `plans/README.md`
 - Keep hardware access behind HAL abstractions
 - For decisions that pin a wire format, ABI, boot/loader contract, or other

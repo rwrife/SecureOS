@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|parity]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -25,6 +25,12 @@ if ($Help) {
 $rootDir = Get-SecureOSRootDir -ScriptRoot $PSScriptRoot
 $imageTag = Get-ToolchainImage
 $dockerfile = Get-ToolchainDockerfile -RootDir $rootDir
+
+# 'parity' is a pure host-side metadata check (no toolchain image needed).
+if ($TestName -eq 'parity') {
+  & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'test_shell_parity.ps1')
+  exit $LASTEXITCODE
+}
 
 Assert-DockerAvailable
 Ensure-ToolchainImage -RootDir $rootDir -ImageTag $imageTag -Dockerfile $dockerfile
