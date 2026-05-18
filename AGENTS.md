@@ -2,6 +2,14 @@
 
 The goal is to build a operating system where all processes are run in total isolation and will not execute without explicit user consent. This OS should be built in a way to run on multiple architectures, however we're building for QEMU, x86 on the first pass since it'll offer the most compatibility
 
+## Task DAG schema
+
+Agent-tracked work items follow the canonical record shape defined in
+[`docs/test-plans/task-schema.md`](docs/test-plans/task-schema.md). Planner,
+implementer, test-engineer, and validator agents all read/write the same
+fields (`task_id`, `owner_role`, `depends_on`, `run`, `expected_outputs`,
+`pass_condition`, `status`). Only the validator role mutates `status`.
+
 ## Guidlines
 
 - Any new (or existing) .c file should be properly commented at the top of the file with a description of what the file does, how it is used and what calls it
