@@ -128,6 +128,23 @@ case "$TEST_NAME" in
       EXPECTED_STATUS="fail"
     fi
 
+    # Harness self-test hook (issue #173): allow forcing the wrapper to *expect*
+    # a passing run for a fixture that intentionally fails. Used by the
+    # negative-path harness self-test to prove run_qemu.sh propagates non-zero
+    # exit codes and the TEST:FAIL marker rather than silently swallowing
+    # failures. Not for routine use.
+    if [[ -n "${SECUREOS_FORCE_EXPECTED_STATUS:-}" ]]; then
+      case "$SECUREOS_FORCE_EXPECTED_STATUS" in
+        pass|fail)
+          EXPECTED_STATUS="$SECUREOS_FORCE_EXPECTED_STATUS"
+          ;;
+        *)
+          echo "Invalid SECUREOS_FORCE_EXPECTED_STATUS: $SECUREOS_FORCE_EXPECTED_STATUS (expected pass|fail)"
+          exit 1
+          ;;
+      esac
+    fi
+
     if [[ ! -f "$BOOT_BIN" ]]; then
       echo "Missing boot binary: $BOOT_BIN"
       echo "Run build/scripts/test.sh $TEST_NAME first."

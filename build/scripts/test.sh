@@ -72,7 +72,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|sof_format|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity|harness_defense]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|sof_format|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity|harness_defense]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -93,6 +93,9 @@ case "$TEST_NAME" in
   hello_boot_negative)
     run_script "$ROOT_DIR/build/scripts/test_boot_sector_fail.sh"
     run_script "$ROOT_DIR/build/scripts/run_qemu.sh" --test hello_boot_fail
+    ;;
+  harness_negative)
+    "$ROOT_DIR/build/scripts/test_harness_negative.sh"
     ;;
   cap_api_contract)
     run_script "$ROOT_DIR/build/scripts/test_cap_api_contract.sh"
