@@ -77,11 +77,10 @@ if command -v docker >/dev/null 2>&1; then
 	fi
 
 	docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
-		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh'
+		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh; chmod a+r artifacts/disk/secureos-disk.img 2>/dev/null || true; chmod a+rx artifacts/disk 2>/dev/null || true'
 
-	# The container runs as root and writes the disk image with that uid.
-	# Host-side QEMU runs under the runner/user uid and needs to read it,
-	# so make sure the artifact is world-readable after the container exits.
+	# Belt-and-suspenders: also try from host side (a no-op if container
+	# already set perms; useful when the container runs as the host uid).
 	if [[ -f "$DISK_PATH" ]]; then
 		chmod a+r "$DISK_PATH" 2>/dev/null || true
 	fi
