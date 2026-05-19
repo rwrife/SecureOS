@@ -182,6 +182,10 @@ exit pass
 
 This exits QEMU cleanly and returns control to your host terminal.
 
+## Build Artifacts and Tool Binaries
+
+Host build artifacts under `tools/*/` (e.g. `tools/sof_wrap/sof_wrap`) must **not** be committed. They are rebuilt deterministically by their adjacent `Makefile` and are ignored via `.gitignore`. See issue #101 for the regression that motivated this rule.
+
 ## Validate Artifacts
 
 After successful builds, key outputs include:

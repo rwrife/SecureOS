@@ -1,3 +1,7 @@
 artifacts/
 experiments/bootloader/boot.bin
 experiments/bootloader/boot_fail.bin
+
+# Host build artifacts under tools/*/ must not be committed.
+# See CONTRIBUTING.md and issue #101.
+tools/sof_wrap/sof_wrap
