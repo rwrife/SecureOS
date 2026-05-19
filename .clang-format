@@ -1,0 +1,30 @@
+# SecureOS canonical C style (BUILD_ROADMAP §6.1 stage 1, issue #182).
+#
+# Goals:
+#   - Match the existing style already in tree (LLVM-ish, 4-space indent,
+#     attached braces, 100-col soft limit) so adopting clang-format is
+#     mechanical rather than disruptive.
+#   - Cross-references docs/CODING_CONVENTIONS.md §3 (C/ASM style baseline).
+#
+# Scope: applied via `build/scripts/lint.sh` over the dirs enumerated in
+# that script (kernel/, user/, tools/, tests/ today; sdk/ when it lands
+# via #136).
+---
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlignAfterOpenBracket: Align
+PointerAlignment: Right
+SortIncludes: false
+IncludeBlocks: Preserve
+SpaceAfterCStyleCast: true
+SpacesInParentheses: false
+Cpp11BracedListStyle: true
+KeepEmptyLinesAtTheStartOfBlocks: false
