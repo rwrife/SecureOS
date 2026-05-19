@@ -304,6 +304,9 @@ Define and version early to prevent churn:
 - capability handle representation and revocation behavior
 - module manifest schema and compatibility policy
 
+Canonical home: [`docs/abi/`](./docs/abi/README.md) — one stub document per
+surface, all versioned against the single `OS_ABI_VERSION` constant.
+
 Suggested policy:
 
 - start at `OS_ABI_VERSION=0` during rapid iteration,
