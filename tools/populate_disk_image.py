@@ -290,9 +290,14 @@ class DiskImage:
         # qemu-system-x86_64 on the host runner under a different uid. Force
         # world-readable permissions on the image (and its parent directory)
         # so the host-side QEMU step does not fail with `Permission denied`.
+        # NOTE: QEMU opens the disk read-write by default (no readonly=on
+        # in the test args), so 0o644 is not sufficient when the file is
+        # produced inside a container as root and consumed on the host as
+        # a non-root uid. Use 0o666 / 0o777 so any local uid can open the
+        # raw image read-write.
         try:
-            self.path.chmod(0o644)
-            self.path.parent.chmod(0o755)
+            self.path.chmod(0o666)
+            self.path.parent.chmod(0o777)
         except OSError:
             # Filesystem may not support chmod (e.g. some Windows hosts).
             # Best-effort only; do not abort the build for this.
