@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rwrife/SecureOS/manifests/schema/v0.json",
+  "title": "SecureOS module manifest v0",
+  "description": "Schema for SecureOS module manifests at OS_ABI_VERSION=0. See docs/abi/manifest.md (issue #183). Unknown top-level fields are NOT allowed (fail-closed).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "os_abi_version",
+    "manifest_version",
+    "identity",
+    "requested_capabilities",
+    "provided_services",
+    "signature"
+  ],
+  "properties": {
+    "os_abi_version": {
+      "type": "integer",
+      "const": 0,
+      "description": "Must equal the kernel's OS_ABI_VERSION (see #150)."
+    },
+    "manifest_version": {
+      "type": "integer",
+      "const": 0,
+      "description": "Schema revision. v0 only."
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "signer_key_id"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "description": "SemVer 2.0.0."
+        },
+        "signer_key_id": {
+          "type": "string",
+          "pattern": "^ed25519:[0-9a-f]{64,}$",
+          "description": "v0 supports ed25519 only (per #133 / #137 / #138)."
+        }
+      }
+    },
+    "requested_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "CAP_CONSOLE_WRITE",
+              "CAP_SERIAL_WRITE",
+              "CAP_DEBUG_EXIT",
+              "CAP_CAPABILITY_ADMIN",
+              "CAP_DISK_IO_REQUEST",
+              "CAP_FS_READ",
+              "CAP_FS_WRITE",
+              "CAP_EVENT_SUBSCRIBE",
+              "CAP_EVENT_PUBLISH",
+              "CAP_APP_EXEC",
+              "CAP_CODESIGN_BYPASS",
+              "CAP_NETWORK"
+            ]
+          },
+          "required": { "type": "boolean" },
+          "reason": { "type": "string", "maxLength": 512 }
+        }
+      }
+    },
+    "provided_services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "ipc_endpoint", "stability"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$"
+          },
+          "ipc_endpoint": {
+            "type": "string",
+            "pattern": "^/[A-Za-z0-9._/-]+$"
+          },
+          "stability": {
+            "type": "string",
+            "enum": ["experimental", "stable", "deprecated"]
+          }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alg", "binary_sha256", "manifest_sha256", "sig"],
+      "properties": {
+        "alg": { "type": "string", "enum": ["ed25519"] },
+        "binary_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "manifest_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sig": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+      }
+    }
+  }
+}

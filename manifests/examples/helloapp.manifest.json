@@ -1,0 +1,23 @@
+{
+  "os_abi_version": 0,
+  "manifest_version": 0,
+  "identity": {
+    "name": "helloapp",
+    "version": "0.1.0",
+    "signer_key_id": "ed25519:da39a3ee5e6b4b0d3255bfef95601890afd80709da39a3ee5e6b4b0d3255bfef9560"
+  },
+  "requested_capabilities": [
+    {
+      "id": "CAP_CONSOLE_WRITE",
+      "required": true,
+      "reason": "HelloApp prints 'hello, secureos' to the user-facing console (BUILD_ROADMAP §5.2 M2 / issue #92)."
+    }
+  ],
+  "provided_services": [],
+  "signature": {
+    "alg": "ed25519",
+    "binary_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "sig": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  }
+}
