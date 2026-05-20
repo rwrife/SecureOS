@@ -42,6 +42,14 @@ jobs:
       - name: Kernel entry build
         run: ./build/scripts/build.sh kernel
 
+      - name: Manifest schema validation
+        # Lightweight gate: ensures every in-tree *.manifest.json validates
+        # against the canonical schema at manifests/schema/v0.json. Runs
+        # outside the toolchain container — uses only python3 stdlib so
+        # schema/example drift is caught before the heavier validate_bundle
+        # stage. See issue #195.
+        run: ./build/scripts/validate_manifests.sh
+
       - name: Full validation bundle (machine-readable)
         run: ./build/scripts/validate_bundle.sh
 

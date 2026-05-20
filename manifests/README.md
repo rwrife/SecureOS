@@ -13,8 +13,20 @@ manifests. The normative specification lives at
 
 ## Validating locally
 
+The simplest path is the in-tree wrapper, which validates every
+`*.manifest.json` under the repo against `schema/v0.json` using only
+`python3` stdlib (no extra pip / npm deps required):
+
 ```bash
-# Either of these works:
+build/scripts/validate_manifests.sh
+# Windows peer:
+# build\scripts\validate_manifests.ps1
+```
+
+This is the same check the PR validation workflow runs (`manifest-schema-validate`
+stage, issue #195). External JSON-Schema tools also work if you prefer:
+
+```bash
 check-jsonschema --schemafile manifests/schema/v0.json \
                  manifests/examples/helloapp.manifest.json
 
