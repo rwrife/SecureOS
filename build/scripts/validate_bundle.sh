@@ -27,6 +27,9 @@ TEST_TARGETS=(
     tls
     https
     fs_service
+    fs_service_persist_allow
+    fs_service_persist_deny
+    fs_service_ephemeral_reset
     app_runtime
     helloapp_allow
     helloapp_deny

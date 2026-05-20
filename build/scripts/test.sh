@@ -72,7 +72,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|sof_format|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity|harness_defense|canary_must_fail]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|sof_format|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity|harness_defense|canary_must_fail]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -153,6 +153,15 @@ case "$TEST_NAME" in
     ;;
   launcher_fs)
     run_script "$ROOT_DIR/build/scripts/test_launcher_fs.sh"
+    ;;
+  fs_service_persist_allow)
+    run_script "$ROOT_DIR/build/scripts/test_fs_service_persist_allow.sh"
+    ;;
+  fs_service_persist_deny)
+    run_script "$ROOT_DIR/build/scripts/test_fs_service_persist_deny.sh"
+    ;;
+  fs_service_ephemeral_reset)
+    run_script "$ROOT_DIR/build/scripts/test_fs_service_ephemeral_reset.sh"
     ;;
   app_runtime)
     run_script "$ROOT_DIR/build/scripts/test_app_runtime.sh"
