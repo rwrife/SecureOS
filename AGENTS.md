@@ -14,7 +14,7 @@ fields (`task_id`, `owner_role`, `depends_on`, `run`, `expected_outputs`,
 
 - Any new (or existing) .c file should be properly commented at the top of the file with a description of what the file does, how it is used and what calls it
 - Hardware access will always need an HAL layer since we are targeting multiple architectures, additionally the hardware may need to be virtualized in the event the user does not want to grant access to code that requires some level of hardware access
-- Add planning docs to /docs/plans with a unique name so we can review and impliment them later
+- Add planning docs to the top-level `plans/` directory (the single canonical location — do not create or use `docs/plans/`) with a unique name `YYYY-MM-DD-<slug>.md` so we can review and impliment them later; see `plans/README.md` for the index and conventions
 - Whenever a new cli commands is created, make sure to add a help command resource file for the user to reference
 - Keep ps1 and sh scripts in sync, specifically the build commands so we can build on windows, linux and macos
 - non-kernel essential commands and libraries should be built in isolation and standalone binaries and copied to disk and the kernel should not have any specific knowledge of these commands and load them dynamically
