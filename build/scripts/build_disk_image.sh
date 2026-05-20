@@ -77,7 +77,18 @@ if command -v docker >/dev/null 2>&1; then
 	fi
 
 	docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
-		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh'
+		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh; chmod a+rw artifacts/disk/secureos-disk.img 2>/dev/null || true; chmod a+rwx artifacts/disk 2>/dev/null || true'
+
+	# Belt-and-suspenders: also try from host side (a no-op if container
+	# already set perms; useful when the container runs as the host uid).
+	# QEMU opens the disk read-write by default, so the host runner uid
+	# needs write access too, not just read.
+	if [[ -f "$DISK_PATH" ]]; then
+		chmod a+rw "$DISK_PATH" 2>/dev/null || true
+	fi
+	if [[ -d "$DISK_DIR" ]]; then
+		chmod a+rwx "$DISK_DIR" 2>/dev/null || true
+	fi
 else
 	build_disk_image_inner
 fi
