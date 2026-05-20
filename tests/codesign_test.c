@@ -100,15 +100,17 @@ static void test_signed_roundtrip(void) {
   uint8_t root_pub[32], root_priv[64];
   uint8_t inter_pub[32], inter_priv[64];
   secureos_cert_t cert;
-  uint8_t cert_data[SECUREOS_CERT_SIZE];
+  uint8_t cert_data[SECUREOS_CERT_TOTAL_SIZE];
 
   printf("[test_signed_roundtrip]\n");
 
-  ed25519_create_keypair(root_pub, root_priv, SECUREOS_ROOT_SEED);
-  ed25519_create_keypair(inter_pub, inter_priv, SECUREOS_INTERMEDIATE_SEED);
+  ed25519_create_keypair(SECUREOS_ROOT_SEED, root_pub, root_priv);
+  ed25519_create_keypair(SECUREOS_INTERMEDIATE_SEED, inter_pub, inter_priv);
 
-  check("cert_build", cert_build(&cert, root_priv, root_pub, inter_pub) == CERT_OK);
-  check("cert_serialize", cert_serialize(&cert, cert_data, sizeof(cert_data)) == CERT_OK);
+  cert_build(root_pub, root_priv, inter_pub, &cert);
+  check("cert_build", 1);
+  cert_serialize(&cert, cert_data);
+  check("cert_serialize", 1);
 
   elf_len = build_test_elf(elf, sizeof(elf), "print hello\n");
   check("elf_built", elf_len > 0);
@@ -124,7 +126,7 @@ static void test_signed_roundtrip(void) {
   params.elf_payload_size = elf_len;
 
   result = sof_build_signed(&params, inter_priv, inter_pub,
-                             cert_data, SECUREOS_CERT_SIZE,
+                             cert_data, SECUREOS_CERT_TOTAL_SIZE,
                              sof_buf, sizeof(sof_buf), &sof_len);
   check("sof_build_signed ok", result == SOF_OK);
   check("sof_len > 0", sof_len > 0);
@@ -182,14 +184,14 @@ static void test_corrupted_signature_blocked(void) {
   uint8_t root_pub[32], root_priv[64];
   uint8_t inter_pub[32], inter_priv[64];
   secureos_cert_t cert;
-  uint8_t cert_data[SECUREOS_CERT_SIZE];
+  uint8_t cert_data[SECUREOS_CERT_TOTAL_SIZE];
 
   printf("[test_corrupted_signature_blocked]\n");
 
-  ed25519_create_keypair(root_pub, root_priv, SECUREOS_ROOT_SEED);
-  ed25519_create_keypair(inter_pub, inter_priv, SECUREOS_INTERMEDIATE_SEED);
-  cert_build(&cert, root_priv, root_pub, inter_pub);
-  cert_serialize(&cert, cert_data, sizeof(cert_data));
+  ed25519_create_keypair(SECUREOS_ROOT_SEED, root_pub, root_priv);
+  ed25519_create_keypair(SECUREOS_INTERMEDIATE_SEED, inter_pub, inter_priv);
+  cert_build(root_pub, root_priv, inter_pub, &cert);
+  cert_serialize(&cert, cert_data);
 
   elf_len = build_test_elf(elf, sizeof(elf), "print corrupt\n");
 
@@ -204,7 +206,7 @@ static void test_corrupted_signature_blocked(void) {
   params.elf_payload_size = elf_len;
 
   sof_build_signed(&params, inter_priv, inter_pub,
-                    cert_data, SECUREOS_CERT_SIZE,
+                    cert_data, SECUREOS_CERT_TOTAL_SIZE,
                     sof_buf, sizeof(sof_buf), &sof_len);
 
   sof_parse(sof_buf, sof_len, &parsed);
@@ -240,16 +242,16 @@ static void test_wrong_key_signature_blocked(void) {
   uint8_t rogue_pub[32], rogue_priv[64];
   uint8_t root_pub[32], root_priv[64];
   secureos_cert_t cert;
-  uint8_t cert_data[SECUREOS_CERT_SIZE];
+  uint8_t cert_data[SECUREOS_CERT_TOTAL_SIZE];
 
   printf("[test_wrong_key_signature_blocked]\n");
 
-  ed25519_create_keypair(rogue_pub, rogue_priv, rogue_seed);
-  ed25519_create_keypair(root_pub, root_priv, SECUREOS_ROOT_SEED);
+  ed25519_create_keypair(rogue_seed, rogue_pub, rogue_priv);
+  ed25519_create_keypair(SECUREOS_ROOT_SEED, root_pub, root_priv);
 
   /* Build a cert signed by root but for rogue key */
-  cert_build(&cert, root_priv, root_pub, rogue_pub);
-  cert_serialize(&cert, cert_data, sizeof(cert_data));
+  cert_build(root_pub, root_priv, rogue_pub, &cert);
+  cert_serialize(&cert, cert_data);
 
   elf_len = build_test_elf(elf, sizeof(elf), "print rogue\n");
 
@@ -266,7 +268,7 @@ static void test_wrong_key_signature_blocked(void) {
   /* Sign with rogue key + valid cert for rogue → this should verify OK
      because the cert is root-signed for rogue_pub, and rogue signs the payload */
   result = sof_build_signed(&params, rogue_priv, rogue_pub,
-                             cert_data, SECUREOS_CERT_SIZE,
+                             cert_data, SECUREOS_CERT_TOTAL_SIZE,
                              sof_buf, sizeof(sof_buf), &sof_len);
   check("sof_build_signed with rogue ok", result == SOF_OK);
 
@@ -278,11 +280,11 @@ static void test_wrong_key_signature_blocked(void) {
   check("rogue-but-root-signed cert verifies", result == SOF_OK);
 
   /* Now test with a self-signed cert (not chained to root) */
-  cert_build(&cert, rogue_priv, rogue_pub, rogue_pub);
-  cert_serialize(&cert, cert_data, sizeof(cert_data));
+  cert_build(rogue_pub, rogue_priv, rogue_pub, &cert);
+  cert_serialize(&cert, cert_data);
 
   result = sof_build_signed(&params, rogue_priv, rogue_pub,
-                             cert_data, SECUREOS_CERT_SIZE,
+                             cert_data, SECUREOS_CERT_TOTAL_SIZE,
                              sof_buf, sizeof(sof_buf), &sof_len);
   check("sof_build_signed self-signed ok", result == SOF_OK);
 
@@ -304,14 +306,14 @@ static void test_signed_library(void) {
   uint8_t root_pub[32], root_priv[64];
   uint8_t inter_pub[32], inter_priv[64];
   secureos_cert_t cert;
-  uint8_t cert_data[SECUREOS_CERT_SIZE];
+  uint8_t cert_data[SECUREOS_CERT_TOTAL_SIZE];
 
   printf("[test_signed_library]\n");
 
-  ed25519_create_keypair(root_pub, root_priv, SECUREOS_ROOT_SEED);
-  ed25519_create_keypair(inter_pub, inter_priv, SECUREOS_INTERMEDIATE_SEED);
-  cert_build(&cert, root_priv, root_pub, inter_pub);
-  cert_serialize(&cert, cert_data, sizeof(cert_data));
+  ed25519_create_keypair(SECUREOS_ROOT_SEED, root_pub, root_priv);
+  ed25519_create_keypair(SECUREOS_INTERMEDIATE_SEED, inter_pub, inter_priv);
+  cert_build(root_pub, root_priv, inter_pub, &cert);
+  cert_serialize(&cert, cert_data);
 
   elf_len = build_test_elf(elf, sizeof(elf), "print lib\n");
 
@@ -326,7 +328,7 @@ static void test_signed_library(void) {
   params.elf_payload_size = elf_len;
 
   result = sof_build_signed(&params, inter_priv, inter_pub,
-                             cert_data, SECUREOS_CERT_SIZE,
+                             cert_data, SECUREOS_CERT_TOTAL_SIZE,
                              sof_buf, sizeof(sof_buf), &sof_len);
   check("lib sof_build_signed ok", result == SOF_OK);
 
