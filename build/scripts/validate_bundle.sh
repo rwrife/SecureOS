@@ -18,6 +18,7 @@ TEST_TARGETS=(
   capability_gate
   capability_audit
   capability_audit_log
+  cap_broker
     event_bus
     scheduler
     sof_format
