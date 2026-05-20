@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": 0,
+  "description": "Initial capability-matrix harness cells. See docs/test-plans/capability-matrix.md and BUILD_ROADMAP.md §6.1/§6.2. Each cell composes a {cap_set, faux_policy, lifecycle_event} triple onto one or more existing validator targets (see build/scripts/test.sh). The harness is a thin orchestrator: cells re-use today's deterministic targets — they do not introduce new test binaries.",
+  "cells": [
+    {
+      "id": "minimal-faux_off-none",
+      "cap_set": "minimal",
+      "faux_policy": "off",
+      "lifecycle_event": "none",
+      "description": "Today's default posture: only explicitly granted capabilities are honored, no faux substitution, no lifecycle revocation in flight.",
+      "targets": [
+        "cap_api_contract",
+        "capability_gate"
+      ]
+    },
+    {
+      "id": "minimal-faux_on-none",
+      "cap_set": "minimal",
+      "faux_policy": "on",
+      "lifecycle_event": "none",
+      "description": "M3 substitution probe: persistent FS denied, faux/ephemeral substitution legal. Exercises the helloapp deny-path and the ephemeral-write path served by the faux FS scope.",
+      "targets": [
+        "helloapp_deny",
+        "fs_service"
+      ]
+    },
+    {
+      "id": "typical-faux_off-owner_revoke",
+      "cap_set": "typical",
+      "faux_policy": "off",
+      "lifecycle_event": "owner_revoke",
+      "description": "M4/M5 lifecycle probe: capabilities granted by the broker, then revoked while still referenced. Asserts that revoke is durable and audited.",
+      "targets": [
+        "cap_broker",
+        "capability_audit"
+      ]
+    }
+  ]
+}
