@@ -322,7 +322,7 @@ Suggested policy:
 8. Add `hello_boot` test target and harness parser.
 9. Add failing-test fixture to verify negative-path detection.
 10. Add machine-readable validator report format.
-11. Add task DAG schema (`docs/test-plans/task-schema.md`).
+11. Add task DAG schema (`docs/test-plans/task-schema.md`). — see [`docs/test-plans/task-schema.md`](docs/test-plans/task-schema.md) for the canonical field list, `pass_condition` DSL, and worked example.
 12. Add initial milestone/task registry (`docs/test-plans/m0-m1-plan.yaml`).
 13. Add coding conventions for kernel/module boundaries.
 14. Add architecture decision record selecting boot protocol.
