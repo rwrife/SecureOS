@@ -199,6 +199,10 @@ Store per-run outputs under `artifacts/runs/<timestamp-or-id>/`:
 
 This enables replay, diffing, and agent postmortems.
 
+See [`docs/test-plans/artifact-bundle.md`](docs/test-plans/artifact-bundle.md) for the
+on-disk layout, `<id>` derivation rule, and the `SECUREOS_RUN_ID` env-var
+contract that keeps all artifacts from one run co-located.
+
 ## 5) Milestones After Boot Slice
 
 ## 5.1 M1: Minimal kernel isolation + IPC skeleton
