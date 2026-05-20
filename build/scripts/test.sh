@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|fs_service|launcher_fs|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|broker_share_allow|broker_share_deny|broker_share_revoke|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|fs_service|launcher_fs|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
 
 Runs SecureOS test targets.
 EOF
@@ -60,6 +60,15 @@ case "$TEST_NAME" in
     ;;
   cap_broker)
     "$ROOT_DIR/build/scripts/test_cap_broker.sh"
+    ;;
+  broker_share_allow)
+    "$ROOT_DIR/build/scripts/test_broker_share_allow.sh"
+    ;;
+  broker_share_deny)
+    "$ROOT_DIR/build/scripts/test_broker_share_deny.sh"
+    ;;
+  broker_share_revoke)
+    "$ROOT_DIR/build/scripts/test_broker_share_revoke.sh"
     ;;
   launcher_console)
     "$ROOT_DIR/build/scripts/test_launcher_console.sh"
