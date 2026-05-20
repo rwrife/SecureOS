@@ -227,6 +227,21 @@ Project-specific expectations include:
 - Add plan documents under `docs/plans` for major implementation work
 - Keep hardware access behind HAL abstractions
 
+## Boundaries & conventions
+
+SecureOS enforces strict layering between the kernel, modules, user libraries,
+and apps. Before adding a new `#include`, a new syscall, or a new top-level
+directory, read:
+
+- `docs/architecture/kernel-module-boundaries.md` — allowed include direction,
+  what belongs in `kernel/` vs `user/libs/` vs `user/apps/`, the
+  capability-gate rule, the HAL rule, and worked do/don't examples.
+- `docs/architecture/CAPABILITIES.md` — the capability ID registry.
+
+Reviewers should reject PRs that cross a layer (e.g. an app including a
+`kernel/` header, or a service skipping its capability check) and link to the
+boundaries doc.
+
 ## Pull Request Checklist
 
 - Build succeeds locally (`build-all`)
