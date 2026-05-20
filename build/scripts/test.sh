@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|tls|https|fs_service|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|fs_service|launcher_fs|app_runtime|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]
 
 Runs SecureOS test targets.
 EOF
@@ -55,6 +55,12 @@ case "$TEST_NAME" in
   capability_audit)
     "$ROOT_DIR/build/scripts/test_capability_audit.sh"
     ;;
+  capability_audit_log)
+    "$ROOT_DIR/build/scripts/test_capability_audit_log.sh"
+    ;;
+  launcher_console)
+    "$ROOT_DIR/build/scripts/test_launcher_console.sh"
+    ;;
   event_bus)
     "$ROOT_DIR/build/scripts/test_event_bus.sh"
     ;;
@@ -79,8 +85,14 @@ case "$TEST_NAME" in
   https)
     "$ROOT_DIR/build/scripts/test_https.sh"
     ;;
+  netlib_url_scheme)
+    "$ROOT_DIR/build/scripts/test_netlib_url_scheme.sh"
+    ;;
   fs_service)
     "$ROOT_DIR/build/scripts/test_fs_service.sh"
+    ;;
+  launcher_fs)
+    "$ROOT_DIR/build/scripts/test_launcher_fs.sh"
     ;;
   app_runtime)
     "$ROOT_DIR/build/scripts/test_app_runtime.sh"
