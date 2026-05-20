@@ -1,0 +1,105 @@
+# SecureOS Syscall / User API Surface
+
+Status: **draft, `OS_ABI_VERSION=0`** — surface is still iterating. Adding new
+calls is allowed; signatures of listed calls are append-only-with-care (see
+[versioning.md](versioning.md)).
+
+User-space applications call into the kernel through the prototypes declared
+in [`user/include/secureos_api.h`](../../user/include/secureos_api.h). On
+real hardware these will eventually trap into the kernel; today many are
+serviced through the native bridge stub (`user/runtime/secureos_api_stubs.c`)
+or wired directly to kernel services for in-kernel tests.
+
+## Status / error model
+
+All calls return `os_status_t`:
+
+| Value | Name | Meaning |
+| ----- | ---- | ------- |
+| 0 | `OS_STATUS_OK` | Call succeeded; out-buffers are populated. |
+| 1 | `OS_STATUS_DENIED` | Caller lacks the required capability (or admin-gate failed). |
+| 2 | `OS_STATUS_NOT_FOUND` | Target resource (file, env key, lib, etc.) does not exist. |
+| 3 | `OS_STATUS_ERROR` | Generic failure (bad args, out-of-space, transport error). |
+
+`OS_STATUS_DENIED` is the only success-shaped result an unprivileged caller
+should ever observe for a missing capability — it is **never** silently
+treated as success and is **never** collapsed into `OS_STATUS_ERROR`. This
+guarantee is what makes zero-trust regression tests deterministic.
+
+Buffer-returning calls take `(out_buffer, out_buffer_size)`; truncation is
+reported as `OS_STATUS_ERROR` and the contents of `out_buffer` are
+unspecified in that case.
+
+## Surface (current)
+
+### Console
+
+| Call | Required cap | Notes |
+| ---- | ------------ | ----- |
+| `os_console_write(message)` | `CAP_CONSOLE_WRITE` | Goes through `cap_console_write_gate` in the kernel. Apps must be routed through the launcher (see [manifest.md](manifest.md)); direct subjects without an explicit grant get `OS_STATUS_DENIED`. |
+
+### Filesystem
+
+| Call | Required cap | Notes |
+| ---- | ------------ | ----- |
+| `os_fs_list_root(out, len)` | `CAP_FS_READ` | |
+| `os_fs_list_dir(path, out, len)` | `CAP_FS_READ` | |
+| `os_fs_read_file(path, out, len)` | `CAP_FS_READ` | |
+| `os_fs_write_file(path, content, append)` | `CAP_FS_WRITE` | `append == 0` truncates, non-zero appends. |
+| `os_fs_mkdir(path)` | `CAP_FS_WRITE` | |
+
+### Process / environment
+
+| Call | Required cap | Notes |
+| ---- | ------------ | ----- |
+| `os_process_chdir(path)` | (none — bound to caller) | |
+| `os_process_getcwd(out, len)` | (none) | |
+| `os_env_get/set/list(...)` | (none) | Per-process env. |
+
+### Libraries
+
+| Call | Required cap | Notes |
+| ---- | ------------ | ----- |
+| `os_lib_list(out, len)` | (none) | Discovery only. |
+| `os_lib_load(path, out, len)` | `CAP_APP_EXEC` | Loads a shared library into the caller's process image. |
+| `os_lib_unload(handle)` | `CAP_APP_EXEC` | |
+
+### Network (M1 surface, see #79)
+
+| Call | Required cap | Notes |
+| ---- | ------------ | ----- |
+| `os_net_device_ready()` | `CAP_NETWORK` | |
+| `os_net_device_backend(out, len)` | `CAP_NETWORK` | |
+| `os_net_device_get_mac(out, len)` | `CAP_NETWORK` | |
+| `os_net_frame_send(frame, len)` | `CAP_NETWORK` | Raw L2 send. |
+| `os_net_frame_recv(out, len, *out_len)` | `CAP_NETWORK` | Raw L2 recv. |
+| `os_net_ifconfig(out, len)` | `CAP_NETWORK` | Diagnostic. |
+| `os_net_http_get(url, out, len)` | `CAP_NETWORK` | Convenience HTTP/1.1 client. Subject to URL-scheme gate (#79). |
+| `os_net_https_get(url, out, len)` | `CAP_NETWORK` | TLS 1.2 via BearSSL in user-space; no separate capability. |
+| `os_net_ping(host, out, len)` | `CAP_NETWORK` | ICMP via netlib. |
+
+`CAP_NETWORK` is a single coarse capability today; finer-grained network
+policy (per-host, per-scheme) is tracked under #79 and lives inside netlib /
+the dispatch shim, not as new capability IDs at this layer.
+
+### Apps / system
+
+| Call | Required cap | Notes |
+| ---- | ------------ | ----- |
+| `os_apps_list(out, len)` | (none) | Discovery. |
+| `os_storage_info(out, len)` | (none) | Read-only. |
+| `os_get_args(out, len)` | (none) | Caller's argv. |
+
+## Adding a syscall
+
+1. Declare the prototype in `user/include/secureos_api.h`.
+2. Add the in-kernel implementation behind the appropriate `cap_*_gate` (or
+   add a new gate if there is no capability covering it — and update
+   [capabilities.md](capabilities.md)).
+3. If the call is sensitive, add a launcher manifest field that controls the
+   grant (see [manifest.md](manifest.md)) rather than auto-granting to the
+   bootstrap subject.
+4. Add an allow-path and a deny-path test under `build/scripts/test_*.sh`.
+5. Update this table and bump the verification line below.
+
+Last verified against commit: 9f4f7ccbb19c9ffb28ee4b6de2f3e93c35e65785

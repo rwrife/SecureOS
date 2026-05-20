@@ -141,7 +141,7 @@ New files, vendored dependency, and modifications to existing files.
 | `tests/https_test.c` | Unit tests for HTTPS URL parsing and request formatting |
 | `build/scripts/test_tls.sh` | Test runner for TLS unit tests |
 | `build/scripts/test_https.sh` | Test runner for HTTPS unit tests |
-| `docs/plans/2026-03-17-netlib-https-bearssl.md` | Copy of this plan for project documentation |
+| `plans/2026-03-17-netlib-https-bearssl.md` | Copy of this plan for project documentation |
 
 ### Modified Files
 | File | Change |
@@ -352,4 +352,4 @@ Implement in dependency order: vendor BearSSL → compat layer → crypto primit
 
 16. **Update test runners** — Add `tls` and `https` targets to `build/scripts/test.sh` and `build/scripts/test.ps1`.
 
-17. **Documentation** — Copy plan to `docs/plans/2026-03-17-netlib-https-bearssl.md`. Update `docs/architecture/CAPABILITIES.md` to note HTTPS coverage under `CAP_NETWORK`.
+17. **Documentation** — Copy plan to `plans/2026-03-17-netlib-https-bearssl.md` (canonical plan directory; see #149). Update `docs/architecture/CAPABILITIES.md` to note HTTPS coverage under `CAP_NETWORK`.

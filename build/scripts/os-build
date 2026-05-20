@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# os-build — deterministic agent wrapper around build/scripts/build.sh.
+#
+# Issue #162 / BUILD_ROADMAP §4.3. Thin façade: delegates to build.sh,
+# emits a stable JSON summary on stdout, and mirrors it into the per-run
+# artifact bundle at artifacts/runs/<id>/os-build.json (#161).
+#
+# Usage:
+#   os-build [--json] [target]
+# Default target: "image" (matches build.sh default).
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./_os_wrapper_common.sh
+source "$SCRIPT_DIR/_os_wrapper_common.sh"
+
+WANT_JSON=1  # JSON always emitted; flag kept for forward-compat.
+TARGET="image"
+EXTRA_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json) WANT_JSON=1; shift ;;
+    -h|--help)
+      cat <<EOF
+Usage: os-build [--json] [target]
+
+Deterministic agent wrapper around build/scripts/build.sh. Always emits a
+JSON summary on stdout (see docs/test-plans/wrappers.md).
+
+Targets are forwarded as-is to build.sh (default: image).
+EOF
+      exit 0
+      ;;
+    *) EXTRA_ARGS+=("$1"); shift ;;
+  esac
+done
+if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+  TARGET="${EXTRA_ARGS[0]}"
+fi
+
+ART_DIR="$OS_WRAPPER_ROOT_DIR/artifacts"
+# Artifact paths reported are best-effort: build.sh writes here, but exact
+# files depend on the target. We list directory roots the agent can scan.
+ARTIFACTS=("artifacts/iso" "artifacts/kernel" "artifacts/disk")
+
+os_wrapper_run_and_emit "os-build" \
+  "build.sh target=$TARGET failed" \
+  "${ARTIFACTS[@]}" -- \
+  bash "$SCRIPT_DIR/build.sh" "$TARGET"
