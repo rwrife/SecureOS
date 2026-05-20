@@ -26,6 +26,8 @@ TEST_TARGETS=(
     https
     fs_service
     app_runtime
+    helloapp_allow
+    helloapp_deny
     kernel_console
     kernel_filedemo
     kernel_persistence
