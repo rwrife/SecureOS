@@ -5,3 +5,7 @@ experiments/bootloader/boot_fail.bin
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Host build artifacts under tools/*/ must not be committed.
+# See CONTRIBUTING.md and issue #101.
+tools/sof_wrap/sof_wrap
