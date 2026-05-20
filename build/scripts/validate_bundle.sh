@@ -21,6 +21,9 @@ TEST_TARGETS=(
   capability_audit_log
   cap_broker
   bearssl_compile
+  broker_share_allow
+  broker_share_deny
+  broker_share_revoke
     event_bus
     scheduler
     sof_format
