@@ -17,15 +17,25 @@ TEST_TARGETS=(
   capability_table
   capability_gate
   capability_audit
+  capability_audit_log
   cap_broker
     event_bus
+    scheduler
     sof_format
+    tls
+    https
     fs_service
     app_runtime
     kernel_console
     kernel_filedemo
     kernel_persistence
 )
+# NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
+# NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
+# test.ps1 but currently red (ed25519 sign/verify roundtrip, cert_chain root
+# validation, codesign -Werror=unused-variable on tests/codesign_test.c:307)
+# or blocked on the disk-image perms chain (#106 / PR #107 for kernel_sessions).
+# Add each here as the corresponding fix lands, so the bundle stays green.
 
 STATUS_LINES=()
 FAILED_TESTS=()

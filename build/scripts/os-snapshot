@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# os-snapshot — deterministic agent wrapper that snapshots the current
+# per-run artifact bundle into a tarball for upload / archival.
+#
+# Issue #162 / BUILD_ROADMAP §4.3. There is no existing snapshot.sh today,
+# so this wrapper provides the minimal stable behavior the contract
+# requires: pack artifacts/runs/<id>/ into artifacts/snapshots/<id>.tar.gz
+# and emit the standard JSON envelope. Future work can extend this to
+# include kernel/disk artifacts and signing (M6 / #136 territory).
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./_os_wrapper_common.sh
+source "$SCRIPT_DIR/_os_wrapper_common.sh"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json) shift ;;
+    -h|--help)
+      cat <<EOF
+Usage: os-snapshot [--json]
+
+Packs artifacts/runs/<SECUREOS_RUN_ID>/ into
+artifacts/snapshots/<run_id>.tar.gz and emits the standard JSON envelope.
+If the run bundle does not exist, the snapshot is reported as ok=false
+with reason="run bundle missing".
+EOF
+      exit 0
+      ;;
+    *) shift ;;
+  esac
+done
+
+RUN_ID="$(os_wrapper_run_id)"
+export SECUREOS_RUN_ID="$RUN_ID"
+RUN_DIR="$OS_WRAPPER_ROOT_DIR/artifacts/runs/$RUN_ID"
+SNAP_DIR="$OS_WRAPPER_ROOT_DIR/artifacts/snapshots"
+SNAP_FILE="$SNAP_DIR/${RUN_ID}.tar.gz"
+
+started="$(os_wrapper_now)"
+
+if [[ ! -d "$RUN_DIR" ]]; then
+  finished="$(os_wrapper_now)"
+  os_wrapper_emit "os-snapshot" "false" 1 "$started" "$finished" \
+    "run bundle missing: $RUN_DIR" \
+    "artifacts/snapshots/${RUN_ID}.tar.gz"
+  exit 1
+fi
+
+mkdir -p "$SNAP_DIR"
+rc=0
+if ! tar -czf "$SNAP_FILE" -C "$OS_WRAPPER_ROOT_DIR/artifacts/runs" "$RUN_ID"; then
+  rc=$?
+fi
+finished="$(os_wrapper_now)"
+
+if [[ $rc -eq 0 ]]; then
+  os_wrapper_emit "os-snapshot" "true" 0 "$started" "$finished" "" \
+    "artifacts/snapshots/${RUN_ID}.tar.gz"
+else
+  os_wrapper_emit "os-snapshot" "false" "$rc" "$started" "$finished" \
+    "tar failed (exit $rc)" \
+    "artifacts/snapshots/${RUN_ID}.tar.gz"
+fi
+exit $rc

@@ -45,16 +45,6 @@ static size_t str_len(const char *s) {
   return n;
 }
 
-static void str_copy(char *dst, size_t dst_size, const char *src) {
-  size_t i = 0u;
-  if (dst == 0 || dst_size == 0u) { return; }
-  while (src[i] != '\0' && i + 1u < dst_size) {
-    dst[i] = src[i];
-    ++i;
-  }
-  dst[i] = '\0';
-}
-
 /* Simple serial-style output for test results (stub for hosted environment) */
 #ifdef __linux__
 #include <stdio.h>
@@ -157,7 +147,7 @@ static void test_sof_build_and_parse_bin(void) {
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
   test_assert(elf_len > 0u, "build_test_elf produced output");
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test-bin";
   params.description = "A test binary";
@@ -209,7 +199,7 @@ static void test_sof_build_and_parse_lib(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_LIB;
   params.name = "test-lib";
   params.description = "A test library";
@@ -237,7 +227,7 @@ static void test_sof_is_sof(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;
@@ -265,7 +255,7 @@ static void test_sof_reject_bad_magic(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;
@@ -293,7 +283,7 @@ static void test_sof_reject_bad_version(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;
@@ -330,7 +320,7 @@ static void test_sof_reject_bad_type(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;
@@ -360,7 +350,7 @@ static void test_sof_get_meta_not_found(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;
@@ -389,7 +379,7 @@ static void test_sof_signature_stub(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;
@@ -419,7 +409,7 @@ static void test_sof_round_trip_payload(void) {
 
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "roundtrip";
   params.description = 0;
@@ -454,7 +444,7 @@ static void test_sof_app_bundle_stub(void) {
   build_test_elf(elf_buf, sizeof(elf_buf), &elf_len);
 
   /* Build a valid BIN, then try to parse as app bundle */
-  sof_build_params_t params;
+  sof_build_params_t params = {0};
   params.file_type = SOF_TYPE_BIN;
   params.name = "test";
   params.description = 0;

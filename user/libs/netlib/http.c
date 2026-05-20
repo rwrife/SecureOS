@@ -26,6 +26,7 @@
 #include "dns.h"
 #include "https.h"
 #include "tcp.h"
+#include "url_scheme.h"
 
 static size_t http_strlen(const char *s) {
   size_t n = 0u;
@@ -357,6 +358,20 @@ http_result_t http_request(const http_request_t *req, http_response_t *resp) {
 
   if (req->method != 0 && req->method[0] != '\0') {
     method = req->method;
+  }
+
+  /*
+   * Defence-in-depth scheme gate. The netlib api layer already rejects
+   * unsupported schemes before reaching here, but http_request is also
+   * exported as a lower-level entrypoint, so re-classify the URL and refuse
+   * anything that is not http:// or https://. This keeps a single deny-by-
+   * default policy regardless of which entrypoint is used.
+   */
+  {
+    netlib_url_scheme_t scheme = netlib_url_classify_scheme(req->url);
+    if (scheme == NETLIB_URL_SCHEME_UNKNOWN) {
+      return HTTP_ERR_BAD_URL;
+    }
   }
 
   http_parse_url(req->url, &parsed);

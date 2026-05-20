@@ -8,6 +8,9 @@ mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/format/sof.c" \
+  "$ROOT_DIR/kernel/crypto/cert.c" \
+  "$ROOT_DIR/kernel/crypto/ed25519.c" \
+  "$ROOT_DIR/kernel/crypto/sha512.c" \
   "$ROOT_DIR/tests/sof_format_test.c" \
   -o "$OUT_DIR/sof_format_test"
 

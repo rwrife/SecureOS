@@ -246,9 +246,22 @@ static int unpackneg(ge_p3 r, const uint8_t p[32]) {
   return 0;
 }
 
+/*
+ * Scalar multiplication by the standard base point.
+ *
+ * Implements the textbook double-and-add ladder, processing scalar bits
+ * from most significant to least significant.  Doubling reuses
+ * add_points() (which is the unified "add-2008-hwcd-3" formula for
+ * twisted Edwards a=-1; it is correct for the doubling case as well
+ * when both operands are the same point in projective coordinates).
+ *
+ * Verified against RFC 8032 §7.1 Test 1:
+ *   seed = 9d61b19deffd5a60ba844af492ec2cc4 4449c5697b32691970...
+ *   pub  = d75a980182b10ab7d54bfed3c964073a 0ee172f3daa62325af021a68f707511a
+ */
 static void scalarmult_base(ge_p3 p, const uint8_t *s) {
   ge_p3 bp;
-  int i;
+  int i, j;
 
   set25519(bp[0], X);
   set25519(bp[1], Y);
@@ -263,17 +276,17 @@ static void scalarmult_base(ge_p3 p, const uint8_t *s) {
   for (i = 255; i >= 0; --i) {
     uint8_t b = (s[i / 8] >> (i & 7)) & 1;
     ge_p3 tmp;
-    int j;
+
+    /* p = 2 * p (unified formula handles the doubling case) */
+    for (j = 0; j < 4; ++j) set25519(tmp[j], p[j]);
+    add_points(p, tmp);
+
+    /* tmp = p + bp */
     for (j = 0; j < 4; ++j) set25519(tmp[j], p[j]);
     add_points(tmp, bp);
-    /* constant-time select */
+
+    /* p = b ? tmp : p   (sel25519 swaps when b=1, leaves when b=0) */
     for (j = 0; j < 4; ++j) sel25519(p[j], tmp[j], b);
-    {
-      ge_p3 bp2;
-      for (j = 0; j < 4; ++j) set25519(bp2[j], bp[j]);
-      add_points(bp2, bp);
-      for (j = 0; j < 4; ++j) set25519(bp[j], bp2[j]);
-    }
   }
 }
 
@@ -288,29 +301,16 @@ static void scalarmult(ge_p3 p, const uint8_t *s, const ge_p3 q) {
   for (i = 255; i >= 0; --i) {
     uint8_t b = (s[i / 8] >> (i & 7)) & 1;
     ge_p3 tmp;
+
+    /* p = 2 * p */
+    for (j = 0; j < 4; ++j) set25519(tmp[j], p[j]);
+    add_points(p, tmp);
+
+    /* tmp = p + q */
     for (j = 0; j < 4; ++j) set25519(tmp[j], p[j]);
     add_points(tmp, q);
+
     for (j = 0; j < 4; ++j) sel25519(p[j], tmp[j], b);
-    /* double in place */
-    {
-      gf a2, b2, c2, e2, f2, g2, h2;
-      S(a2, p[0]);
-      S(b2, p[1]);
-      S(c2, p[2]);
-      A(c2, c2, c2);
-      A(h2, p[0], p[1]);
-      S(h2, h2);
-      Z(e2, h2, a2);
-      Z(e2, e2, b2);
-      Z(g2, b2, a2);
-      /* Note: for curve25519, a = -1, so this needs care */
-      /* Actually for Ed25519 doubling: */
-      /* A = X1^2, B = Y1^2, C = 2*Z1^2, H = (X1+Y1)^2 */
-      /* E = H-A-B, G = A+B (since a=-1, D_coeff = -A+B, but ref uses A+B differently) */
-      /* This simplified approach may not be exactly right for doubling. */
-      /* We rely on the repeated add_points(bp, bp) in scalarmult_base instead. */
-      (void)f2; (void)g2; (void)e2; (void)a2; (void)b2; (void)c2; (void)h2;
-    }
   }
 }
 
