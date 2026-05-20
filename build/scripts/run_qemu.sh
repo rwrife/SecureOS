@@ -265,7 +265,9 @@ scripts = {
       # types 'exit pass' once the previous command has fully drained.
       # 'exit pass' is sent twice defensively against any further pacing
       # surprises (option 3 from the issue).
-      ('secureos[s0]> ', 'cat appdemo.txt\ny\n'),
+      # cat triggers two prompts: codesign (unsigned binary) and auth-session
+      # (disk read). Send 'y' for both before waiting on the cat output.
+      ('secureos[s0]> ', 'cat appdemo.txt\ny\ny\n'),
       ('filedemo-updated', '\nexit pass\nexit pass\n'),
     ],
     'kernel_sessions': [
