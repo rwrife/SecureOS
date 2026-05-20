@@ -220,6 +220,7 @@ Before opening a PR, review:
 - `AGENTS.md`
 - `docs/CODING_CONVENTIONS.md`
 - `docs/abi/` — ABI reference (syscall surface, capability IDs, manifest schema, versioning policy). Update the relevant page in the same PR when you change ABI surface.
+- `docs/abi/capability-deny-contract.md` (if your change touches a capability-gated service or its deny-path test)
 
 Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
