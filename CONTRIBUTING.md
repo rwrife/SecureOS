@@ -78,6 +78,25 @@ macOS/Linux:
 ./build/scripts/build.sh build-all
 ```
 
+### Agent tool wrappers (`os-*`)
+
+Automated agents (and CI scripts) should prefer the deterministic
+`build/scripts/os-*` wrappers over invoking raw `*.sh` directly. Each
+wrapper emits a stable JSON envelope on stdout and mirrors it into the
+per-run bundle at `artifacts/runs/<run_id>/<tool>.json`:
+
+```bash
+export SECUREOS_RUN_ID="cron-$(date -u +%Y%m%dT%H%M%SZ)"
+./build/scripts/os-build image
+./build/scripts/os-package
+./build/scripts/os-run-qemu --test kernel_console
+./build/scripts/os-validate
+./build/scripts/os-snapshot
+```
+
+Full contract: [`docs/test-plans/wrappers.md`](docs/test-plans/wrappers.md).
+Raw scripts remain supported for humans and ad-hoc invocation.
+
 ### Common build targets
 
 Windows PowerShell:

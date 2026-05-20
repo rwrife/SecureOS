@@ -182,6 +182,11 @@ Each wrapper must:
 - include artifact paths,
 - include stable pass/fail fields.
 
+Wrapper contract and JSON envelope: see
+[`docs/test-plans/wrappers.md`](docs/test-plans/wrappers.md). Implementation
+lives under `build/scripts/os-*` (sh + ps1 peers); each wrapper mirrors its
+envelope into `artifacts/runs/<run_id>/<tool>.json` per §4.4.
+
 ## 4.4 Artifact policy
 
 Store per-run outputs under `artifacts/runs/<timestamp-or-id>/`:
