@@ -257,7 +257,16 @@ scripts = {
       ('secureos[s0]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_persistence': [
-      ('secureos[s0]> ', 'cat appdemo.txt\ny\nexit pass\n'),
+      # Issue #188: a single mega-blob ('cat appdemo.txt\ny\nexit pass\n')
+      # was getting truncated by the guest's input pacing during the cat
+      # consent prompts, so only the tail 'ss' of 'exit pass' survived and
+      # the run timed out. Split into two prompt-driven steps and key the
+      # second on the cat output ('filedemo-updated') so the harness only
+      # types 'exit pass' once the previous command has fully drained.
+      # 'exit pass' is sent twice defensively against any further pacing
+      # surprises (option 3 from the issue).
+      ('secureos[s0]> ', 'cat appdemo.txt\ny\n'),
+      ('filedemo-updated', '\nexit pass\nexit pass\n'),
     ],
     'kernel_sessions': [
       ('secureos[s0]> ', 'env PROJECT=alpha\nenv PROJECT\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nmkdir s0dir\ny\ncd s0dir\nsession new\nsession switch 1\nlibs loaded\nenv PROJECT=beta\nenv PROJECT\nloadlib envlib\ny\nlibs loaded\nmkdir s1dir\ny\ncd s1dir\nsession switch 0\nenv PROJECT\nlibs loaded\nls /\ny\nexit pass\n'),
