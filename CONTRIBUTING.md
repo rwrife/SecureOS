@@ -219,6 +219,7 @@ After successful builds, key outputs include:
 Before opening a PR, review:
 - `AGENTS.md`
 - `docs/CODING_CONVENTIONS.md`
+- `docs/architecture/decisions/` (ADR index — read the relevant ADRs before changing boot, ABI, or other locked contracts)
 - `docs/abi/` — ABI reference (syscall surface, capability IDs, manifest schema, versioning policy). Update the relevant page in the same PR when you change ABI surface.
 - `docs/abi/capability-deny-contract.md` (if your change touches a capability-gated service or its deny-path test)
 - `docs/test-plans/` (milestone + task registry; update the `status:` and `pr:#…` tags when a CAP-\* / M-\* task lands)
@@ -227,6 +228,9 @@ Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
 - Add plan documents under the top-level `plans/` directory (canonical, single location — not `docs/plans/`) using the naming convention `YYYY-MM-DD-<slug>.md` for major implementation work; index and grouping in `plans/README.md`
 - Keep hardware access behind HAL abstractions
+- For decisions that pin a wire format, ABI, boot/loader contract, or other
+  durable invariant, add an ADR under `docs/architecture/decisions/`
+  (see that directory's `README.md` for the template and cadence)
 
 ## Boundaries & conventions
 

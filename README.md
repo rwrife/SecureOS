@@ -155,7 +155,7 @@ For full contributor setup/build/run guidance, see `CONTRIBUTING.md`.
 - Task DAG schema: `manifests/task-dag.schema.json` (walk-through in `docs/test-plans/task-schema.md`)
 - Coding conventions: `docs/CODING_CONVENTIONS.md`
 - ABI reference: `docs/abi/` (syscalls, capabilities, manifest, ipc-wire, versioning)
-- ADRs: `docs/adr/`
+- ADRs: `docs/architecture/decisions/` (start at `0001-boot-protocol-multiboot-long-mode.md`)
 - Toolchain container: `build/docker/`
 - Build wrappers: `build/scripts/`
 - QEMU args: `build/qemu/`
