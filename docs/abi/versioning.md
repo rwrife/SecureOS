@@ -1,7 +1,7 @@
-# ABI Versioning Policy
+# SecureOS ABI Versioning Policy
 
-This document mirrors `BUILD_ROADMAP.md` §7 and points at the in-tree
-source of truth for the SecureOS ABI version.
+This restates `BUILD_ROADMAP.md` §7 in operational terms and points at
+the in-tree source of truth for the SecureOS ABI version.
 
 ## Source of truth
 
@@ -19,7 +19,7 @@ to reason about the ABI version at compile time must include
 `os_get_abi_version()` (declared in `secureos_api.h`, implemented in
 `user/runtime/secureos_api_stubs.c`).
 
-## Field layout
+### Field layout
 
 `OS_ABI_VERSION` is a 32-bit unsigned integer:
 
@@ -30,27 +30,51 @@ bits 15..0  : minor
 
 Decode with `(v >> 16) & 0xFFFF` and `v & 0xFFFF`.
 
-## Lifecycle policy (BUILD_ROADMAP §7)
+## States
 
-- **0.x** — rapid iteration; ABI may change between commits with a
-  noted entry in `MASTER_LOG.md`. No external SDK consumers yet.
-- **1.0** — frozen at SDK beta announcement (see #136). After 1.0,
-  break changes require a major bump and a compatibility shim that
-  remains supported for at least one major version.
-- Shims live alongside the user runtime under `user/runtime/` and are
-  selected by inspecting `os_get_abi_version()` at startup.
+- `OS_ABI_VERSION = 0` — **current.** Rapid iteration. Surface listed in
+  this directory is the working set; signatures may change with a single
+  PR that updates every caller in-tree. Out-of-tree consumers do not
+  exist yet.
+- `OS_ABI_VERSION = 1` — frozen at SDK beta announcement. After freeze:
+  - No removal or signature change of any documented call/field without
+    a major bump.
+  - New additions are allowed and remain at version `1`.
+  - Compatibility shims for the previous major are maintained for **at
+    least one major version** (i.e. when we move to `2`, `1` callers
+    still work for that release line).
+- `OS_ABI_VERSION = N (N ≥ 2)` — same rules as `1`, with the rolling
+  one-major-version shim window.
 
-## What is covered
+## What counts as ABI
 
-The version covers, collectively:
+- Anything declared in `user/include/secureos_api.h`.
+- Anything in `kernel/cap/capability.h` that is exposed by name to user
+  space or to validators (capability IDs, result codes, audit event
+  layout, checkpoint layout).
+- The launcher manifest schema in [manifest.md](manifest.md).
+- The validator JSON report schema (`build/scripts/validate_bundle.sh`)
+  and the `TEST:PASS:` / `TEST:FAIL:` marker contract — validators and
+  CI depend on these.
 
-- the user-facing syscall surface in `user/include/secureos_api.h`,
-- the capability handle representation and revocation semantics,
-- the IPC wire format and error model,
-- the module manifest schema and compatibility policy.
+## Process for an ABI change
 
-The manifest *schema version* is a separate field (see #93) layered on
-top of this overall ABI version.
+1. Open an issue describing the change and the user impact.
+2. Update the relevant doc under `docs/abi/`.
+3. Bump the `Last verified against commit` line in the same PR as the
+   code change.
+4. After SDK beta freeze, add a shim or a `manifest_version` bump if the
+   change is not strictly additive.
+
+## What is *not* ABI yet
+
+- Internal kernel APIs (`kernel/cap/cap_table.h` internals beyond the
+  documented enum, scheduler interfaces, HAL details).
+- The on-disk app binary format (`docs/plans/2026-03-16-secureos-file-format.md`)
+  — still in design.
+- The native bridge layout in `user/runtime/secureos_api_stubs.c` — this
+  is an implementation detail of the M1 host bridge and will be
+  replaced by real syscalls.
 
 ## Test coverage
 
@@ -61,3 +85,5 @@ top of this overall ABI version.
 2. the packed layout matches `(major << 16) | minor`,
 3. `os_get_abi_version()` returns the same value the header advertises
    (catches stale runtime stubs after a bump).
+
+Last verified against commit: 9f4f7ccbb19c9ffb28ee4b6de2f3e93c35e65785

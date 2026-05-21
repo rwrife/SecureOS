@@ -1,0 +1,448 @@
+version: "1.0"
+pipeline:
+  name: m0-m1-m2-secureos
+  entryTasks:
+    - M0_TOOLCHAIN
+    - M0_BUILD_WRAPPERS
+tasks:
+  # ---------------------------------------------------------------------------
+  # M0 — Tooling, harness, and boot smoke (all done)
+  # ---------------------------------------------------------------------------
+  - taskId: M0_TOOLCHAIN
+    ownerRole: implementer
+    run: "docker build -f build/docker/Dockerfile.toolchain ."
+    artifacts:
+      - "status:done"
+      - "pr:#18"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_BUILD_WRAPPERS
+    ownerRole: implementer
+    run: "./build/scripts/build.sh"
+    artifacts:
+      - "status:done"
+      - "pr:#19"
+      - "issue:#5"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_CI_WORKFLOW
+    ownerRole: validator
+    dependsOn: [M0_BUILD_WRAPPERS]
+    run: ".github/workflows pr-build"
+    artifacts:
+      - "status:done"
+      - "pr:#26"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_X86_ENTRY
+    ownerRole: implementer
+    dependsOn: [M0_BUILD_WRAPPERS]
+    run: "./build/scripts/build.sh kernel"
+    artifacts:
+      - "status:done"
+      - "pr:#23"
+      - "issue:#7"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_COM1_SERIAL
+    ownerRole: implementer
+    dependsOn: [M0_X86_ENTRY]
+    run: "./build/scripts/test.sh hello_boot"
+    artifacts:
+      - "status:done"
+      - "pr:#27"
+      - "issue:#10"
+    passCondition:
+      type: log_marker
+      marker: "SecureOS boot sector OK"
+
+  - taskId: M0_VGA_WRITER
+    ownerRole: implementer
+    dependsOn: [M0_X86_ENTRY]
+    run: "./build/scripts/test.sh hello_boot"
+    artifacts:
+      - "status:done"
+      - "pr:#28"
+      - "issue:#11"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_ISA_DEBUG_EXIT
+    ownerRole: implementer
+    dependsOn: [M0_COM1_SERIAL]
+    run: "./build/scripts/test.sh hello_boot"
+    artifacts:
+      - "status:done"
+      - "pr:#29"
+      - "issue:#12"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_HELLO_BOOT_MARKERS
+    ownerRole: test-engineer
+    dependsOn: [M0_COM1_SERIAL, M0_ISA_DEBUG_EXIT]
+    run: "./build/scripts/test.sh hello_boot"
+    artifacts:
+      - "status:done"
+      - "pr:#31"
+      - "issue:#13"
+      - "artifacts/qemu/hello_boot.log"
+    passCondition:
+      type: log_marker
+      marker: "QEMU_PASS:hello_boot"
+
+  - taskId: M0_NEGATIVE_FIXTURE
+    ownerRole: test-engineer
+    dependsOn: [M0_HELLO_BOOT_MARKERS]
+    run: "./build/scripts/test.sh hello_boot_fail_fixture"
+    artifacts:
+      - "status:done"
+      - "pr:#33"
+      - "issue:#14"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M0_PLANNING_DOCS
+    ownerRole: planner
+    run: "true"
+    artifacts:
+      - "status:done"
+      - "pr:#24"
+      - "issue:#17"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  # ---------------------------------------------------------------------------
+  # M1 — Capability core (CAP-001..CAP-020, all done)
+  # ---------------------------------------------------------------------------
+  - taskId: M1_CAP_001
+    ownerRole: implementer
+    dependsOn: [M0_NEGATIVE_FIXTURE]
+    run: "./build/scripts/test.sh capability_api_contract"
+    artifacts:
+      - "status:done"
+      - "pr:#35"
+      - "issue:#32"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_api_contract"
+
+  - taskId: M1_CAP_002
+    ownerRole: implementer
+    dependsOn: [M1_CAP_001]
+    run: "./build/scripts/test.sh capability_subject_table"
+    artifacts:
+      - "status:done"
+      - "pr:#36"
+      - "issue:#34"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_subject_table"
+
+  - taskId: M1_CAP_003
+    ownerRole: implementer
+    dependsOn: [M1_CAP_002]
+    run: "./build/scripts/test.sh capability_console_gate"
+    artifacts:
+      - "status:done"
+      - "pr:#38"
+      - "issue:#37"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_console_gate"
+
+  - taskId: M1_CAP_004
+    ownerRole: validator
+    dependsOn: [M1_CAP_003]
+    run: "./build/scripts/validate_bundle.sh"
+    artifacts:
+      - "status:done"
+      - "pr:#41"
+      - "issue:#40"
+    passCondition:
+      type: log_marker
+      marker: "VALIDATION_PASS"
+
+  - taskId: M1_CAP_005
+    ownerRole: planner
+    dependsOn: [M1_CAP_004]
+    run: "true"
+    artifacts:
+      - "status:done"
+      - "pr:#42"
+      - "issue:#30"
+      - "docs/architecture/ADR-capability-core.md"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M1_CAP_006
+    ownerRole: implementer
+    dependsOn: [M1_CAP_005]
+    run: "./build/scripts/test.sh capability_bitset_storage"
+    artifacts:
+      - "status:done"
+      - "pr:#44"
+      - "issue:#43"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_bitset_storage"
+
+  - taskId: M1_CAP_007
+    ownerRole: implementer
+    dependsOn: [M1_CAP_006]
+    run: "./build/scripts/test.sh capability_serial_gate"
+    artifacts:
+      - "status:done"
+      - "pr:#46"
+      - "issue:#45"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_serial_write_gate"
+
+  - taskId: M1_CAP_008
+    ownerRole: implementer
+    dependsOn: [M1_CAP_007]
+    run: "./build/scripts/test.sh capability_debug_exit_gate"
+    artifacts:
+      - "status:done"
+      - "pr:#49"
+      - "pr:#50"
+      - "issue:#48"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_debug_exit_gate"
+
+  - taskId: M1_CAP_009
+    ownerRole: implementer
+    dependsOn: [M1_CAP_008]
+    run: "./build/scripts/test.sh capability_audit_log"
+    artifacts:
+      - "status:done"
+      - "pr:#52"
+      - "issue:#51"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_audit_log"
+
+  - taskId: M1_CAP_010
+    ownerRole: implementer
+    dependsOn: [M1_CAP_009]
+    run: "./build/scripts/test.sh capability_mutation_audit"
+    artifacts:
+      - "status:done"
+      - "pr:#54"
+      - "pr:#58"
+      - "issue:#53"
+      - "issue:#56"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_mutation_audit"
+
+  - taskId: M1_CAP_011
+    ownerRole: implementer
+    dependsOn: [M1_CAP_010]
+    run: "./build/scripts/test.sh capability_audit_overflow"
+    artifacts:
+      - "status:done"
+      - "pr:#59"
+      - "issue:#55"
+      - "issue:#57"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_audit_overflow_contract"
+
+  - taskId: M1_CAP_012
+    ownerRole: validator
+    dependsOn: [M1_CAP_011]
+    run: "./build/scripts/validate_bundle.sh"
+    artifacts:
+      - "status:done"
+      - "pr:#61"
+      - "issue:#60"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_audit_summary_schema"
+
+  - taskId: M1_CAP_013
+    ownerRole: implementer
+    dependsOn: [M1_CAP_012]
+    run: "./build/scripts/test.sh capability_admin_gate"
+    artifacts:
+      - "status:done"
+      - "pr:#63"
+      - "issue:#62"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_mutation_admin_gate"
+
+  - taskId: M1_CAP_014
+    ownerRole: implementer
+    dependsOn: [M1_CAP_013]
+    run: "./build/scripts/test.sh capability_nondelegable_admin"
+    artifacts:
+      - "status:done"
+      - "pr:#65"
+      - "issue:#64"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_admin_nondelegable"
+
+  - taskId: M1_CAP_015
+    ownerRole: implementer
+    dependsOn: [M1_CAP_014]
+    run: "./build/scripts/test.sh capability_actor_attribution"
+    artifacts:
+      - "status:done"
+      - "pr:#67"
+      - "issue:#66"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_actor_attribution"
+
+  - taskId: M1_CAP_016
+    ownerRole: implementer
+    dependsOn: [M1_CAP_015]
+    run: "./build/scripts/test.sh capability_audit_sequence"
+    artifacts:
+      - "status:done"
+      - "pr:#69"
+      - "issue:#68"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_audit_sequence_integrity"
+
+  - taskId: M1_CAP_017
+    ownerRole: implementer
+    dependsOn: [M1_CAP_016]
+    run: "./build/scripts/test.sh capability_audit_checkpoints"
+    artifacts:
+      - "status:done"
+      - "pr:#71"
+      - "issue:#70"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_audit_checkpoints"
+
+  - taskId: M1_CAP_018
+    ownerRole: implementer
+    dependsOn: [M1_CAP_017]
+    run: "./build/scripts/test.sh capability_checkpoint_summary"
+    artifacts:
+      - "status:done"
+      - "pr:#73"
+      - "issue:#72"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_checkpoint_summary_contract"
+
+  - taskId: M1_CAP_019
+    ownerRole: implementer
+    dependsOn: [M1_CAP_018]
+    run: "./build/scripts/test.sh capability_sequence_window"
+    artifacts:
+      - "status:done"
+      - "pr:#75"
+      - "issue:#74"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_sequence_window_contract"
+
+  - taskId: M1_CAP_020
+    ownerRole: implementer
+    dependsOn: [M1_CAP_019]
+    run: "./build/scripts/test.sh capability_seal_chain"
+    artifacts:
+      - "status:done"
+      - "issue:#76"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_seal_chain_verify"
+
+  # ---------------------------------------------------------------------------
+  # M2 — Console service + Launcher + HelloApp (in flight)
+  # ---------------------------------------------------------------------------
+  - taskId: M2_CONSOLE_SLICE_PLAN
+    ownerRole: planner
+    dependsOn: [M1_CAP_020]
+    run: "true"
+    artifacts:
+      - "status:in_progress"
+      - "issue:#82"
+      - "issue:#81"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M2_HELLOAPP_ALLOW_DENY
+    ownerRole: test-engineer
+    dependsOn: [M2_CONSOLE_SLICE_PLAN]
+    run:
+      - "./build/scripts/test.sh helloapp_allow"
+      - "./build/scripts/test.sh helloapp_deny"
+    artifacts:
+      - "status:in_progress"
+      - "pr:#100"
+      - "issue:#92"
+    passCondition:
+      type: expression
+      expression: "log_has('TEST:PASS:helloapp_allow') && log_has('TEST:PASS:helloapp_deny')"
+
+  - taskId: M2_ABI_REFERENCE
+    ownerRole: planner
+    dependsOn: [M2_CONSOLE_SLICE_PLAN]
+    run: "true"
+    artifacts:
+      - "status:in_progress"
+      - "pr:#97"
+      - "issue:#93"
+      - "docs/abi/README.md"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M2_FS_SLICE_PLAN
+    ownerRole: planner
+    dependsOn: [M2_CONSOLE_SLICE_PLAN]
+    run: "true"
+    artifacts:
+      - "status:pending"
+      - "issue:#83"
+      - "issue:#108"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M2_CAP_AUDIT_DENY_LOG
+    ownerRole: planner
+    dependsOn: [M2_CONSOLE_SLICE_PLAN]
+    run: "true"
+    artifacts:
+      - "status:pending"
+      - "issue:#84"
+    passCondition:
+      type: exit_code
+      expected: 0
+
+  - taskId: M2_CAP_BROKER_SHARE
+    ownerRole: planner
+    dependsOn: [M2_CAP_AUDIT_DENY_LOG]
+    run: "true"
+    artifacts:
+      - "status:pending"
+      - "issue:#85"
+    passCondition:
+      type: exit_code
+      expected: 0
