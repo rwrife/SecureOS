@@ -21,7 +21,12 @@ VENDOR_DIR="$ROOT_DIR/vendor/bearssl"
 OUT_DIR="$ROOT_DIR/artifacts/bearssl"
 IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 
+# Determinism: enumerate sources from Makefile.secureos (no globbing). Use
+# -Wall -Werror to keep the freestanding compile honest, with the small
+# carve-outs BearSSL needs in freestanding mode (it uses a few constructs
+# the project's host build flags would otherwise reject).
 CC_FLAGS="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -nostdinc"
+CC_WARN_FLAGS="-Wall -Werror -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-implicit-fallthrough -Wno-sign-compare"
 
 build_bearssl_inner() {
   local src_dir="$BEARSSL_DIR"
@@ -36,7 +41,7 @@ build_bearssl_inner() {
 
   # Compile compat shims (lives outside the submodule)
   echo "Compiling secureos_compat.c ..."
-  clang $CC_FLAGS -I "$inc_dir" -I "$src_dir/src" \
+  clang $CC_FLAGS $CC_WARN_FLAGS -I "$inc_dir" -I "$src_dir/src" \
     -c "$VENDOR_DIR/secureos_compat.c" -o "$OUT_DIR/secureos_compat.o"
 
   # Compile each BearSSL source file.
@@ -55,12 +60,21 @@ build_bearssl_inner() {
     fi
     local obj_name
     obj_name=$(echo "$src_rel" | sed 's|/|_|g; s|\.c$|.o|')
-    clang $CC_FLAGS -I "$inc_dir" -I "$src_dir/src" \
+    clang $CC_FLAGS $CC_WARN_FLAGS -I "$inc_dir" -I "$src_dir/src" \
       -c "$src_path" -o "$OUT_DIR/$obj_name"
     count=$((count + 1))
   done
 
   echo "Compiled $count BearSSL objects into $OUT_DIR"
+  # Emit a deterministic size/count summary so the validator (and CI) can
+  # track code-size drift against the ~80-100KB budget called out in
+  # implementation_plan.md.
+  if command -v du >/dev/null 2>&1; then
+    local total_kb
+    total_kb=$(du -sk "$OUT_DIR" | awk '{print $1}')
+    echo "BEARSSL_OBJECT_COUNT=$count"
+    echo "BEARSSL_OBJECT_TOTAL_KB=$total_kb"
+  fi
 }
 
 mkdir -p "$OUT_DIR"
