@@ -44,21 +44,6 @@ jobs:
       - name: VM smoke boot (kernel console)
         run: ./build/scripts/run_qemu.sh --test kernel_console
 
-      - name: Image determinism check (baseline; non-blocking, #174)
-        # Builds the disk image twice from a clean tree and asserts the
-        # two sha256 sums match. Initial baseline is allowed to fail per
-        # the issue contract; result is uploaded under artifacts/runs/.
-        continue-on-error: true
-        run: ./build/scripts/check_image_determinism.sh
-
-      - name: Upload determinism run bundle
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runs-artifacts
-          path: artifacts/runs/
-          if-no-files-found: warn
-
       - name: Publish ISO to GitHub Release (tag builds)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -88,4 +73,20 @@ jobs:
         with:
           name: qemu-artifacts
           path: artifacts/qemu/
+          if-no-files-found: warn
+
+      # Run the determinism check AFTER artifact uploads. The script
+      # rebuilds the image from a clean tree (rm -rf artifacts/kernel
+      # artifacts/disk ...), so running it earlier wipes the kernel ISO
+      # before "Upload kernel artifacts" can publish it.
+      - name: Image determinism check (baseline; non-blocking, #174)
+        continue-on-error: true
+        run: ./build/scripts/check_image_determinism.sh
+
+      - name: Upload determinism run bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-artifacts
+          path: artifacts/runs/
           if-no-files-found: warn
