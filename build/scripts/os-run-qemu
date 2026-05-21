@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# os-run-qemu — deterministic agent wrapper around build/scripts/run_qemu.sh.
+#
+# Issue #162 / BUILD_ROADMAP §4.3. Forwards arguments to run_qemu.sh,
+# captures the per-test log + meta.json paths into a stable JSON summary,
+# and mirrors that summary into the per-run bundle (#161).
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./_os_wrapper_common.sh
+source "$SCRIPT_DIR/_os_wrapper_common.sh"
+
+TEST_NAME=""
+FORWARD=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json) shift ;;
+    --test)
+      TEST_NAME="${2:-}"
+      FORWARD+=("$1" "${2:-}")
+      shift 2
+      ;;
+    -h|--help)
+      cat <<EOF
+Usage: os-run-qemu [--json] --test <name> [run_qemu.sh args...]
+
+Deterministic agent wrapper around build/scripts/run_qemu.sh. Emits JSON
+{tool:"os-run-qemu", ok, exit_code, artifacts:[<log>, <meta.json>], ...}
+on stdout and mirrors it into the per-run bundle.
+EOF
+      exit 0
+      ;;
+    *) FORWARD+=("$1"); shift ;;
+  esac
+done
+
+if [[ -z "$TEST_NAME" ]]; then
+  echo "os-run-qemu: --test <name> is required" >&2
+  os_wrapper_emit "os-run-qemu" "false" 2 \
+    "$(os_wrapper_now)" "$(os_wrapper_now)" "missing --test argument"
+  exit 2
+fi
+
+ARTIFACTS=(
+  "artifacts/qemu/${TEST_NAME}.log"
+  "artifacts/qemu/${TEST_NAME}.meta.json"
+)
+
+os_wrapper_run_and_emit "os-run-qemu" \
+  "run_qemu.sh --test $TEST_NAME failed" \
+  "${ARTIFACTS[@]}" -- \
+  bash "$SCRIPT_DIR/run_qemu.sh" "${FORWARD[@]}"

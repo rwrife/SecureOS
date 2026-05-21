@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|fs_service|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -41,6 +41,7 @@ $testScript = switch ($TestName) {
   "scheduler" { "./build/scripts/test_scheduler.sh" }
   "sof_format" { "./build/scripts/test_sof_format.sh" }
   "fs_service" { "./build/scripts/test_fs_service.sh" }
+  "launcher_fs" { "./build/scripts/test_launcher_fs.sh" }
   "app_runtime" { "./build/scripts/test_app_runtime.sh" }
   "kernel_console" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_console" }
   "kernel_filedemo" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_filedemo" }
@@ -50,6 +51,7 @@ $testScript = switch ($TestName) {
   "codesign" { "./build/scripts/test_codesign.sh" }
   "tls" { "./build/scripts/test_tls.sh" }
   "https" { "./build/scripts/test_https.sh" }
+  "bearssl_compile" { "./build/scripts/test_bearssl_compile.sh" }
   "kernel_sessions" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_sessions" }
   default {
     Write-Host "Unknown test: $TestName"

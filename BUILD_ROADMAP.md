@@ -182,6 +182,11 @@ Each wrapper must:
 - include artifact paths,
 - include stable pass/fail fields.
 
+Wrapper contract and JSON envelope: see
+[`docs/test-plans/wrappers.md`](docs/test-plans/wrappers.md). Implementation
+lives under `build/scripts/os-*` (sh + ps1 peers); each wrapper mirrors its
+envelope into `artifacts/runs/<run_id>/<tool>.json` per §4.4.
+
 ## 4.4 Artifact policy
 
 Store per-run outputs under `artifacts/runs/<timestamp-or-id>/`:
@@ -193,6 +198,10 @@ Store per-run outputs under `artifacts/runs/<timestamp-or-id>/`:
 - validator report JSON
 
 This enables replay, diffing, and agent postmortems.
+
+See [`docs/test-plans/artifact-bundle.md`](docs/test-plans/artifact-bundle.md) for the
+on-disk layout, `<id>` derivation rule, and the `SECUREOS_RUN_ID` env-var
+contract that keeps all artifacts from one run co-located.
 
 ## 5) Milestones After Boot Slice
 
@@ -322,7 +331,7 @@ Suggested policy:
 8. Add `hello_boot` test target and harness parser.
 9. Add failing-test fixture to verify negative-path detection.
 10. Add machine-readable validator report format.
-11. Add task DAG schema (`docs/test-plans/task-schema.md`).
+11. Add task DAG schema (`docs/test-plans/task-schema.md`). — see [`docs/test-plans/task-schema.md`](docs/test-plans/task-schema.md) for the canonical field list, `pass_condition` DSL, and worked example.
 12. Add initial milestone/task registry (`docs/test-plans/m0-m1-plan.yaml`).
 13. Add coding conventions for kernel/module boundaries.
 14. Add architecture decision record selecting boot protocol.
