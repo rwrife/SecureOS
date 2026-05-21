@@ -18,8 +18,9 @@ changes are deliberate and reviewable rather than emergent.
   in `docs/architecture/CAPABILITIES.md`.
 - [manifest.md](manifest.md) — Launcher manifest schema: how an app declares
   the capabilities it needs and how the launcher mediates grants today.
-- [ipc-wire.md](ipc-wire.md) — IPC wire format + error model (stub; owned
-  by the M1 synchronous IPC plan, #180).
+- [ipc-wire.md](ipc-wire.md) — IPC wire format (`ipc_msg_v0`) + error
+  model (`ipc_result_t`) for `OS_ABI_VERSION = 0`. Specified by #194;
+  implementation tracked by the M1 sync-IPC plan (#180 / #185).
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
 
