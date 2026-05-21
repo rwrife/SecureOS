@@ -1,0 +1,59 @@
+# .github/workflows/lint.yml — BUILD_ROADMAP §6.1 stage 1
+# (lint / format / static checks), issue #182.
+#
+# Standalone workflow so it lights up green on doc-only PRs even while
+# the merge-queue unblock chain (#104 → #107 → #125 → #134) keeps
+# pr-build.yml red. Runs on every PR and on pushes to main.
+#
+# Cross-platform parity: the lint logic lives in build/scripts/lint.sh,
+# invoked here directly on the ubuntu runner (no toolchain container)
+# because the only tools we need are clang-format + shellcheck, both
+# cheap apt installs. The PowerShell peer (lint.ps1) shells into the
+# toolchain container for Windows contributors, matching the #156 rule.
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure build scripts are executable
+        # Defensive chmod, mirroring pr-build.yml. Several validator
+        # scripts have repeatedly landed on `main` without the `+x`
+        # bit (#90, #91, #101); restoring it here keeps lint green
+        # even if a future commit drops it again.
+        run: |
+          find build/scripts -type f -name "*.sh" -exec chmod +x {} +
+
+      - name: Install lint tooling
+        # clang-format and shellcheck are not in the pinned toolchain
+        # image (build/docker/Dockerfile.toolchain). Installing them
+        # directly on the runner keeps this stage cheap and decoupled
+        # from the docker build that pr-build.yml / iso-vm-build.yml do.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              clang-format \
+              shellcheck
+
+      - name: Run lint
+        # shellcheck + parity are hard-gating from day 1.
+        # clang-format stays visible-but-non-blocking until a tree-wide
+        # reformat lands; flip LINT_CLANG_FORMAT_FATAL=1 once it does.
+        # LINT_REQUIRE_TOOLS=1 means a missing tool is a hard fail
+        # (since we just apt-installed both, that should be impossible
+        # — but it catches a regression in the install step above).
+        env:
+          LINT_REQUIRE_TOOLS: "1"
+          LINT_CLANG_FORMAT_FATAL: "0"
+        run: bash build/scripts/lint.sh

@@ -2,9 +2,6 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-ISO_ROOT="$ROOT_DIR/artifacts/iso"
-KERNEL_ELF="$ROOT_DIR/artifacts/kernel/kernel.elf"
-ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
 IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 
 build_kernel_image_inner() {
