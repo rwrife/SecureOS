@@ -1,6 +1,6 @@
 # 2026-05-19 M1 Synchronous IPC Primitive (Plan)
 
-**Status:** Plan-only (per #180). Implementation deferred to follow-up execute issues enumerated below.
+**Status:** Implemented in PR for #210 (v0 scaffold: `kernel/ipc/` with `ipc_port.{c,h}`, `ipc_msg.h`, `ipc_ops.{c,h}`, capability gates `CAP_IPC_SEND` / `CAP_IPC_RECV`, deterministic test target `ipc_sync_v0`). Plan-level non-goals remain deferred to follow-up issues.
 **Tracks:** BUILD_ROADMAP §5.1 (M1 minimal kernel isolation + IPC skeleton).
 **Owner:** kernel
 **Last reviewed:** 2026-05-19
