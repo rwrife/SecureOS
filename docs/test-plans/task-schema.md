@@ -1,173 +1,90 @@
-# Task DAG Schema
+# Task DAG schema (walk-through)
 
-> Canonical record shape for planner / implementer / test-engineer / validator
-> agents. Anchors `BUILD_ROADMAP.md` §4.1 ("Task model") and §8 item 11.
-> Referenced from `AGENTS.md` and from the milestone task registry in
-> `docs/test-plans/` (see #109).
+The normative schema for SecureOS agent task DAGs lives at
+[`manifests/task-dag.schema.json`](../../manifests/task-dag.schema.json).
+This document is a short, human-readable companion — one page, no
+re-statement of the schema fields, just the shape and the conventions that
+the milestone registry layers on top.
 
-This file defines the **fields**, **types**, and **invariants** of one task
-record. It does **not** define a validator implementation — `os-validate`
-(see `BUILD_ROADMAP.md` §4.3 and issue #162) is the consumer. Reports emitted
-by validators (see `validator_report.json`, issue #110) reuse the same field
-vocabulary so a task and its result can be joined by `task_id` alone.
+## Shape at a glance
 
-## 1. File format
-
-- Registries live under `docs/test-plans/` (e.g.
-  `docs/test-plans/m0-m1-plan.yaml`, see §8 item 12).
-- One file per milestone; each file is a YAML mapping with a single top-level
-  key `tasks:` whose value is a list of task records described below.
-- Comments (`#`) are allowed. No anchors / merge keys — keep registries
-  trivially parseable.
-- Field order in a record is not significant, but the canonical order in
-  examples below should be preferred for readability.
-
-## 2. Required fields
-
-| Field              | Type            | Notes                                                                                              |
-| ------------------ | --------------- | -------------------------------------------------------------------------------------------------- |
-| `task_id`          | string          | Stable identifier. Format: `<MILESTONE>-<AREA>-<NNN>`, e.g. `M1-CAP-009`. ASCII, uppercase, no spaces. |
-| `milestone`        | string          | One of `M0`, `M1`, `M2`, `M3`, `M4`, `M5`, `M6` (matches `BUILD_ROADMAP.md` §5).                   |
-| `owner_role`       | enum            | One of `planner`, `implementer`, `test_engineer`, `validator`. Matches §4.2 role contracts.        |
-| `depends_on`       | list&lt;string&gt;    | Zero or more `task_id` values that must reach `status: done` first. Cycles are an error.           |
-| `run`              | string          | Single shell command. Must be invokable from repo root inside the pinned toolchain container.      |
-| `expected_outputs` | list&lt;string&gt;    | Repo-relative artifact paths the task is expected to produce or update (`artifacts/...`, etc.).     |
-| `pass_condition`   | string          | Boolean expression over `exit_code` and `log_has('<marker>')` (see §3).                           |
-| `status`           | enum            | One of `pending`, `in_progress`, `done`, `blocked`. Validator-writable only.                       |
-
-## 3. `pass_condition` expression DSL
-
-Minimal, total, side-effect-free. A `pass_condition` is a boolean expression
-built from:
-
-- Literals: `true`, `false`, integer literals.
-- Variables:
-  - `exit_code` — the process exit code of `run`.
-- Functions:
-  - `log_has('<marker>')` — true iff the marker substring appears literally in
-    the captured serial log for this task's run.
-- Operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, parentheses.
-
-The harness already emits the structured markers defined in
-`BUILD_ROADMAP.md` §2.5:
-
-- `TEST:START:<name>`
-- `TEST:PASS:<name>`
-- `TEST:FAIL:<name>:<reason>`
-
-So the canonical positive-path condition is:
-
-```
-exit_code == 0 && log_has('TEST:PASS:<name>')
-```
-
-and the canonical negative-path condition is:
-
-```
-exit_code != 0 && log_has('TEST:FAIL:<name>')
-```
-
-Out of scope for this version of the DSL: regex, arithmetic on `exit_code`,
-multi-line log assertions, JSON path queries. Add them in a follow-up only
-when a concrete task requires them.
-
-## 4. Optional fields
-
-| Field         | Type         | Notes                                                                                  |
-| ------------- | ------------ | -------------------------------------------------------------------------------------- |
-| `description` | string       | One-line human summary. Encouraged on every task.                                      |
-| `issue`       | integer      | Linked GitHub issue number (no `#`).                                                   |
-| `pr`          | integer      | Linked PR number once filed.                                                           |
-| `timeout_s`   | integer      | Wall-clock timeout for `run`. Defaults to harness default if omitted.                  |
-| `notes`       | string       | Free text. Validators must not parse this.                                             |
-
-Unknown fields are an error — registries must round-trip without loss.
-
-## 5. Status transitions
-
-```
-pending ──► in_progress ──► done
-   │             │
-   └────────► blocked ◄──────┘
-```
-
-- Only the **validator** role mutates `status`.
-- `in_progress → done` requires the most recent run to satisfy
-  `pass_condition` and produce every entry in `expected_outputs`.
-- `blocked` is allowed from any state; transition out of `blocked` requires
-  re-running the task.
-
-## 6. Worked example
-
-The example below is **M1-CAP-009 audit ring**, modeled after the existing
-capability-audit slice (PR #98, issue #84). It exercises every required
-field, both kinds of `pass_condition`, and a `depends_on` edge to the
-preceding console-write slice.
+A task-DAG document has three top-level fields:
 
 ```yaml
+version: "1.0"
+pipeline:
+  name: <pipeline-id>
+  entryTasks: [<TASK_ID>, ...]
 tasks:
-  - task_id: M1-CAP-009
-    milestone: M1
-    owner_role: test_engineer
-    description: >
-      Structured capability audit log line + non-interference test for the
-      console-write capability slice.
-    depends_on:
-      - M1-CAP-008          # launcher-mediated console-write slice (#81)
-    run: build/scripts/test.sh capability_audit
-    expected_outputs:
-      - artifacts/qemu/capability_audit.log
-      - artifacts/runs/latest/validator_report.json
-    pass_condition: exit_code == 0 && log_has('TEST:PASS:capability_audit')
-    status: pending
-    issue: 84
-    pr: 98
-    timeout_s: 120
-
-  - task_id: M1-CAP-009-NEG
-    milestone: M1
-    owner_role: test_engineer
-    description: >
-      Negative-path companion: deny console-write and assert the audit ring
-      records a DENY entry with the documented marker.
-    depends_on:
-      - M1-CAP-009
-    run: build/scripts/test.sh capability_audit_deny
-    expected_outputs:
-      - artifacts/qemu/capability_audit_deny.log
-    pass_condition: exit_code != 0 && log_has('TEST:FAIL:capability_audit_deny')
-    status: pending
-    issue: 84
+  - taskId: <TASK_ID>            # ^[A-Z0-9_-]+$
+    ownerRole: planner | implementer | test-engineer | validator
+    dependsOn: [<TASK_ID>, ...]  # optional
+    run: "<command>" | ["<cmd1>", "<cmd2>"]
+    artifacts: ["<path-or-tag>", ...]   # optional
+    passCondition:
+      type: exit_code | log_marker | expression
+      # plus one of: expected | marker | expression
 ```
 
-## 7. Relationship to harness markers and validator reports
+`additionalProperties: false` is enforced on every object level, so the
+registry cannot introduce new top-level keys without a schema bump. The
+registry encodes documentation-only metadata (status, PR/issue refs) inside
+the free-form `artifacts[]` array — see "Conventions" below.
 
-- The `TEST:START` / `TEST:PASS` / `TEST:FAIL` markers from
-  `BUILD_ROADMAP.md` §2.5 are the **only** log-side contract a
-  `pass_condition` should rely on; tasks that need richer assertions should
-  emit additional structured markers from the test program itself rather
-  than parsing free-form output.
-- `validator_report.json` (see #110) re-emits, per task, at minimum:
-  `task_id`, `status`, `exit_code`, the resolved boolean value of
-  `pass_condition`, and the absolute paths of every `expected_outputs`
-  entry that was actually produced. Consumers should treat
-  `validator_report.json` as the canonical post-run view of a task record.
-- `os-validate` (see #162) is the deterministic wrapper that loads a
-  registry, executes selected tasks in dependency order, and writes the
-  report.
+## Pass condition shapes
 
-## 8. Out of scope
+| `type`       | Required sibling | Example                                              |
+| ------------ | ---------------- | ---------------------------------------------------- |
+| `exit_code`  | `expected`       | `expected: 0`                                        |
+| `log_marker` | `marker`         | `marker: "QEMU_PASS:hello_boot"`                     |
+| `expression` | `expression`     | `expression: "exit_code == 0 && log_has('TEST:PASS:cap_model_skeleton')"` |
 
-- A reference loader / validator implementation.
-- Backfilling all historical tasks into a registry (that work is tracked by
-  #109).
-- A richer expression language for `pass_condition` (add fields only as
-  concrete tasks require them).
+Validators consume `passCondition` to decide whether a task is green; agents
+consume `run` to know what to execute and `dependsOn` to topologically order
+work.
 
-## 9. Cross-references
+## Conventions used by `m0-m1-plan.yaml`
 
-- `BUILD_ROADMAP.md` §2.5 (harness markers), §4.1 (task model), §4.3
-  (deterministic wrappers), §4.4 (artifact policy), §8 item 11 (this schema).
-- `AGENTS.md` (agent role conventions).
-- Issues: #109 (registry consumer), #110 (validator JSON report), #162
-  (`os-validate` wrapper), #164 (capability-denied log marker contract).
+The registry is execution-shaped (every entry has a `run` and a
+`passCondition`) so it validates against the schema as-is. Documentation
+metadata is encoded as string tags in `artifacts[]`:
+
+- `status:done` / `status:in_progress` / `status:pending` — current state.
+- `pr:#<num>` — merged or open PR that lands the task.
+- `issue:#<num>` — originating issue.
+- Real artifact paths (e.g. `artifacts/qemu/hello_boot.log`) can co-exist
+  with the tags above.
+
+Example task entry (CAP-007, capability core, done):
+
+```yaml
+- taskId: M1_CAP_007
+  ownerRole: implementer
+  dependsOn: [M1_CAP_006]
+  run: "./build/scripts/test.sh capability_serial_gate"
+  artifacts:
+    - "status:done"
+    - "pr:#46"
+    - "issue:#45"
+  passCondition:
+    type: log_marker
+    marker: "TEST:PASS:cap_serial_write_gate"
+```
+
+## Validating a registry
+
+The schema is plain JSON Schema (draft 2020-12). A registry can be checked
+locally with `jsonschema`:
+
+```bash
+python3 - <<'PY'
+import json, yaml, jsonschema
+schema = json.load(open("manifests/task-dag.schema.json"))
+plan   = yaml.safe_load(open("docs/test-plans/m0-m1-plan.yaml"))
+jsonschema.validate(plan, schema)
+print("OK")
+PY
+```
+
+See [`manifests/task-dag.example.json`](../../manifests/task-dag.example.json)
+for a minimal two-task example.
