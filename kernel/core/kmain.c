@@ -77,6 +77,8 @@ void kmain(void) {
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_EVENT_PUBLISH);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_APP_EXEC);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_NETWORK);
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_IPC_SEND);
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_IPC_RECV);
 
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_CONSOLE_WRITE);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_DISK_IO_REQUEST);

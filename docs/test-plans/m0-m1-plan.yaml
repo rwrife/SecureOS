@@ -446,3 +446,13 @@ tasks:
     passCondition:
       type: exit_code
       expected: 0
+
+  - taskId: M1_IPC_SYNC_V0
+    ownerRole: implementer
+    run: "./build/scripts/test.sh ipc_sync_v0"
+    artifacts:
+      - "status:pending"
+      - "issue:#210"
+    passCondition:
+      type: exit_code
+      expected: 0
