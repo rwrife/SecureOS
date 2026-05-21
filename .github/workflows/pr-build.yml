@@ -45,6 +45,14 @@ jobs:
       - name: Full validation bundle (machine-readable)
         run: ./build/scripts/validate_bundle.sh
 
+      - name: Capability matrix harness (non-blocking, nightly intent)
+        # Issue #151 / BUILD_ROADMAP §6.1 nightly + §6.2.
+        # Initially advisory: continue-on-error keeps this from deepening the
+        # current PR-red posture while the matrix cells stabilize. Flip to
+        # required once cell coverage and signal are trusted.
+        continue-on-error: true
+        run: ./build/scripts/test_matrix.sh
+
       - name: Upload kernel artifacts
         if: always()
         uses: actions/upload-artifact@v4
