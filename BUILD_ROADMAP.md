@@ -319,6 +319,11 @@ Suggested policy:
 - freeze to `1` once SDK beta is announced,
 - maintain compatibility shims for at least one major version.
 
+In-tree source of truth: `user/include/secureos_abi.h` defines
+`OS_ABI_VERSION_MAJOR`, `OS_ABI_VERSION_MINOR`, and the packed
+`OS_ABI_VERSION` constant; `os_get_abi_version()` exposes it at runtime.
+See `docs/abi/versioning.md` for the full policy and field layout.
+
 ## 8) Immediate Next 14 Tasks (actionable backlog)
 
 1. Add pinned toolchain Dockerfile and lock file.

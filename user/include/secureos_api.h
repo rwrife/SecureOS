@@ -1,6 +1,8 @@
 #ifndef SECUREOS_API_H
 #define SECUREOS_API_H
 
+#include "secureos_abi.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -44,6 +46,14 @@ os_status_t os_net_ping(const char *host, char *out_buffer, unsigned int out_buf
 os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size);
+
+/*
+ * Information-only accessor for the runtime ABI version. Returns the same
+ * packed (major << 16) | minor value defined by OS_ABI_VERSION in
+ * secureos_abi.h. Intentionally gated by no capability: version queries
+ * carry no authority and must be safe to call from any user app.
+ */
+unsigned int os_get_abi_version(void);
 
 #ifdef __cplusplus
 }
