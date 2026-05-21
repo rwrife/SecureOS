@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://secureos.dev/schemas/manifest/v0.json",
+  "title": "SecureOS App Manifest (v0)",
+  "description": "Launcher-consumed manifest schema for SecureOS app modules. Bound to OS_ABI_VERSION=0 (see docs/abi/versioning.md, issue #150). Loaders MUST reject unknown fields so behavior cannot silently drift; see docs/abi/manifest.md compatibility policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "os_abi_version", "app", "capabilities"],
+  "properties": {
+    "manifest_version": {
+      "description": "Schema version of this document. v0 is the pre-freeze iterating shape; bumping requires updates in docs/abi/manifest.md §Compatibility policy.",
+      "type": "integer",
+      "const": 0
+    },
+    "os_abi_version": {
+      "description": "OS ABI family this manifest targets. Must match the kernel's OS_ABI_VERSION constant (issue #150). A manifest declaring an incompatible value MUST be rejected by the launcher.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "subject_id", "binary"],
+      "properties": {
+        "id": {
+          "description": "Stable app identifier. Lowercase letters, digits, dash, underscore.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
+        },
+        "version": {
+          "description": "App version. SemVer is recommended but only a non-empty string is enforced at v0.",
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_id": {
+          "description": "cap_subject_id_t the launcher registers for this app. Must be unique across loaded apps; see docs/abi/capabilities.md (CAP_TABLE_MAX_SUBJECTS = 8 at v0).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "binary": {
+          "description": "Path to the app binary, relative to image root (e.g. apps/helloapp.bin).",
+          "type": "string",
+          "minLength": 1
+        },
+        "signer_key_id": {
+          "description": "Identifier of the ed25519 signing key (see plans/2026-03-16-code-signing-ed25519-chain.md). Required once CAP_APP_EXEC is enforced end-to-end; optional during the M2/M3 transition.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request"],
+      "properties": {
+        "request": {
+          "description": "Capabilities the app may use. The launcher will refuse to grant anything not listed here, even if launcher.auto_grant_at_launch references it.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/capabilityId" }
+        },
+        "optional": {
+          "description": "Subset of `request` that the app tolerates being denied; the app MUST check OS_STATUS_DENIED and degrade gracefully (see docs/abi/capability-deny-contract.md).",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/capabilityId" },
+          "default": []
+        }
+      }
+    },
+    "provides": {
+      "description": "Services / endpoints this app exposes to other subjects via IPC (see docs/abi/ipc-wire.md). Empty/omitted means the app is a pure consumer.",
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["endpoint"],
+        "properties": {
+          "endpoint": {
+            "description": "Stable endpoint name. Reverse-DNS-ish recommended (e.g. os.console.write).",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,127}$"
+          },
+          "requires_capability": {
+            "description": "Capability a caller must already hold to invoke this endpoint, if any. The provider still enforces deny-by-default at the gate.",
+            "$ref": "#/$defs/capabilityId"
+          }
+        }
+      }
+    },
+    "launcher": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "auto_grant_at_launch": {
+          "description": "Subset of `capabilities.request` the launcher grants unconditionally at startup. Anything in `request` but not here is denied until brokered (#85) or admin-granted.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/capabilityId" },
+          "default": []
+        },
+        "require_user_confirm": {
+          "description": "Subset of `capabilities.request` that must be confirmed by the user (or broker) at launch / on demand. MUST be disjoint from auto_grant_at_launch.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/capabilityId" },
+          "default": []
+        }
+      }
+    },
+    "signature": {
+      "description": "Detached signature block. Required once CAP_APP_EXEC is enforced end-to-end (post-#133 chain). Optional at v0 only for unsigned bootstrap apps under CAP_CODESIGN_BYPASS in sealed-build mode.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "signature_path"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["ed25519"]
+        },
+        "signer_key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signature_path": {
+          "description": "Path (relative to image root) of the detached signature file covering `app.binary`.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "capabilityId": {
+      "description": "Capability identifier as listed in docs/abi/capabilities.md. Pattern is intentionally narrow so typos surface at validation time rather than at grant time.",
+      "type": "string",
+      "pattern": "^CAP_[A-Z0-9_]{2,62}$"
+    }
+  }
+}
