@@ -31,6 +31,9 @@ test_codesign
 test_ed25519
 test_event_bus
 test_fs_service
+test_fs_service_ephemeral_reset
+test_fs_service_persist_allow
+test_fs_service_persist_deny
 test_harness_defense
 test_harness_negative
 test_helloapp_allow
