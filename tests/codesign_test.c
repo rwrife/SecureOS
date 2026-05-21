@@ -108,9 +108,9 @@ static void test_signed_roundtrip(void) {
   ed25519_create_keypair(SECUREOS_INTERMEDIATE_SEED, inter_pub, inter_priv);
 
   cert_build(root_pub, root_priv, inter_pub, &cert);
-  check("cert_build", 1);
+  check("cert_build", cert.magic[0] == 0x53 && cert.magic[1] == 0x43);
   cert_serialize(&cert, cert_data);
-  check("cert_serialize", 1);
+  check("cert_serialize", cert_data[0] == 0x53 && cert_data[1] == 0x43);
 
   elf_len = build_test_elf(elf, sizeof(elf), "print hello\n");
   check("elf_built", elf_len > 0);
