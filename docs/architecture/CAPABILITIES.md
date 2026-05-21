@@ -92,3 +92,30 @@ Validation command:
 - CAP-017 is complete: capability audit now tracks deterministic tamper-evident checkpoint seals to detect retained-window divergence without changing authorization behavior.
 - CAP-018 is complete: capability-audit summary artifacts now surface checkpoint metadata fields that validator contracts enforce in CI.
 - CAP-019 is planned: sequence-window attestation will enforce continuity consistency between retained audit events and checkpoint summary windows.
+
+## NET-001 deny-by-default URL scheme gate
+
+The user-space `netlib` http/https dispatch path now classifies the leading
+URL scheme through a single helper (`netlib_url_classify_scheme`) before any
+DNS, TCP, or TLS work is attempted.
+
+- `netlib_http_get` accepts both `http://` and `https://` URLs and routes
+  HTTPS through the same scheme-gated path that re-dispatches to the TLS
+  client.
+- `netlib_https_get` accepts only `https://` URLs and denies plaintext or
+  unknown schemes with `NETLIB_STATUS_DENIED`.
+- `http_request` re-validates the scheme as a defence-in-depth check so the
+  lower-level entrypoint enforces the same deny-by-default policy.
+- Empty, NULL, scheme-less, protocol-relative (`//host/...`), and
+  non-network schemes (`file://`, `ftp://`, `javascript:`, `data:`, ...)
+  are denied without producing externally visible network activity.
+- Capability enforcement still runs on top of this: the netlib syscall
+  surface in `kernel/user/process.c` requires `CAP_NETWORK` for raw frame
+  and device access, and the scheme gate stacks in front of it so missing
+  capability and unsupported scheme are independent failure modes.
+
+Validation commands:
+
+- `./build/scripts/test.sh netlib_url_scheme`
+- `./build/scripts/test.sh https`
+

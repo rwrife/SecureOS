@@ -259,3 +259,138 @@ cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_i
   cap_audit_record(CAP_AUDIT_OP_CHECK, subject_id, subject_id, capability_id, result);
   return result;
 }
+
+/*
+ * Audit event serialization.
+ *
+ * These helpers do not touch any module-level audit state. They translate the
+ * already-recorded event tuple into a stable textual form for serial logs and
+ * tests. Non-interference: callers can format an event any number of times
+ * without affecting capability decisions or the audit ring.
+ */
+
+cap_audit_outcome_t cap_audit_event_outcome(const cap_audit_event_t *event) {
+  if (event == 0) {
+    return CAP_AUDIT_OUTCOME_DENY;
+  }
+
+  switch (event->operation) {
+    case CAP_AUDIT_OP_CHECK:
+      return (event->result == CAP_OK) ? CAP_AUDIT_OUTCOME_ALLOW
+                                       : CAP_AUDIT_OUTCOME_DENY;
+    case CAP_AUDIT_OP_GRANT:
+      return (event->result == CAP_OK) ? CAP_AUDIT_OUTCOME_GRANTED
+                                       : CAP_AUDIT_OUTCOME_GRANT_DENIED;
+    case CAP_AUDIT_OP_REVOKE:
+      return (event->result == CAP_OK) ? CAP_AUDIT_OUTCOME_REVOKED
+                                       : CAP_AUDIT_OUTCOME_REVOKE_DENIED;
+  }
+
+  return CAP_AUDIT_OUTCOME_DENY;
+}
+
+static const char *cap_audit_op_name(cap_audit_op_t op) {
+  switch (op) {
+    case CAP_AUDIT_OP_CHECK:  return "CHECK";
+    case CAP_AUDIT_OP_GRANT:  return "GRANT";
+    case CAP_AUDIT_OP_REVOKE: return "REVOKE";
+  }
+  return "UNKNOWN";
+}
+
+static const char *cap_audit_result_name(cap_result_t result) {
+  switch (result) {
+    case CAP_OK:                  return "OK";
+    case CAP_ERR_MISSING:         return "MISSING";
+    case CAP_ERR_SUBJECT_INVALID: return "SUBJECT_INVALID";
+    case CAP_ERR_CAP_INVALID:     return "CAP_INVALID";
+  }
+  return "UNKNOWN";
+}
+
+static const char *cap_audit_outcome_name(cap_audit_outcome_t outcome) {
+  switch (outcome) {
+    case CAP_AUDIT_OUTCOME_ALLOW:          return "ALLOW";
+    case CAP_AUDIT_OUTCOME_DENY:           return "DENY";
+    case CAP_AUDIT_OUTCOME_GRANTED:        return "GRANTED";
+    case CAP_AUDIT_OUTCOME_GRANT_DENIED:   return "GRANT_DENIED";
+    case CAP_AUDIT_OUTCOME_REVOKED:        return "REVOKED";
+    case CAP_AUDIT_OUTCOME_REVOKE_DENIED:  return "REVOKE_DENIED";
+  }
+  return "UNKNOWN";
+}
+
+/* Minimal freestanding decimal writer. Writes `value` into `buf` and returns
+ * the number of bytes written, or -1 if `buf_size` is too small. */
+static int cap_audit_write_u64(uint64_t value, char *buf, size_t buf_size) {
+  char tmp[21];
+  size_t n = 0u;
+  if (value == 0u) {
+    tmp[n++] = '0';
+  } else {
+    while (value > 0u && n < sizeof(tmp)) {
+      tmp[n++] = (char)('0' + (int)(value % 10u));
+      value /= 10u;
+    }
+  }
+  if (n > buf_size) {
+    return -1;
+  }
+  for (size_t i = 0; i < n; ++i) {
+    buf[i] = tmp[n - 1u - i];
+  }
+  return (int)n;
+}
+
+static int cap_audit_write_str(const char *s, char *buf, size_t buf_size) {
+  size_t n = 0u;
+  while (s[n] != '\0') {
+    if (n >= buf_size) {
+      return -1;
+    }
+    buf[n] = s[n];
+    ++n;
+  }
+  return (int)n;
+}
+
+#define CAP_AUDIT_APPEND_STR(literal)                                          \
+  do {                                                                         \
+    int w = cap_audit_write_str((literal), buf + pos, buf_size - 1u - pos);   \
+    if (w < 0) return -1;                                                      \
+    pos += (size_t)w;                                                          \
+  } while (0)
+
+#define CAP_AUDIT_APPEND_U64(value)                                            \
+  do {                                                                         \
+    int w = cap_audit_write_u64((value), buf + pos, buf_size - 1u - pos);     \
+    if (w < 0) return -1;                                                      \
+    pos += (size_t)w;                                                          \
+  } while (0)
+
+int cap_audit_format_event(const cap_audit_event_t *event,
+                           char *buf,
+                           size_t buf_size) {
+  if (event == 0 || buf == 0 || buf_size == 0u) {
+    return -1;
+  }
+
+  size_t pos = 0u;
+  CAP_AUDIT_APPEND_STR("CAP_AUDIT:seq=");
+  CAP_AUDIT_APPEND_U64(event->sequence_id);
+  CAP_AUDIT_APPEND_STR(":op=");
+  CAP_AUDIT_APPEND_STR(cap_audit_op_name(event->operation));
+  CAP_AUDIT_APPEND_STR(":actor=");
+  CAP_AUDIT_APPEND_U64((uint64_t)event->actor_subject_id);
+  CAP_AUDIT_APPEND_STR(":subject=");
+  CAP_AUDIT_APPEND_U64((uint64_t)event->subject_id);
+  CAP_AUDIT_APPEND_STR(":cap=");
+  CAP_AUDIT_APPEND_U64((uint64_t)event->capability_id);
+  CAP_AUDIT_APPEND_STR(":result=");
+  CAP_AUDIT_APPEND_STR(cap_audit_result_name(event->result));
+  CAP_AUDIT_APPEND_STR(":outcome=");
+  CAP_AUDIT_APPEND_STR(cap_audit_outcome_name(cap_audit_event_outcome(event)));
+
+  buf[pos] = '\0';
+  return (int)pos;
+}

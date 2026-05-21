@@ -59,6 +59,65 @@ mkdir -p "$ART_DIR"
 LOG_FILE="$ART_DIR/${TEST_NAME}.log"
 META_FILE="$ART_DIR/${TEST_NAME}.meta.json"
 
+# Per-run bundle layout (BUILD_ROADMAP §4.4, issue #161).
+# Honor SECUREOS_RUN_ID when set by a top-level driver (e.g. validate_bundle.sh)
+# so all artifacts from one run co-locate under artifacts/runs/<id>/.
+if [[ -z "${SECUREOS_RUN_ID:-}" ]]; then
+  SECUREOS_RUN_ID="$(date -u +"%Y%m%dT%H%M%SZ")-$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo nogit)"
+fi
+RUN_DIR="$ROOT_DIR/artifacts/runs/$SECUREOS_RUN_ID"
+RUN_QEMU_DIR="$RUN_DIR/qemu"
+mkdir -p "$RUN_QEMU_DIR"
+RUN_JSON="$RUN_QEMU_DIR/run.json"
+
+finalize_run_bundle() {
+  local rc="$?"
+  # Best-effort: never fail the parent script on bookkeeping issues.
+  set +e
+  if [[ -f "$LOG_FILE" ]]; then cp -f "$LOG_FILE" "$RUN_QEMU_DIR/" 2>/dev/null; fi
+  if [[ -f "$META_FILE" ]]; then cp -f "$META_FILE" "$RUN_QEMU_DIR/" 2>/dev/null; fi
+  TEST_NAME="$TEST_NAME" LOG_FILE="$LOG_FILE" META_FILE="$META_FILE" \
+    RUN_ID="$SECUREOS_RUN_ID" RUN_JSON="$RUN_JSON" RC="$rc" \
+    python3 - <<'PY' 2>/dev/null || true
+import json, os, pathlib
+run_json = pathlib.Path(os.environ["RUN_JSON"])
+test = os.environ["TEST_NAME"]
+meta_path = pathlib.Path(os.environ["META_FILE"])
+meta = {}
+if meta_path.exists():
+    try:
+        meta = json.loads(meta_path.read_text())
+    except Exception:
+        meta = {}
+entry = {
+    "test": test,
+    "logFile": f"qemu/{test}.log",
+    "metaFile": f"qemu/{test}.meta.json" if meta_path.exists() else None,
+    "command": meta.get("command", []),
+    "qemuExitCode": meta.get("qemuExitCode"),
+    "timedOut": meta.get("timedOut"),
+    "markers": meta.get("markers"),
+    "status": meta.get("status", "unknown"),
+    "wrapperExitCode": int(os.environ["RC"]),
+}
+doc = {"schemaVersion": 1, "runId": os.environ["RUN_ID"], "invocations": []}
+if run_json.exists():
+    try:
+        loaded = json.loads(run_json.read_text())
+        if isinstance(loaded, dict) and isinstance(loaded.get("invocations"), list):
+            doc = loaded
+            doc.setdefault("schemaVersion", 1)
+            doc["runId"] = os.environ["RUN_ID"]
+    except Exception:
+        pass
+doc["invocations"].append(entry)
+run_json.parent.mkdir(parents=True, exist_ok=True)
+run_json.write_text(json.dumps(doc, indent=2) + "\n")
+PY
+  exit "$rc"
+}
+trap finalize_run_bundle EXIT
+
 case "$TEST_NAME" in
   hello_boot|hello_boot_fail)
     if [[ "$TEST_NAME" == "hello_boot" ]]; then
@@ -257,7 +316,18 @@ scripts = {
       ('secureos[s0]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_persistence': [
-      ('secureos[s0]> ', 'cat appdemo.txt\ny\nexit pass\n'),
+      # Issue #188: a single mega-blob ('cat appdemo.txt\ny\nexit pass\n')
+      # was getting truncated by the guest's input pacing during the cat
+      # consent prompts, so only the tail 'ss' of 'exit pass' survived and
+      # the run timed out. Split into two prompt-driven steps and key the
+      # second on the cat output ('filedemo-updated') so the harness only
+      # types 'exit pass' once the previous command has fully drained.
+      # 'exit pass' is sent twice defensively against any further pacing
+      # surprises (option 3 from the issue).
+      # cat triggers two prompts: codesign (unsigned binary) and auth-session
+      # (disk read). Send 'y' for both before waiting on the cat output.
+      ('secureos[s0]> ', 'cat appdemo.txt\ny\ny\n'),
+      ('filedemo-updated', '\nexit pass\nexit pass\n'),
     ],
     'kernel_sessions': [
       ('secureos[s0]> ', 'env PROJECT=alpha\nenv PROJECT\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nmkdir s0dir\ny\ncd s0dir\nsession new\nsession switch 1\nlibs loaded\nenv PROJECT=beta\nenv PROJECT\nloadlib envlib\ny\nlibs loaded\nmkdir s1dir\ny\ncd s1dir\nsession switch 0\nenv PROJECT\nlibs loaded\nls /\ny\nexit pass\n'),
