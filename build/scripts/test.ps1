@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|parity|canary_must_fail]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|cap_deny_marker_shape|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|parity|canary_must_fail]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -44,6 +44,7 @@ $testScript = switch ($TestName) {
   "capability_table" { "./build/scripts/test_capability_table.sh" }
   "capability_gate" { "./build/scripts/test_capability_gate.sh" }
   "capability_audit" { "./build/scripts/test_capability_audit.sh" }
+  "cap_deny_marker_shape" { "./build/scripts/test_cap_deny_marker_shape.sh" }
   "event_bus" { "./build/scripts/test_event_bus.sh" }
   "scheduler" { "./build/scripts/test_scheduler.sh" }
   "sof_format" { "./build/scripts/test_sof_format.sh" }

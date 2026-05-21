@@ -215,6 +215,27 @@ A service satisfies this contract when:
 5. The acceptance test (#92 / #108 / #115 / …) asserts on the exact
    `CAP:DENY:` line above and on the absence of the grant-path bytes.
 
+### 8.1 Conformance test (single source of truth)
+
+Issue #211 adds `tests/cap_deny_marker_shape_test.c` plus the
+`kernel/cap/cap_deny_marker.{h,c}` formatter and validator. **All deny-path
+services MUST produce their `CAP:DENY:` line via `cap_deny_marker_format()`
+and register their exemplar `(actor, capability, resource)` triple in the
+`drivers[]` table of the conformance test.** Services MUST NOT invent
+standalone grep regexes for the marker shape — that is exactly the drift
+this contract exists to prevent.
+
+Run via:
+
+```
+./build/scripts/test.sh cap_deny_marker_shape          # POSIX
+./build/scripts/test.ps1 cap_deny_marker_shape         # Windows
+```
+
+The target is wired into `validate_bundle.sh` `TEST_TARGETS` so the
+validator JSON report records its result on every CI run. Adding a new
+deny path is therefore a three-line patch to `drivers[]`, not a new test.
+
 ## 9. Implementation tracking
 
 - **#92** — M2 `console.write` deny path. First consumer of §7.1.
