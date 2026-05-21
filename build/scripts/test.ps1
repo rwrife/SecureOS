@@ -59,6 +59,7 @@ $testScript = switch ($TestName) {
   "https" { "./build/scripts/test_https.sh" }
   "bearssl_compile" { "./build/scripts/test_bearssl_compile.sh" }
   "kernel_sessions" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_sessions" }
+  "harness_defense" { "./build/scripts/test_harness_defense.sh" }
   default {
     Write-Host "Unknown test: $TestName"
     Show-Usage

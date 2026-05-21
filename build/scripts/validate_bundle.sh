@@ -44,10 +44,23 @@ TEST_TARGETS=(
 STATUS_LINES=()
 FAILED_TESTS=()
 
+# Exit code 78 is reserved by build/scripts/test.sh for HARNESS_ERROR
+# (missing/unreadable subordinate script). It is reported as a distinct
+# `harness_error` status so agents can tell infra breakage from a real
+# regression (see issue #91).
+HARNESS_ERROR_EXIT=78
+
 for target in "${TEST_TARGETS[@]}"; do
   test_started="$(date +%s)"
-  if "$ROOT_DIR/build/scripts/test.sh" "$target"; then
+  set +e
+  bash "$ROOT_DIR/build/scripts/test.sh" "$target"
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
     status="pass"
+  elif [[ $rc -eq $HARNESS_ERROR_EXIT ]]; then
+    status="harness_error"
+    FAILED_TESTS+=("$target")
   else
     status="fail"
     FAILED_TESTS+=("$target")
