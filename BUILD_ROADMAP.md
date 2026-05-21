@@ -302,6 +302,10 @@ Validate:
 
 - no merge on failing boot or capability regression tests
 - require deterministic artifact hashes for release candidates
+  (see `docs/build/determinism.md`; CI step
+  `image-determinism` builds twice and asserts
+  `sha256(secureos-disk.img)` is stable, currently non-blocking baseline
+  per issue #174)
 - require validator-generated pass evidence for milestone closure
 
 ## 7) ABI and Interface Freeze Plan

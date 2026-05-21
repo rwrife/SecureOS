@@ -74,3 +74,19 @@ jobs:
           name: qemu-artifacts
           path: artifacts/qemu/
           if-no-files-found: warn
+
+      # Run the determinism check AFTER artifact uploads. The script
+      # rebuilds the image from a clean tree (rm -rf artifacts/kernel
+      # artifacts/disk ...), so running it earlier wipes the kernel ISO
+      # before "Upload kernel artifacts" can publish it.
+      - name: Image determinism check (baseline; non-blocking, #174)
+        continue-on-error: true
+        run: ./build/scripts/check_image_determinism.sh
+
+      - name: Upload determinism run bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-artifacts
+          path: artifacts/runs/
+          if-no-files-found: warn
