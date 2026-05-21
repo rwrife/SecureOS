@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|parity]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|parity]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -39,6 +39,7 @@ Stop-SecureOSActiveInstances -RootDir $rootDir -ImageTag $imageTag
 $testScript = switch ($TestName) {
   "hello_boot" { "./build/scripts/test_boot_sector.sh; ./build/scripts/run_qemu.sh --test hello_boot" }
   "hello_boot_negative" { "./build/scripts/test_boot_sector_fail.sh; ./build/scripts/run_qemu.sh --test hello_boot_fail" }
+  "harness_negative" { "./build/scripts/test_harness_negative.sh" }
   "cap_api_contract" { "./build/scripts/test_cap_api_contract.sh" }
   "capability_table" { "./build/scripts/test_capability_table.sh" }
   "capability_gate" { "./build/scripts/test_capability_gate.sh" }

@@ -31,6 +31,8 @@ test_codesign
 test_ed25519
 test_event_bus
 test_fs_service
+test_harness_defense
+test_harness_negative
 test_helloapp_allow
 test_helloapp_deny
 test_https

@@ -13,6 +13,7 @@ mkdir -p "$RUN_QEMU_DIR" "$RUN_TESTS_DIR"
 TEST_TARGETS=(
   hello_boot
   hello_boot_negative
+  harness_negative
   cap_api_contract
   capability_table
   capability_gate
