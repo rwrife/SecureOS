@@ -65,6 +65,9 @@
           "durationSeconds": { "type": "integer", "minimum": 0 },
           "logPath":         { "type": ["string", "null"] },
           "reasonCode":      { "type": ["string", "null"] },
+          "expectedFail":    { "type": "boolean", "description": "Issue #212: target is a deliberate failure canary; bundle pass requires observed=='fail'." },
+          "observed":        { "type": "string", "enum": ["pass", "fail", "harness_error"], "description": "Raw outcome of the canary run, before expected-fail inversion." },
+          "classification":  { "type": "string", "enum": ["ok", "anomaly", "harness_error"], "description": "Validator's verdict: ok=expected outcome, anomaly=canary unexpectedly passed, harness_error=infra failure." },
           "artifacts": {
             "type": "array",
             "items": { "type": "string" }
@@ -83,7 +86,10 @@
           "name":            { "type": "string" },
           "status":          { "type": "string", "enum": ["pass", "fail", "harness_error"] },
           "pass":            { "type": "boolean" },
-          "durationSeconds": { "type": "integer", "minimum": 0 }
+          "durationSeconds": { "type": "integer", "minimum": 0 },
+          "expectedFail":    { "type": "boolean" },
+          "observed":        { "type": "string", "enum": ["pass", "fail", "harness_error"] },
+          "classification":  { "type": "string", "enum": ["ok", "anomaly", "harness_error"] }
         }
       }
     },

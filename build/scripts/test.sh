@@ -72,7 +72,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|sof_format|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity|harness_defense]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|sof_format|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|parity|harness_defense|canary_must_fail]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -193,6 +193,12 @@ case "$TEST_NAME" in
   harness_defense)
     # Self-test for the defensive dispatcher (see test_harness_defense.sh).
     run_script "$ROOT_DIR/build/scripts/test_harness_defense.sh"
+    ;;
+  canary_must_fail)
+    # Intentionally failing canary (issue #212). The harness must
+    # observe TEST:FAIL:_canary_must_fail and exit status 1; the bundle
+    # treats this as the *expected* outcome via EXPECTED_FAIL_TARGETS.
+    run_script "$ROOT_DIR/tests/integration/_canary_must_fail/canary_must_fail.sh"
     ;;
   *)
     echo "Unknown test: $TEST_NAME"

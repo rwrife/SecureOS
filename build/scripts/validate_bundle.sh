@@ -42,6 +42,15 @@ TEST_TARGETS=(
 # or blocked on the disk-image perms chain (#106 / PR #107 for kernel_sessions).
 # Add each here as the corresponding fix lands, so the bundle stays green.
 
+# Issue #212: targets that MUST fail. The bundle's pass condition is
+# "every TEST_TARGETS target passes AND every EXPECTED_FAIL_TARGETS
+# target fails". Each entry here is a permanent canary that proves the
+# harness still classifies a deliberate failure as a failure (defends
+# against #90 / #129 / #140 style silent no-ops).
+EXPECTED_FAIL_TARGETS=(
+  canary_must_fail
+)
+
 STATUS_LINES=()
 FAILED_TESTS=()
 
@@ -68,7 +77,44 @@ for target in "${TEST_TARGETS[@]}"; do
   fi
   test_finished="$(date +%s)"
   duration="$((test_finished - test_started))"
-  STATUS_LINES+=("${target}|${status}|${duration}")
+  STATUS_LINES+=("${target}|${status}|${duration}|expected_pass")
+done
+
+# Issue #212: expected-fail canaries. We INVERT the pass condition: a
+# canary that *fails* (rc=1) is the green path and is recorded as
+# status=pass with expectedFail=true / observed=fail / classification=ok
+# in the JSON report. A canary that unexpectedly *passes* (rc=0) flips
+# the bundle to FAIL with the deterministic marker
+# `BUNDLE_FAIL: canary did not fail`. A harness error (rc=78) is still
+# reported as harness_error so infra breakage stays distinguishable.
+for target in "${EXPECTED_FAIL_TARGETS[@]}"; do
+  test_started="$(date +%s)"
+  set +e
+  bash "$ROOT_DIR/build/scripts/test.sh" "$target"
+  rc=$?
+  set -e
+  if [[ $rc -eq 0 ]]; then
+    # Canary did NOT fail -- this is the regression we exist to catch.
+    status="fail"
+    observed="pass"
+    classification="anomaly"
+    FAILED_TESTS+=("$target")
+    echo "BUNDLE_FAIL: canary did not fail" >&2
+    echo "BUNDLE_FAIL: canary did not fail (target=$target)"
+  elif [[ $rc -eq $HARNESS_ERROR_EXIT ]]; then
+    status="harness_error"
+    observed="harness_error"
+    classification="harness_error"
+    FAILED_TESTS+=("$target")
+  else
+    # Expected failure observed -- this is the green path for canaries.
+    status="pass"
+    observed="fail"
+    classification="ok"
+  fi
+  test_finished="$(date +%s)"
+  duration="$((test_finished - test_started))"
+  STATUS_LINES+=("${target}|${status}|${duration}|expected_fail|${observed}|${classification}")
 done
 
 # Copy known QEMU artifacts when present.
@@ -160,18 +206,39 @@ def _resolve_log_and_artifacts(target_name: str):
     return log_rel, artifacts_rel
 
 for line in status_lines:
-    name, status, duration = line.split("|", 2)
+    parts = line.split("|")
+    # New format (issue #212): name|status|duration|kind[|observed|classification]
+    # Legacy format: name|status|duration
+    if len(parts) >= 4:
+        name = parts[0]
+        status = parts[1]
+        duration = parts[2]
+        kind = parts[3]
+        observed = parts[4] if len(parts) > 4 else None
+        classification = parts[5] if len(parts) > 5 else None
+    else:
+        name, status, duration = parts[0], parts[1], parts[2]
+        kind = "expected_pass"
+        observed = None
+        classification = None
     if status not in ("pass", "fail", "harness_error"):
         # Defensive: treat unknown statuses as fail rather than crash the JSON.
         status = "fail"
-    checks.append({
+    check_entry = {
         "name": name,
         "status": status,
         "pass": status == "pass",
         "durationSeconds": int(duration),
-    })
+    }
+    if kind == "expected_fail":
+        check_entry["expectedFail"] = True
+        if observed is not None:
+            check_entry["observed"] = observed
+        if classification is not None:
+            check_entry["classification"] = classification
+    checks.append(check_entry)
     log_path, artifacts_for_target = _resolve_log_and_artifacts(name)
-    targets.append({
+    target_entry = {
         "name": name,
         "status": status,
         "pass": status == "pass",
@@ -179,7 +246,14 @@ for line in status_lines:
         "logPath": log_path,
         "reasonCode": None if status == "pass" else status,
         "artifacts": artifacts_for_target,
-    })
+    }
+    if kind == "expected_fail":
+        target_entry["expectedFail"] = True
+        if observed is not None:
+            target_entry["observed"] = observed
+        if classification is not None:
+            target_entry["classification"] = classification
+    targets.append(target_entry)
     if status == "harness_error":
         harness_errors.append(name)
         failed.append(name)

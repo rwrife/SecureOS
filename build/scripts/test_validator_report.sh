@@ -72,6 +72,18 @@ sample = {
             "reasonCode": "harness_error",
             "artifacts": [],
         },
+        {
+            "name": "_canary_must_fail",
+            "status": "pass",
+            "pass": True,
+            "durationSeconds": 0,
+            "logPath": None,
+            "reasonCode": None,
+            "artifacts": [],
+            "expectedFail": True,
+            "observed": "fail",
+            "classification": "ok",
+        },
     ],
     "checks": [
         {"name": "sample_pass", "status": "pass", "pass": True, "durationSeconds": 2},
