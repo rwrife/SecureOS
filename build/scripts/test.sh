@@ -23,7 +23,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|launcher_console|event_bus|scheduler|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report]
 
 Runs SecureOS test targets.
 EOF
@@ -87,6 +87,9 @@ case "$TEST_NAME" in
     ;;
   https)
     "$ROOT_DIR/build/scripts/test_https.sh"
+    ;;
+  bearssl_compile)
+    "$ROOT_DIR/build/scripts/test_bearssl_compile.sh"
     ;;
   netlib_url_scheme)
     "$ROOT_DIR/build/scripts/test_netlib_url_scheme.sh"

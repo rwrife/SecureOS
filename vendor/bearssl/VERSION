@@ -1,0 +1,13 @@
+BearSSL upstream pin
+====================
+
+Source:    https://www.bearssl.org/git/BearSSL
+Submodule: vendor/bearssl/BearSSL
+Tag:       v0.6
+Commit:    8ef7680081c61b486622f2d983c0d3d21e83caad
+License:   MIT (see vendor/bearssl/LICENSE and BearSSL/LICENSE.txt)
+
+The exact commit pinned above is the only revision SecureOS builds, audits,
+and tests against. Bumping this pin requires a new vendor-bump PR that
+re-runs `build/scripts/test.sh bearssl_compile` and records any object-count
+or total-size drift in the PR description (see issue #117).

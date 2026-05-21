@@ -19,6 +19,7 @@ TEST_TARGETS=(
   capability_audit
   capability_audit_log
   cap_broker
+  bearssl_compile
     event_bus
     scheduler
     sof_format
