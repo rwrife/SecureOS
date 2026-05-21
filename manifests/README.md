@@ -20,5 +20,18 @@ examples consumed by SecureOS tooling and the launcher.
 
 ## Wiring
 
-Issue #183 lands the schema and examples without CI enforcement. Wiring
-schema validation into CI is the follow-up tracked in #195.
+Schema validation runs on every PR via `.github/workflows/lint.yml`,
+which invokes `build/scripts/validate_manifests.sh`. The wrapper shells
+into `tools/validate_manifests.py`, which in turn validates every
+`manifests/examples/*.json` (and any other `*.manifest.json` in the
+tree) against `manifests/schema/v0.json` using `jsonschema`.
+
+To run the same check locally:
+
+```sh
+build/scripts/validate_manifests.sh        # bash
+build/scripts/validate_manifests.ps1       # PowerShell (parity peer, #156)
+```
+
+Issue #183 landed the schema and examples; #187 wired the example into
+the tree; #195 wired this validator into CI.

@@ -46,6 +46,20 @@ jobs:
               clang-format \
               shellcheck
 
+      - name: Install manifest-schema validator dependency
+        # Issue #195: re-validate every shipped app manifest against
+        # manifests/schema/v0.json so example + schema cannot drift.
+        # The validator falls back to a structural check when the lib
+        # is missing, but CI runs in strict mode.
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check "jsonschema>=4,<5"
+
+      - name: Validate app manifests against schema v0
+        # Hard-gating from day 1: this stage is cheap and the only
+        # in-tree manifests today are the helloapp examples landed by
+        # #187. See tools/validate_manifests.py for the contract.
+        run: bash build/scripts/validate_manifests.sh
+
       - name: Run lint
         # shellcheck + parity are hard-gating from day 1.
         # clang-format stays visible-but-non-blocking until a tree-wide
