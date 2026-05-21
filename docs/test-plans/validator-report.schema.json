@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/rwrife/SecureOS/blob/main/docs/test-plans/validator-report.schema.json",
+  "title": "SecureOS validator_report.json",
+  "description": "Machine-readable summary produced by build/scripts/validate_bundle.sh for each validator run. See BUILD_ROADMAP.md §4.3 / §6.3.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runId",
+    "startedAt",
+    "finishedAt",
+    "git",
+    "overallStatus",
+    "pass",
+    "summary",
+    "targets",
+    "checks"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "runId": { "type": "string", "minLength": 1 },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "git": {
+      "type": "object",
+      "required": ["sha"],
+      "properties": {
+        "sha": { "type": "string", "pattern": "^[0-9a-f]{7,40}$" },
+        "ref": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "overallStatus": { "type": "string", "enum": ["pass", "fail"] },
+    "pass": { "type": "boolean" },
+    "failedChecks": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "harnessErrors": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "passed", "failed", "harnessErrors"],
+      "additionalProperties": true,
+      "properties": {
+        "total":         { "type": "integer", "minimum": 0 },
+        "passed":        { "type": "integer", "minimum": 0 },
+        "failed":        { "type": "integer", "minimum": 0 },
+        "harnessErrors": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status", "durationSeconds"],
+        "additionalProperties": true,
+        "properties": {
+          "name":            { "type": "string", "minLength": 1 },
+          "status":          { "type": "string", "enum": ["pass", "fail", "harness_error"] },
+          "pass":            { "type": "boolean" },
+          "durationSeconds": { "type": "integer", "minimum": 0 },
+          "logPath":         { "type": ["string", "null"] },
+          "reasonCode":      { "type": ["string", "null"] },
+          "artifacts": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "checks": {
+      "description": "Legacy per-check array. Same shape as targets[] entries, kept for backwards compatibility with text scrapers (#90/#94/#101/#106).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "name":            { "type": "string" },
+          "status":          { "type": "string", "enum": ["pass", "fail", "harness_error"] },
+          "pass":            { "type": "boolean" },
+          "durationSeconds": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "path":   { "type": "string" },
+        "sha256": { "type": "string" }
+      }
+    },
+    "kernelIso": {
+      "type": "object",
+      "properties": {
+        "path":   { "type": "string" },
+        "sha256": { "type": "string" }
+      }
+    },
+    "qemu": {
+      "type": "object",
+      "properties": {
+        "commands":   { "type": "object" },
+        "serialLogs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

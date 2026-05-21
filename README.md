@@ -151,8 +151,10 @@ For full contributor setup/build/run guidance, see `CONTRIBUTING.md`.
 ## Repo Pointers
 
 - Roadmap: `BUILD_ROADMAP.md`
-- M0→M1 task registry: `docs/planning/M0-M1-task-registry.md`
+- Milestone/task registry: `docs/test-plans/` (M0/M1/M2 status + closing PRs)
+- Task DAG schema: `manifests/task-dag.schema.json` (walk-through in `docs/test-plans/task-schema.md`)
 - Coding conventions: `docs/CODING_CONVENTIONS.md`
+- ABI reference: `docs/abi/` (syscalls, capabilities, manifest, ipc-wire, versioning)
 - ADRs: `docs/architecture/decisions/` (start at `0001-boot-protocol-multiboot-long-mode.md`)
 - Toolchain container: `build/docker/`
 - Build wrappers: `build/scripts/`

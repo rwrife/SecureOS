@@ -78,6 +78,25 @@ macOS/Linux:
 ./build/scripts/build.sh build-all
 ```
 
+### Agent tool wrappers (`os-*`)
+
+Automated agents (and CI scripts) should prefer the deterministic
+`build/scripts/os-*` wrappers over invoking raw `*.sh` directly. Each
+wrapper emits a stable JSON envelope on stdout and mirrors it into the
+per-run bundle at `artifacts/runs/<run_id>/<tool>.json`:
+
+```bash
+export SECUREOS_RUN_ID="cron-$(date -u +%Y%m%dT%H%M%SZ)"
+./build/scripts/os-build image
+./build/scripts/os-package
+./build/scripts/os-run-qemu --test kernel_console
+./build/scripts/os-validate
+./build/scripts/os-snapshot
+```
+
+Full contract: [`docs/test-plans/wrappers.md`](docs/test-plans/wrappers.md).
+Raw scripts remain supported for humans and ad-hoc invocation.
+
 ### Common build targets
 
 Windows PowerShell:
@@ -201,14 +220,32 @@ Before opening a PR, review:
 - `AGENTS.md`
 - `docs/CODING_CONVENTIONS.md`
 - `docs/architecture/decisions/` (ADR index — read the relevant ADRs before changing boot, ABI, or other locked contracts)
+- `docs/abi/` — ABI reference (syscall surface, capability IDs, manifest schema, versioning policy). Update the relevant page in the same PR when you change ABI surface.
+- `docs/abi/capability-deny-contract.md` (if your change touches a capability-gated service or its deny-path test)
+- `docs/test-plans/` (milestone + task registry; update the `status:` and `pr:#…` tags when a CAP-\* / M-\* task lands)
 
 Project-specific expectations include:
 - Keep PowerShell and shell build scripts in sync
-- Add plan documents under `docs/plans` for major implementation work
+- Add plan documents under the top-level `plans/` directory (canonical, single location — not `docs/plans/`) using the naming convention `YYYY-MM-DD-<slug>.md` for major implementation work; index and grouping in `plans/README.md`
 - Keep hardware access behind HAL abstractions
 - For decisions that pin a wire format, ABI, boot/loader contract, or other
   durable invariant, add an ADR under `docs/architecture/decisions/`
   (see that directory's `README.md` for the template and cadence)
+
+## Boundaries & conventions
+
+SecureOS enforces strict layering between the kernel, modules, user libraries,
+and apps. Before adding a new `#include`, a new syscall, or a new top-level
+directory, read:
+
+- `docs/architecture/kernel-module-boundaries.md` — allowed include direction,
+  what belongs in `kernel/` vs `user/libs/` vs `user/apps/`, the
+  capability-gate rule, the HAL rule, and worked do/don't examples.
+- `docs/architecture/CAPABILITIES.md` — the capability ID registry.
+
+Reviewers should reject PRs that cross a layer (e.g. an app including a
+`kernel/` header, or a service skipping its capability check) and link to the
+boundaries doc.
 
 ## Pull Request Checklist
 
