@@ -25,6 +25,7 @@ TEST_TARGETS=(
     sof_format
     tls
     https
+    manifest_schema
     fs_service
     app_runtime
     helloapp_allow

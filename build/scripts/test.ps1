@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|cap_api_contract|capability_table|capability_gate|capability_audit|event_bus|scheduler|sof_format|tls|https|bearssl_compile|manifest_schema|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -53,6 +53,7 @@ $testScript = switch ($TestName) {
   "https" { "./build/scripts/test_https.sh" }
   "bearssl_compile" { "./build/scripts/test_bearssl_compile.sh" }
   "kernel_sessions" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_sessions" }
+  "manifest_schema" { "./build/scripts/validate_manifests.sh" }
   default {
     Write-Host "Unknown test: $TestName"
     Show-Usage
