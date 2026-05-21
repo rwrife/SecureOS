@@ -15,11 +15,15 @@ build_os_command
 
 # Test validators — see issue #156, phased rollout planned in
 # plans/2026-05-16-shell-script-parity.md.
+test_abi_version
 test_app_runtime
+test_bearssl_compile
 test_boot_sector
 test_boot_sector_fail
 test_cap_api_contract
+test_cap_broker
 test_capability_audit
+test_capability_audit_log
 test_capability_gate
 test_capability_table
 test_cert_chain
@@ -27,11 +31,21 @@ test_codesign
 test_ed25519
 test_event_bus
 test_fs_service
+test_helloapp_allow
+test_helloapp_deny
 test_https
 test_kernel_persistence
+test_launcher_console
+test_launcher_fs
+test_netlib_url_scheme
 test_scheduler
 test_sof_format
 test_tls
+test_validator_report
+
+# Shared bash helper module for os-* wrappers. Not a user-invoked entry
+# point; the PowerShell wrappers use common.ps1 instead.
+_os_wrapper_common
 
 # --- .ps1-only, no .sh peer (issue #156) ---
 # Windows-only debugging variants of build_bearssl.ps1; either port a
@@ -40,6 +54,17 @@ test_tls
 build_bearssl_clean
 build_bearssl_fixed
 
-# Shared PowerShell helper module. Bash callers do not currently need a
-# shared common.sh; revisit if/when one is introduced.
+# Shared PowerShell helper module. Bash callers use _os_wrapper_common.sh.
 common
+
+# os-* agent tool wrappers — the bash peers are deliberately extensionless
+# (`build/scripts/os-build`, `os-package`, `os-run-qemu`, `os-snapshot`,
+# `os-validate`) so the agent contract documented in
+# `docs/test-plans/wrappers.md` and CONTRIBUTING.md uses extension-free
+# command names. The parity check only matches `.sh` ↔ `.ps1` pairs, so
+# the `.ps1` variants are intentionally allowlisted.
+os-build
+os-package
+os-run-qemu
+os-snapshot
+os-validate
