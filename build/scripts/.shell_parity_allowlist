@@ -44,6 +44,7 @@ test_helloapp_allow
 test_helloapp_deny
 test_https
 test_ipc_sync_v0
+test_ipc_port_lifecycle
 test_kernel_persistence
 test_launcher_console
 test_launcher_fs
