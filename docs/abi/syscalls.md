@@ -1,8 +1,13 @@
 # SecureOS Syscall / User API Surface
 
-Status: **draft, `OS_ABI_VERSION=0`** — surface is still iterating. Adding new
-calls is allowed; signatures of listed calls are append-only-with-care (see
-[versioning.md](versioning.md)).
+> **Owner:** kernel / user-API
+> **Status:** draft `v0` — surface still iterating
+> **Last reviewed:** 2026-05-22
+> **Applies to:** `OS_ABI_VERSION = 0`
+> **Tracking issue:** [#93](https://github.com/rwrife/SecureOS/issues/93)
+
+Adding new calls is allowed; signatures of listed calls are
+append-only-with-care (see [versioning.md](versioning.md)).
 
 User-space applications call into the kernel through the prototypes declared
 in [`user/include/secureos_api.h`](../../user/include/secureos_api.h). On
