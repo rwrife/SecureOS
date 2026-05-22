@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|parity|canary_must_fail]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|capability_gate|capability_audit|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|parity|canary_must_fail]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -42,6 +42,7 @@ $testScript = switch ($TestName) {
   "harness_negative" { "./build/scripts/test_harness_negative.sh" }
   "cap_api_contract" { "./build/scripts/test_cap_api_contract.sh" }
   "capability_table" { "./build/scripts/test_capability_table.sh" }
+  "cap_table_skeleton" { "./build/scripts/test_cap_table_skeleton.sh" }
   "capability_gate" { "./build/scripts/test_capability_gate.sh" }
   "capability_audit" { "./build/scripts/test_capability_audit.sh" }
   "cap_deny_marker_shape" { "./build/scripts/test_cap_deny_marker_shape.sh" }
