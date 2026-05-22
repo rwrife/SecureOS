@@ -263,11 +263,15 @@ validator JSON report (#110).
 These execute issues are the concrete unit of work this plan unblocks. Each is
 intended to be at most one PR. Proposed titles:
 
-1. **"M1 proc: PCB table skeleton + `proc_init`/`proc_spawn_module` (BUILD_ROADMAP §5.1)"**
+1. **"M1 proc: PCB table skeleton + `proc_init`/`proc_spawn_module` (BUILD_ROADMAP §5.1)"** — **partially landed (#224)**
    - Lands `kernel/proc/process.{c,h}`, the static PCB array, the module
      registry stub, and `proc_init` wiring into `kernel_main`. No scheduler,
      no IPC, no aspace. Validator target: `proc_table_skeleton` asserts
      `proc_lookup(1)` returns the registered name.
+   - Status: the PCB struct + `process_table_init/reset/create/destroy/lookup`
+     surface lands here under `test.sh process_table`. Module registry stub +
+     `kernel_main` wiring are deferred to the sibling cooperative-scheduler
+     issue (see (3)) so the PR stays session-sized.
 2. **"M1 proc: flat-with-bounds `address_space_t` + `.proc_arena` linker carve-out (BUILD_ROADMAP §5.1)"**
    - Adds `kernel/proc/address_space.{c,h}`, `.proc_arena` section in
      `kernel/arch/x86/boot/linker.ld`, partitioning at boot. Validator
