@@ -85,9 +85,17 @@ handle for those rows now fails the gate with `CAP_ERR_MISSING`. The
 successful destroy, making process exit the authoritative "all handles
 for this subject are stale" trigger. Bulk revoke is best-effort by
 contract (no error code; bad subject ids return `0` revoked).
-Subtree revoke (`cap_handle_revoke_subject_subtree`) is M1-CAPTBL-004,
-façade migration with byte-exact audit parity is
--005, and IPC integration is -006 — each landing as its own PR.
+Subtree revoke (`cap_handle_revoke_subtree`) is M1-CAPTBL-004 (#241):
+the symbol is declared in `kernel/cap/cap_handle.h` and **reserved at
+v0** so the M5 ownership-graph cascading-deletion work (#118) and the
+M4 broker subtree-revoke (#115) have a stable kernel symbol to compile
+against. In v0 the implementation is a deliberate stub that
+**unconditionally returns `CAP_ERR_CAP_INVALID` with zero side effects**
+— there is no graph to walk (the `parent_handle` field on
+`cap_handle_row` is reserved-and-zero today). Callers MUST NOT depend
+on subtree-revoke semantics until #118 lands the real walk. Façade
+migration with byte-exact audit parity is -005, and IPC integration is
+-006 — each landing as its own PR.
 
 ### Legacy notes
 

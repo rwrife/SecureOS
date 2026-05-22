@@ -224,6 +224,21 @@ cap_result_t cap_handle_revoke(cap_handle_t handle);
  */
 uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject);
 
+/*
+ * Reserved symbol for M5 ownership-graph cascading deletion (#118) and
+ * M4 broker subtree-revoke (#115). Frozen so downstream work can compile
+ * against this symbol while the underlying cap_handle layer is still
+ * small and easy to reason about (M1-CAPTBL-004, issue #241, plan #197).
+ *
+ * v0 contract: unconditionally returns CAP_ERR_CAP_INVALID. No table
+ * mutation, no audit emission, no side effects whatsoever. Callers MUST
+ * NOT depend on subtree-revoke semantics yet — the parent_handle field
+ * on cap_handle_row is reserved-and-zero in v0, so there is no graph to
+ * walk. The real implementation is owned by #118 and may change error
+ * codes and semantics; this stub only reserves the symbol shape.
+ */
+cap_result_t cap_handle_revoke_subtree(cap_handle_t root_handle);
+
 /* Test helper: pack/unpack the components of a handle. Exposed because the
  * ABI-freeze unit test exercises the layout directly. */
 cap_handle_t cap_handle_pack(uint16_t slot, uint16_t generation_low14,
