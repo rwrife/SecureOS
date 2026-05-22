@@ -20,6 +20,9 @@ test_app_runtime
 test_bearssl_compile
 test_boot_sector
 test_boot_sector_fail
+test_broker_share_allow
+test_broker_share_deny
+test_broker_share_revoke
 test_cap_api_contract
 test_cap_broker
 test_capability_audit
