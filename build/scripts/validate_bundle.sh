@@ -18,6 +18,7 @@ TEST_TARGETS=(
   capability_table
   capability_gate
   capability_audit
+  capability_audit_fixture
   capability_audit_log
   cap_broker
   cap_deny_marker_shape

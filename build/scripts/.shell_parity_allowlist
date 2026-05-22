@@ -27,6 +27,7 @@ test_cap_api_contract
 test_cap_broker
 test_cap_deny_marker_shape
 test_capability_audit
+test_capability_audit_fixture
 test_capability_audit_log
 test_capability_gate
 test_capability_table

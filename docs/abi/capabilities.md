@@ -154,4 +154,18 @@ Consumers may read `cap_audit_get_for_tests` / `cap_audit_count_for_tests`
 to walk the retained ring in test/validator contexts. In production the
 broker (#85) will be the single consumer.
 
+### Byte-exact audit fixture-diff (M1-CAPTBL-005)
+
+The textual serialization above is wire ABI. A representative M2 console
+sequence (grant, allow check, deny check, revoke, post-revoke deny,
+second-cap grant, re-grant, plus the three invalid-subject / one
+invalid-cap deny-class paths) is pinned byte-for-byte in
+`tests/capability_audit_fixture_test.c` and run as the
+`capability_audit_fixture` validator target. Any future migration of
+`kernel/cap/cap_table.{c,h}` onto the handle layer
+(`kernel/cap/cap_handle.{c,h}`) MUST preserve every byte of that
+fixture or fail this test loudly with a per-line diff. Updating the
+fixture is allowed only under an explicit audit-ABI bump per
+BUILD_ROADMAP §7.
+
 Last verified against commit: 9f4f7ccbb19c9ffb28ee4b6de2f3e93c35e65785
