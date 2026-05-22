@@ -327,3 +327,23 @@ uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject) {
   }
   return revoked;
 }
+
+/* ----------------------------------------------------------------------
+ * M1-CAPTBL-004: reserved subtree-revoke stub (issue #241).
+ *
+ * Reserves the kernel symbol for the M5 ownership-graph cascading
+ * deletion (#118) and the M4 broker subtree-revoke (#115). v0 contract
+ * is unconditionally CAP_ERR_CAP_INVALID with zero side effects: the
+ * parent_handle field on cap_handle_row is reserved-and-zero today, so
+ * there is no graph to walk. The real implementation belongs to #118.
+ *
+ * NOTE: we intentionally do NOT validate `root_handle` here. The return
+ * code is the same for every input, and (more importantly) silently
+ * succeeding on a "valid" handle would be a footgun once #118 wires up
+ * the real walk \u2014 callers might accidentally rely on a no-op. Returning
+ * CAP_ERR_CAP_INVALID universally keeps the contract honest.
+ * --------------------------------------------------------------------*/
+cap_result_t cap_handle_revoke_subtree(cap_handle_t root_handle) {
+  (void)root_handle;
+  return CAP_ERR_CAP_INVALID;
+}
