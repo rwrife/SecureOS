@@ -40,6 +40,7 @@
 #include "ipc_msg.h"
 #include "ipc_port.h"
 #include "../cap/capability.h"
+#include "../cap/cap_handle.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -223,4 +224,125 @@ ipc_result_t ipc_call(cap_subject_id_t caller,
   }
 
   return ipc_recv(caller, reply_port, out_reply);
+}
+
+/* --------------------------------------------------------------------
+ * M1-CAPTBL-006 (issue #246): handle-gated send/recv.
+ *
+ * These re-use the same envelope validation, deny-marker emission, and
+ * cap_check audit-ring path as the subject-keyed legacy entry points,
+ * but the authoritative subject + capability decision both come from
+ * `cap_handle_t` instead of trusting the caller-supplied subject id.
+ *
+ * On success the staged envelope's sender_subject is the kernel-trusted
+ * owner from the handle's row — not the caller-supplied value. This is
+ * the M1 ABI obligation from docs/abi/ipc-wire.md §2.4 made enforceable
+ * without relying on test-harness discipline.
+ * --------------------------------------------------------------------*/
+ipc_result_t ipc_send_h(cap_handle_t send_handle,
+                        ipc_port_t target,
+                        const ipc_msg_v0 *msg) {
+  ipc_result_t v = validate_outbound_envelope(msg);
+  if (v != IPC_OK) {
+    return v;
+  }
+
+  capability_id_t required_send = CAP_IPC_SEND;
+  ipc_result_t pr = ipc_port_send_cap(target, &required_send);
+  if (pr != IPC_OK) {
+    return pr;
+  }
+
+  /* Recover the kernel-trusted sender id BEFORE the gate check so the
+   * deny marker carries the same subject the audit ring will record.
+   * A malformed/stale handle has owner == 0; we still want to gate on
+   * a real subject id, so fall back to subject 0 and let the cap_check
+   * deny path handle it (its audit event will record actor_subject=0
+   * which is the canonical "unknown subject" marker). */
+  cap_subject_id_t sender = cap_handle_owner(send_handle);
+
+  /* Handle-keyed cap decision. */
+  cap_result_t hr = cap_gate_check_handle_result(send_handle, required_send);
+  if (hr != CAP_OK) {
+    /* Mirror the legacy path: drive the audit ring via cap_check so
+     * the existing CAP_AUDIT fixture diff (#243) stays byte-identical
+     * for the gated-deny case, then emit the canonical marker. */
+    (void)cap_check(sender, required_send);
+    ipc_emit_deny_marker(sender, required_send);
+    return IPC_ERR_CAP_DENIED;
+  }
+
+  /* Allow-path audit parity: also drive cap_check so the audit ring is
+   * indistinguishable from a legacy ipc_send call. The bitset table is
+   * managed by the cap_table façade today (M1-CAPTBL-005), so this
+   * second check is a pure ring side effect. */
+  (void)cap_check(sender, required_send);
+
+  /* sender == 0 should be impossible after a CAP_OK handle check
+   * (cap_handle_grant rejects subject 0 via cap_handle_subject_valid),
+   * but defend in depth: treat it as a malformed envelope per spec. */
+  if (sender == 0u) {
+    return IPC_ERR_INVALID_MSG;
+  }
+
+  ipc_msg_v0 outbound;
+  memcpy(&outbound, msg, sizeof(outbound));
+  outbound.sender_subject = sender;
+
+  return ipc_port_stage(target, &outbound);
+}
+
+ipc_result_t ipc_recv_h(cap_handle_t recv_handle,
+                        ipc_port_t self_port,
+                        ipc_msg_v0 *out_msg) {
+  if (out_msg == NULL) {
+    return IPC_ERR_INVALID_MSG;
+  }
+
+  cap_subject_id_t owner = 0u;
+  ipc_result_t pr = ipc_port_owner(self_port, &owner);
+  if (pr != IPC_OK) {
+    return pr;
+  }
+
+  cap_subject_id_t receiver = cap_handle_owner(recv_handle);
+  if (owner != receiver) {
+    /* Wrong-owner-on-recv: treat as CAP_IPC_RECV deny so the policy
+     * leakage surface matches the legacy ipc_recv path. */
+    ipc_emit_deny_marker(receiver, CAP_IPC_RECV);
+    return IPC_ERR_CAP_DENIED;
+  }
+
+  capability_id_t required_recv = CAP_IPC_RECV;
+  pr = ipc_port_recv_cap(self_port, &required_recv);
+  if (pr != IPC_OK) {
+    return pr;
+  }
+
+  cap_result_t hr = cap_gate_check_handle_result(recv_handle, required_recv);
+  if (hr != CAP_OK) {
+    (void)cap_check(receiver, required_recv);
+    ipc_emit_deny_marker(receiver, required_recv);
+    return IPC_ERR_CAP_DENIED;
+  }
+  (void)cap_check(receiver, required_recv);
+
+  ipc_result_t cr = ipc_port_consume(self_port, out_msg);
+  if (cr != IPC_OK) {
+    return cr;
+  }
+
+  if (out_msg->sender_subject == 0u) {
+    return IPC_ERR_INVALID_MSG;
+  }
+  if (out_msg->abi_version != (uint16_t)OS_ABI_VERSION) {
+    return IPC_ERR_INVALID_MSG;
+  }
+  if (out_msg->flags != 0u) {
+    return IPC_ERR_INVALID_MSG;
+  }
+  if (out_msg->payload_len > IPC_MSG_PAYLOAD_MAX) {
+    return IPC_ERR_INVALID_MSG;
+  }
+  return IPC_OK;
 }

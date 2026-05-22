@@ -347,3 +347,36 @@ cap_result_t cap_handle_revoke_subtree(cap_handle_t root_handle) {
   (void)root_handle;
   return CAP_ERR_CAP_INVALID;
 }
+
+/* ----------------------------------------------------------------------
+ * M1-CAPTBL-006: kernel-trusted owner accessor (issue #246).
+ *
+ * IPC ops gated via cap_gate_check_handle need to derive the sender /
+ * receiver subject from the handle itself (spec §2.4: never trust the
+ * caller-supplied value). This helper mirrors the validation in
+ * cap_gate_check_handle_result but does not require the caller to know
+ * the cap_id up front (the IPC op resolves the port's send/recv cap
+ * separately and then re-checks the handle against it).
+ *
+ * Returns 0 for any malformed or stale handle. 0 is the reserved
+ * invalid subject id (CAP_SUBJECT_NONE in the audit ring), so callers
+ * that propagate it into envelope.sender_subject will be rejected by
+ * the existing `sender == 0 -> IPC_ERR_INVALID_MSG` guard in ipc_ops.
+ * --------------------------------------------------------------------*/
+cap_subject_id_t cap_handle_owner(cap_handle_t handle) {
+  if (cap_handle_tag(handle) != CAP_HANDLE_TAG_KERNEL) {
+    return 0u;
+  }
+  uint16_t slot = cap_handle_slot(handle);
+  if (slot >= CAP_HANDLE_TABLE_MAX) {
+    return 0u;
+  }
+  cap_handle_row *row = &g_rows[slot];
+  if ((row->flags & CAP_HANDLE_FLAG_LIVE) == 0u) {
+    return 0u;
+  }
+  if ((row->generation & CAP_HANDLE_GEN_MASK) != cap_handle_generation(handle)) {
+    return 0u;
+  }
+  return row->owner_subject;
+}

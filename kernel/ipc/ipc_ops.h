@@ -27,6 +27,7 @@
 #include "ipc_msg.h"
 #include "ipc_port.h"
 #include "../cap/capability.h"
+#include "../cap/cap_handle.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,6 +77,42 @@ ipc_result_t ipc_call(cap_subject_id_t caller,
                       const ipc_msg_v0 *req,
                       ipc_port_t reply_port,
                       ipc_msg_v0 *out_reply);
+
+/* --------------------------------------------------------------------
+ * M1-CAPTBL-006 (issue #246): handle-gated IPC entry points.
+ *
+ * These sit alongside the subject-keyed `ipc_send` / `ipc_recv` above
+ * and route the capability decision through
+ * `cap_gate_check_handle(handle, required_cap)` instead of
+ * `cap_check(subject, required_cap)`. The handle's row also supplies
+ * the authenticated subject, so the caller does not get to spoof it.
+ *
+ * Same wire format, same deny vocabulary, same audit ring. The legacy
+ * `ipc_send` / `ipc_recv` paths are left intact so existing tests pass
+ * unmodified (plan #197 acceptance \#2).
+ * --------------------------------------------------------------------*/
+
+/*
+ * Handle-gated send. The kernel-trusted sender id is derived from
+ * `send_handle` (via cap_handle_owner). `send_handle` must resolve to a
+ * live row whose cap_id matches the port's send_cap; otherwise the call
+ * fails with IPC_ERR_CAP_DENIED and emits the canonical
+ * CAP:DENY:<owner>:<send_cap_name>:- marker.
+ */
+ipc_result_t ipc_send_h(cap_handle_t send_handle,
+                        ipc_port_t target,
+                        const ipc_msg_v0 *msg);
+
+/*
+ * Handle-gated receive. Mirrors ipc_recv but takes a `recv_handle`
+ * whose owner must match the port owner, and whose cap_id must match
+ * the port's recv_cap. Wrong-owner-on-recv is treated as a CAP_IPC_RECV
+ * deny (deny marker emitted) so the policy-leakage surface is identical
+ * to the legacy path.
+ */
+ipc_result_t ipc_recv_h(cap_handle_t recv_handle,
+                        ipc_port_t self_port,
+                        ipc_msg_v0 *out_msg);
 
 #ifdef __cplusplus
 }
