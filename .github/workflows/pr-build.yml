@@ -37,7 +37,15 @@ jobs:
       - name: Install runtime test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y nasm qemu-system-x86
+          sudo apt-get install -y nasm qemu-system-x86 python3-jsonschema
+
+      - name: Manifest schema validate (issue #195)
+        # Re-validates every in-tree app manifest under manifests/examples/
+        # against manifests/schema/v0.json on every PR so the schema and the
+        # worked examples cannot silently drift (BUILD_ROADMAP §7 / #187).
+        # Runs through the same .sh wrapper invoked locally so behavior is
+        # identical in CI and on a contributor's box.
+        run: ./build/scripts/validate_manifests.sh
 
       - name: Kernel entry build
         run: ./build/scripts/build.sh kernel
