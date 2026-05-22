@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|capability_gate|capability_audit|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|process_table|syscall_entry_stub|validate_capability_registry|capability_registry_drift|parity|canary_must_fail]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|capability_gate|capability_audit|capability_audit_fixture|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|process_table|syscall_entry_stub|validate_capability_registry|capability_registry_drift|parity|canary_must_fail]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -48,6 +48,7 @@ $testScript = switch ($TestName) {
   "cap_handle_revoke_subtree" { "./build/scripts/test_cap_handle_revoke_subtree.sh" }
   "capability_gate" { "./build/scripts/test_capability_gate.sh" }
   "capability_audit" { "./build/scripts/test_capability_audit.sh" }
+  "capability_audit_fixture" { "./build/scripts/test_capability_audit_fixture.sh" }
   "cap_deny_marker_shape" { "./build/scripts/test_cap_deny_marker_shape.sh" }
   "event_bus" { "./build/scripts/test_event_bus.sh" }
   "scheduler" { "./build/scripts/test_scheduler.sh" }
