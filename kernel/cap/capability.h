@@ -19,6 +19,8 @@ typedef enum {
   CAP_APP_EXEC = 10,
   CAP_CODESIGN_BYPASS = 11,
   CAP_NETWORK = 12,
+  CAP_IPC_SEND = 13,
+  CAP_IPC_RECV = 14,
 } capability_id_t;
 
 typedef enum {
