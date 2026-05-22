@@ -35,9 +35,62 @@
 
 #include "capability.h"
 #include "cap_table.h"  /* reuses CAP_TABLE_MAX_SUBJECTS as the per-process subject bound */
+#include "../../user/include/secureos_abi.h"
 
 /* v0 sizing (plan: "Table data structure"). */
 #define CAP_HANDLE_TABLE_MAX 64u
+
+/*
+ * 32-bit packed capability handle (M1-CAPTBL-002, issue #233).
+ *
+ * The handle is the wire-stable identifier that the future M1 IPC primitive
+ * (#180/#185) and the syscall-entry trampoline (#192) will pass across the
+ * kernel/user boundary. Layout is frozen against OS_ABI_VERSION=0 (#150)
+ * and documented in docs/abi/capabilities.md.
+ *
+ *   bits  0..15  : slot index into the global cap_handle_row table
+ *                  (0 .. CAP_HANDLE_TABLE_MAX-1).
+ *   bits 16..29  : generation low-14-bits (wrap-safe; the underlying
+ *                  row.generation is 32-bit, but only the low 14 are
+ *                  reified on the wire — collisions only after 16384
+ *                  revocations of the same slot, which exceeds the M1
+ *                  bound).
+ *   bits 30..31  : tag = 0b01 ("kernel capability handle"). Reserved tags:
+ *                  0b00 = invalid/null, 0b10/0b11 = future kinds (file
+ *                  handles, IPC ports, broker tickets).
+ *
+ * A handle whose tag bits are not 0b01 is rejected by cap_gate_check_handle
+ * with CAP_ERR_CAP_INVALID. A handle whose slot index lies outside the
+ * table is rejected with CAP_ERR_CAP_INVALID. A handle whose generation
+ * field does not match the live row's generation low-14-bits is rejected
+ * with CAP_ERR_MISSING (stale handle, post-revoke).
+ */
+typedef uint32_t cap_handle_t;
+
+#define CAP_HANDLE_NULL          ((cap_handle_t)0u)
+
+#define CAP_HANDLE_SLOT_BITS     16u
+#define CAP_HANDLE_GEN_BITS      14u
+#define CAP_HANDLE_TAG_BITS      2u
+
+#define CAP_HANDLE_SLOT_SHIFT    0u
+#define CAP_HANDLE_GEN_SHIFT     CAP_HANDLE_SLOT_BITS
+#define CAP_HANDLE_TAG_SHIFT     (CAP_HANDLE_SLOT_BITS + CAP_HANDLE_GEN_BITS)
+
+#define CAP_HANDLE_SLOT_MASK     ((cap_handle_t)((1u << CAP_HANDLE_SLOT_BITS) - 1u))
+#define CAP_HANDLE_GEN_MASK      ((cap_handle_t)((1u << CAP_HANDLE_GEN_BITS) - 1u))
+#define CAP_HANDLE_TAG_MASK      ((cap_handle_t)((1u << CAP_HANDLE_TAG_BITS) - 1u))
+
+#define CAP_HANDLE_TAG_KERNEL    ((cap_handle_t)0x1u)  /* 0b01 */
+
+/* Compile-time invariants pinning the layout to OS_ABI_VERSION=0 (#150).
+ * Any change here is a v0->v1 ABI break and must follow §7 of the roadmap. */
+#if (CAP_HANDLE_SLOT_BITS + CAP_HANDLE_GEN_BITS + CAP_HANDLE_TAG_BITS) != 32u
+#error "cap_handle_t layout must consume exactly 32 bits at OS_ABI_VERSION=0"
+#endif
+#if OS_ABI_VERSION != 0
+#error "cap_handle_t layout is frozen at OS_ABI_VERSION=0; bump requires v1 audit"
+#endif
 
 /* Row flag bits (plan: "Table data structure"). bit3+ MBZ in v0. */
 #define CAP_HANDLE_FLAG_LIVE    (1u << 0)
@@ -91,5 +144,76 @@ cap_result_t cap_handle_table_check(cap_subject_id_t owner_subject,
  * by the unit tests to assert idempotency and table-full behaviour without
  * exposing the row array itself. */
 uint32_t cap_handle_table_live_count(void);
+
+/* ----------------------------------------------------------------------
+ * M1-CAPTBL-002: 32-bit packed handle API (issue #233).
+ *
+ * These functions sit alongside the existing cap_handle_table_* surface and
+ * are the entry points that the M1 IPC primitive (#180/#185) and future
+ * syscall trampoline (#192) will consume. They do NOT yet replace the
+ * thin-bitset cap_table_* API — that façade migration is reserved for
+ * M1-CAPTBL-005 so the audit byte-identity gate can guard it.
+ * --------------------------------------------------------------------*/
+
+/*
+ * Grant (subject, cap_id) and return the wire-stable 32-bit handle that
+ * authorizes it. Caller is treated as the granter (one-arg form per the
+ * issue body). Idempotent: a second grant for the same live (subject, cap)
+ * returns the SAME handle (slot+generation unchanged); the underlying row
+ * is not duplicated, mirroring cap_handle_table_grant's contract.
+ *
+ * Returns CAP_HANDLE_NULL on any error (bad subject, bad cap_id, or table
+ * full). NULL handles always fail cap_gate_check_handle.
+ */
+cap_handle_t cap_handle_grant(cap_subject_id_t owner_subject,
+                              capability_id_t cap_id);
+
+/*
+ * Verify a handle resolves to a live row for `expected_cap` and return
+ * true; otherwise emit the canonical capability-denied marker to the
+ * caller-provided sink and return false.
+ *
+ * Failure modes:
+ *   - tag bits != CAP_HANDLE_TAG_KERNEL  -> CAP_ERR_CAP_INVALID
+ *   - slot index out of bounds           -> CAP_ERR_CAP_INVALID
+ *   - row not live (never granted / row reused) -> CAP_ERR_MISSING
+ *   - generation mismatch (stale / post-revoke) -> CAP_ERR_MISSING
+ *   - row's cap_id != expected_cap       -> CAP_ERR_CAP_INVALID
+ *
+ * The detailed cap_result_t is available via cap_gate_check_handle_result()
+ * for tests and for the syscall trampoline that will translate it to
+ * OS_STATUS_DENIED. The bool form is what plan §"Acceptance criteria" #4
+ * pins.
+ */
+int cap_gate_check_handle(cap_handle_t handle, capability_id_t expected_cap);
+
+/*
+ * Detailed-result form. Same checks as cap_gate_check_handle but returns
+ * the cap_result_t code, so callers can distinguish stale (CAP_ERR_MISSING)
+ * from malformed (CAP_ERR_CAP_INVALID). Pure check — no audit emission, no
+ * table mutation.
+ */
+cap_result_t cap_gate_check_handle_result(cap_handle_t handle,
+                                          capability_id_t expected_cap);
+
+/*
+ * Revoke a handle by bumping its row's generation, so the same numeric
+ * handle now denies. Idempotent: revoking an already-revoked or unknown
+ * handle is a no-op (returns CAP_ERR_MISSING / CAP_ERR_CAP_INVALID). The
+ * row is NOT freed in v0 — generation persists so prior handles stay
+ * permanently stale (plan §"Handle representation").
+ *
+ * Mirrors cap_handle_table_revoke's contract for the (subject, cap) pair
+ * the handle authorizes; the two paths converge on the same row.
+ */
+cap_result_t cap_handle_revoke(cap_handle_t handle);
+
+/* Test helper: pack/unpack the components of a handle. Exposed because the
+ * ABI-freeze unit test exercises the layout directly. */
+cap_handle_t cap_handle_pack(uint16_t slot, uint16_t generation_low14,
+                             uint8_t tag);
+uint16_t cap_handle_slot(cap_handle_t handle);
+uint16_t cap_handle_generation(cap_handle_t handle);
+uint8_t cap_handle_tag(cap_handle_t handle);
 
 #endif

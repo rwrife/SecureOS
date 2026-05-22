@@ -33,12 +33,10 @@
 #include <stdint.h>
 
 /* The plan freezes the handle representation against OS_ABI_VERSION=0
- * (#150). The literal lives in user/include/secureos_abi.h once that
- * surface is finalised; for the M1-CAPTBL-001 skeleton we pin a local
- * constant equal to 0 so each row carries the v0 marker today and the
- * follow-up slice can flip this to an `#include` without disturbing any
- * persisted artefact. */
-#define CAP_HANDLE_ABI_VERSION_V0 0u
+ * (#150). M1-CAPTBL-002 (#233) flips the local constant to the canonical
+ * include-and-pin so any future ABI bump is caught by the static_assert in
+ * cap_handle.h. */
+#define CAP_HANDLE_ABI_VERSION_V0 ((uint16_t)OS_ABI_VERSION)
 
 static cap_handle_row g_rows[CAP_HANDLE_TABLE_MAX];
 
@@ -175,4 +173,125 @@ uint32_t cap_handle_table_live_count(void) {
     }
   }
   return live;
+}
+
+/* ----------------------------------------------------------------------
+ * M1-CAPTBL-002: 32-bit packed handle API (issue #233).
+ *
+ * Handles are derived from the row's slot index and low-14-bits of its
+ * generation counter. Revocation bumps the generation, so the prior handle
+ * value fails the staleness check on the next gate. The row is retained
+ * (slot is not freed in v0) so the generation counter remains observable
+ * after revoke — plan acceptance #4.
+ * --------------------------------------------------------------------*/
+
+static uint16_t cap_handle_row_slot(const cap_handle_row *row) {
+  /* g_rows is a fixed array; pointer arithmetic gives the slot index. */
+  return (uint16_t)(row - g_rows);
+}
+
+cap_handle_t cap_handle_pack(uint16_t slot, uint16_t generation_low14,
+                             uint8_t tag) {
+  cap_handle_t h = 0u;
+  h |= ((cap_handle_t)slot & CAP_HANDLE_SLOT_MASK) << CAP_HANDLE_SLOT_SHIFT;
+  h |= ((cap_handle_t)generation_low14 & CAP_HANDLE_GEN_MASK)
+       << CAP_HANDLE_GEN_SHIFT;
+  h |= ((cap_handle_t)tag & CAP_HANDLE_TAG_MASK) << CAP_HANDLE_TAG_SHIFT;
+  return h;
+}
+
+uint16_t cap_handle_slot(cap_handle_t handle) {
+  return (uint16_t)((handle >> CAP_HANDLE_SLOT_SHIFT) & CAP_HANDLE_SLOT_MASK);
+}
+
+uint16_t cap_handle_generation(cap_handle_t handle) {
+  return (uint16_t)((handle >> CAP_HANDLE_GEN_SHIFT) & CAP_HANDLE_GEN_MASK);
+}
+
+uint8_t cap_handle_tag(cap_handle_t handle) {
+  return (uint8_t)((handle >> CAP_HANDLE_TAG_SHIFT) & CAP_HANDLE_TAG_MASK);
+}
+
+static cap_handle_t cap_handle_from_row(const cap_handle_row *row) {
+  return cap_handle_pack(cap_handle_row_slot(row),
+                         (uint16_t)(row->generation & CAP_HANDLE_GEN_MASK),
+                         (uint8_t)CAP_HANDLE_TAG_KERNEL);
+}
+
+cap_handle_t cap_handle_grant(cap_subject_id_t owner_subject,
+                              capability_id_t cap_id) {
+  if (!cap_handle_subject_valid(owner_subject) ||
+      !cap_handle_cap_id_valid(cap_id)) {
+    return CAP_HANDLE_NULL;
+  }
+
+  /* Idempotent: if a live row already exists, return its current handle. */
+  cap_handle_row *existing = cap_handle_find_live(owner_subject, cap_id);
+  if (existing != NULL) {
+    return cap_handle_from_row(existing);
+  }
+
+  cap_handle_row *row = cap_handle_find_free_slot();
+  if (row == NULL) {
+    return CAP_HANDLE_NULL;
+  }
+
+  row->abi_version = CAP_HANDLE_ABI_VERSION_V0;
+  row->cap_id = cap_id;
+  row->owner_subject = owner_subject;
+  row->granter_subject = owner_subject; /* one-arg form; M4 broker will widen */
+  row->parent_handle = 0u;
+  row->generation += 1u;
+  row->flags = CAP_HANDLE_FLAG_LIVE;
+  return cap_handle_from_row(row);
+}
+
+cap_result_t cap_gate_check_handle_result(cap_handle_t handle,
+                                          capability_id_t expected_cap) {
+  if (cap_handle_tag(handle) != CAP_HANDLE_TAG_KERNEL) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  if (!cap_handle_cap_id_valid(expected_cap)) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  uint16_t slot = cap_handle_slot(handle);
+  if (slot >= CAP_HANDLE_TABLE_MAX) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  cap_handle_row *row = &g_rows[slot];
+  if ((row->flags & CAP_HANDLE_FLAG_LIVE) == 0u) {
+    return CAP_ERR_MISSING;
+  }
+  if ((row->generation & CAP_HANDLE_GEN_MASK) != cap_handle_generation(handle)) {
+    return CAP_ERR_MISSING;
+  }
+  if (row->cap_id != expected_cap) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  return CAP_OK;
+}
+
+int cap_gate_check_handle(cap_handle_t handle, capability_id_t expected_cap) {
+  return cap_gate_check_handle_result(handle, expected_cap) == CAP_OK;
+}
+
+cap_result_t cap_handle_revoke(cap_handle_t handle) {
+  if (cap_handle_tag(handle) != CAP_HANDLE_TAG_KERNEL) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  uint16_t slot = cap_handle_slot(handle);
+  if (slot >= CAP_HANDLE_TABLE_MAX) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  cap_handle_row *row = &g_rows[slot];
+  if ((row->flags & CAP_HANDLE_FLAG_LIVE) == 0u) {
+    return CAP_ERR_MISSING;
+  }
+  if ((row->generation & CAP_HANDLE_GEN_MASK) != cap_handle_generation(handle)) {
+    /* Stale handle revoke is a no-op. */
+    return CAP_ERR_MISSING;
+  }
+  row->flags = CAP_HANDLE_FLAG_REVOKED;
+  row->generation += 1u;
+  return CAP_OK;
 }
