@@ -48,6 +48,7 @@ test_sof_format
 test_sof_verify_at_rest
 test_tls
 test_validator_report
+test_workflow_rule
 
 # Shared bash helper module for os-* wrappers. Not a user-invoked entry
 # point; the PowerShell wrappers use common.ps1 instead.
