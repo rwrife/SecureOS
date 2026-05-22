@@ -1,5 +1,11 @@
 # SecureOS Capability ABI
 
+> **Owner:** kernel / capability subsystem
+> **Status:** draft `v0` — append-only enum, handle layer in progress (#233)
+> **Last reviewed:** 2026-05-22
+> **Applies to:** `OS_ABI_VERSION = 0`
+> **Tracking issues:** [#150](https://github.com/rwrife/SecureOS/issues/150), [#163](https://github.com/rwrife/SecureOS/issues/163), [#233](https://github.com/rwrife/SecureOS/issues/233)
+
 This document is the ABI-level summary of the capability subsystem. For
 implementation history and per-CAP-NNN deltas, see
 [`docs/architecture/CAPABILITIES.md`](../architecture/CAPABILITIES.md).

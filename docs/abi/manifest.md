@@ -1,6 +1,10 @@
 # SecureOS Launcher Manifest
 
-Status: **draft, `OS_ABI_VERSION=0`**.
+> **Owner:** launcher / user-runtime
+> **Status:** draft `v0` — on-disk schema not yet load-bearing
+> **Last reviewed:** 2026-05-22
+> **Applies to:** `OS_ABI_VERSION = 0`
+> **Tracking issues:** [#82](https://github.com/rwrife/SecureOS/issues/82), [#83](https://github.com/rwrife/SecureOS/issues/83)
 
 At this milestone, the "manifest" is the in-code launcher registration
 API plus the explicit grant calls it exposes. The on-disk JSON form is
