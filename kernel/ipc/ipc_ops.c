@@ -65,6 +65,7 @@ static const char *ipc_cap_name(capability_id_t cap) {
     case CAP_APP_EXEC: return "app_exec";
     case CAP_CODESIGN_BYPASS: return "codesign_bypass";
     case CAP_NETWORK: return "network";
+    case CAP_SYSCALL: return "syscall";
   }
   return "unknown";
 }

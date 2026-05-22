@@ -90,6 +90,7 @@ static bool capability_id_known(capability_id_t cap) {
     case CAP_NETWORK:
     case CAP_IPC_SEND:
     case CAP_IPC_RECV:
+    case CAP_SYSCALL:
       return true;
   }
   return false;

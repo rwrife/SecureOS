@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|capability_gate|capability_audit|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|parity|canary_must_fail]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|capability_gate|capability_audit|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|syscall_entry_stub|parity|canary_must_fail]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -64,6 +64,7 @@ $testScript = switch ($TestName) {
   "kernel_sessions" { "./build/scripts/build_kernel_image.sh; ./build/scripts/build_disk_image.sh; ./build/scripts/run_qemu.sh --test kernel_sessions" }
   "ipc_sync_v0" { "./build/scripts/test_ipc_sync_v0.sh" }
   "ipc_port_lifecycle" { "./build/scripts/test_ipc_port_lifecycle.sh" }
+  "syscall_entry_stub" { "./build/scripts/test_syscall_entry_stub.sh" }
   "harness_defense" { "./build/scripts/test_harness_defense.sh" }
   "canary_must_fail" { "./tests/integration/_canary_must_fail/canary_must_fail.sh" }
   "workflow_rule" { "./build/scripts/test_workflow_rule.sh" }
