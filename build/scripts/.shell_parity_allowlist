@@ -31,6 +31,7 @@ test_capability_audit_log
 test_capability_gate
 test_capability_table
 test_cap_table_skeleton
+test_cap_handle_repr
 test_cert_chain
 test_codesign
 test_ed25519

@@ -38,21 +38,56 @@ Rules (all enforced today):
 
 ## Handle representation
 
-A "capability handle" at this stage of the project is the pair
-`(cap_subject_id_t, capability_id_t)` stored in the per-subject packed
-bitset table (`kernel/cap/cap_table.{h,c}`). There is no separate
-opaque-handle type yet; that is intentional until the broker slice (#85)
-lands and demands sharable, revocable references.
+### `(subject, capability)` pair (legacy `cap_table` API)
 
-When the broker slice ships, the handle type will:
+The original capability surface stores the pair
+`(cap_subject_id_t, capability_id_t)` directly in the per-subject packed
+bitset table (`kernel/cap/cap_table.{h,c}`). This API remains the single
+call path for every kernel call site at M1 (`cap_check`,
+`cap_table_grant`, `cap_table_revoke`).
 
-- be opaque to user-space (no kernel pointer dereference required),
-- carry the originating subject so revocation is total,
-- be observable in audit events under their existing `subject_id` /
-  `capability_id` fields plus a new handle-id column.
+### 32-bit packed handle (`cap_handle_t`, M1-CAPTBL-002, #233)
 
-Until then, code that needs to refer to a "grant" refers to the
-`(subject, capability)` pair directly.
+A wire-stable 32-bit identifier lives alongside the legacy API in
+`kernel/cap/cap_handle.{h,c}`. It is the value that the M1 synchronous IPC
+primitive (#180 / #185) and the future syscall-entry trampoline (#192) will
+pass across the kernel/user boundary. Layout is **frozen at
+`OS_ABI_VERSION=0`** — a `#error` in `cap_handle.h` fires on any bump,
+and any change to the field widths below is a v0→v1 ABI break.
+
+| Bits  | Width | Field        | Meaning                                                           |
+| ----- | ----- | ------------ | ----------------------------------------------------------------- |
+| 0..15 | 16    | `slot`       | Index into the global `cap_handle_row` table (`0 .. CAP_HANDLE_TABLE_MAX-1`, currently 64). |
+| 16..29| 14    | `generation` | Low 14 bits of the row's monotonic generation counter; bumped on every revoke. |
+| 30..31| 2     | `tag`        | `0b00` = null/invalid, **`0b01` = kernel capability handle**, `0b10`/`0b11` reserved (future file/IPC/broker kinds). |
+
+Validation contract (`cap_gate_check_handle` / `cap_gate_check_handle_result`):
+
+- `tag != 0b01`            → `CAP_ERR_CAP_INVALID`
+- `slot >= CAP_HANDLE_TABLE_MAX` → `CAP_ERR_CAP_INVALID`
+- row not live              → `CAP_ERR_MISSING`
+- generation mismatch       → `CAP_ERR_MISSING` (stale handle after revoke)
+- row's `cap_id != expected_cap` → `CAP_ERR_CAP_INVALID`
+
+`cap_handle_grant(subject, cap)` returns a handle for the live row, or
+`CAP_HANDLE_NULL` on table full / bad inputs. Grants are idempotent: a
+second grant for the same live `(subject, cap)` returns the **same**
+handle. `cap_handle_revoke(handle)` bumps the row's generation, so the
+same numeric value denies on the next gate; the row is retained so the
+generation counter remains observable indefinitely.
+
+M1-CAPTBL-002 ships the representation and the gate-check entry point.
+Process-exit bulk revoke (`cap_handle_revoke_subject`) is M1-CAPTBL-003,
+subtree revoke is -004, façade migration with byte-exact audit parity is
+-005, and IPC integration is -006 — each landing as its own PR.
+
+### Legacy notes
+
+Until the façade migration (M1-CAPTBL-005) lands, the legacy `cap_table`
+API and the new `cap_handle` API maintain **independent** state. Existing
+call sites continue to use `cap_check` / `cap_table_grant` unchanged.
+When the broker slice (#85) reifies handle ownership across processes, it
+will consume the same `cap_handle_t` defined here.
 
 ## Result codes
 
