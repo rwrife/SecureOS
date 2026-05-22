@@ -23,6 +23,9 @@ implementation history and per-CAP-NNN deltas, see
 | 10 | `CAP_APP_EXEC` | dynamic library load / app launch |
 | 11 | `CAP_CODESIGN_BYPASS` | sealed-build only; never granted in prod |
 | 12 | `CAP_NETWORK` | all `os_net_*` (incl. HTTPS) |
+| 13 | `CAP_IPC_SEND` | `ipc_send` / `ipc_call` send leg (M1 sync IPC) |
+| 14 | `CAP_IPC_RECV` | `ipc_recv` (M1 sync IPC) |
+| 15 | `CAP_SYSCALL` | M1 syscall entry stub (reserved; see [syscalls.md](syscalls.md)). |
 
 Rules (all enforced today):
 

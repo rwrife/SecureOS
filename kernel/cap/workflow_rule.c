@@ -87,6 +87,9 @@ static int capability_is_known(capability_id_t cap) {
     case CAP_APP_EXEC:
     case CAP_CODESIGN_BYPASS:
     case CAP_NETWORK:
+    case CAP_IPC_SEND:
+    case CAP_IPC_RECV:
+    case CAP_SYSCALL:
       return 1;
   }
   return 0;

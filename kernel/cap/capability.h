@@ -21,6 +21,19 @@ typedef enum {
   CAP_NETWORK = 12,
   CAP_IPC_SEND = 13,
   CAP_IPC_RECV = 14,
+  /*
+   * CAP_SYSCALL: reserved-but-unused in M1 (issue #232).
+   *
+   * Gates the M1 syscall-entry ABI vector (see
+   * `kernel/proc/syscall_entry.{c,h}` and `docs/abi/syscalls.md`).
+   * No call sites exist yet — `kernel_syscall_entry` returns
+   * `IPC_ERR_INVALID_MSG` for every vector in M1. The capability is
+   * declared now so the deny-marker contract
+   * (`docs/abi/capability-deny-contract.md` §4) has a single source of
+   * truth for the marker's <capability_id> field the moment any real
+   * caller is wired in M2+.
+   */
+  CAP_SYSCALL = 15,
 } capability_id_t;
 
 typedef enum {

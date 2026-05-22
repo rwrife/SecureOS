@@ -90,6 +90,38 @@ the dispatch shim, not as new capability IDs at this layer.
 | `os_storage_info(out, len)` | (none) | Read-only. |
 | `os_get_args(out, len)` | (none) | Caller's argv. |
 
+## Reserved syscall vector range (M1)
+
+Issue #232 (plan #198) reserves a frozen syscall vector range under
+`OS_ABI_VERSION = 0` so the ABI slot exists before any real M2+ caller
+binds to it. The single source of truth is
+[`kernel/proc/syscall_entry.h`](../../kernel/proc/syscall_entry.h):
+
+- Range: `[SYSCALL_VECTOR_BASE, SYSCALL_VECTOR_BASE + SYSCALL_VECTOR_COUNT)`
+  = `[0x0000, 0x0010)` (16 slots).
+- Contract in M1: `kernel_syscall_entry()` returns `IPC_ERR_INVALID_MSG`
+  for **every** vector — in-range or out-of-range — and emits a
+  canonical `CAP:DENY:<actor>:syscall:-` marker via the shared
+  [`cap_deny_marker`](capability-deny-contract.md) formatter so the
+  deny-marker contract tests apply uniformly the moment a real caller
+  is wired.
+- ABI anchor: `SYSCALL_ENTRY_ABI_ANCHOR = (OS_ABI_VERSION << 16) |
+  SYSCALL_VECTOR_COUNT`. Cross-checked by
+  `tests/syscall_entry_stub_test.c` so the reservation cannot silently
+  drift away from the `OS_ABI_VERSION` anchor (same pattern as #228 for
+  manifest `os_abi_version`).
+- Gating capability: `CAP_SYSCALL = 15` (declared in
+  `kernel/cap/capability.h`, append-only enum slot).
+
+Vectors inside the range are reserved but unbound; renumbering or
+reusing one for a different purpose once a real M2+ caller binds is a
+covered ABI break under [versioning.md](versioning.md). Widening the
+range (raising `SYSCALL_VECTOR_COUNT`) is additive and allowed within
+`OS_ABI_VERSION = 0`.
+
+No GDT/TSS/ring-3 plumbing exists in M1 — see plan #198 ("stubbed but
+unused"). The reservation is purely an ABI-shape anchor.
+
 ## Adding a syscall
 
 1. Declare the prototype in `user/include/secureos_api.h`.
@@ -103,3 +135,4 @@ the dispatch shim, not as new capability IDs at this layer.
 5. Update this table and bump the verification line below.
 
 Last verified against commit: 9f4f7ccbb19c9ffb28ee4b6de2f3e93c35e65785
+
