@@ -121,7 +121,18 @@ as caller-opaque in v0 — receivers MUST NOT decode it.
 IPC endpoints are addressed by **opaque port handles**, not by name:
 
 - `ipc_port_t` is a 32-bit handle allocated from a kernel-owned port
-  table (`kernel/ipc/ipc_port.{c,h}` per the M1 plan).
+  table (`kernel/ipc/ipc_port.{c,h}` per the M1 plan). The v0
+  implementation packs the handle as `(generation << 16) | index`,
+  where `index` is the low 16 bits (table slot, `0..IPC_PORT_TABLE_MAX-1`)
+  and `generation` is a 16-bit counter that is bumped every time a slot
+  is destroyed and skipped over `0` on wrap-around, so a freshly
+  destroyed handle is never equal to `IPC_PORT_INVALID` (= `0`) and
+  never aliases the next handle issued for the same slot. The lifecycle
+  contract is locked in by `tests/ipc_port_lifecycle_test.c` (issue
+  #223): create → destroy → create returns a strictly different handle
+  even when the underlying slot is reused, every read accessor rejects
+  the stale handle with `IPC_ERR_INVALID_PORT`, and 65535 create/destroy
+  cycles on the same slot index never produce `IPC_PORT_INVALID`.
 - The exact bit layout (generation counter vs. table index) is owned by
   [`capabilities.md`](./capabilities.md) and shared with other
   capability-handle types so that revocation semantics are uniform.

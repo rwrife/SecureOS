@@ -42,6 +42,7 @@ TEST_TARGETS=(
     kernel_persistence
     validator_report
     ipc_sync_v0
+    ipc_port_lifecycle
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
