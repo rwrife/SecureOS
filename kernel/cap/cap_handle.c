@@ -295,3 +295,35 @@ cap_result_t cap_handle_revoke(cap_handle_t handle) {
   row->generation += 1u;
   return CAP_OK;
 }
+
+/* ----------------------------------------------------------------------
+ * M1-CAPTBL-003: bulk revoke by owner (issue #239).
+ *
+ * Single pass over the global table. Each live row whose `owner_subject`
+ * matches is transitioned LIVE -> REVOKED with its generation bumped, so
+ * any previously-issued handle for that row now fails the staleness check
+ * in `cap_gate_check_handle_result`. Best-effort by contract: a bad
+ * subject id (out of range) simply matches no rows and returns 0; there
+ * is no separate error code. Audit-chain emission stays owned by the
+ * legacy cap_table layer until M1-CAPTBL-005's façade migration lands
+ * (plan acceptance #2 — audit byte-identity is reserved for that PR).
+ * --------------------------------------------------------------------*/
+uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject) {
+  if (!cap_handle_subject_valid(owner_subject)) {
+    return 0u;
+  }
+  uint32_t revoked = 0u;
+  for (uint32_t i = 0; i < CAP_HANDLE_TABLE_MAX; ++i) {
+    cap_handle_row *row = &g_rows[i];
+    if ((row->flags & CAP_HANDLE_FLAG_LIVE) == 0u) {
+      continue;
+    }
+    if (row->owner_subject != owner_subject) {
+      continue;
+    }
+    row->flags = CAP_HANDLE_FLAG_REVOKED;
+    row->generation += 1u;
+    revoked += 1u;
+  }
+  return revoked;
+}

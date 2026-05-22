@@ -32,6 +32,7 @@ test_capability_gate
 test_capability_table
 test_cap_table_skeleton
 test_cap_handle_repr
+test_cap_handle_revoke_subject
 test_process_table
 test_cert_chain
 test_codesign

@@ -37,6 +37,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "../cap/cap_handle.h"
 #include "../../user/include/secureos_abi.h"
 
 /* Handle layout: low 16 bits = table index, high 16 bits = generation.
@@ -143,6 +144,12 @@ proc_result_t process_destroy(process_id_t pid) {
   if (slot == NULL) {
     return PROC_ERR_INVALID_PID;
   }
+  /* M1-CAPTBL-003 (#239): on process exit, bulk-revoke every capability
+   * handle owned by this PCB's subject so any stored handle issued before
+   * destroy now fails cap_gate_check_handle with CAP_ERR_MISSING. Must
+   * happen BEFORE we clear slot->subject. Best-effort; no return-value
+   * change from this function. */
+  cap_subject_id_t exiting_subject = slot->subject;
   slot->live = false;
   slot->generation = (uint16_t)(slot->generation + 1u);
   if (slot->generation == 0u) {
@@ -150,6 +157,7 @@ proc_result_t process_destroy(process_id_t pid) {
   }
   slot->subject = 0u;
   slot->aspace = NULL;
+  (void)cap_handle_revoke_subject(exiting_subject);
   return PROC_OK;
 }
 
