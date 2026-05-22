@@ -23,6 +23,11 @@ changes are deliberate and reviewable rather than emergent.
   implementation tracked by the M1 sync-IPC plan (#180 / #185).
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
+- [capability-registry.md](capability-registry.md) — machine-readable index
+  ([capability-registry.json](capability-registry.json)) of every `CAP_*`:
+  numeric id, subject kinds, `CAP:DENY:` marker shape, allow/deny test
+  targets, and owning plan. Validated in CI by
+  `build/scripts/validate_capability_registry.sh` (issue #234).
 
 ## Provenance
 

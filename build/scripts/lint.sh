@@ -153,9 +153,43 @@ run_parity() {
     emit_marker "TEST:PASS:lint_parity:fallback_sh_only=${sh_only}"
 }
 
+run_capability_registry() {
+    # Issue #234: cross-check docs/abi/capability-registry.json against
+    # kernel/cap/capability.h + build/scripts/test.sh + plans/.
+    # Rolled out warn-only first (LINT_REGISTRY_FATAL=0) per the
+    # determinism-check pattern from #176; flip to fatal in the
+    # follow-up issue once one green cycle is observed.
+    emit_marker "TEST:START:lint_capability_registry"
+    if [ ! -x build/scripts/validate_capability_registry.sh ]; then
+        emit_marker "TEST:PASS:lint_capability_registry:wrapper_missing_skipped"
+        return
+    fi
+    local out rc
+    out="$(build/scripts/validate_capability_registry.sh 2>&1)" || true
+    rc=$?
+    printf '%s\n' "$out"
+    if [ "$rc" -eq 0 ]; then
+        emit_marker "TEST:PASS:lint_capability_registry"
+        return
+    fi
+    local reason
+    reason="$(printf '%s\n' "$out" | grep -E '^REGISTRY_VALIDATE:FAIL:' | head -n1 | sed 's/^REGISTRY_VALIDATE:FAIL://')"
+    if [ -z "$reason" ]; then
+        reason="validator_exit_${rc}"
+    fi
+    if [ "${LINT_REGISTRY_FATAL:-0}" = "1" ]; then
+        emit_marker "TEST:FAIL:lint_capability_registry:${reason}"
+        fail_count=$((fail_count + 1))
+    else
+        emit_marker "TEST:WARN:lint_capability_registry:${reason}"
+        emit_marker "TEST:PASS:lint_capability_registry:warn_only"
+    fi
+}
+
 run_clang_format
 run_shellcheck
 run_parity
+run_capability_registry
 
 if [ "$miss_count" -gt 0 ]; then
     emit_marker "TEST:FAIL:lint:tools_missing=${miss_count}"

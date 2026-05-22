@@ -72,7 +72,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|capability_gate|capability_audit|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|validate_manifests_abi_major|manifest_required_fields|ipc_sync_v0|ipc_port_lifecycle|syscall_entry_stub|parity|harness_defense|canary_must_fail]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|capability_gate|capability_audit|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|validate_manifests_abi_major|manifest_required_fields|ipc_sync_v0|ipc_port_lifecycle|syscall_entry_stub|validate_capability_registry|capability_registry_drift|parity|harness_defense|canary_must_fail]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -245,6 +245,22 @@ case "$TEST_NAME" in
     # all vectors return IPC_ERR_INVALID_MSG, deny-marker shape
     # cross-check, and OS_ABI_VERSION anchor cross-check.
     run_script "$ROOT_DIR/build/scripts/test_syscall_entry_stub.sh"
+    ;;
+  validate_capability_registry)
+    # Issue #234: cross-check that docs/abi/capability-registry.json
+    # stays consistent with the capability_id_t enum in
+    # kernel/cap/capability.h, every referenced test.sh target exists,
+    # every deny_marker conforms to the §4 grammar from
+    # docs/abi/capability-deny-contract.md, and every owning_plan
+    # resolves under plans/.
+    run_script "$ROOT_DIR/build/scripts/validate_capability_registry.sh"
+    ;;
+  capability_registry_drift)
+    # Issue #234: negative-canary self-test — adds a fake CAP_* to a
+    # sandboxed capability.h copy and asserts the registry validator
+    # emits the REGISTRY_VALIDATE:FAIL:enum_not_in_registry marker.
+    # Mirrors the canary discipline from #213 / #177.
+    run_script "$ROOT_DIR/tests/harness/capability_registry_drift_test.sh"
     ;;
   parity)
     run_script "$ROOT_DIR/build/scripts/test_shell_parity.sh"

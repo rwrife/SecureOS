@@ -1,0 +1,157 @@
+{
+  "$schema_version": 0,
+  "description": "Single machine-readable index of every CAP_* defined in kernel/cap/capability.h. For each capability, records the subject kinds that may hold it, the canonical CAP:DENY: marker shape (per docs/abi/capability-deny-contract.md §4), the build/scripts/test.sh targets that exercise the allow and deny paths, the owning plan (when one exists), and the OS_ABI_VERSION at which the capability id was frozen. Validated by build/scripts/validate_capability_registry.sh (issue #234).",
+  "frozen_marker_grammar": "^CAP:DENY:[0-9]+:[a-z][a-z0-9_]*:[\\x20-\\x39\\x3B-\\x7E]+$",
+  "capabilities": [
+    {
+      "cap_id": "CAP_CONSOLE_WRITE",
+      "numeric_id": 1,
+      "subject_kinds": ["app", "launcher"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:console_write:-",
+      "allow_test_target": "helloapp_allow",
+      "deny_test_target": "helloapp_deny",
+      "owning_plan": "plans/2026-04-13-console-write-capability-slice.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_SERIAL_WRITE",
+      "numeric_id": 2,
+      "subject_kinds": ["kernel", "launcher"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:serial_write:-",
+      "allow_test_target": "capability_gate",
+      "deny_test_target": "capability_gate",
+      "owning_plan": "plans/2026-04-11-console-launcher-capability-slice.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_DEBUG_EXIT",
+      "numeric_id": 3,
+      "subject_kinds": ["test_only"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:debug_exit:-",
+      "allow_test_target": "capability_gate",
+      "deny_test_target": "capability_gate",
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_CAPABILITY_ADMIN",
+      "numeric_id": 4,
+      "subject_kinds": ["bootstrap_root"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:capability_admin:-",
+      "allow_test_target": "cap_api_contract",
+      "deny_test_target": "cap_api_contract",
+      "owning_plan": "plans/2026-04-21-capability-broker-share-workflow.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_DISK_IO_REQUEST",
+      "numeric_id": 5,
+      "subject_kinds": ["kernel", "fs_service"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:disk_io_request:-",
+      "allow_test_target": "capability_gate",
+      "deny_test_target": "capability_gate",
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_FS_READ",
+      "numeric_id": 6,
+      "subject_kinds": ["app"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:fs_read:<path>",
+      "allow_test_target": "fs_service_persist_allow",
+      "deny_test_target": "fs_service_persist_deny",
+      "owning_plan": "plans/2026-04-16-filesystem-service-faux-fs.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_FS_WRITE",
+      "numeric_id": 7,
+      "subject_kinds": ["app"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:fs_write:<path>",
+      "allow_test_target": "fs_service_persist_allow",
+      "deny_test_target": "fs_service_persist_deny",
+      "owning_plan": "plans/2026-04-16-filesystem-service-faux-fs.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_EVENT_SUBSCRIBE",
+      "numeric_id": 8,
+      "subject_kinds": ["app", "service"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:event_subscribe:<topic>",
+      "allow_test_target": "event_bus",
+      "deny_test_target": "event_bus",
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_EVENT_PUBLISH",
+      "numeric_id": 9,
+      "subject_kinds": ["app", "service"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:event_publish:<topic>",
+      "allow_test_target": "event_bus",
+      "deny_test_target": "event_bus",
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_APP_EXEC",
+      "numeric_id": 10,
+      "subject_kinds": ["launcher"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:app_exec:<app_name>",
+      "allow_test_target": "app_runtime",
+      "deny_test_target": "app_runtime",
+      "owning_plan": "plans/2026-04-14-console-service-launcher-helloapp.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_CODESIGN_BYPASS",
+      "numeric_id": 11,
+      "subject_kinds": ["sealed_build_only"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:codesign_bypass:-",
+      "allow_test_target": "codesign",
+      "deny_test_target": "codesign",
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_NETWORK",
+      "numeric_id": 12,
+      "subject_kinds": ["app"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:network:<scheme_host>",
+      "allow_test_target": "netlib_url_scheme",
+      "deny_test_target": "netlib_url_scheme",
+      "owning_plan": "plans/2026-04-09-zero-trust-network-abi-hardening.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_IPC_SEND",
+      "numeric_id": 13,
+      "subject_kinds": ["app", "service"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:ipc_send:-",
+      "allow_test_target": "ipc_sync_v0",
+      "deny_test_target": "ipc_sync_v0",
+      "owning_plan": "plans/2026-05-19-m1-sync-ipc-primitive.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_IPC_RECV",
+      "numeric_id": 14,
+      "subject_kinds": ["app", "service"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:ipc_recv:-",
+      "allow_test_target": "ipc_sync_v0",
+      "deny_test_target": "ipc_sync_v0",
+      "owning_plan": "plans/2026-05-19-m1-sync-ipc-primitive.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_SYSCALL",
+      "numeric_id": 15,
+      "subject_kinds": ["app"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:syscall:-",
+      "allow_test_target": null,
+      "deny_test_target": "syscall_entry_stub",
+      "owning_plan": "plans/2026-05-20-m1-kernel-capability-table.md",
+      "frozen_since_abi": "0.0"
+    }
+  ]
+}
