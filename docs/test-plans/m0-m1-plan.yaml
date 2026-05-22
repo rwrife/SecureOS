@@ -237,6 +237,17 @@ tasks:
       type: log_marker
       marker: "TEST:PASS:cap_audit_log"
 
+  - taskId: M1_CAP_DENY_MARKER_SHAPE
+    ownerRole: test-engineer
+    dependsOn: [M1_CAP_009]
+    run: "./build/scripts/test.sh cap_deny_marker_shape"
+    artifacts:
+      - "status:done"
+      - "issue:#211"
+    passCondition:
+      type: log_marker
+      marker: "TEST:PASS:cap_deny_marker_shape"
+
   - taskId: M1_CAP_010
     ownerRole: implementer
     dependsOn: [M1_CAP_009]
