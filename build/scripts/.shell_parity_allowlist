@@ -52,6 +52,7 @@ test_scheduler
 test_sof_format
 test_sof_verify_at_rest
 test_tls
+test_validate_manifests_abi_major
 test_validator_report
 test_workflow_rule
 

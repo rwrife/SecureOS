@@ -44,6 +44,32 @@ def _load_json(path: Path) -> object:
         return json.load(fh)
 
 
+# Matches:  #define OS_ABI_VERSION_MAJOR 0
+# Tolerant of extra whitespace and trailing comments; rejects token-paste,
+# function-like macros, or non-integer right-hand sides so a future
+# refactor of the header does not silently start returning the wrong value.
+_ABI_MAJOR_RE = __import__("re").compile(
+    r"^\s*#\s*define\s+OS_ABI_VERSION_MAJOR\s+(\d+)\s*(?:/[/*].*)?$"
+)
+
+
+def _parse_abi_major_from_header(header_path: Path) -> "int | None":
+    """Parse `#define OS_ABI_VERSION_MAJOR <int>` out of secureos_abi.h.
+
+    Returns None if the header is missing, unreadable, or does not contain
+    a parseable definition. Callers convert that into a usage error.
+    """
+    try:
+        text = header_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        m = _ABI_MAJOR_RE.match(line)
+        if m:
+            return int(m.group(1))
+    return None
+
+
 def _format_pointer(absolute_path) -> str:
     # jsonschema's ValidationError.absolute_path is a deque of keys/indices.
     # Emit RFC 6901 JSON-pointer so failures are unambiguous in CI logs.
@@ -77,12 +103,39 @@ def main(argv: list[str]) -> int:
         help="Glob(s) for manifests to validate "
         "(default: manifests/examples/*.json).",
     )
+    parser.add_argument(
+        "--require-abi-major",
+        type=int,
+        default=None,
+        help="Require each manifest's os_abi_version to equal this integer "
+        "(issue #227). Use --require-abi-major-from-header to derive it "
+        "automatically from secureos_abi.h.",
+    )
+    parser.add_argument(
+        "--require-abi-major-from-header",
+        default=None,
+        help="Path to secureos_abi.h; parses OS_ABI_VERSION_MAJOR out of it "
+        "and uses that as --require-abi-major. Relative paths resolve "
+        "against --root. Overrides --require-abi-major if both are given.",
+    )
     args = parser.parse_args(argv)
 
     if args.root:
         root = Path(args.root).resolve()
     else:
         root = Path(__file__).resolve().parent.parent
+
+    require_abi_major: int | None = args.require_abi_major
+    if args.require_abi_major_from_header:
+        header_path = Path(args.require_abi_major_from_header)
+        if not header_path.is_absolute():
+            header_path = (root / header_path).resolve()
+        parsed = _parse_abi_major_from_header(header_path)
+        if parsed is None:
+            return _fail(
+                f"could not parse OS_ABI_VERSION_MAJOR from header {header_path}"
+            )
+        require_abi_major = parsed
 
     schema_path = (
         Path(args.schema).resolve()
@@ -151,17 +204,33 @@ def main(argv: list[str]) -> int:
             continue
 
         errors = sorted(validator.iter_errors(doc), key=lambda e: list(e.absolute_path))
-        if not errors:
-            print(f"MANIFEST_VALIDATE:PASS:{rel}")
-            continue
-
+        manifest_failed = bool(errors)
         for err in errors:
             pointer = _format_pointer(err.absolute_path) or "/"
             print(
                 f"MANIFEST_VALIDATE:FAIL:{rel}: at {pointer}: {err.message}",
                 file=sys.stderr,
             )
-        failures += 1
+
+        if require_abi_major is not None:
+            # Cross-check os_abi_version against the kernel anchor.
+            # Missing / non-int values are already caught by the schema;
+            # only emit the ABI mismatch when the field is present and an
+            # int so we do not double-report a schema failure.
+            abi_val = doc.get("os_abi_version") if isinstance(doc, dict) else None
+            if isinstance(abi_val, int) and abi_val != require_abi_major:
+                print(
+                    f"MANIFEST_VALIDATE:FAIL:{rel}: at /os_abi_version: "
+                    f"value {abi_val} does not match required "
+                    f"OS_ABI_VERSION_MAJOR={require_abi_major} (issue #227)",
+                    file=sys.stderr,
+                )
+                manifest_failed = True
+
+        if manifest_failed:
+            failures += 1
+        else:
+            print(f"MANIFEST_VALIDATE:PASS:{rel}")
 
     if failures:
         print(
