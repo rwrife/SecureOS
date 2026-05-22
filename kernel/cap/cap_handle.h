@@ -239,6 +239,19 @@ uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject);
  */
 cap_result_t cap_handle_revoke_subtree(cap_handle_t root_handle);
 
+/*
+ * Resolve a handle to its kernel-trusted owner subject. Returns 0 (the
+ * reserved invalid subject id) for any handle that would fail
+ * cap_gate_check_handle_result with CAP_ERR_CAP_INVALID or
+ * CAP_ERR_MISSING (bad tag, oob slot, dead row, stale generation). On
+ * a live row this returns `row->owner_subject` regardless of cap_id,
+ * because handle-gated callers (M1-CAPTBL-006, issue #246) need the
+ * authenticated subject *before* they know which cap to gate against.
+ *
+ * No audit emission, no table mutation, no side effects.
+ */
+cap_subject_id_t cap_handle_owner(cap_handle_t handle);
+
 /* Test helper: pack/unpack the components of a handle. Exposed because the
  * ABI-freeze unit test exercises the layout directly. */
 cap_handle_t cap_handle_pack(uint16_t slot, uint16_t generation_low14,

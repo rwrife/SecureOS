@@ -22,6 +22,7 @@ mkdir -p "$OUT_DIR"
 cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/capability.c" \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
+  "$ROOT_DIR/kernel/cap/cap_handle.c" \
   "$ROOT_DIR/kernel/ipc/ipc_port.c" \
   "$ROOT_DIR/kernel/ipc/ipc_ops.c" \
   "$ROOT_DIR/tests/ipc_sync_v0_test.c" \
