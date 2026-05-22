@@ -39,13 +39,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y nasm qemu-system-x86 python3-jsonschema
 
-      - name: Manifest schema validate (issue #195)
+      - name: Manifest schema validate (issue #195, #227)
         # Re-validates every in-tree app manifest under manifests/examples/
         # against manifests/schema/v0.json on every PR so the schema and the
         # worked examples cannot silently drift (BUILD_ROADMAP §7 / #187).
+        # Also cross-checks each manifest's os_abi_version against the
+        # OS_ABI_VERSION_MAJOR constant in user/include/secureos_abi.h
+        # (issue #227) so a header bump fails CI on stale examples
+        # rather than at runtime in the launcher.
         # Runs through the same .sh wrapper invoked locally so behavior is
         # identical in CI and on a contributor's box.
-        run: ./build/scripts/validate_manifests.sh
+        run: ./build/scripts/validate_manifests.sh --require-abi-major-from-header user/include/secureos_abi.h
 
       - name: Kernel entry build
         run: ./build/scripts/build.sh kernel

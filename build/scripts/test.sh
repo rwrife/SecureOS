@@ -72,7 +72,7 @@ stop_secureos_instances
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|ipc_sync_v0|parity|harness_defense|canary_must_fail]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|capability_gate|capability_audit|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|app_runtime|helloapp_allow|helloapp_deny|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|validate_manifests_abi_major|ipc_sync_v0|parity|harness_defense|canary_must_fail]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -213,6 +213,12 @@ case "$TEST_NAME" in
     ;;
   abi_version)
     run_script "$ROOT_DIR/build/scripts/test_abi_version.sh"
+    ;;
+  validate_manifests_abi_major)
+    # Issue #227: cross-check that --require-abi-major{,-from-header}
+    # wiring rejects examples whose os_abi_version drifts from the
+    # secureos_abi.h anchor.
+    run_script "$ROOT_DIR/build/scripts/test_validate_manifests_abi_major.sh"
     ;;
   ipc_sync_v0)
     run_script "$ROOT_DIR/build/scripts/test_ipc_sync_v0.sh"
