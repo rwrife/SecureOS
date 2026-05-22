@@ -208,6 +208,22 @@ cap_result_t cap_gate_check_handle_result(cap_handle_t handle,
  */
 cap_result_t cap_handle_revoke(cap_handle_t handle);
 
+/*
+ * Bulk-revoke every live row owned by `owner_subject` (M1-CAPTBL-003,
+ * issue #239). Single pass over the global table; each matching live
+ * row is transitioned LIVE -> REVOKED with its generation bumped, so
+ * every handle previously issued for it now fails `cap_gate_check_handle`
+ * with CAP_ERR_MISSING. Returns the number of rows actually revoked
+ * (0 if the subject held none or if `owner_subject` is out of range).
+ *
+ * Best-effort by contract: there is no error code. Callers that need a
+ * detailed result use `cap_handle_revoke` on individual handles instead.
+ *
+ * Called by `kernel/proc/process.c::process_destroy` so process exit
+ * authoritatively stales every capability handle the process owned.
+ */
+uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject);
+
 /* Test helper: pack/unpack the components of a handle. Exposed because the
  * ABI-freeze unit test exercises the layout directly. */
 cap_handle_t cap_handle_pack(uint16_t slot, uint16_t generation_low14,

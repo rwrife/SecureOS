@@ -77,8 +77,16 @@ same numeric value denies on the next gate; the row is retained so the
 generation counter remains observable indefinitely.
 
 M1-CAPTBL-002 ships the representation and the gate-check entry point.
-Process-exit bulk revoke (`cap_handle_revoke_subject`) is M1-CAPTBL-003,
-subtree revoke is -004, façade migration with byte-exact audit parity is
+M1-CAPTBL-003 (#239) adds `cap_handle_revoke_subject(owner)` — a single
+pass over the global table that transitions every live row owned by
+`owner` to REVOKED and bumps its generation, so every previously-issued
+handle for those rows now fails the gate with `CAP_ERR_MISSING`. The
+`kernel/proc/process.c::process_destroy` path calls this hook on every
+successful destroy, making process exit the authoritative "all handles
+for this subject are stale" trigger. Bulk revoke is best-effort by
+contract (no error code; bad subject ids return `0` revoked).
+Subtree revoke (`cap_handle_revoke_subject_subtree`) is M1-CAPTBL-004,
+façade migration with byte-exact audit parity is
 -005, and IPC integration is -006 — each landing as its own PR.
 
 ### Legacy notes
