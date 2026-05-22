@@ -109,6 +109,9 @@ case "$TEST_NAME" in
   cap_handle_repr)
     run_script "$ROOT_DIR/build/scripts/test_cap_handle_repr.sh"
     ;;
+  process_table)
+    run_script "$ROOT_DIR/build/scripts/test_process_table.sh"
+    ;;
   capability_gate)
     run_script "$ROOT_DIR/build/scripts/test_capability_gate.sh"
     ;;
