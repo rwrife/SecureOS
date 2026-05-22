@@ -23,6 +23,39 @@ stop_secureos_instances() {
 
 stop_secureos_instances
 
+# Issue #226: gate the disk-image build on manifest validity, not just
+# schema validity (follow-up to #219). Validate every manifest the
+# build pipeline would otherwise stage onto secureos-disk.img — the
+# curated examples under manifests/examples/ AND any per-app manifest
+# dropped under user/apps/**/*.manifest.json. Run this on the host
+# (outside the toolchain container) because the container image does
+# not ship python3-jsonschema; the validator wrapper itself will
+# self-diagnose with MANIFEST_VALIDATE:ERROR if the dependency is
+# missing.
+#
+# If jsonschema is unavailable on this host we fall back to a warning
+# rather than failing the build, so contributors without the lib can
+# still rebuild the disk locally; CI installs jsonschema in the
+# build-and-validate job (see .github/workflows/pr-build.yml) and
+# always exercises the strict path.
+run_manifest_gate() {
+	local py="${PYTHON:-python3}"
+	if ! command -v "$py" >/dev/null 2>&1; then
+		echo "build_disk_image: python3 not found, skipping manifest gate (issue #226)" >&2
+		return 0
+	fi
+	if ! "$py" -c "import jsonschema" >/dev/null 2>&1; then
+		echo "build_disk_image: python3-jsonschema not installed, skipping manifest gate (issue #226)" >&2
+		return 0
+	fi
+	"$ROOT_DIR/build/scripts/validate_manifests.sh" \
+		--require-abi-major-from-header user/include/secureos_abi.h \
+		'manifests/examples/*.json' \
+		'user/apps/**/*.manifest.json'
+}
+
+run_manifest_gate
+
 build_disk_image_inner() {
 	local script_path
 	local cmd_name

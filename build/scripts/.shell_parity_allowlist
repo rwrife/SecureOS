@@ -48,6 +48,7 @@ test_ipc_port_lifecycle
 test_kernel_persistence
 test_launcher_console
 test_launcher_fs
+test_manifest_required_fields
 test_netlib_url_scheme
 test_scheduler
 test_sof_format
