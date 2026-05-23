@@ -36,6 +36,18 @@ SECTIONS
     *(.bss .bss.*)
   }
 
+  /* M1 process arena (issue #248, plan plans/2026-05-20-m1-process-address-space.md
+   * slice 2). 1 MiB BSS-resident region carved into per-process windows at
+   * boot by the cooperative-scheduler slice via aspace_partition(). Page-
+   * aligned so the partitioning helper's 16-byte stack alignment is
+   * preserved across windows. Symbols __proc_arena_start / __proc_arena_end
+   * give the kernel C side stable anchors. */
+  .proc_arena : ALIGN(4K) {
+    __proc_arena_start = .;
+    . = . + 1M;
+    __proc_arena_end = .;
+  }
+
   /DISCARD/ : {
     *(.comment)
     *(.note*)
