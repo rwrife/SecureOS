@@ -10,7 +10,7 @@
  *
  * Interactions:
  *   - sof.h declares all types and function prototypes used here.
- *   - kernel/user/process.c calls sof_parse() to unwrap SOF containers
+ *   - kernel/user/launcher_exec.c calls sof_parse() to unwrap SOF containers
  *     and extract the embedded ELF payload before execution.
  *   - kernel/fs/fs_service.c calls sof_build() to wrap script-generated
  *     ELF binaries in SOF containers during filesystem initialization.

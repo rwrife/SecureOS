@@ -12,7 +12,7 @@
  * Interactions:
  *   - kernel/format/sof.c implements the parsing, building, and verification
  *     functions declared here.
- *   - kernel/user/process.c includes this header to parse SOF containers
+ *   - kernel/user/launcher_exec.c includes this header to parse SOF containers
  *     before extracting the ELF payload for execution.
  *   - kernel/fs/fs_service.c includes this header to build SOF containers
  *     around script-generated ELF binaries at filesystem init time.

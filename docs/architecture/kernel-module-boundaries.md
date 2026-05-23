@@ -62,14 +62,17 @@ Kernel-resident code only. Per `AGENTS.md`, the kernel is responsible for, and
 **limited to**:
 
 1. Session management (`kernel/core/session_manager.{c,h}`).
-2. Process launching from on-disk binaries (`kernel/user/process.{c,h}`).
+2. Process launching from on-disk binaries (`kernel/user/launcher_exec.{c,h}` —
+   the command/ELF launcher). The M1 process control block (PCB) and process
+   abstraction live separately in `kernel/proc/process.{c,h}`.
 3. The console (`kernel/core/console.{c,h}`).
 4. The event bus (`kernel/event/**`).
 5. The capability gatekeeper (`kernel/cap/**`).
 6. HAL-backed drivers for hardware the kernel itself must touch
    (`kernel/hal/**` + `kernel/drivers/**`).
 7. Filesystem service entry points (`kernel/fs/**`) — see §3 capability rule.
-8. Binary format / loader plumbing (`kernel/format/**`) used by `process.c`.
+8. Binary format / loader plumbing (`kernel/format/**`) used by
+   `kernel/user/launcher_exec.c`.
 9. Cryptographic primitives required by the loader / signature verifier only
    (`kernel/crypto/**`). User-space crypto (TLS, etc.) lives in `user/libs/`.
 

@@ -12,7 +12,7 @@
  *   - Uses the soflib user-space library (user/include/lib/soflib.h)
  *     for SOF metadata type definitions.
  *   - At runtime, the kernel's script interpreter handles the `about`
- *     command via a built-in handler in kernel/user/process.c which
+ *     command via a built-in handler in kernel/user/launcher_exec.c which
  *     reads the file from the filesystem and parses the SOF metadata.
  *
  * Launched by:

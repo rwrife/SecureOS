@@ -110,7 +110,7 @@ DNS, TCP, or TLS work is attempted.
   non-network schemes (`file://`, `ftp://`, `javascript:`, `data:`, ...)
   are denied without producing externally visible network activity.
 - Capability enforcement still runs on top of this: the netlib syscall
-  surface in `kernel/user/process.c` requires `CAP_NETWORK` for raw frame
+  surface in `kernel/user/launcher_exec.c` requires `CAP_NETWORK` for raw frame
   and device access, and the scheme gate stacks in front of it so missing
   capability and unsupported scheme are independent failure modes.
 
