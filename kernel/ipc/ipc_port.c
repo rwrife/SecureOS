@@ -254,3 +254,10 @@ bool ipc_port_has_pending_for_tests(ipc_port_t port) {
   }
   return slot->slot_occupied;
 }
+
+const void *ipc_port_wait_token(ipc_port_t port) {
+  /* Return the slot pointer itself. Stable for the lifetime of the
+   * handle's generation and unique per live port. Callers must treat
+   * it as an opaque equality token only. */
+  return (const void *)resolve(port);
+}

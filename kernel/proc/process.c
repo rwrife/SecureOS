@@ -60,6 +60,12 @@ typedef struct {
   uint16_t generation;
   cap_subject_id_t subject;
   address_space_t *aspace;
+  /* Slice-3 (#250) cooperative-scheduler bookkeeping. These never
+   * touch the wire ABI — they are kernel-internal only. */
+  process_state_t state;
+  proc_entry_fn_t entry;
+  uint32_t exit_code;
+  const void *blocked_on_port;
 } process_slot_t;
 
 static process_slot_t g_procs[PROC_TABLE_MAX];
@@ -112,6 +118,10 @@ void process_table_reset(void) {
     g_procs[i].live = false;
     g_procs[i].subject = 0u;
     g_procs[i].aspace = NULL;
+    g_procs[i].state = PROC_STATE_NEW;
+    g_procs[i].entry = NULL;
+    g_procs[i].exit_code = 0u;
+    g_procs[i].blocked_on_port = NULL;
   }
   g_table_initialized = true;
 }
@@ -132,6 +142,10 @@ proc_result_t process_create(cap_subject_id_t subject,
       g_procs[i].live = true;
       g_procs[i].subject = subject;
       g_procs[i].aspace = aspace;
+      g_procs[i].state = PROC_STATE_NEW;
+      g_procs[i].entry = NULL;
+      g_procs[i].exit_code = 0u;
+      g_procs[i].blocked_on_port = NULL;
       *out_pid = encode_pid(i, g_procs[i].generation);
       return PROC_OK;
     }
@@ -172,9 +186,51 @@ proc_result_t process_lookup(process_id_t pid, process_t *out_proc) {
   out_proc->pid = pid;
   out_proc->subject = slot->subject;
   out_proc->aspace = slot->aspace;
+  out_proc->state = slot->state;
+  out_proc->entry = slot->entry;
+  out_proc->exit_code = slot->exit_code;
+  out_proc->blocked_on_port = slot->blocked_on_port;
   return PROC_OK;
 }
 
 bool process_is_live_for_tests(process_id_t pid) {
   return resolve(pid) != NULL;
+}
+
+/* ---------------- slice-3 (#250) mutator accessors ---------------- */
+
+proc_result_t process_set_state(process_id_t pid, process_state_t state) {
+  process_slot_t *slot = resolve(pid);
+  if (slot == NULL) {
+    return PROC_ERR_INVALID_PID;
+  }
+  slot->state = state;
+  return PROC_OK;
+}
+
+proc_result_t process_set_entry(process_id_t pid, proc_entry_fn_t entry) {
+  process_slot_t *slot = resolve(pid);
+  if (slot == NULL) {
+    return PROC_ERR_INVALID_PID;
+  }
+  slot->entry = entry;
+  return PROC_OK;
+}
+
+proc_result_t process_set_exit_code(process_id_t pid, uint32_t code) {
+  process_slot_t *slot = resolve(pid);
+  if (slot == NULL) {
+    return PROC_ERR_INVALID_PID;
+  }
+  slot->exit_code = code;
+  return PROC_OK;
+}
+
+proc_result_t process_set_blocked_on(process_id_t pid, const void *port) {
+  process_slot_t *slot = resolve(pid);
+  if (slot == NULL) {
+    return PROC_ERR_INVALID_PID;
+  }
+  slot->blocked_on_port = port;
+  return PROC_OK;
 }

@@ -95,6 +95,28 @@ typedef enum {
 } proc_result_t;
 
 /*
+ * Cooperative-scheduler state machine (slice 3, issue #250 / plan #198).
+ * The values are part of the v0 in-kernel contract: tests rely on the
+ * specific enumeration order (NEW < READY < RUNNING < BLOCKED < EXITED)
+ * to assert lifecycle transitions. Do not reorder.
+ */
+typedef enum {
+  PROC_STATE_NEW = 0,
+  PROC_STATE_READY = 1,
+  PROC_STATE_RUNNING = 2,
+  PROC_STATE_BLOCKED = 3,
+  PROC_STATE_EXITED = 4,
+} process_state_t;
+
+/*
+ * Slice-3 entry function shape. The cooperative scheduler invokes a
+ * registered entry once when the PCB first runs. Entries may call
+ * proc_yield() (and ipc_send/recv as their only blocking points) and
+ * are expected to call proc_exit() before returning.
+ */
+typedef void (*proc_entry_fn_t)(void);
+
+/*
  * Forward declaration of the address-space placeholder. The v0
  * scaffold treats `address_space_t` as an opaque type: concrete fields
  * are reserved for the M2 paging slice and live behind this pointer
@@ -107,14 +129,22 @@ typedef struct address_space address_space_t;
  * Minimal PCB. Field order is part of the v0 contract — tests assert
  * sizeof/offsetof against a static_assert table in process.c.
  *
- * Out of scope for this slice (these will appear in sibling follow-up
- * issues; do NOT add them here): state machine, ready-queue links,
- * exit_code, entry pointer, kernel stack pointer.
+ * Slice 3 (#250) appends cooperative-scheduler bookkeeping at the tail
+ * (state, entry, exit_code, blocked_on_port) so the existing
+ * sizeof/offsetof contract from slice 1 (pid/subject/aspace at the
+ * front) is preserved. process_lookup() still only fills the first
+ * three fields plus the new state/exit_code so callers that snapshot
+ * a PCB never see uninitialised tail bytes.
  */
 typedef struct process {
-  process_id_t       pid;      /* stable handle, 0 = invalid */
-  cap_subject_id_t   subject;  /* capability identity bound to this PCB */
-  address_space_t   *aspace;   /* opaque in v0; reserved for M2 paging */
+  process_id_t       pid;            /* stable handle, 0 = invalid */
+  cap_subject_id_t   subject;        /* capability identity bound to this PCB */
+  address_space_t   *aspace;         /* opaque in v0; reserved for M2 paging */
+  /* --- slice 3 (#250): cooperative-scheduler tail, append-only --- */
+  process_state_t    state;          /* scheduler lifecycle state */
+  proc_entry_fn_t    entry;          /* registered entry; NULL pre-spawn */
+  uint32_t           exit_code;      /* valid only in PROC_STATE_EXITED */
+  const void        *blocked_on_port;/* opaque IPC port back-ref or NULL */
 } process_t;
 
 /*
@@ -161,6 +191,22 @@ proc_result_t process_lookup(process_id_t pid, process_t *out_proc);
  * transitions without peeking at slot internals.
  */
 bool process_is_live_for_tests(process_id_t pid);
+
+/* ----------------------------------------------------------------
+ * Slice-3 (#250) mutator accessors used by kernel/proc/proc_sched.{c,h}
+ * to drive the cooperative-scheduler state machine without exposing
+ * the raw slot struct. All four return PROC_ERR_INVALID_PID on a stale
+ * or invalid handle and PROC_OK on success.
+ *
+ * These are intentionally NOT part of the public PCB-table API for
+ * non-scheduler callers — the only in-kernel callers (besides the
+ * proc_sched test) are the cooperative scheduler itself and the IPC
+ * send/recv block/wake path in kernel/ipc/ipc_ops.c.
+ * ---------------------------------------------------------------- */
+proc_result_t process_set_state(process_id_t pid, process_state_t state);
+proc_result_t process_set_entry(process_id_t pid, proc_entry_fn_t entry);
+proc_result_t process_set_exit_code(process_id_t pid, uint32_t code);
+proc_result_t process_set_blocked_on(process_id_t pid, const void *port);
 
 #ifdef __cplusplus
 }

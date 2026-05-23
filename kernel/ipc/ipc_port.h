@@ -112,6 +112,21 @@ ipc_result_t ipc_port_consume(ipc_port_t port, ipc_msg_v0 *out_msg);
  */
 bool ipc_port_has_pending_for_tests(ipc_port_t port);
 
+/*
+ * Stable kernel-internal address for a live port. The pointer is
+ * intended only as an opaque equality token shared between the IPC
+ * send/recv slow path and the cooperative scheduler's block/wake
+ * helpers (kernel/proc/proc_sched.{c,h}). The pointed-to bytes are
+ * NOT readable by callers — do not dereference. Returns NULL for a
+ * stale or invalid handle.
+ *
+ * Issue #250 (M1 plan #198 slice 3): wired up so the scheduler can
+ * suspend a PCB on "this exact port" and the matching peer can wake
+ * exactly one waiter for the same port without exposing the slot
+ * representation.
+ */
+const void *ipc_port_wait_token(ipc_port_t port);
+
 #ifdef __cplusplus
 }
 #endif

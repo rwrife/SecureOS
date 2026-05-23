@@ -22,6 +22,8 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/capability.c" \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
   "$ROOT_DIR/kernel/cap/cap_handle.c" \
+  "$ROOT_DIR/kernel/proc/process.c" \
+  "$ROOT_DIR/kernel/proc/proc_sched.c" \
   "$ROOT_DIR/kernel/ipc/ipc_port.c" \
   "$ROOT_DIR/kernel/ipc/ipc_ops.c" \
   "$ROOT_DIR/tests/ipc_handle_gate_test.c" \
