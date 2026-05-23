@@ -84,10 +84,17 @@ static const driver_t drivers[] = {
     {"broker_share_deny",       42u, CAP_CAPABILITY_ADMIN,
      "broker_share=cap=fs_read,target=17",
      "CAP:DENY:42:capability_admin:broker_share=cap=fs_read,target=17\n"},
-    /* M1 IPC send deny (#210, planned). */
-    {"ipc_send_deny",           7u,  CAP_DEBUG_EXIT, /* no IPC cap yet */
+    /* M1 IPC send deny (#210, shipped). The IPC path now routes
+     * through cap_deny_marker_format directly (was a bespoke printf)
+     * so its on-wire shape is asserted here against the canonical
+     * formatter. */
+    {"ipc_send_deny",           7u,  CAP_IPC_SEND,
      "ipc_port=3",
-     "CAP:DENY:7:debug_exit:ipc_port=3\n"},
+     "CAP:DENY:7:ipc_send:ipc_port=3\n"},
+    /* M1 IPC recv deny (#210, shipped). Same path, mirror cap. */
+    {"ipc_recv_deny",           7u,  CAP_IPC_RECV,
+     "-",
+     "CAP:DENY:7:ipc_recv:-\n"},
     /* Capability audit_event_subscribe deny (per §5 async fallback). */
     {"event_subscribe_deny",    9u,  CAP_EVENT_SUBSCRIBE,  "topic=fs.changed",
      "CAP:DENY:9:event_subscribe:topic=fs.changed\n"},
@@ -197,6 +204,12 @@ static void test_cap_table_coverage(void) {
       CAP_CAPABILITY_ADMIN, CAP_DISK_IO_REQUEST, CAP_FS_READ, CAP_FS_WRITE,
       CAP_EVENT_SUBSCRIBE, CAP_EVENT_PUBLISH, CAP_APP_EXEC,
       CAP_CODESIGN_BYPASS, CAP_NETWORK,
+      /* M1 IPC + reserved syscall caps. These were missing from the
+       * cdm_cap_names[] table even though CAP_IPC_SEND/RECV are wired
+       * into a live deny path (kernel/ipc/ipc_ops.c). Adding them here
+       * pins the table against silent drift the next time the enum
+       * grows. */
+      CAP_IPC_SEND, CAP_IPC_RECV, CAP_SYSCALL,
   };
   const size_t n = sizeof(all_caps) / sizeof(all_caps[0]);
   for (size_t i = 0u; i < n; ++i) {
