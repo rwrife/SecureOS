@@ -46,6 +46,7 @@ TEST_TARGETS=(
     ipc_port_lifecycle
     ipc_handle_gate
     proc_sched
+    m1_ipc_demo
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
