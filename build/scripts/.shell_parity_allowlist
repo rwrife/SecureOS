@@ -38,6 +38,7 @@ test_cap_handle_revoke_subtree
 test_process_table
 test_proc_sched
 test_aspace_carve
+test_aspace_bounds
 test_m1_ipc_demo
 test_cert_chain
 test_codesign

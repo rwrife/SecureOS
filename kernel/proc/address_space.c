@@ -85,3 +85,35 @@ aspace_result_t aspace_partition(uintptr_t arena_base,
 
   return ASPACE_OK;
 }
+
+bool aspace_contains(const address_space_t *as,
+                     const void *ptr,
+                     size_t len) {
+  if (as == NULL) {
+    return false;
+  }
+
+  /* Reject malformed window: base + size must not overflow. */
+  uintptr_t base = as->base;
+  size_t size = as->size;
+  if (size > (size_t)(UINTPTR_MAX - base)) {
+    return false;
+  }
+  uintptr_t end = base + (uintptr_t)size; /* exclusive upper bound */
+
+  uintptr_t p = (uintptr_t)ptr;
+
+  /* ptr itself must be inside the half-open window [base, end). */
+  if (p < base || p >= end) {
+    return false;
+  }
+
+  /* Overflow-safe upper-end check. With p inside the window, the
+   * largest `len` we accept is `end - p`, computed without wrapping. */
+  size_t headroom = (size_t)(end - p);
+  if (len > headroom) {
+    return false;
+  }
+
+  return true;
+}
