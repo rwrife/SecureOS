@@ -20,6 +20,7 @@
 #include "../ipc/ipc_msg.h"
 #include "../ipc/ipc_ops.h"
 #include "../ipc/ipc_port.h"
+#include "address_space.h"
 #include "process.h"
 #include "proc_sched.h"
 #include "../../user/include/secureos_abi.h"
@@ -65,10 +66,60 @@ static void demo_handle_record(cap_subject_id_t subject, cap_handle_t h) {
    * overflow indicates a test-harness bug. */
 }
 
+/* --------------------------------------------------------------------
+ * Per-module address-space backing (issue #260 done-when 3 follow-up).
+ *
+ * The scheduler now asserts `aspace_invariant_ok(pcb->aspace)` before
+ * restoring any PCB's context (proc_sched_run / dispatch path). A NULL
+ * aspace fails that check, so we cannot keep passing NULL into
+ * process_create() — m1-sender / m1-receiver / m1-unauth all need a
+ * real partitioned window of their own.
+ *
+ * The arena lives in BSS so its address is stable across resets. The
+ * partition is rebuilt by `m1_demo_reset()` so each test invocation
+ * sees a fresh, well-formed set of windows. One slot per module entry
+ * in `g_modules[]` is the minimum, but we size for
+ * `M1_DEMO_MAX_SUBJECTS` for symmetry with the handle map and to leave
+ * room for future demo modules.
+ *
+ * Each window is sized for `PROC_KSTACK_BYTES + IPC_MSG_PAYLOAD_MAX +
+ * 64` bytes (slack for alignment), matching the partitioning shape
+ * used by `tests/proc_sched_test.c`.
+ * ------------------------------------------------------------------ */
+
+#define M1_DEMO_ARENA_BYTES                                          \
+  (M1_DEMO_MAX_SUBJECTS *                                            \
+   (PROC_KSTACK_BYTES + IPC_MSG_PAYLOAD_MAX + 64u))
+
+static uint8_t          g_demo_aspace_arena[M1_DEMO_ARENA_BYTES];
+static address_space_t  g_demo_aspaces[M1_DEMO_MAX_SUBJECTS];
+static size_t           g_demo_aspace_next = 0u;
+static bool             g_demo_aspaces_ready = false;
+
+static bool demo_aspaces_rebuild(void) {
+  aspace_result_t pr = aspace_partition(
+      (uintptr_t)g_demo_aspace_arena, sizeof(g_demo_aspace_arena),
+      g_demo_aspaces, M1_DEMO_MAX_SUBJECTS);
+  g_demo_aspace_next = 0u;
+  g_demo_aspaces_ready = (pr == ASPACE_OK);
+  return g_demo_aspaces_ready;
+}
+
+static address_space_t *demo_aspace_claim(void) {
+  if (!g_demo_aspaces_ready) {
+    return NULL;
+  }
+  if (g_demo_aspace_next >= M1_DEMO_MAX_SUBJECTS) {
+    return NULL;
+  }
+  return &g_demo_aspaces[g_demo_aspace_next++];
+}
+
 void m1_demo_reset(void) {
   g_demo_port = IPC_PORT_INVALID;
   memset(g_demo_handles, 0, sizeof(g_demo_handles));
   memset(&g_demo_obs, 0, sizeof(g_demo_obs));
+  (void)demo_aspaces_rebuild();
 }
 
 bool m1_demo_set_port(ipc_port_t port) {
@@ -234,8 +285,17 @@ module_spawn_result_t proc_spawn_module(const char *name,
     return MODULE_SPAWN_ERR_UNKNOWN_NAME;
   }
 
+  /* Back the PCB with a real partitioned address-space window so the
+   * scheduler's `aspace_invariant_ok()` gate (issue #260 done-when 3)
+   * sees a valid base/size/stack_top/ipc_scratch layout. Without this
+   * the dispatch path panics with `null_aspace` on the first wake. */
+  address_space_t *as = demo_aspace_claim();
+  if (as == NULL) {
+    return MODULE_SPAWN_ERR_PROC_CREATE;
+  }
+
   process_id_t pid = PID_INVALID;
-  if (process_create(m->subject, NULL, &pid) != PROC_OK) {
+  if (process_create(m->subject, as, &pid) != PROC_OK) {
     return MODULE_SPAWN_ERR_PROC_CREATE;
   }
 
