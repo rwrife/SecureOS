@@ -47,6 +47,7 @@
 #ifndef SECUREOS_KERNEL_PROC_ADDRESS_SPACE_H
 #define SECUREOS_KERNEL_PROC_ADDRESS_SPACE_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -123,6 +124,32 @@ aspace_result_t aspace_partition(uintptr_t arena_base,
                                  size_t arena_size,
                                  address_space_t *out,
                                  size_t count);
+
+/*
+ * Bounds predicate for the M1 flat-with-bounds enforcement check
+ * (issue #260). Returns `true` iff the entire byte range
+ * `[ptr, ptr + len)` is contained inside `[as->base, as->base + as->size)`.
+ *
+ * Contract:
+ *   - `as == NULL` returns `false` (no window, nothing is contained).
+ *   - `len == 0` returns `true` iff `ptr` itself is in the half-open
+ *     window. The empty range at the boundary `ptr == base + size` is
+ *     rejected; an empty range exactly at `base` is accepted.
+ *   - Pointer arithmetic on `ptr + len` is performed in `uintptr_t`
+ *     with overflow rejection: any `(uintptr_t)ptr + len` that wraps
+ *     past `UINTPTR_MAX` returns `false`. Likewise any window whose
+ *     own `base + size` would overflow is treated as not containing
+ *     anything (rejects the malformed window rather than the caller).
+ *
+ * This is the M1 substitute for page-table enforcement; the plan
+ * (`plans/2026-05-20-m1-process-address-space.md` slice 2) commits
+ * the kernel to consulting this predicate before trusting any
+ * user-supplied pointer that names a region inside an
+ * `address_space_t` window.
+ */
+bool aspace_contains(const address_space_t *as,
+                     const void *ptr,
+                     size_t len);
 
 #ifdef __cplusplus
 }
