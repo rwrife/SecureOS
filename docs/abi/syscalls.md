@@ -139,5 +139,5 @@ unused"). The reservation is purely an ABI-shape anchor.
 4. Add an allow-path and a deny-path test under `build/scripts/test_*.sh`.
 5. Update this table and bump the verification line below.
 
-Last verified against commit: 9f4f7ccbb19c9ffb28ee4b6de2f3e93c35e65785
+Last verified against commit: 9b2089bbcfac9813eda86503e076f11f85ca4ab6
 
