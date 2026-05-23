@@ -151,6 +151,34 @@ bool aspace_contains(const address_space_t *as,
                      const void *ptr,
                      size_t len);
 
+/*
+ * Kernel-internal layout-invariant predicate (issue #260, scheduler
+ * block/wake half).
+ *
+ * Returns `true` iff `as` describes a self-consistent window:
+ *   - `as != NULL`.
+ *   - `as->size > 0` and `as->base + as->size` does not overflow.
+ *   - `as->stack_top` lies strictly above `as->base` and at most at
+ *     the exclusive upper bound `as->base + as->size` — i.e. a
+ *     non-empty stack region that does not escape the window.
+ *   - `as->ipc_scratch == NULL` is permitted (an aspace may carry no
+ *     scratch region), but if non-NULL, the full `IPC_MSG_PAYLOAD_MAX`
+ *     scratch span must lie inside `[base, base + size)`.
+ *
+ * This is the M1 scheduler's substitute for a hardware page-table
+ * invariant check: every PCB whose context is about to be restored
+ * must satisfy `aspace_invariant_ok(pcb->aspace)`, otherwise the
+ * scheduler has been handed a corrupted window and continuing would
+ * silently restore an out-of-bounds stack pointer. The scheduler
+ * panics on a `false` return (issue #260 done-when 3); this predicate
+ * exists so the panic site is byte-identical to the host-side
+ * regression test asserting the same invariant.
+ *
+ * Pure function: no I/O, no globals, no allocation. Safe to call
+ * from any context.
+ */
+bool aspace_invariant_ok(const address_space_t *as);
+
 #ifdef __cplusplus
 }
 #endif

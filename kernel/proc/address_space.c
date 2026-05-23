@@ -117,3 +117,43 @@ bool aspace_contains(const address_space_t *as,
 
   return true;
 }
+
+bool aspace_invariant_ok(const address_space_t *as) {
+  if (as == NULL) {
+    return false;
+  }
+
+  /* Non-empty window with non-wrapping arithmetic. */
+  if (as->size == 0u) {
+    return false;
+  }
+  if (as->size > (size_t)(UINTPTR_MAX - as->base)) {
+    return false;
+  }
+  uintptr_t end = as->base + (uintptr_t)as->size; /* exclusive upper bound */
+
+  /* stack_top must point strictly above base (non-empty stack) and
+   * not past the exclusive window end. Equality with end is fine
+   * because the stack grows downward from stack_top and the first
+   * push lands at end - 1, still inside the window. */
+  if (as->stack_top <= as->base) {
+    return false;
+  }
+  if (as->stack_top > end) {
+    return false;
+  }
+
+  /* ipc_scratch may legitimately be NULL on an aspace that does not
+   * carry a per-process scratch region (e.g. the boot idle PCB). When
+   * non-NULL, the full IPC_MSG_PAYLOAD_MAX span must lie inside the
+   * window — reuse the same overflow-safe arithmetic as
+   * aspace_contains() so the scheduler's invariant check matches the
+   * IPC layer's bounds check by construction. */
+  if (as->ipc_scratch != NULL) {
+    if (!aspace_contains(as, as->ipc_scratch, (size_t)IPC_MSG_PAYLOAD_MAX)) {
+      return false;
+    }
+  }
+
+  return true;
+}
