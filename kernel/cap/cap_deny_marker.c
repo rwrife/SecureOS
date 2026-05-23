@@ -81,6 +81,8 @@ static const cdm_cap_name_entry_t cdm_cap_names[] = {
     {CAP_APP_EXEC, "app_exec"},
     {CAP_CODESIGN_BYPASS, "codesign_bypass"},
     {CAP_NETWORK, "network"},
+    {CAP_IPC_SEND, "ipc_send"},
+    {CAP_IPC_RECV, "ipc_recv"},
     {CAP_SYSCALL, "syscall"},
 };
 

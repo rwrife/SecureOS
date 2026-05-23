@@ -41,6 +41,7 @@
 #include "ipc_port.h"
 #include "../cap/capability.h"
 #include "../cap/cap_handle.h"
+#include "../cap/cap_deny_marker.h"
 #include "../proc/proc_sched.h"
 
 #include <stdio.h>
@@ -110,31 +111,26 @@ static ipc_result_t ipc_consume_blocking(ipc_port_t self_port, ipc_msg_v0 *out_m
  * (capability-deny-contract.md §4). */
 #define IPC_DENY_RESOURCE_NONE "-"
 
-static const char *ipc_cap_name(capability_id_t cap) {
-  switch (cap) {
-    case CAP_IPC_SEND: return "ipc_send";
-    case CAP_IPC_RECV: return "ipc_recv";
-    case CAP_CONSOLE_WRITE: return "console_write";
-    case CAP_SERIAL_WRITE: return "serial_write";
-    case CAP_DEBUG_EXIT: return "debug_exit";
-    case CAP_CAPABILITY_ADMIN: return "capability_admin";
-    case CAP_DISK_IO_REQUEST: return "disk_io_request";
-    case CAP_FS_READ: return "fs_read";
-    case CAP_FS_WRITE: return "fs_write";
-    case CAP_EVENT_SUBSCRIBE: return "event_subscribe";
-    case CAP_EVENT_PUBLISH: return "event_publish";
-    case CAP_APP_EXEC: return "app_exec";
-    case CAP_CODESIGN_BYPASS: return "codesign_bypass";
-    case CAP_NETWORK: return "network";
-    case CAP_SYSCALL: return "syscall";
-  }
-  return "unknown";
-}
-
+/* Emit the canonical CAP:DENY:<actor>:<cap>:<resource> marker through
+ * the single-source-of-truth formatter in kernel/cap/cap_deny_marker.{h,c}.
+ *
+ * Previously this path hand-rolled its own printf() and shadowed the
+ * cap-name table. That broke the #211 / #221 invariant that every deny
+ * path produces a marker that round-trips through cap_deny_marker_validate:
+ * CAP_IPC_SEND / CAP_IPC_RECV were missing from cdm_cap_names[], so any
+ * future consumer that ran the canonical validator over IPC deny output
+ * would have rejected it with cap_unknown. Routing through the formatter
+ * here makes the IPC deny path conform to the contract by construction
+ * and unblocks the #261 PROC_TABLE_FULL marker work, which depends on the
+ * same emitter. */
 static void ipc_emit_deny_marker(cap_subject_id_t subject, capability_id_t cap) {
-  /* Canonical: CAP:DENY:<actor_subject_id>:<cap_id_name>:<resource>
-   * IPC has no per-call resource handle in v0, so the resource is '-'. */
-  printf("CAP:DENY:%u:%s:%s\n", (unsigned)subject, ipc_cap_name(cap), IPC_DENY_RESOURCE_NONE);
+  char buf[CAP_DENY_MARKER_MAX];
+  int n = cap_deny_marker_format(subject, cap, IPC_DENY_RESOURCE_NONE,
+                                 buf, sizeof(buf));
+  if (n > 0) {
+    /* fwrite preserves the trailing '\n' the formatter already wrote. */
+    (void)fwrite(buf, 1u, (size_t)n, stdout);
+  }
 }
 
 /* Capability-gate helpers. These intentionally mirror the shape of
