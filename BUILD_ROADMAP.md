@@ -215,8 +215,11 @@ Deliver:
 
 Validate:
 
-- two modules exchange message
-- unauthorized operation denied with explicit error
+- two modules exchange message — satisfied by `TEST:PASS:m1_ipc_allow`
+  (see `tests/m1_ipc_demo_test.c`, issue #251, plan #198 slice 4).
+- unauthorized operation denied with explicit error — satisfied by
+  `TEST:PASS:m1_ipc_deny` + canonical `CAP:DENY:<m1-unauth>:ipc_send:-`
+  marker (same harness).
 
 ## 5.2 M2: Console service + Launcher + HelloApp (first capability slice)
 

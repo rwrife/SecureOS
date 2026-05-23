@@ -226,6 +226,20 @@ same PR so the "is" matches the "ought."
 
 ## 6. Cross-references
 
+### M1 acceptance demo
+
+The BUILD_ROADMAP §5.1 "two modules exchange message" and "unauthorized
+operation denied with explicit error" bullets are realised by the
+in-tree demo registered in `kernel/proc/module_registry.{c,h}` and
+driven by `tests/m1_ipc_demo_test.c` (build/scripts/test_m1_ipc_demo.sh,
+issue #251, plan #198 slice 4). Three compile-time modules—`m1-sender`,
+`m1-receiver`, `m1-unauth`—are spawned via `proc_spawn_module` (which
+chains `process_create` + `cap_table_grant` + `cap_handle_grant` +
+`proc_sched_register`) and exchange a single envelope through the
+handle-gated `ipc_send_h` / `ipc_recv_h` entry points. Allow path emits
+`TEST:PASS:m1_ipc_allow`; deny path emits `TEST:PASS:m1_ipc_deny` plus
+the canonical `CAP:DENY:<m1-unauth>:ipc_send:-` marker exactly once.
+
 - `AGENTS.md` — project intent.
 - `BUILD_ROADMAP.md` §2.2, §8 item 13 — aspirational tree and the requirement
   for this doc.
