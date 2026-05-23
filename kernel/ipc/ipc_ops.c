@@ -41,9 +41,69 @@
 #include "ipc_port.h"
 #include "../cap/capability.h"
 #include "../cap/cap_handle.h"
+#include "../proc/proc_sched.h"
 
 #include <stdio.h>
 #include <string.h>
+
+/* ------------------------------------------------------------------
+ * Slice-3 (#250) block/wake helpers.
+ *
+ * When the cooperative scheduler is driving execution, an occupied
+ * single-waiter slot on send (or an empty slot on recv) must suspend
+ * the current PCB until the peer half of the rendezvous arrives.
+ *
+ * When NO scheduler is active (the pre-#250 in-kernel-only test
+ * harness shape), we fall through to the v0 ordering-driven semantics:
+ * stage_on_full -> IPC_ERR_PEER_GONE and consume_on_empty ->
+ * IPC_ERR_PEER_GONE. This keeps ipc_sync_v0 / ipc_handle_gate /
+ * ipc_port_lifecycle green without changes.
+ * ------------------------------------------------------------------ */
+static ipc_result_t ipc_stage_blocking(ipc_port_t target, const ipc_msg_v0 *outbound) {
+  for (;;) {
+    ipc_result_t sr = ipc_port_stage(target, outbound);
+    if (sr != IPC_ERR_PEER_GONE || !proc_sched_is_active()) {
+      if (sr == IPC_OK) {
+        const void *tok = ipc_port_wait_token(target);
+        if (tok != NULL) {
+          (void)proc_sched_wake_one_on_port(tok);
+        }
+      }
+      return sr;
+    }
+    const void *tok = ipc_port_wait_token(target);
+    if (tok == NULL) {
+      return IPC_ERR_INVALID_PORT;
+    }
+    proc_sched_result_t br = proc_sched_block_current_on_port(tok);
+    if (br != PROC_SCHED_OK) {
+      return IPC_ERR_PEER_GONE;
+    }
+  }
+}
+
+static ipc_result_t ipc_consume_blocking(ipc_port_t self_port, ipc_msg_v0 *out_msg) {
+  for (;;) {
+    ipc_result_t cr = ipc_port_consume(self_port, out_msg);
+    if (cr != IPC_ERR_PEER_GONE || !proc_sched_is_active()) {
+      if (cr == IPC_OK) {
+        const void *tok = ipc_port_wait_token(self_port);
+        if (tok != NULL) {
+          (void)proc_sched_wake_one_on_port(tok);
+        }
+      }
+      return cr;
+    }
+    const void *tok = ipc_port_wait_token(self_port);
+    if (tok == NULL) {
+      return IPC_ERR_INVALID_PORT;
+    }
+    proc_sched_result_t br = proc_sched_block_current_on_port(tok);
+    if (br != PROC_SCHED_OK) {
+      return IPC_ERR_PEER_GONE;
+    }
+  }
+}
 
 /* Spec-mandated canonical name for the CAP:DENY marker resource field
  * when the operation has no resource handle of its own
@@ -141,7 +201,7 @@ ipc_result_t ipc_send(cap_subject_id_t sender, ipc_port_t target, const ipc_msg_
   memcpy(&outbound, msg, sizeof(outbound));
   outbound.sender_subject = sender;
 
-  return ipc_port_stage(target, &outbound);
+  return ipc_stage_blocking(target, &outbound);
 }
 
 ipc_result_t ipc_recv(cap_subject_id_t receiver, ipc_port_t self_port, ipc_msg_v0 *out_msg) {
@@ -173,7 +233,7 @@ ipc_result_t ipc_recv(cap_subject_id_t receiver, ipc_port_t self_port, ipc_msg_v
     return gate;
   }
 
-  ipc_result_t cr = ipc_port_consume(self_port, out_msg);
+  ipc_result_t cr = ipc_consume_blocking(self_port, out_msg);
   if (cr != IPC_OK) {
     return cr;
   }
@@ -289,7 +349,7 @@ ipc_result_t ipc_send_h(cap_handle_t send_handle,
   memcpy(&outbound, msg, sizeof(outbound));
   outbound.sender_subject = sender;
 
-  return ipc_port_stage(target, &outbound);
+  return ipc_stage_blocking(target, &outbound);
 }
 
 ipc_result_t ipc_recv_h(cap_handle_t recv_handle,
@@ -327,7 +387,7 @@ ipc_result_t ipc_recv_h(cap_handle_t recv_handle,
   }
   (void)cap_check(receiver, required_recv);
 
-  ipc_result_t cr = ipc_port_consume(self_port, out_msg);
+  ipc_result_t cr = ipc_consume_blocking(self_port, out_msg);
   if (cr != IPC_OK) {
     return cr;
   }

@@ -36,6 +36,7 @@ test_cap_handle_repr
 test_cap_handle_revoke_subject
 test_cap_handle_revoke_subtree
 test_process_table
+test_proc_sched
 test_aspace_carve
 test_cert_chain
 test_codesign
