@@ -86,4 +86,4 @@ Decode with `(v >> 16) & 0xFFFF` and `v & 0xFFFF`.
 3. `os_get_abi_version()` returns the same value the header advertises
    (catches stale runtime stubs after a bump).
 
-Last verified against commit: 9f4f7ccbb19c9ffb28ee4b6de2f3e93c35e65785
+Last verified against commit: 9b2089bbcfac9813eda86503e076f11f85ca4ab6
