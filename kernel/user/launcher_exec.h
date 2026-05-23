@@ -1,6 +1,9 @@
 /**
- * @file process.h
- * @brief Process launch API for user program execution and management.
+ * @file launcher_exec.h
+ * @brief Command/ELF launcher API for user program execution and management.
+ *
+ * NOTE: This is the command/ELF launcher. The M1 process control block
+ * (PCB) and process abstraction live at kernel/proc/process.{c,h}.
  *
  * Purpose:
  *   Provides a unified interface for launching user-space processes, loading

@@ -38,7 +38,7 @@
 #include "../fs/fs_service.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
-#include "../user/process.h"
+#include "../user/launcher_exec.h"
 #include "session_manager.h"
 
 #define CONSOLE_OUTPUT_MAX 512

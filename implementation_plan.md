@@ -155,7 +155,7 @@ New files, vendored dependency, and modifications to existing files.
 | `user/runtime/secureos_api_stubs.c` | Add `os_net_https_get` stub |
 | `kernel/user/native_net_service.h` | Add `native_net_https_get()` declaration |
 | `kernel/user/native_net_service.c` | Add `native_net_https_get()` implementation that calls netlib HTTPS path |
-| `kernel/user/process.c` | Wire `os_net_https_get` syscall to `native_net_https_get()` in native bridge |
+| `kernel/user/launcher_exec.c` | Wire `os_net_https_get` syscall to `native_net_https_get()` in native bridge |
 | `user/apps/os/http/main.c` | Update to handle `https://` URLs (netlib_http_get already routes transparently, but update usage help text) |
 | `user/os_commands/http.cmd` | Update help text to mention HTTPS support |
 | `build/scripts/build_kernel_entry.sh` | Add BearSSL object files and new netlib TLS/HTTPS objects to kernel link |
@@ -216,7 +216,7 @@ New and modified functions across the codebase.
 **`kernel/user/native_net_service.c`**
 - Add `native_net_https_get()` — Same pattern as `native_net_http_get()` but calls the HTTPS path
 
-**`kernel/user/process.c`**
+**`kernel/user/launcher_exec.c`**
 - `native_app_syscall_dispatch()` (or equivalent syscall bridge) — Add `os_net_https_get` case that routes to `native_net_https_get()`
 
 [Classes]
@@ -338,7 +338,7 @@ Implement in dependency order: vendor BearSSL → compat layer → crypto primit
 
 9. **Update netlib API** — Add `netlib_https_get()` to `user/libs/netlib/api.c`. Update `user/include/lib/netlib.h` with the new prototype. Since `netlib_http_get()` calls `http_request()` which now auto-detects HTTPS, existing callers transparently gain HTTPS support.
 
-10. **Update OS ABI** — Add `os_net_https_get()` to `user/include/secureos_api.h` and stub in `user/runtime/secureos_api_stubs.c`. Add `native_net_https_get()` to `kernel/user/native_net_service.h` and implement in `kernel/user/native_net_service.c`. Wire the new syscall in `kernel/user/process.c`.
+10. **Update OS ABI** — Add `os_net_https_get()` to `user/include/secureos_api.h` and stub in `user/runtime/secureos_api_stubs.c`. Add `native_net_https_get()` to `kernel/user/native_net_service.h` and implement in `kernel/user/native_net_service.c`. Wire the new syscall in `kernel/user/launcher_exec.c`.
 
 11. **Update http app** — Update `user/apps/os/http/main.c` help text and `user/os_commands/http.cmd` to document HTTPS support. The app itself needs no code changes since `netlib_http_get()` transparently handles HTTPS.
 

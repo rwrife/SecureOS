@@ -38,7 +38,7 @@ build_kernel_entry_inner() {
   clang $CFLAGS -c kernel/format/sof.c -o artifacts/kernel/sof.o
   clang $CFLAGS -c kernel/fs/fs_service.c -o artifacts/kernel/fs_service.o
   clang $CFLAGS -c kernel/user/native_net_service.c -o artifacts/kernel/native_net_service.o
-  clang $CFLAGS -c kernel/user/process.c -o artifacts/kernel/process.o
+  clang $CFLAGS -c kernel/user/launcher_exec.c -o artifacts/kernel/launcher_exec.o
 
   ld.lld -m elf_x86_64 -T kernel/arch/x86/boot/linker.ld \
     -Map=artifacts/kernel/kernel.map \

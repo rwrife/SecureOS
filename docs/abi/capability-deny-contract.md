@@ -1,7 +1,7 @@
 # Capability-Denied Error + Log Marker Contract
 
 Status: DRAFT (spec-only — no service implements this yet; see "Implementation tracking" below)
-Owners: capability subsystem (`kernel/cap/`), launcher/process (`kernel/user/process.c`), service authors (M2 console, M3 fs, M4 broker).
+Owners: capability subsystem (`kernel/cap/`), launcher/process (`kernel/user/launcher_exec.c`), service authors (M2 console, M3 fs, M4 broker).
 Tracks: #164. Coordinates with the broader ABI reference in #93 / PR #145.
 
 ## 1. Why this exists
@@ -44,7 +44,7 @@ A capability denial surfaces to the calling user app as exactly one value:
 
 - user API surface (`user/include/secureos_api.h`):
   **`OS_STATUS_DENIED`** (value `1`, already defined).
-- kernel internal surface (`kernel/user/process.h`):
+- kernel internal surface (`kernel/user/launcher_exec.h`):
   **`PROCESS_ERR_DENIED`** (value `4`, already defined).
 - capability internal surface (`kernel/cap/capability.h`):
   **`cap_check()` returning `CAP_ERR_MISSING`** is the kernel-side trigger.

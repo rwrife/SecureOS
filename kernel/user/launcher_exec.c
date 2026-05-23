@@ -1,6 +1,9 @@
 /**
- * @file process.c
- * @brief User-space process execution and library management.
+ * @file launcher_exec.c
+ * @brief Command/ELF launcher: user-space process execution and library management.
+ *
+ * NOTE: This file is the command/ELF launcher. The M1 process control
+ * block (PCB) and process abstraction live at kernel/proc/process.{c,h}.
  *
  * Purpose:
  *   Loads ELF binaries from the filesystem, validates their format,
@@ -23,7 +26,7 @@
  *   command.  Not a standalone process; compiled into the kernel image.
  */
 
-#include "process.h"
+#include "launcher_exec.h"
 
 #include <stdint.h>
 

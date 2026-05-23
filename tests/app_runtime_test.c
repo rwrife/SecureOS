@@ -25,7 +25,7 @@
 #include "../kernel/drivers/disk/ramdisk.h"
 #include "../kernel/fs/fs_service.h"
 #include "../kernel/hal/storage_hal.h"
-#include "../kernel/user/process.h"
+#include "../kernel/user/launcher_exec.h"
 
 #define TEST_SUBJECT_ID 7u
 
