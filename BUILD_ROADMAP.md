@@ -231,8 +231,24 @@ Deliver:
 
 Validate:
 
-- grant path: HelloApp prints
-- deny path: HelloApp cannot print and receives defined error/fallback
+- grant path: HelloApp prints — satisfied by
+  `TEST:PASS:helloapp_allowed_console_write` + `TEST:PASS:helloapp_allow`
+  (see `tests/helloapp_allow_test.c`, run via
+  `build/scripts/test.sh helloapp_allow`; plan
+  `plans/2026-04-14-console-service-launcher-helloapp.md`, umbrella issue
+  #82).
+- deny path: HelloApp cannot print and receives defined error/fallback —
+  satisfied by `TEST:PASS:helloapp_denied_console_write` +
+  `TEST:PASS:helloapp_deny` (see `tests/helloapp_deny_test.c`, run via
+  `build/scripts/test.sh helloapp_deny`; same plan / issue #82).
+- launcher-mediation regression: direct console writes without an explicit
+  launcher-issued grant remain denied, and revoke restores the deny path —
+  satisfied by `TEST:PASS:launcher_console_deny_without_grant`,
+  `TEST:PASS:launcher_console_allow_after_grant`,
+  `TEST:PASS:launcher_console_regression_bypass_denied`, and
+  `TEST:PASS:launcher_console_revoke_restores_deny` (see
+  `tests/launcher_console_test.c`, run via
+  `build/scripts/test.sh launcher_console`).
 
 ## 5.3 M3: Filesystem service + faux FS
 
