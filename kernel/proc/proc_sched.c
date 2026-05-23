@@ -30,9 +30,12 @@
 
 #include "proc_sched.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ucontext.h>
+
+#include "address_space.h"
 
 /* Per-PCB coroutine stack. 64 KiB matches the slice-2 default arena
  * stack window's lower bound (kernel/proc/address_space.h) and is more
@@ -59,6 +62,11 @@ static uint32_t g_ready_count = 0u;
 static ucontext_t g_scheduler_ctx;
 static int16_t g_current_index = -1;  /* index into g_entries, -1 = none */
 static bool g_dispatching = false;
+
+/* Panic hook for aspace-invariant violations (issue #260). NULL in the
+ * default kernel/host build; tests install a hook so they can observe
+ * the violation deterministically without aborting the test process. */
+static proc_sched_panic_fn_t g_aspace_panic_hook = NULL;
 
 /* ------------------------------------------------------------------ */
 
@@ -125,6 +133,43 @@ static void ready_drop(uint16_t entry_index) {
 }
 
 /* ------------------------------------------------------------------ */
+
+proc_sched_panic_fn_t proc_sched_set_panic_hook_for_tests(
+    proc_sched_panic_fn_t hook) {
+  proc_sched_panic_fn_t prev = g_aspace_panic_hook;
+  g_aspace_panic_hook = hook;
+  return prev;
+}
+
+/* Categorise an aspace-invariant violation into a short, deterministic
+ * reason string. Matches `aspace_invariant_ok()` semantics. */
+static const char *aspace_invariant_reason(const address_space_t *as) {
+  if (as == NULL) return "null_aspace";
+  if (as->size == 0u) return "zero_size";
+  if (as->size > (size_t)(UINTPTR_MAX - as->base)) return "window_overflow";
+  uintptr_t end = as->base + (uintptr_t)as->size;
+  if (as->stack_top <= as->base) return "stack_top_at_or_below_base";
+  if (as->stack_top > end) return "stack_top_escapes_window";
+  /* If reached, ipc_scratch must be the offender (when non-NULL). */
+  return "ipc_scratch_escapes_window";
+}
+
+/* Report an invariant violation. With a test hook installed, dispatch
+ * to the hook and let the scheduler force-exit the offending PCB.
+ * Otherwise emit a deterministic PANIC marker and abort, matching the
+ * kernel-side panic semantics. */
+static void aspace_invariant_panic(process_id_t pid,
+                                   const address_space_t *as) {
+  const char *reason = aspace_invariant_reason(as);
+  if (g_aspace_panic_hook != NULL) {
+    g_aspace_panic_hook(pid, reason);
+    return;
+  }
+  fprintf(stderr, "PANIC:proc_sched:aspace_invariant:%u:%s\n",
+          (unsigned)pid, reason);
+  fflush(stderr);
+  abort();
+}
 
 void proc_sched_reset(void) {
   for (uint16_t i = 0; i < PROC_TABLE_MAX; ++i) {
@@ -314,6 +359,25 @@ proc_sched_result_t proc_sched_run(void) {
       /* Stale entry — skip. */
       continue;
     }
+
+    /* Address-space invariant check (issue #260 done-when 3). Every
+     * PCB whose context is about to be restored must satisfy
+     * `aspace_invariant_ok(pcb->aspace)`; a `false` return means the
+     * scheduler has been handed a corrupted window and continuing
+     * would silently restore an out-of-bounds stack pointer. Panic
+     * (or hook into the test harness) before swapping context. */
+    if (!aspace_invariant_ok(snap.aspace)) {
+      aspace_invariant_panic(e->pid, snap.aspace);
+      /* If we reach here a test hook absorbed the violation. Force
+       * the offending PCB to EXITED with a sentinel exit_code so the
+       * dispatch loop keeps making forward progress. */
+      (void)process_set_exit_code(e->pid, UINT32_MAX);
+      (void)process_set_state(e->pid, PROC_STATE_EXITED);
+      ready_drop((uint16_t)idx);
+      g_current_index = -1;
+      continue;
+    }
+
     g_current_index = idx;
     (void)process_set_state(e->pid, PROC_STATE_RUNNING);
 
