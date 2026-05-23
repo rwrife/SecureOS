@@ -37,6 +37,7 @@ test_cap_handle_revoke_subject
 test_cap_handle_revoke_subtree
 test_process_table
 test_proc_sched
+test_proc_sched_aspace_invariant
 test_aspace_carve
 test_aspace_bounds
 test_aspace_invariant

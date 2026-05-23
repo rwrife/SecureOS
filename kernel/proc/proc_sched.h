@@ -167,6 +167,34 @@ uint32_t proc_sched_ready_count_for_tests(void);
 uint32_t proc_sched_blocked_count_for_tests(void);
 
 /*
+ * Address-space invariant panic hook (issue #260 done-when 3).
+ *
+ * The scheduler verifies `aspace_invariant_ok(pcb->aspace)` immediately
+ * before restoring a PCB's coroutine context. A `false` return means
+ * the scheduler has been handed a corrupted window (NULL aspace, zero
+ * size, base+size overflow, stack_top inversion/escape, or ipc_scratch
+ * outside the window) — continuing would silently restore an
+ * out-of-bounds kernel stack.
+ *
+ * In the freestanding kernel build this is a panic. The host-side
+ * test build installs a hook so the regression test can observe the
+ * violation deterministically: when a hook is installed, the
+ * violation is reported via the hook (with the offending PID and a
+ * short reason string) and the scheduler force-transitions the
+ * offending PCB to PROC_STATE_EXITED with exit_code = UINT32_MAX so
+ * the dispatch loop continues making forward progress instead of
+ * hanging. When no hook is installed, the scheduler writes a
+ * `PANIC:proc_sched:aspace_invariant:<pid>:<reason>` line to stderr
+ * and calls abort() — matching the kernel-side semantics.
+ *
+ * Pure test-only mutator; not part of the kernel ABI. Always returns
+ * the previously-installed hook so tests can chain / restore.
+ */
+typedef void (*proc_sched_panic_fn_t)(process_id_t pid, const char *reason);
+proc_sched_panic_fn_t proc_sched_set_panic_hook_for_tests(
+    proc_sched_panic_fn_t hook);
+
+/*
  * Is a scheduler dispatch currently in progress? IPC ops use this to
  * pick between the v0 single-waiter-slot semantics (no scheduler
  * running -> return IPC_ERR_PEER_GONE) and the slice-3 block/wake

@@ -32,6 +32,7 @@
 #include "../kernel/ipc/ipc_msg.h"
 #include "../kernel/ipc/ipc_ops.h"
 #include "../kernel/ipc/ipc_port.h"
+#include "../kernel/proc/address_space.h"
 #include "../kernel/proc/proc_sched.h"
 #include "../kernel/proc/process.h"
 #include "../user/include/secureos_abi.h"
@@ -41,17 +42,53 @@ static void die(const char *reason) {
   exit(1);
 }
 
+/* Real partitioned address-space arena (issue #260 done-when 3).
+ *
+ * The scheduler now asserts `aspace_invariant_ok(pcb->aspace)` before
+ * restoring any PCB's context. A sentinel pointer like
+ * `(address_space_t *)0x1000` fails that check immediately (it has no
+ * valid `base`/`size`/`stack_top`), so this test backs every PCB with
+ * a real partitioned slot carved out of a host-side arena. The arena
+ * lives in BSS so its address is stable across tests; the partition
+ * is rebuilt by `reset_world()` so each test gets identical inputs.
+ *
+ * Arena sized for PROC_TABLE_MAX windows so any test can claim up to
+ * the table maximum without exhausting the partition.
+ */
+static uint8_t g_test_arena[PROC_TABLE_MAX *
+                            (PROC_KSTACK_BYTES + IPC_MSG_PAYLOAD_MAX + 64u)];
+static address_space_t g_test_aspaces[PROC_TABLE_MAX];
+static size_t g_test_aspace_next = 0u;
+
 static void reset_world(void) {
   proc_sched_reset();
   process_table_reset();
   ipc_port_table_reset();
   cap_reset_for_tests();
   cap_table_reset();
+
+  /* Rebuild the test partition every reset so each case sees a fresh,
+   * well-formed arena. PROC_TABLE_MAX slots is more than any single
+   * test consumes. */
+  aspace_result_t pr = aspace_partition(
+      (uintptr_t)g_test_arena, sizeof(g_test_arena),
+      g_test_aspaces, PROC_TABLE_MAX);
+  if (pr != ASPACE_OK) {
+    printf("TEST:FAIL:proc_sched:arena_partition_failed:%d\n", (int)pr);
+    exit(1);
+  }
+  g_test_aspace_next = 0u;
 }
 
-/* Sentinel address-space pointer; v0 treats it as opaque. */
-static address_space_t *fake_aspace(uintptr_t tag) {
-  return (address_space_t *)tag;
+/* Claim the next partitioned address-space slot. Each test PCB gets
+ * its own slot — the original `fake_aspace(tag)` sentinels are
+ * preserved as comments so the diff against #260 stays readable. */
+static address_space_t *next_aspace(void) {
+  if (g_test_aspace_next >= PROC_TABLE_MAX) {
+    printf("TEST:FAIL:proc_sched:aspace_arena_exhausted\n");
+    exit(1);
+  }
+  return &g_test_aspaces[g_test_aspace_next++];
 }
 
 /* ------------------------------------------------------------------ */
@@ -73,7 +110,7 @@ static void test_single_dispatch(void) {
   cap_table_grant(subj, CAP_IPC_RECV);
 
   process_id_t pid = PID_INVALID;
-  if (process_create(subj, fake_aspace(0x1000u), &pid) != PROC_OK) die("create_single");
+  if (process_create(subj, next_aspace(), &pid) != PROC_OK) die("create_single");
   if (proc_sched_register(pid, entry_single) != PROC_SCHED_OK) die("register_single");
 
   process_t snap;
@@ -121,8 +158,8 @@ static void test_round_robin(void) {
   reset_world();
   cap_subject_id_t sa = 2u, sb = 3u;
   process_id_t pa = PID_INVALID, pb = PID_INVALID;
-  if (process_create(sa, fake_aspace(0xA000u), &pa) != PROC_OK) die("create_a");
-  if (process_create(sb, fake_aspace(0xB000u), &pb) != PROC_OK) die("create_b");
+  if (process_create(sa, next_aspace(), &pa) != PROC_OK) die("create_a");
+  if (process_create(sb, next_aspace(), &pb) != PROC_OK) die("create_b");
   if (proc_sched_register(pa, entry_a) != PROC_SCHED_OK) die("register_a");
   if (proc_sched_register(pb, entry_b) != PROC_SCHED_OK) die("register_b");
 
@@ -202,8 +239,8 @@ static void test_recv_blocks_until_send(void) {
   }
 
   process_id_t pr = PID_INVALID, ps = PID_INVALID;
-  if (process_create(g_recv_subj, fake_aspace(0xC000u), &pr) != PROC_OK) die("create_recv");
-  if (process_create(g_send_subj, fake_aspace(0xD000u), &ps) != PROC_OK) die("create_send");
+  if (process_create(g_recv_subj, next_aspace(), &pr) != PROC_OK) die("create_recv");
+  if (process_create(g_send_subj, next_aspace(), &ps) != PROC_OK) die("create_send");
   /* Register receiver first so it runs first and is the one that blocks. */
   if (proc_sched_register(pr, entry_receiver) != PROC_SCHED_OK) die("register_recv");
   if (proc_sched_register(ps, entry_sender) != PROC_SCHED_OK) die("register_send");
@@ -281,8 +318,8 @@ static void test_send_blocks_on_full(void) {
   }
 
   process_id_t po = PID_INVALID, pb = PID_INVALID;
-  if (process_create(g_blocker_subj, fake_aspace(0xE000u), &pb) != PROC_OK) die("create_blocker");
-  if (process_create(g_owner_subj, fake_aspace(0xF000u), &po) != PROC_OK) die("create_owner");
+  if (process_create(g_blocker_subj, next_aspace(), &pb) != PROC_OK) die("create_blocker");
+  if (process_create(g_owner_subj, next_aspace(), &po) != PROC_OK) die("create_owner");
   /* Register sender first so it runs and fills the slot before the owner. */
   if (proc_sched_register(pb, entry_blocker_send) != PROC_SCHED_OK) die("register_blocker");
   if (proc_sched_register(po, entry_owner_drain) != PROC_SCHED_OK) die("register_owner");
@@ -324,7 +361,7 @@ static void test_deadlock_detection(void) {
     die("dead_port_create");
   }
   process_id_t pd = PID_INVALID;
-  if (process_create(g_dead_subj, fake_aspace(0x10000u), &pd) != PROC_OK) die("create_dead");
+  if (process_create(g_dead_subj, next_aspace(), &pd) != PROC_OK) die("create_dead");
   if (proc_sched_register(pd, entry_dead_recv) != PROC_SCHED_OK) die("register_dead");
 
   g_deadlock_recv_returned = 0;
