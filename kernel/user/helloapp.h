@@ -97,6 +97,64 @@ extern "C" {
 ipc_result_t helloapp_run_once(const address_space_t *aspace,
                                ipc_port_t console_port);
 
+/* ---------------- M3 fs-demo entry (slice 3 of plan #277, issue #280)
+ *
+ * Opt-in second entry point that exercises the M3-on-M1 fs round-trip
+ * the same way `helloapp_run_once` exercised the M2 console round-trip.
+ *
+ * Layout consumed (matches `launcher_fs_spawn_app_with_fs_caps`, #279):
+ *   ipc_scratch[ 0.. 7) : reserved (M1 single-handle handoff)
+ *   ipc_scratch[ 8..16) : LE64(cap_handle_t) — CAP_FS_READ
+ *   ipc_scratch[16..24) : LE64(cap_handle_t) — CAP_FS_WRITE
+ *                         (CAP_HANDLE_NULL when not granted)
+ *
+ * Behaviour:
+ *   1. Decode the read + write fs handles from ipc_scratch.
+ *   2. Build a canonical `ipc_msg_v0` write request (payload
+ *      `HELLOAPP_FS_DEMO_BLOB`, length `HELLOAPP_FS_DEMO_BLOB_LEN`)
+ *      and call `ipc_send_h(write_handle, fs_write_port, &write_req)`.
+ *      Record the result in `out->write_send_result`.
+ *   3. Build a canonical `ipc_msg_v0` read request (payload
+ *      `HELLOAPP_FS_DEMO_PATH`, length `HELLOAPP_FS_DEMO_PATH_LEN`)
+ *      and call `ipc_send_h(read_handle, fs_read_port, &read_req)`.
+ *      Record the result in `out->read_send_result`.
+ *   4. For each leg that returned `IPC_OK`, emit exactly one line of
+ *      `TEST:PASS:m3_helloapp_fs_qemu_op\n` to stdout (one per op,
+ *      per issue #280's "On IPC_OK for each: emit ... (one per op)").
+ *
+ * Notes:
+ *   - The demo does NOT spin a recv loop on the fs ports; that
+ *     drain happens on the test driver side via `ipc_recv_h`, the
+ *     same pattern `helloapp_run_once`/console-svc uses today.
+ *   - The deny path of issue #280 is observable by the test through
+ *     `out->write_send_result == IPC_ERR_CAP_DENIED` plus the
+ *     canonical `CAP:DENY` marker emitted by `ipc_send_h`. This
+ *     function never short-circuits the read leg, so the test sees
+ *     both result codes for either allow or deny configurations.
+ *   - Both ports being `IPC_PORT_INVALID` short-circuits to
+ *     `IPC_ERR_INVALID_PORT` for the affected leg.
+ *   - `aspace == NULL` or a NULL `ipc_scratch` returns
+ *     `{ IPC_ERR_INVALID_MSG, IPC_ERR_INVALID_MSG }`.
+ *   - `out` MUST be non-NULL.
+ *
+ * Issue: #280. Plan: plans/2026-05-24-m3-fs-on-m1-substrate.md slice 3.
+ */
+
+#define HELLOAPP_FS_DEMO_PATH      "note.txt"
+#define HELLOAPP_FS_DEMO_PATH_LEN  ((size_t)8u)
+#define HELLOAPP_FS_DEMO_BLOB      "persisted-by-helloapp"
+#define HELLOAPP_FS_DEMO_BLOB_LEN  ((size_t)21u)
+
+typedef struct {
+  ipc_result_t write_send_result;
+  ipc_result_t read_send_result;
+} helloapp_fs_demo_result_t;
+
+void helloapp_entry_fs_demo(const address_space_t *aspace,
+                            ipc_port_t fs_read_port,
+                            ipc_port_t fs_write_port,
+                            helloapp_fs_demo_result_t *out);
+
 #ifdef __cplusplus
 }
 #endif
