@@ -28,7 +28,29 @@
 
 #include "ipc_port.h"
 
-#include <string.h>
+/*
+ * Freestanding kernel build: <string.h> is unavailable. Provide tiny
+ * local helpers instead of the libc names so we don't drag in host
+ * headers (see #283 follow-up: ipc_port.c is now compiled into the
+ * kernel image by build/scripts/build_kernel_entry.{sh,ps1}).
+ */
+static void ipc_port_memset(void *dst, int val, unsigned long n) {
+  unsigned char *d = (unsigned char *)dst;
+  for (unsigned long i = 0; i < n; ++i) {
+    d[i] = (unsigned char)val;
+  }
+}
+
+static void ipc_port_memcpy(void *dst, const void *src, unsigned long n) {
+  unsigned char *d = (unsigned char *)dst;
+  const unsigned char *s = (const unsigned char *)src;
+  for (unsigned long i = 0; i < n; ++i) {
+    d[i] = s[i];
+  }
+}
+
+#define memset ipc_port_memset
+#define memcpy ipc_port_memcpy
 
 typedef struct {
   bool live;

@@ -16,8 +16,10 @@
  *   5. Initial cap_grant() – Bootstrap capabilities for subject 0
  *   6. storage_hal_init()  – Storage HAL (ramdisk backend)
  *   7. fs_init()           – In-memory filesystem
- *   8. process subsystem setup  – User application registry and launch paths
- *   9. console_init()      – Interactive console + command loop
+ *   8. ipc_port_table_init() + console_svc_init() + fs_svc_init()
+ *       – IPC port table and in-kernel substrate services (issue #283)
+ *   9. process subsystem setup  – User application registry and launch paths
+ *  10. console_init()      – Interactive console + command loop
  *
  * Interactions:
  *   - Calls init functions from every major kernel subsystem.
@@ -42,7 +44,10 @@
 #include "../hal/video_hal.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
+#include "../ipc/ipc_port.h"
 #include "../sched/scheduler.h"
+#include "../svc/console_svc.h"
+#include "../svc/fs_svc.h"
 #include "session_manager.h"
 
 static const cap_subject_id_t KERNEL_BOOTSTRAP_SUBJECT = 0u;
@@ -66,6 +71,22 @@ void kmain(void) {
       /* virtio-net NIC not found – network HAL remains unregistered */
     }
   fs_service_init();
+
+  /* Bring up IPC port table and the in-kernel substrate services. These
+   * must run after the port table is initialised; see issue #283 for
+   * the boot-order edge that closes the header/kmain drift documented
+   * in kernel/svc/{console_svc,fs_svc}.h. */
+  ipc_port_table_init();
+  if (console_svc_init() != CONSOLE_SVC_OK) {
+    serial_hal_write("TEST:FAIL:console_svc_init\n");
+  } else {
+    serial_hal_write("TEST:PASS:console_svc_init\n");
+  }
+  if (fs_svc_init() != FS_SVC_OK) {
+    serial_hal_write("TEST:FAIL:fs_svc_init\n");
+  } else {
+    serial_hal_write("TEST:PASS:fs_svc_init\n");
+  }
 
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_CONSOLE_WRITE);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_SERIAL_WRITE);
