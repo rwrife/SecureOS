@@ -63,6 +63,7 @@ test_syscall_entry_stub
 test_kernel_persistence
 test_launcher_console
 test_launcher_fs
+test_launcher_spawn_handoff
 test_manifest_required_fields
 test_netlib_url_scheme
 test_scheduler
