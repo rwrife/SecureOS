@@ -245,6 +245,27 @@ bool process_is_live_for_tests(process_id_t pid) {
   return resolve(pid) != NULL;
 }
 
+address_space_t *process_find_aspace_by_subject(cap_subject_id_t subject) {
+  /* Subject 0 is the v0 "unknown / unset" sentinel: callers must never
+   * see a non-NULL aspace for it. process_create stores whatever the
+   * caller passes (including 0), so we filter here rather than at
+   * create-time to avoid changing process_create's documented
+   * contract. */
+  if (subject == 0u) {
+    return NULL;
+  }
+  if (!g_table_initialized) {
+    return NULL;
+  }
+  for (uint16_t i = 0; i < PROC_TABLE_MAX; ++i) {
+    process_slot_t *slot = &g_procs[i];
+    if (slot->live && slot->subject == subject) {
+      return slot->aspace;
+    }
+  }
+  return NULL;
+}
+
 /* ---------------- slice-3 (#250) mutator accessors ---------------- */
 
 proc_result_t process_set_state(process_id_t pid, process_state_t state) {
