@@ -17,6 +17,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/capability.c" \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
   "$ROOT_DIR/kernel/cap/cap_handle.c" \
+  "$ROOT_DIR/kernel/cap/cap_deny_marker.c" \
   "$ROOT_DIR/kernel/proc/process.c" \
   "$ROOT_DIR/tests/process_find_aspace_by_subject_test.c" \
   -o "$OUT_DIR/process_find_aspace_by_subject_test"
