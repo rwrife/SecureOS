@@ -192,6 +192,37 @@ proc_result_t process_lookup(process_id_t pid, process_t *out_proc);
  */
 bool process_is_live_for_tests(process_id_t pid);
 
+/*
+ * Resolve the `address_space_t *` bound to the live PCB whose
+ * `subject` field equals `subject`. Returns the stored pointer on hit
+ * (which may itself be NULL — `address_space` is optional in v0) and
+ * NULL on miss (no live PCB with that subject).
+ *
+ * This is the M1 substitute for a "current process / current
+ * address-space" lookup at IPC entry. It is needed by the runtime
+ * bounds-enforcement work in issue #260 (IPC `aspace_contains` half),
+ * which has to ground `aspace_contains(...)` on the caller's window
+ * but has nothing else to key on from the existing `ipc_send` /
+ * `ipc_recv` signatures (`cap_subject_id_t` only).
+ *
+ * Semantics:
+ *   - O(n) linear scan over PROC_TABLE_MAX. PROC_TABLE_MAX = 16 in v0
+ *     so this is bounded and constant w.r.t. workload.
+ *   - `subject == 0` always returns NULL (the v0 "unknown subject"
+ *     sentinel is never live in the table — see process_create).
+ *   - First live match wins. In M1 the (subject -> PCB) mapping is 1:1
+ *     at any instant by convention (one subject per PCB at
+ *     process_create; process_destroy clears it). If a caller violates
+ *     that convention the lookup is still well-defined but the
+ *     returned aspace belongs to whichever slot was scanned first.
+ *   - Stateless: does not mutate the table or any generation counter.
+ *
+ * Strictly additive: no existing call site is moved onto this helper
+ * by this slice. Callers who need bounds-checking against a live PCB
+ * (the IPC wiring in #260) opt in explicitly.
+ */
+address_space_t *process_find_aspace_by_subject(cap_subject_id_t subject);
+
 /* ----------------------------------------------------------------
  * Slice-3 (#250) mutator accessors used by kernel/proc/proc_sched.{c,h}
  * to drive the cooperative-scheduler state machine without exposing
