@@ -30,6 +30,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
   "$ROOT_DIR/kernel/cap/cap_handle.c" \
   "$ROOT_DIR/kernel/cap/cap_gate.c" \
+  "$ROOT_DIR/kernel/cap/cap_deny_marker.c" \
   "$ROOT_DIR/kernel/proc/address_space.c" \
   "$ROOT_DIR/kernel/proc/process.c" \
   "$ROOT_DIR/kernel/user/launcher.c" \

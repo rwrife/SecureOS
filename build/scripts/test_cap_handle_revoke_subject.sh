@@ -13,6 +13,7 @@ mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/cap_handle.c" \
+  "$ROOT_DIR/kernel/cap/cap_deny_marker.c" \
   "$ROOT_DIR/kernel/proc/process.c" \
   "$ROOT_DIR/tests/cap_handle_revoke_subject_test.c" \
   -o "$OUT_DIR/cap_handle_revoke_subject_test"
