@@ -260,8 +260,43 @@ Deliver:
 
 Validate:
 
-- editor with denied persistent FS still saves in ephemeral scope
-- data disappears after app exit/relaunch
+- allow path: app with granted persistent FS cap can create, write, and
+  read back files, with state surviving relaunch — satisfied by
+  `TEST:PASS:fs_service_persist_allow` plus sub-checks
+  `:cap_present`, `:write_succeeds`, `:read_back_after_close`, and
+  `:relaunch_round_trip` (see `tests/fs_service_persist_allow_test.c`,
+  run via `build/scripts/test.sh fs_service_persist_allow`).
+- deny path: editor with denied persistent FS fails closed and is
+  transparently redirected to ephemeral scope (no persistent visibility) —
+  satisfied by `TEST:PASS:fs_service_persist_deny` plus sub-checks
+  `:cap_absent`, `:fail_closed`, `:redirected_to_ephemeral`,
+  `:no_persist_visibility:fail_closed`, and
+  `:no_persist_visibility:redirected`. The canonical capability-audit
+  `CAP:DENY` marker is currently gated behind the audit ring wiring
+  (#84 / #98) and the slice asserts the explicit
+  `TEST:SKIP:fs_service_persist_deny:audit_deny_recorded:audit_log_unwired`
+  marker so the validator distinguishes "not asserted" from
+  "asserted and passed" (see `tests/fs_service_persist_deny_test.c`
+  and `build/scripts/test_fs_service_persist_deny.sh`, run via
+  `build/scripts/test.sh fs_service_persist_deny`).
+- ephemeral-scope writes succeed in-session — satisfied by
+  `TEST:PASS:fs_service_ephemeral_reset:write_to_faux_succeeds` and
+  `:visible_in_same_session` (see
+  `tests/fs_service_ephemeral_reset_test.c`, run via
+  `build/scripts/test.sh fs_service_ephemeral_reset`).
+- data disappears after app exit/relaunch — satisfied by
+  `TEST:PASS:fs_service_ephemeral_reset:gone_after_relaunch` and
+  `:no_persist_leak`, with the umbrella
+  `TEST:PASS:fs_service_ephemeral_reset` marker (same test file / runner).
+
+These markers are anchored by plan
+`plans/2026-05-24-m3-fs-on-m1-substrate.md` (umbrella issue #277) and
+complemented by the open M3-on-M1 substrate slices #279
+(`launcher_fs_spawn_app_with_fs_caps` + ipc_scratch fs-handle handoff),
+#280 (HelloApp fs-demo variant + persist allow/deny `_qemu` peers), and
+#281 (ephemeral-reset `_qemu` peer covering all four §5.3 reset sub-checks),
+which extend the same contract end-to-end under QEMU — the same pattern
+§5.2 uses for plan #259 + its closed slice issues.
 
 ## 5.4 M4: Capability Broker + share workflow
 
