@@ -382,3 +382,152 @@ launcher_result_t launcher_spawn_destroy(process_id_t pid) {
   slot->cap = (capability_id_t)0;
   return LAUNCHER_OK;
 }
+
+/* ----------------------------------------------------------------
+ * M3-SUBSTRATE-002 (issue #279): launcher-mediated spawn variant
+ * that pre-stamps fs-svc capability handles into the spawned
+ * process's per-process ipc_scratch region.
+ *
+ * The single launcher spawn pool above is shared: an fs-cap spawn
+ * occupies one slot exactly like a console spawn. The slot's
+ * `handle`/`cap` fields are reused to track the fs READ handle
+ * (which is always minted); the WRITE handle is tracked implicitly
+ * by `cap_handle_revoke_subject()` at destroy time — we don't need
+ * a second slot field because process_destroy authoritatively kills
+ * every handle owned by the subject (#239).
+ * ---------------------------------------------------------------- */
+
+/* Write a 32-bit cap_handle_t as a little-endian 64-bit value into
+ * `bytes` (which MUST point to 8 writable bytes). The upper 32 bits
+ * are zeroed — reserved under OS_ABI_VERSION=0 per the handoff doc. */
+static void scratch_store_handle_le64(uint8_t *bytes, cap_handle_t h) {
+  if (bytes == NULL) {
+    return;
+  }
+  bytes[0] = (uint8_t)( h        & 0xFFu);
+  bytes[1] = (uint8_t)((h >>  8) & 0xFFu);
+  bytes[2] = (uint8_t)((h >> 16) & 0xFFu);
+  bytes[3] = (uint8_t)((h >> 24) & 0xFFu);
+  bytes[4] = 0u;
+  bytes[5] = 0u;
+  bytes[6] = 0u;
+  bytes[7] = 0u;
+}
+
+launcher_result_t launcher_fs_spawn_app_with_fs_caps(
+    const launcher_manifest_t *manifest,
+    int grant_write,
+    launcher_fs_spawn_t *out_spawn) {
+  if (out_spawn == NULL) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+  out_spawn->pid = PID_INVALID;
+  out_spawn->aspace = NULL;
+  out_spawn->read_handle = CAP_HANDLE_NULL;
+  out_spawn->write_handle = CAP_HANDLE_NULL;
+
+  if (manifest == NULL) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+  if (!launcher_subject_in_range(manifest->subject_id) ||
+      manifest->subject_id == 0u) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+  /* The fs-spawn path does not consume `auto_grant_caps` — fs handles
+   * are minted from the boolean `grant_write` argument plus the
+   * always-on CAP_FS_READ. Reject a non-zero auto_grant_count so the
+   * caller can't smuggle in a console grant by accident. */
+  if (manifest->auto_grant_count != 0u) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+
+  launcher_spawn_slot_t *slot = launcher_spawn_slot_alloc();
+  if (slot == NULL) {
+    return LAUNCHER_ERR_INTERNAL;
+  }
+
+  /* (1) Carve a fresh aspace window. */
+  address_space_t *as = launcher_aspace_claim();
+  if (as == NULL) {
+    return LAUNCHER_ERR_ASPACE;
+  }
+  if (as->ipc_scratch == NULL) {
+    return LAUNCHER_ERR_SCRATCH;
+  }
+
+  /* (2) Spawn the PCB. */
+  process_id_t pid = PID_INVALID;
+  if (process_create(manifest->subject_id, as, &pid) != PROC_OK) {
+    return LAUNCHER_ERR_PROC_CREATE;
+  }
+
+  /* (3) The spawned subject is intentionally NOT auto-registered
+   * with launcher_fs's per-app faux-storage sandbox here. The fs
+   * handles minted below authorize the subject against the kernel
+   * fs_svc IPC ports directly via the cap-table gate — they do not
+   * need the launcher_fs ramfs-shadow to exist. Slice 3 (#280) is
+   * the right place to wire per-app persistence policy once the
+   * manifest persistence enum (#285 / #286) is consumed here. This
+   * also keeps launcher.c free of a hard launcher_fs.c link
+   * dependency, so the existing M2 builds (console, helloapp_qemu)
+   * stay linkable without dragging in the faux-fs surface.
+   */
+
+  /* (4) Zero the full scratch slot so reserved-bytes guarantees hold
+   * regardless of arena re-use. The LE writes below clobber bytes
+   * [8..24); bytes [0..8) and [24..64) are left zero. */
+  memset(as->ipc_scratch, 0, IPC_MSG_PAYLOAD_MAX);
+
+  /* (5) Mint the CAP_FS_READ handle (always) and, if requested, the
+   * CAP_FS_WRITE handle. Keep the legacy bitset grant in sync so
+   * audit-trail tests that go through cap_check still see the grant. */
+  if (cap_table_grant(manifest->subject_id, CAP_FS_READ) != CAP_OK) {
+    (void)process_destroy(pid);
+    return LAUNCHER_ERR_HANDLE_MINT;
+  }
+  cap_handle_t read_h = cap_handle_grant(manifest->subject_id, CAP_FS_READ);
+  if (read_h == CAP_HANDLE_NULL) {
+    (void)process_destroy(pid);
+    return LAUNCHER_ERR_HANDLE_MINT;
+  }
+
+  cap_handle_t write_h = CAP_HANDLE_NULL;
+  if (grant_write) {
+    if (cap_table_grant(manifest->subject_id, CAP_FS_WRITE) != CAP_OK) {
+      (void)process_destroy(pid);
+      return LAUNCHER_ERR_HANDLE_MINT;
+    }
+    write_h = cap_handle_grant(manifest->subject_id, CAP_FS_WRITE);
+    if (write_h == CAP_HANDLE_NULL) {
+      (void)process_destroy(pid);
+      return LAUNCHER_ERR_HANDLE_MINT;
+    }
+  }
+
+  /* (6) Stamp the handles into ipc_scratch at the slice-2 offsets.
+   * IPC_MSG_PAYLOAD_MAX == 64 so [8..16) and [16..24) are always
+   * in-bounds; assert via the runtime check on the aspace above. */
+  uint8_t *p = as->ipc_scratch;
+  scratch_store_handle_le64(&p[8], read_h);
+  scratch_store_handle_le64(&p[16], write_h);
+
+  slot->in_use = true;
+  slot->pid = pid;
+  slot->aspace = as;
+  slot->handle = read_h;
+  slot->cap = CAP_FS_READ;
+
+  out_spawn->pid = pid;
+  out_spawn->aspace = as;
+  out_spawn->read_handle = read_h;
+  out_spawn->write_handle = write_h;
+  return LAUNCHER_OK;
+}
+
+launcher_result_t launcher_fs_spawn_destroy(process_id_t pid) {
+  /* Identical contract to `launcher_spawn_destroy()`: the slot pool
+   * is shared so a single teardown path handles both spawn variants.
+   * process_destroy() cascades cap_handle_revoke_subject() (#239) so
+   * both the read and write handles fail cleanly post-call. */
+  return launcher_spawn_destroy(pid);
+}

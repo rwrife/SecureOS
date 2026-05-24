@@ -187,4 +187,55 @@ launcher_result_t launcher_spawn_destroy(process_id_t pid);
  * starts from a known-clean state. `launcher_reset()` calls into this. */
 void launcher_spawn_reset(void);
 
+/* ----------------------------------------------------------------
+ * Slice-2 of plan #277 (M3-SUBSTRATE-002, issue #279): launcher
+ * spawn variant that pre-stamps the fs-svc capability handles into
+ * the new process's per-process IPC scratch region.
+ *
+ * Mirrors the M2 console-handle handoff shape (`launcher_spawn_t`),
+ * but stamps the fs handles at fixed offsets in `ipc_scratch`:
+ *
+ *   offset  bytes  meaning
+ *      0      4    reserved (M1 single-handle handoff; e.g. console)
+ *      4      4    reserved (zero in v0)
+ *      8      8    LE64(cap_handle_t)  — CAP_FS_READ handle
+ *     16      8    LE64(cap_handle_t)  — CAP_FS_WRITE handle
+ *                  (zero / CAP_HANDLE_NULL when `grant_write=false`)
+ *
+ * The upper 32 bits of each LE64 slot are reserved and MUST be zero
+ * in v0 (cap_handle_t is 32-bit under OS_ABI_VERSION=0). Forward-
+ * compatibility: a future cap-handle width bump can occupy them
+ * without changing slot offsets.
+ *
+ * The spawned subject is NOT auto-registered with launcher_fs's
+ * per-app faux-storage sandbox here: the minted handles authorize
+ * the subject against the kernel fs_svc IPC ports via the cap-table
+ * gate directly, with no dependency on the launcher_fs ramfs shadow.
+ * Wiring the manifest persistence enum (#285 / #286) into a
+ * `launcher_fs_register_app(..., persistence)` call belongs in slice
+ * 3 (#280); doing it here would force every M2 build that links
+ * launcher.c (console, helloapp_qemu) to also drag in launcher_fs.c.
+ *
+ * No ABI bump: `launcher_result_t` codes, `cap_handle_t` layout, and
+ * `address_space_t::ipc_scratch` sizing are all pre-frozen under
+ * `OS_ABI_VERSION = 0`.
+ */
+typedef struct {
+  process_id_t      pid;
+  address_space_t  *aspace;
+  cap_handle_t      read_handle;   /* CAP_FS_READ; non-NULL on success */
+  cap_handle_t      write_handle;  /* CAP_FS_WRITE if requested; else CAP_HANDLE_NULL */
+} launcher_fs_spawn_t;
+
+launcher_result_t launcher_fs_spawn_app_with_fs_caps(
+    const launcher_manifest_t *manifest,
+    int grant_write,
+    launcher_fs_spawn_t *out_spawn);
+
+/* Destroy a spawn produced by `launcher_fs_spawn_app_with_fs_caps()`.
+ * Same contract as `launcher_spawn_destroy()`: PCB tear-down cascades
+ * `cap_handle_revoke_subject()` per #239 so the stamped fs handles
+ * fail closed after the call. */
+launcher_result_t launcher_fs_spawn_destroy(process_id_t pid);
+
 #endif
