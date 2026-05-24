@@ -54,6 +54,8 @@ test_harness_defense
 test_harness_negative
 test_helloapp_allow
 test_helloapp_deny
+test_m2_helloapp_allow_qemu
+test_m2_helloapp_deny_qemu
 test_https
 test_ipc_sync_v0
 test_ipc_port_lifecycle
