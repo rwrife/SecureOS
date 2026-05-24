@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|capability_gate|capability_audit|capability_audit_fixture|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|m1_ipc_demo|process_table|proc_sched|syscall_entry_stub|validate_capability_registry|capability_registry_drift|parity|canary_must_fail]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|capability_gate|capability_audit|capability_audit_fixture|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|process_table|proc_sched|syscall_entry_stub|validate_capability_registry|capability_registry_drift|parity|canary_must_fail]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -69,6 +69,7 @@ $testScript = switch ($TestName) {
   "ipc_sync_v0" { "./build/scripts/test_ipc_sync_v0.sh" }
   "ipc_port_lifecycle" { "./build/scripts/test_ipc_port_lifecycle.sh" }
   "ipc_handle_gate" { "./build/scripts/test_ipc_handle_gate.sh" }
+  "ipc_bounds" { "./build/scripts/test_ipc_bounds.sh" }
   "process_table" { "./build/scripts/test_process_table.sh" }
   "proc_sched" { "./build/scripts/test_proc_sched.sh" }
   "m1_ipc_demo" { "./build/scripts/test_m1_ipc_demo.sh" }

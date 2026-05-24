@@ -42,6 +42,8 @@
 #include "../cap/capability.h"
 #include "../cap/cap_handle.h"
 #include "../cap/cap_deny_marker.h"
+#include "../proc/address_space.h"
+#include "../proc/process.h"
 #include "../proc/proc_sched.h"
 
 #include <stdio.h>
@@ -133,6 +135,59 @@ static void ipc_emit_deny_marker(cap_subject_id_t subject, capability_id_t cap) 
   }
 }
 
+/* Emit a canonical CAP:DENY marker with a concrete resource field.
+ * Used by the M1 bounds-check path (issue #260): the resource string
+ * tags the deny reason so consumers can distinguish a permissions
+ * deny (resource "-") from a bounds deny (resource "bounds"). */
+static void ipc_emit_deny_marker_resource(cap_subject_id_t subject,
+                                          capability_id_t cap,
+                                          const char *resource) {
+  char buf[CAP_DENY_MARKER_MAX];
+  int n = cap_deny_marker_format(subject, cap, resource, buf, sizeof(buf));
+  if (n > 0) {
+    (void)fwrite(buf, 1u, (size_t)n, stdout);
+  }
+}
+
+/* IPC bounds-check resource tag (issue #260, plan #198 slice 2). The
+ * deny marker on a bounds violation uses this literal resource string
+ * so consumers can grep it independently of the permissions deny
+ * (which uses the spec-mandated "-"). */
+#define IPC_DENY_RESOURCE_BOUNDS "bounds"
+
+/* M1 address-space bounds-check (issue #260).
+ *
+ * If the subject has a live PCB with a non-NULL aspace, require the
+ * envelope buffer to lie entirely inside that aspace's window. On a
+ * violation, emit CAP:DENY:<subject>:<cap>:bounds and return
+ * IPC_ERR_BOUNDS.
+ *
+ * Backward-compat carve-out: when no PCB with this subject exists OR
+ * the PCB's stored aspace is NULL, skip the check. This preserves the
+ * pre-#260 IPC test harnesses (`ipc_sync_v0`, `ipc_handle_gate`,
+ * `ipc_port_lifecycle`, `m1_ipc_demo`) which exercise IPC using raw
+ * cap_subject_id_t values without ever calling process_create — those
+ * remain in-bounds-by-definition because there is no window to escape
+ * from. M2+ callers that go through process_create + aspace_partition
+ * pick up enforcement automatically.
+ *
+ * Returns IPC_OK on "pass or n/a", IPC_ERR_BOUNDS on a real violation.
+ */
+static ipc_result_t ipc_aspace_bounds_check(cap_subject_id_t subject,
+                                            capability_id_t cap,
+                                            const ipc_msg_v0 *msg) {
+  address_space_t *as = process_find_aspace_by_subject(subject);
+  if (as == NULL) {
+    /* No PCB or no aspace bound — nothing to enforce against. */
+    return IPC_OK;
+  }
+  if (!aspace_contains(as, msg, sizeof(*msg))) {
+    ipc_emit_deny_marker_resource(subject, cap, IPC_DENY_RESOURCE_BOUNDS);
+    return IPC_ERR_BOUNDS;
+  }
+  return IPC_OK;
+}
+
 /* Capability-gate helpers. These intentionally mirror the shape of
  * cap_gate.c so audit-side behavior is identical to other gated paths. */
 static ipc_result_t cap_ipc_send_gate(cap_subject_id_t subject, capability_id_t required) {
@@ -186,6 +241,14 @@ ipc_result_t ipc_send(cap_subject_id_t sender, ipc_port_t target, const ipc_msg_
     return gate;
   }
 
+  /* Issue #260: address-space bounds enforcement on the caller-supplied
+   * envelope buffer. Runs after the cap gate so a permission deny still
+   * dominates a bounds deny (matches the order audit consumers expect). */
+  ipc_result_t bc = ipc_aspace_bounds_check(sender, required_send, msg);
+  if (bc != IPC_OK) {
+    return bc;
+  }
+
   /* Stamp authenticated sender id; spec §2.4 forbids trusting the
    * caller-supplied value. A delivered envelope with sender_subject == 0
    * is treated as IPC_ERR_INVALID_MSG by the receiver. */
@@ -227,6 +290,13 @@ ipc_result_t ipc_recv(cap_subject_id_t receiver, ipc_port_t self_port, ipc_msg_v
   ipc_result_t gate = cap_ipc_recv_gate(receiver, required_recv);
   if (gate != IPC_OK) {
     return gate;
+  }
+
+  /* Issue #260: address-space bounds enforcement on the caller-supplied
+   * receive buffer before the rendezvous can stamp into it. */
+  ipc_result_t bc = ipc_aspace_bounds_check(receiver, required_recv, out_msg);
+  if (bc != IPC_OK) {
+    return bc;
   }
 
   ipc_result_t cr = ipc_consume_blocking(self_port, out_msg);
@@ -341,6 +411,13 @@ ipc_result_t ipc_send_h(cap_handle_t send_handle,
     return IPC_ERR_INVALID_MSG;
   }
 
+  /* Issue #260: address-space bounds enforcement also applies to the
+   * handle-gated send path. */
+  ipc_result_t bc = ipc_aspace_bounds_check(sender, required_send, msg);
+  if (bc != IPC_OK) {
+    return bc;
+  }
+
   ipc_msg_v0 outbound;
   memcpy(&outbound, msg, sizeof(outbound));
   outbound.sender_subject = sender;
@@ -382,6 +459,13 @@ ipc_result_t ipc_recv_h(cap_handle_t recv_handle,
     return IPC_ERR_CAP_DENIED;
   }
   (void)cap_check(receiver, required_recv);
+
+  /* Issue #260: address-space bounds enforcement on the handle-gated
+   * receive path. Same backward-compat carve-out as the legacy path. */
+  ipc_result_t bc = ipc_aspace_bounds_check(receiver, required_recv, out_msg);
+  if (bc != IPC_OK) {
+    return bc;
+  }
 
   ipc_result_t cr = ipc_consume_blocking(self_port, out_msg);
   if (cr != IPC_OK) {

@@ -101,6 +101,14 @@ typedef struct ipc_msg_v0 {
  *   - capability decision: IPC_ERR_CAP_DENIED only.
  *   - malformed message:   IPC_ERR_INVALID_MSG.
  *   - transport fault:     IPC_ERR_INVALID_PORT, IPC_ERR_PEER_GONE.
+ *   - bounds violation:    IPC_ERR_BOUNDS (caller-supplied envelope
+ *                          buffer escapes the caller's address_space_t
+ *                          window — see address_space.h /
+ *                          aspace_contains, plan #198 slice 2). The
+ *                          deny path MUST emit the canonical
+ *                          CAP:DENY:<subject>:ipc_send:bounds /
+ *                          :ipc_recv:bounds marker before returning
+ *                          (issue #260).
  *   - reserved future:     IPC_ERR_WOULD_BLOCK (MUST NOT be returned by
  *                          v0 implementations; consumers MAY test for
  *                          forward compat).
@@ -112,6 +120,7 @@ typedef enum {
   IPC_ERR_CAP_DENIED = 3,
   IPC_ERR_WOULD_BLOCK = 4,
   IPC_ERR_PEER_GONE = 5,
+  IPC_ERR_BOUNDS = 6,
 } ipc_result_t;
 
 /*

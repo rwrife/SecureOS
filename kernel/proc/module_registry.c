@@ -160,20 +160,27 @@ static void entry_m1_receiver(void) {
     (void)proc_exit(901u);
   }
 
-  ipc_msg_v0 in;
-  memset(&in, 0xAA, sizeof(in));
-  ipc_result_t r = ipc_recv_h(recv_h, g_demo_port, &in);
+  /* Issue #260: receive buffer must live inside this subject's aspace
+   * window. Use the partitioned aspace's `ipc_scratch` slot, which
+   * aspace_partition() places inside [base, base+size). */
+  address_space_t *as_r = process_find_aspace_by_subject(SUBJECT_M1_RECEIVER);
+  if (as_r == NULL || as_r->ipc_scratch == NULL) {
+    (void)proc_exit(903u);
+  }
+  ipc_msg_v0 *in = (ipc_msg_v0 *)(void *)as_r->ipc_scratch;
+  memset(in, 0xAA, sizeof(*in));
+  ipc_result_t r = ipc_recv_h(recv_h, g_demo_port, in);
   if (r != IPC_OK) {
     (void)proc_exit(902u);
   }
 
   g_demo_obs.recv_ok++;
-  g_demo_obs.recv_sender_subject = in.sender_subject;
+  g_demo_obs.recv_sender_subject = in->sender_subject;
 
-  if (in.tag == M1_DEMO_TAG
-      && in.payload_len == M1_DEMO_PAYLOAD_LEN
-      && memcmp(in.payload, M1_DEMO_PAYLOAD, M1_DEMO_PAYLOAD_LEN) == 0
-      && in.sender_subject == SUBJECT_M1_SENDER) {
+  if (in->tag == M1_DEMO_TAG
+      && in->payload_len == M1_DEMO_PAYLOAD_LEN
+      && memcmp(in->payload, M1_DEMO_PAYLOAD, M1_DEMO_PAYLOAD_LEN) == 0
+      && in->sender_subject == SUBJECT_M1_SENDER) {
     g_demo_obs.recv_payload_ok = 1u;
   }
   (void)proc_exit(0u);
@@ -197,10 +204,15 @@ static void entry_m1_sender(void) {
     (void)proc_exit(801u);
   }
 
-  ipc_msg_v0 m;
-  demo_make_msg(&m);
+  /* Issue #260: build the envelope inside the sender's aspace window. */
+  address_space_t *as_s = process_find_aspace_by_subject(SUBJECT_M1_SENDER);
+  if (as_s == NULL || as_s->ipc_scratch == NULL) {
+    (void)proc_exit(803u);
+  }
+  ipc_msg_v0 *m = (ipc_msg_v0 *)(void *)as_s->ipc_scratch;
+  demo_make_msg(m);
 
-  ipc_result_t r = ipc_send_h(send_h, g_demo_port, &m);
+  ipc_result_t r = ipc_send_h(send_h, g_demo_port, m);
   if (r != IPC_OK) {
     (void)proc_exit(802u);
   }
@@ -228,10 +240,16 @@ static void entry_m1_unauth(void) {
     (void)proc_exit(702u);
   }
 
-  ipc_msg_v0 m;
-  demo_make_msg(&m);
+  /* Issue #260: build the envelope inside m1-unauth's aspace window
+   * so the cap-deny path (not the bounds path) fires. */
+  address_space_t *as_u = process_find_aspace_by_subject(SUBJECT_M1_UNAUTH);
+  if (as_u == NULL || as_u->ipc_scratch == NULL) {
+    (void)proc_exit(703u);
+  }
+  ipc_msg_v0 *m = (ipc_msg_v0 *)(void *)as_u->ipc_scratch;
+  demo_make_msg(m);
 
-  ipc_result_t r = ipc_send_h(bad_h, g_demo_port, &m);
+  ipc_result_t r = ipc_send_h(bad_h, g_demo_port, m);
   if (r == IPC_ERR_CAP_DENIED) {
     g_demo_obs.send_deny_cap_denied = 1u;
   }

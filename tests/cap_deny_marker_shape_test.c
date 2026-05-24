@@ -95,6 +95,16 @@ static const driver_t drivers[] = {
     {"ipc_recv_deny",           7u,  CAP_IPC_RECV,
      "-",
      "CAP:DENY:7:ipc_recv:-\n"},
+    /* M1 IPC bounds deny (#260): aspace_contains failed on the
+     * caller-supplied envelope buffer. Distinct resource tag
+     * "bounds" so consumers can grep this independently of the
+     * permissions deny (resource "-"). */
+    {"ipc_send_bounds_deny",    7u,  CAP_IPC_SEND,
+     "bounds",
+     "CAP:DENY:7:ipc_send:bounds\n"},
+    {"ipc_recv_bounds_deny",    7u,  CAP_IPC_RECV,
+     "bounds",
+     "CAP:DENY:7:ipc_recv:bounds\n"},
     /* Capability audit_event_subscribe deny (per §5 async fallback). */
     {"event_subscribe_deny",    9u,  CAP_EVENT_SUBSCRIBE,  "topic=fs.changed",
      "CAP:DENY:9:event_subscribe:topic=fs.changed\n"},

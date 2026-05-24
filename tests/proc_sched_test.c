@@ -91,8 +91,21 @@ static address_space_t *next_aspace(void) {
   return &g_test_aspaces[g_test_aspace_next++];
 }
 
+/* Issue #260: IPC envelope must lie inside the caller's aspace window.
+ * Returns the partitioned aspace's ipc_scratch slot for `subj`, typed
+ * as an ipc_msg_v0*. The slot is sized IPC_MSG_PAYLOAD_MAX bytes; the
+ * envelope fits because PROC_KSTACK_BYTES + IPC_MSG_PAYLOAD_MAX + 64u
+ * window already reserves enough headroom for the full ipc_msg_v0
+ * struct (a few headers + IPC_MSG_PAYLOAD_MAX payload). */
+static ipc_msg_v0 *subj_scratch(cap_subject_id_t subj) {
+  address_space_t *as = process_find_aspace_by_subject(subj);
+  if (as == NULL || as->ipc_scratch == NULL) {
+    die("no_ipc_scratch_for_subject");
+  }
+  return (ipc_msg_v0 *)(void *)as->ipc_scratch;
+}
+
 /* ------------------------------------------------------------------ */
-/* (1) Single-PCB dispatch + exit_code                                  */
 /* ------------------------------------------------------------------ */
 
 static int g_single_ticks = 0;
@@ -192,16 +205,16 @@ static int g_recv_blocked_observed = 0;
 static int g_send_after_recv_block = 0;
 
 static void entry_receiver(void) {
-  ipc_msg_v0 in;
-  memset(&in, 0, sizeof(in));
-  ipc_result_t r = ipc_recv(g_recv_subj, g_recv_port, &in);
+  ipc_msg_v0 *in = subj_scratch(g_recv_subj);
+  memset(in, 0, sizeof(*in));
+  ipc_result_t r = ipc_recv(g_recv_subj, g_recv_port, in);
   if (r != IPC_OK) {
     (void)proc_exit(101u);
   }
-  if (in.sender_subject != g_send_subj) {
+  if (in->sender_subject != g_send_subj) {
     (void)proc_exit(102u);
   }
-  if (in.payload_len != 4u || memcmp(in.payload, "PING", 4) != 0) {
+  if (in->payload_len != 4u || memcmp(in->payload, "PING", 4) != 0) {
     (void)proc_exit(103u);
   }
   g_recv_ok = 1;
@@ -213,13 +226,13 @@ static void entry_sender(void) {
   if (proc_sched_blocked_count_for_tests() == 1u) {
     g_recv_blocked_observed = 1;
   }
-  ipc_msg_v0 m;
-  memset(&m, 0, sizeof(m));
-  m.abi_version = (uint16_t)OS_ABI_VERSION;
-  m.tag = 0u;
-  m.payload_len = 4u;
-  memcpy(m.payload, "PING", 4);
-  ipc_result_t r = ipc_send(g_send_subj, g_recv_port, &m);
+  ipc_msg_v0 *m = subj_scratch(g_send_subj);
+  memset(m, 0, sizeof(*m));
+  m->abi_version = (uint16_t)OS_ABI_VERSION;
+  m->tag = 0u;
+  m->payload_len = 4u;
+  memcpy(m->payload, "PING", 4);
+  ipc_result_t r = ipc_send(g_send_subj, g_recv_port, m);
   if (r != IPC_OK) {
     (void)proc_exit(201u);
   }
@@ -278,16 +291,16 @@ static int g_owner_drained = 0;
 static void entry_blocker_send(void) {
   /* First send fills the slot; second send must block until the owner
    * drains. */
-  ipc_msg_v0 m;
-  memset(&m, 0, sizeof(m));
-  m.abi_version = (uint16_t)OS_ABI_VERSION;
-  m.payload_len = 1u;
-  m.payload[0] = 'A';
-  if (ipc_send(g_blocker_subj, g_full_port, &m) != IPC_OK) (void)proc_exit(301u);
-  m.payload[0] = 'B';
+  ipc_msg_v0 *m = subj_scratch(g_blocker_subj);
+  memset(m, 0, sizeof(*m));
+  m->abi_version = (uint16_t)OS_ABI_VERSION;
+  m->payload_len = 1u;
+  m->payload[0] = 'A';
+  if (ipc_send(g_blocker_subj, g_full_port, m) != IPC_OK) (void)proc_exit(301u);
+  m->payload[0] = 'B';
   /* Slot is full; without a scheduler this would return PEER_GONE.
    * With the scheduler this must block until owner consumes 'A'. */
-  if (ipc_send(g_blocker_subj, g_full_port, &m) != IPC_OK) (void)proc_exit(302u);
+  if (ipc_send(g_blocker_subj, g_full_port, m) != IPC_OK) (void)proc_exit(302u);
   g_second_send_unblocked = 1;
   (void)proc_exit(0u);
 }
@@ -295,13 +308,13 @@ static void entry_blocker_send(void) {
 static void entry_owner_drain(void) {
   /* Yield so the sender runs first and stages + blocks. */
   (void)proc_yield();
-  ipc_msg_v0 in;
-  memset(&in, 0, sizeof(in));
-  if (ipc_recv(g_owner_subj, g_full_port, &in) != IPC_OK) (void)proc_exit(401u);
-  if (in.payload_len != 1u || in.payload[0] != 'A') (void)proc_exit(402u);
+  ipc_msg_v0 *in = subj_scratch(g_owner_subj);
+  memset(in, 0, sizeof(*in));
+  if (ipc_recv(g_owner_subj, g_full_port, in) != IPC_OK) (void)proc_exit(401u);
+  if (in->payload_len != 1u || in->payload[0] != 'A') (void)proc_exit(402u);
   /* Drain the second envelope after the sender re-stages. */
-  if (ipc_recv(g_owner_subj, g_full_port, &in) != IPC_OK) (void)proc_exit(403u);
-  if (in.payload_len != 1u || in.payload[0] != 'B') (void)proc_exit(404u);
+  if (ipc_recv(g_owner_subj, g_full_port, in) != IPC_OK) (void)proc_exit(403u);
+  if (in->payload_len != 1u || in->payload[0] != 'B') (void)proc_exit(404u);
   g_owner_drained = 1;
   (void)proc_exit(0u);
 }
@@ -343,11 +356,11 @@ static cap_subject_id_t g_dead_subj = 0u;
 static int g_deadlock_recv_returned = 0;
 
 static void entry_dead_recv(void) {
-  ipc_msg_v0 in;
-  memset(&in, 0, sizeof(in));
+  ipc_msg_v0 *in = subj_scratch(g_dead_subj);
+  memset(in, 0, sizeof(*in));
   /* No peer will ever send. The scheduler must return DEADLOCK rather
    * than hang. The recv call will not return in this test. */
-  (void)ipc_recv(g_dead_subj, g_dead_port, &in);
+  (void)ipc_recv(g_dead_subj, g_dead_port, in);
   g_deadlock_recv_returned = 1;
   (void)proc_exit(0u);
 }
