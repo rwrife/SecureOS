@@ -42,9 +42,18 @@ For the M1→M2 initial handoff, the launcher writes the freshly minted
 
 ```
 offset  bytes  meaning
-   0      4    cap_handle_t (LE)  — launcher-minted initial grant
-   4     60    reserved (zeroed by aspace_partition)
+   0      4    cap_handle_t (LE)  — launcher-minted initial grant (M2 console)
+   4      4    reserved (zeroed by aspace_partition)
+   8      8    LE64(cap_handle_t) — M3 fs_svc READ handle  (#279)
+  16      8    LE64(cap_handle_t) — M3 fs_svc WRITE handle (#279, zero when not granted)
+  24     40    reserved (zeroed by aspace_partition)
 ```
+
+The M3 fs-handle slots ([8..16) and [16..24)) are written by
+`launcher_fs_spawn_app_with_fs_caps()` (slice 2 of plan #277). The
+upper 32 bits of each LE64 slot are reserved-zero under
+`OS_ABI_VERSION = 0`; a future cap-handle width bump can occupy them
+without shifting offsets.
 
 The wire is identical to how a future syscall would return the handle
 to userspace: a `uint32_t` in target-platform byte order, with the
