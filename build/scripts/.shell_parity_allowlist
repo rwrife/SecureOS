@@ -57,6 +57,7 @@ test_helloapp_deny
 test_https
 test_ipc_sync_v0
 test_ipc_port_lifecycle
+test_console_svc_port_alloc
 test_ipc_handle_gate
 test_syscall_entry_stub
 test_kernel_persistence
