@@ -108,6 +108,19 @@ Field semantics we are committing to at v0:
   Apps that list a capability here MUST check the `OS_STATUS_DENIED`
   result and degrade gracefully (see
   [`capability-deny-contract.md`](./capability-deny-contract.md)).
+- `capabilities.persistence` is an optional enum (`"ephemeral"` |
+  `"persistent"`) that declares the FS persistence mode the app
+  requests from `launcher_fs` (BUILD_ROADMAP §5.3, issue #285).
+  The default is `"ephemeral"`: writes go to the faux FS and are
+  wiped at `process_destroy` / relaunch. `"persistent"` is a
+  *request* only — it is granted at spawn time **only** if
+  `launcher_fs` policy approves `CAP_FS_WRITE` for this subject;
+  apps MUST tolerate being downgraded to ephemeral the same way
+  they tolerate `OS_STATUS_DENIED` on an `optional` capability.
+  Adding the field is schema-only at v0 — the launcher_fs wiring
+  lands in issue #279 — so this is an additive, v0-compatible
+  change and does **not** bump `OS_ABI_VERSION` (see Compatibility
+  policy below).
 - `provides[]` lists IPC endpoints the app exposes (see
   [`ipc-wire.md`](./ipc-wire.md)). Endpoint names use a narrow
   reverse-DNS-ish pattern.

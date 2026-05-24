@@ -67,6 +67,12 @@
           "uniqueItems": true,
           "items": { "$ref": "#/$defs/capabilityId" },
           "default": []
+        },
+        "persistence": {
+          "description": "FS persistence mode the app requests from launcher_fs (BUILD_ROADMAP §5.3, issue #285). 'ephemeral' (default) writes to the faux FS and is wiped at process_destroy / relaunch; 'persistent' is granted only if launcher_fs policy approves CAP_FS_WRITE for this subject. Schema-only at v0; launcher_fs wiring lands in issue #279.",
+          "type": "string",
+          "enum": ["ephemeral", "persistent"],
+          "default": "ephemeral"
         }
       }
     },
