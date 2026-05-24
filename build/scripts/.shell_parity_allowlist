@@ -67,6 +67,7 @@ test_ipc_port_lifecycle
 test_console_svc_port_alloc
 test_fs_svc_port_alloc
 test_ipc_handle_gate
+test_ipc_bounds
 test_syscall_entry_stub
 test_kernel_persistence
 test_launcher_console

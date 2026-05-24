@@ -179,6 +179,7 @@ The IPC layer surfaces a small, frozen-for-v0 error enum. It is the
 | 3 | `IPC_ERR_CAP_DENIED` | Caller lacks the required capability for the requested op. Path **must** emit the capability-denied marker per [`capability-deny-contract.md`](./capability-deny-contract.md) (e.g. `CAP:DENY:<subject>:CAP_IPC_SEND`) **before** returning. This is the only IPC error that maps to a capability decision and the only one tests should treat as such. |
 | 4 | `IPC_ERR_WOULD_BLOCK` | Reserved for a future non-blocking path. V0 implementations MUST NOT return this — they block instead and ultimately return `IPC_OK`. Consumers MAY test for it for forward compatibility. |
 | 5 | `IPC_ERR_PEER_GONE` | Peer port was destroyed mid-rendezvous (`ipc_call` only). |
+| 6 | `IPC_ERR_BOUNDS` | Caller-supplied envelope buffer escapes the caller's `address_space_t` window (the M1 flat-with-bounds substitute for page-table enforcement — see [`address_space.h`](../../kernel/proc/address_space.h) / `aspace_contains`). Path **must** emit `CAP:DENY:<subject>:ipc_send:bounds` (or `:ipc_recv:bounds`) via the canonical formatter before returning. Returned by `ipc_send` / `ipc_recv` (and their `_h` handle-gated variants) when the call originates from a subject with a live PCB whose aspace does not contain the envelope (issue #260). Subjects with no live PCB skip the check for backward compatibility with the v0 in-kernel test harnesses. |
 
 ### 5.1 Error class taxonomy
 
@@ -193,6 +194,12 @@ and #164's deny-marker contract):
 - **Malformed message:** `IPC_ERR_INVALID_MSG`. Indicates the envelope
   itself is not parseable under `OS_ABI_VERSION`. MUST NOT be silently
   collapsed into `IPC_ERR_CAP_DENIED`.
+- **Bounds violation:** `IPC_ERR_BOUNDS`. The envelope was well-formed,
+  the caller was authorized, but the buffer's byte range escapes the
+  caller's `address_space_t` window. The deny marker uses the
+  resource tag `bounds` so consumers can grep it independently of the
+  permissions deny (resource `-`). See `aspace_contains` for the
+  exact containment predicate.
 - **Transport fault:** `IPC_ERR_INVALID_PORT`, `IPC_ERR_PEER_GONE`. The
   envelope was well-formed and the caller was authorized, but the
   rendezvous could not complete.
@@ -209,6 +216,7 @@ Where an IPC error must surface through the syscall ABI's
 | `IPC_ERR_CAP_DENIED` | `OS_STATUS_DENIED` |
 | `IPC_ERR_INVALID_PORT`, `IPC_ERR_PEER_GONE` | `OS_STATUS_ERROR` |
 | `IPC_ERR_INVALID_MSG`, `IPC_ERR_WOULD_BLOCK` | `OS_STATUS_ERROR` |
+| `IPC_ERR_BOUNDS` | `OS_STATUS_ERROR` |
 
 This preserves the
 [`syscalls.md`](./syscalls.md) invariant that `OS_STATUS_DENIED` is
@@ -268,4 +276,4 @@ implementation work begins under #180 / #185. Implementation issues that
 must conform to this surface are enumerated in the M1 plan referenced
 above.
 
-Last verified against commit: 9b2089bbcfac9813eda86503e076f11f85ca4ab6
+Last verified against commit: 76b3fff60c4f1b06da5feee72149f95dda8cc117
