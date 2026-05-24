@@ -35,10 +35,54 @@
 #include "process.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "../cap/cap_deny_marker.h"
 #include "../cap/cap_handle.h"
 #include "../../user/include/secureos_abi.h"
+
+/* Canonical CAP:DENY:<subject>:app_exec:<resource> marker emitter for
+ * resource-exhaustion denies on process creation (issue #261).
+ *
+ * Design notes (decision recorded inline because this is the only
+ * non-cap-gate deny path that currently rides the cap_deny_marker):
+ *
+ *   The PROC_TABLE_FULL deny is structurally a resource-exhaustion
+ *   condition, not a cap_check() miss. But issue #261 explicitly asks
+ *   for cross-cutting greppability through the same canonical
+ *   CAP:DENY:<...> marker the IPC and syscall deny paths already use
+ *   (#167 / #211 / #221 / PR #244). The marker grammar locked by
+ *   docs/abi/capability-deny-contract.md §4 + cap_deny_marker_validate
+ *   requires field 0 to be a decimal cap_subject_id_t and field 1 to be
+ *   a registered name in cdm_cap_names[]. "proc_table" / "process_create"
+ *   as proposed in the issue body would fail both checks.
+ *
+ *   The minimum-blast-radius resolution that satisfies the spirit of
+ *   the issue (single greppable shape, zero ABI churn, passes the #221
+ *   conformance test unmodified) is to reuse CAP_APP_EXEC — the cap the
+ *   M2 launcher will gate process spawn on — with the would-be
+ *   subject in field 0 and the literal "proc_table_full" in the
+ *   resource slot. M2 launcher-mediated greps for
+ *   `CAP:DENY:*:app_exec:*` therefore observe both real policy denies
+ *   and kernel exhaustion denies with the same predicate.
+ *
+ *   See the long comment thread on #261 for the full A/B/C/D options
+ *   considered; this is option A. */
+#define PROC_CREATE_DENY_RESOURCE_TABLE_FULL "proc_table_full"
+
+static void proc_emit_table_full_deny_marker(cap_subject_id_t subject) {
+  char buf[CAP_DENY_MARKER_MAX];
+  int n = cap_deny_marker_format(subject, CAP_APP_EXEC,
+                                 PROC_CREATE_DENY_RESOURCE_TABLE_FULL,
+                                 buf, sizeof(buf));
+  if (n > 0) {
+    /* fwrite preserves the trailing '\n' the formatter already wrote.
+     * Matches the kernel/ipc/ipc_ops.c emission discipline so the
+     * conformance test's stdout-scan harness works unchanged. */
+    (void)fwrite(buf, 1u, (size_t)n, stdout);
+  }
+}
 
 /* Handle layout: low 16 bits = table index, high 16 bits = generation.
  * Static-asserted against OS_ABI_VERSION = 0 so any future packing
@@ -150,6 +194,10 @@ proc_result_t process_create(cap_subject_id_t subject,
       return PROC_OK;
     }
   }
+  /* All slots live: emit the canonical CAP:DENY:<subject>:app_exec:proc_table_full
+   * marker (issue #261) before returning the exhaustion error. The emission
+   * is one-per-attempt; idempotency is the caller's responsibility. */
+  proc_emit_table_full_deny_marker(subject);
   return PROC_ERR_TABLE_FULL;
 }
 
