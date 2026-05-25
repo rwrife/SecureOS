@@ -13,14 +13,17 @@ TARGET="${1:-all}"
 
 case "$TARGET" in
   kernel)
+    "$ROOT_DIR/build/scripts/generate_keys.sh"
     "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
     "$ROOT_DIR/build/scripts/build_kernel_image.sh"
     ;;
   disk)
+    "$ROOT_DIR/build/scripts/generate_keys.sh"
     "$ROOT_DIR/build/scripts/build_disk_image.sh"
     ;;
   all)
     echo "[build] Building all components..."
+    "$ROOT_DIR/build/scripts/generate_keys.sh"
     "$ROOT_DIR/build/scripts/build_bearssl.sh"
     "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
     "$ROOT_DIR/build/scripts/build_user_lib.sh" envlib

@@ -40,6 +40,72 @@
 #include "../hal/storage_hal.h"
 #include "native_net_service.h"
 
+/* ---- Signature verification cache ----------------------------------------
+ * Once a binary passes signature verification there is no reason to re-verify
+ * on subsequent loads.  We keep a small fixed-size cache keyed on the file
+ * path (hashed to a table index) and the file's total_size from the SOF
+ * header as a staleness guard.  On a cache hit the expensive Ed25519 verify
+ * is skipped entirely.
+ */
+
+enum {
+  CODESIGN_CACHE_SLOTS = 32,
+  CODESIGN_CACHE_PATH_MAX = 64,
+};
+
+typedef enum {
+  CACHE_EMPTY = 0,
+  CACHE_VALID = 1,    /* Signature verified OK */
+  CACHE_INVALID = 2,  /* Signature present but failed verification */
+} codesign_cache_state_t;
+
+typedef struct {
+  codesign_cache_state_t state;
+  char path[CODESIGN_CACHE_PATH_MAX];
+  uint32_t total_size; /* SOF total_size as staleness guard */
+} codesign_cache_entry_t;
+
+static codesign_cache_entry_t g_codesign_cache[CODESIGN_CACHE_SLOTS];
+
+static unsigned int codesign_cache_hash(const char *path) {
+  unsigned int h = 5381u;
+  while (*path) {
+    h = ((h << 5u) + h) ^ (unsigned int)(unsigned char)*path;
+    ++path;
+  }
+  return h % CODESIGN_CACHE_SLOTS;
+}
+
+static int codesign_cache_str_equal(const char *a, const char *b) {
+  while (*a && *b) {
+    if (*a != *b) return 0;
+    ++a; ++b;
+  }
+  return *a == *b;
+}
+
+static codesign_cache_state_t codesign_cache_lookup(const char *path, uint32_t total_size) {
+  unsigned int idx = codesign_cache_hash(path);
+  codesign_cache_entry_t *entry = &g_codesign_cache[idx];
+  if (entry->state == CACHE_EMPTY) return CACHE_EMPTY;
+  if (entry->total_size != total_size) return CACHE_EMPTY;
+  if (!codesign_cache_str_equal(entry->path, path)) return CACHE_EMPTY;
+  return entry->state;
+}
+
+static void codesign_cache_store(const char *path, uint32_t total_size,
+                                  codesign_cache_state_t state) {
+  unsigned int idx = codesign_cache_hash(path);
+  codesign_cache_entry_t *entry = &g_codesign_cache[idx];
+  size_t i;
+  entry->state = state;
+  entry->total_size = total_size;
+  for (i = 0; i < CODESIGN_CACHE_PATH_MAX - 1u && path[i]; ++i) {
+    entry->path[i] = path[i];
+  }
+  entry->path[i] = '\0';
+}
+
 /* Forward declaration — used by app_validate_codesign before full definition */
 static void app_emit(const process_context_t *context, const char *message);
 
@@ -47,7 +113,7 @@ static void app_emit(const process_context_t *context, const char *message);
  * @brief Validate code signature on a parsed SOF binary.
  *
  * Logic:
- *   1. If signature present and valid → allow silently
+ *   1. If signature present and valid → allow silently (cached on success)
  *   2. If signature present but INVALID → warn and allow (dev mode)
  *   3. If unsigned:
  *      a. If subject has CAP_CODESIGN_BYPASS → allow silently
@@ -93,13 +159,35 @@ static process_result_t app_validate_codesign(const uint8_t *file_data,
     return PROCESS_OK;
   }
 
-  /* Signature is present — verify it */
+  /* Signature is present — check cache before expensive verification */
+  if (display_path != 0) {
+    codesign_cache_state_t cached = codesign_cache_lookup(
+        display_path, parsed->header.total_size);
+    if (cached == CACHE_VALID) {
+      return PROCESS_OK;
+    }
+    if (cached == CACHE_INVALID) {
+      app_emit(context, "[codesign] WARNING: signature verification failed (cached): ");
+      app_emit(context, display_path);
+      app_emit(context, "\n");
+      return PROCESS_OK;
+    }
+  }
+
+  /* Verify signature */
   sig_result = sof_verify_signature(file_data, file_len, parsed);
   if (sig_result == SOF_OK) {
+    /* Cache the successful result */
+    if (display_path != 0) {
+      codesign_cache_store(display_path, parsed->header.total_size, CACHE_VALID);
+    }
     return PROCESS_OK;
   }
 
-  /* Signature invalid — warn and allow (development default) */
+  /* Cache the failure and warn */
+  if (display_path != 0) {
+    codesign_cache_store(display_path, parsed->header.total_size, CACHE_INVALID);
+  }
   app_emit(context, "[codesign] WARNING: signature verification failed: ");
   app_emit(context, display_path != 0 ? display_path : "(unknown)");
   app_emit(context, "\n");

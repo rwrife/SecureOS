@@ -384,6 +384,17 @@ def main() -> int:
             extra_args = extra_args[2:]
             continue
 
+        if extra_args[0] == "--certs-dir":
+            if len(extra_args) < 2:
+                raise SystemExit("--certs-dir requires a directory path")
+            certs_dir = Path(extra_args[1])
+            image.mkdir('/certs')
+            for cert_file in sorted(certs_dir.iterdir()):
+                if cert_file.is_file():
+                    image.write_file(f"/certs/{cert_file.name}", cert_file.read_bytes())
+            extra_args = extra_args[2:]
+            continue
+
         mapping = extra_args[0]
         src_raw, dst_raw = mapping.split('=', 1)
         src = Path(src_raw)
