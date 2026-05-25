@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
 function Show-Usage {
-  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|capability_gate|capability_audit|capability_audit_fixture|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|process_table|proc_sched|syscall_entry_stub|validate_capability_registry|capability_registry_drift|parity|canary_must_fail]"
+  Write-Host "Usage: test.ps1 [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|capability_gate|capability_audit|capability_audit_fixture|cap_broker|cap_deny_marker_shape|workflow_rule|event_bus|scheduler|sof_format|tls|https|bearssl_compile|fs_service|launcher_fs|app_runtime|ed25519|cert_chain|codesign|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|process_table|proc_sched|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|parity|canary_must_fail]"
   Write-Host ""
   Write-Host "Runs SecureOS test targets inside the pinned toolchain container."
 }
@@ -76,6 +76,8 @@ $testScript = switch ($TestName) {
   "syscall_entry_stub" { "./build/scripts/test_syscall_entry_stub.sh" }
   "validate_capability_registry" { "./build/scripts/validate_capability_registry.sh" }
   "capability_registry_drift" { "./tests/harness/capability_registry_drift_test.sh" }
+  "validate_abi_stamps" { "./build/scripts/validate_abi_stamps.sh" }
+  "abi_stamps_drift" { "./tests/harness/abi_stamps_drift_test.sh" }
   "harness_defense" { "./build/scripts/test_harness_defense.sh" }
   "canary_must_fail" { "./tests/integration/_canary_must_fail/canary_must_fail.sh" }
   "workflow_rule" { "./build/scripts/test_workflow_rule.sh" }
