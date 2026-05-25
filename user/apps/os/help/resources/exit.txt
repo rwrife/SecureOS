@@ -1,2 +1,3 @@
-usage: exit <pass|fail>
+usage: exit [pass|fail]
 requests emulator exit with a pass/fail status code.
+defaults to pass if no argument is given.

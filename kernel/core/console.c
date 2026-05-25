@@ -1355,9 +1355,7 @@ static void console_command_exit(const char *mode) {
   uint8_t exit_code = 0x10u;
 
   if (mode == 0 || mode[0] == '\0') {
-    console_write("usage: exit <pass|fail>\n");
-    console_write_prompt();
-    return;
+    mode = "pass";
   }
 
   if (cap_table_check(console_subject_id, CAP_DEBUG_EXIT) != CAP_OK) {
@@ -1371,7 +1369,7 @@ static void console_command_exit(const char *mode) {
   } else if (string_equals(mode, "fail")) {
     exit_code = 0x11u;
   } else {
-    console_write("usage: exit <pass|fail>\n");
+    console_write("usage: exit [pass|fail]\n");
     console_write_prompt();
     return;
   }
