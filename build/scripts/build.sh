@@ -21,6 +21,7 @@ case "$TARGET" in
     ;;
   all)
     echo "[build] Building all components..."
+    "$ROOT_DIR/build/scripts/generate_keys.sh"
     "$ROOT_DIR/build/scripts/build_bearssl.sh"
     "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
     "$ROOT_DIR/build/scripts/build_user_lib.sh" envlib
