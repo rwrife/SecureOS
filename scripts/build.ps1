@@ -15,7 +15,17 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Resolve repo root — if running inside a worktree, use the main repo root
+# so Docker mounts work correctly (worktree paths with dots can fail on Windows).
 $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$gitPath = Join-Path $RootDir ".git"
+if ((Test-Path $gitPath) -and (-not (Test-Path $gitPath -PathType Container))) {
+  $gitContent = Get-Content $gitPath -Raw
+  if ($gitContent -match 'gitdir:\s*(.+)') {
+    $gitDir = $Matches[1].Trim()
+    $RootDir = (Resolve-Path (Join-Path $gitDir "..\..\..")).Path
+  }
+}
 $ImageTag = if ($env:SECUREOS_TOOLCHAIN_IMAGE) { $env:SECUREOS_TOOLCHAIN_IMAGE } else { "secureos/toolchain:bookworm-2026-02-12" }
 $Dockerfile = Join-Path $RootDir "build\docker\Dockerfile.toolchain"
 

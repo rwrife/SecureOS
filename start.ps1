@@ -19,7 +19,20 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Resolve $RootDir — if running inside a worktree, resolve to the main
+# repository root so Docker mounts and relative paths work correctly.
 $RootDir = $PSScriptRoot
+$gitPath = Join-Path $RootDir ".git"
+if ((Test-Path $gitPath) -and (-not (Test-Path $gitPath -PathType Container))) {
+  # .git is a file (worktree pointer) — resolve the main repo root
+  $gitContent = Get-Content $gitPath -Raw
+  if ($gitContent -match 'gitdir:\s*(.+)') {
+    $gitDir = $Matches[1].Trim()
+    # gitdir points to .git/worktrees/<name> — go up 3 levels to get repo root
+    $RootDir = (Resolve-Path (Join-Path $gitDir "..\..\..")).Path
+    Write-Host "  (worktree detected, using repo root: $RootDir)" -ForegroundColor DarkGray
+  }
+}
 
 if ($Help) {
   Write-Host @"
