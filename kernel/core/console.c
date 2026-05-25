@@ -1087,6 +1087,7 @@ static void console_history_recall_down(void) {
 static char console_wait_for_yes_no(void) {
   for (;;) {
     char input = '\0';
+    mouse_hal_update();
     if (!input_hal_try_read_char(&input)) {
       console_idle_wait();
       continue;
@@ -1609,7 +1610,8 @@ void console_run(void) {
   for (;;) {
     char input = '\0';
 
-    /* Poll mouse for cursor updates (non-blocking, no-op if no mouse) */
+    /* Drain pending mouse bytes from the shared PS/2 port so they don't
+     * block keyboard reads.  The console itself does not use mouse data. */
     mouse_hal_update();
 
     if (!input_hal_try_read_char(&input)) {

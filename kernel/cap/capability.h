@@ -35,6 +35,7 @@ typedef enum {
    */
   CAP_SYSCALL = 15,
   CAP_CLOCK_SET = 16,
+  CAP_MOUSE = 17,
 } capability_id_t;
 
 typedef enum {

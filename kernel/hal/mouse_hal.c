@@ -23,8 +23,6 @@
 #include "mouse_hal.h"
 
 #include "../drivers/input/ps2_mouse.h"
-#include "../drivers/video/vga_text.h"
-#include "video_hal.h"
 
 /* Text-mode screen defaults */
 #define DEFAULT_WIDTH  80
@@ -87,7 +85,6 @@ int mouse_hal_init(void) {
 
   if (ps2_mouse_init()) {
     g_mouse_available = 1;
-    vga_text_mouse_cursor_show(g_cursor_x, g_cursor_y);
   }
 
   return g_mouse_available;
@@ -124,9 +121,6 @@ void mouse_hal_update(void) {
   g_accum_x -= cell_dx * MOUSE_SCALE_FACTOR;
   g_accum_y -= cell_dy * MOUSE_SCALE_FACTOR;
 
-  /* Hide cursor at old position before moving */
-  vga_text_mouse_cursor_hide();
-
   /* Update position, clamped to screen bounds */
   g_cursor_x += cell_dx;
   g_cursor_y += cell_dy;
@@ -138,9 +132,6 @@ void mouse_hal_update(void) {
 
   /* Enqueue move event */
   mouse_enqueue_event(MOUSE_EVENT_MOVE, g_cursor_x, g_cursor_y, 0);
-
-  /* Show cursor at new position */
-  vga_text_mouse_cursor_show(g_cursor_x, g_cursor_y);
 
 check_buttons:
   /* Detect button state changes */

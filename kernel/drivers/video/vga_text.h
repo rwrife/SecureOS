@@ -31,4 +31,14 @@ void vga_text_mouse_cursor_show(int col, int row);
  */
 void vga_text_mouse_cursor_hide(void);
 
+/**
+ * Move the hardware text cursor to (col, row).
+ */
+void vga_text_set_cursor(int col, int row);
+
+/**
+ * Write a character with the given attribute at (col, row) directly.
+ */
+void vga_text_putchar_at(int col, int row, char ch, unsigned char attr);
+
 #endif

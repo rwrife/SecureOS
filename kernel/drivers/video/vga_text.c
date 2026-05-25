@@ -222,3 +222,20 @@ void vga_text_mouse_cursor_hide(void) {
   g_mouse_cursor_active = 0;
 }
 
+void vga_text_set_cursor(int col, int row) {
+  if (col < 0 || col >= VGA_TEXT_WIDTH || row < 0 || row >= VGA_TEXT_HEIGHT) {
+    return;
+  }
+  g_col = col;
+  g_row = row;
+  vga_text_update_cursor();
+}
+
+void vga_text_putchar_at(int col, int row, char ch, unsigned char attr) {
+  if (col < 0 || col >= VGA_TEXT_WIDTH || row < 0 || row >= VGA_TEXT_HEIGHT) {
+    return;
+  }
+  int offset = row * VGA_TEXT_WIDTH + col;
+  VGA_TEXT_BUFFER[offset] = vga_text_entry_color(ch, attr);
+}
+

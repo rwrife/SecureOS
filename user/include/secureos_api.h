@@ -70,6 +70,19 @@ os_status_t os_video_clear(void);
 os_status_t os_video_set_cursor(int col, int row);
 os_status_t os_video_putchar_at(int col, int row, char ch, unsigned char attr);
 
+/* Video mode constants */
+#define OS_VIDEO_MODE_TEXT    0  /* 80x25 text mode (default) */
+#define OS_VIDEO_MODE_GFX    1  /* 320x200x256 graphics mode */
+
+#define OS_GFX_WIDTH   320
+#define OS_GFX_HEIGHT  200
+
+/* Graphics-mode pixel drawing */
+os_status_t os_video_set_mode(int mode);
+os_status_t os_video_put_pixel(int x, int y, unsigned char color);
+os_status_t os_video_draw_rect(int x, int y, int w, int h, unsigned char color);
+os_status_t os_video_get_resolution(int *out_width, int *out_height);
+
 #ifdef __cplusplus
 }
 #endif
