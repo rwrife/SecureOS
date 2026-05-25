@@ -32,7 +32,7 @@ build_user_lib_inner() {
   EXTRA_INCLUDES=""
   EXTRA_LINK_OBJECTS=""
   if [ "$LIB_NAME" = "netlib" ] && [ -d "vendor/bearssl/BearSSL/inc" ]; then
-    EXTRA_INCLUDES="-I vendor/bearssl/BearSSL/inc"
+    EXTRA_INCLUDES="-nostdlibinc -I vendor/bearssl/include -I vendor/bearssl/BearSSL/inc"
     if [ -d "artifacts/bearssl" ]; then
       for bobj in artifacts/bearssl/*.o; do
         [ -f "$bobj" ] && EXTRA_LINK_OBJECTS="$EXTRA_LINK_OBJECTS $bobj"

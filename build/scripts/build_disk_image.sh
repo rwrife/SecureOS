@@ -9,7 +9,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DISK_DIR="$ROOT_DIR/artifacts/disk"
 DISK_PATH="$DISK_DIR/secureos-disk.img"
-DISK_BLOCKS="${SECUREOS_DISK_BLOCKS:-4096}"
+DISK_BLOCKS="${SECUREOS_DISK_BLOCKS:-8192}"
 
 # Issue #226: gate the disk-image build on manifest validity, not just
 # schema validity (follow-up to #219). Validate every manifest the

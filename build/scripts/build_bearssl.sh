@@ -24,7 +24,7 @@ OUT_DIR="$ROOT_DIR/artifacts/bearssl"
 # -Wall -Werror to keep the freestanding compile honest, with the small
 # carve-outs BearSSL needs in freestanding mode (it uses a few constructs
 # the project's host build flags would otherwise reject).
-CC_FLAGS="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -nostdinc"
+CC_FLAGS="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -nostdlibinc -I $ROOT_DIR/vendor/bearssl/include"
 CC_WARN_FLAGS="-Wall -Werror -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-implicit-fallthrough -Wno-sign-compare"
 
 build_bearssl_inner() {
@@ -44,25 +44,28 @@ build_bearssl_inner() {
     -c "$VENDOR_DIR/secureos_compat.c" -o "$OUT_DIR/secureos_compat.o"
 
   # Compile each BearSSL source file.
-  # We enumerate from Makefile.secureos by extracting .c paths.
-  local src_list
-  src_list=$(grep '\.c' "$VENDOR_DIR/Makefile.secureos" | \
-    sed 's/.*= *//' | sed 's/\\$//' | tr -s ' \n' '\n' | \
-    grep '\.c$' | sort -u)
-
+  # We compile all .c files under src/, skipping platform-specific intrinsics
+  # files that require headers unavailable in freestanding mode (x86ni, pclmul,
+  # sse2, power8). The hw_stubs file provides NULL fallbacks for those.
   local count=0
-  for src_rel in $src_list; do
-    local src_path="$src_dir/$src_rel"
-    if [ ! -f "$src_path" ]; then
-      echo "SKIP (not found): $src_rel"
-      continue
-    fi
+  while IFS= read -r src_path; do
+    # Skip files requiring platform intrinsics
+    case "$src_path" in
+      *x86ni*|*pclmul*|*sse2*|*power8*|*ctmulq*) continue ;;
+    esac
+    local src_rel="${src_path#$src_dir/}"
     local obj_name
     obj_name=$(echo "$src_rel" | sed 's|/|_|g; s|\.c$|.o|')
     clang $CC_FLAGS $CC_WARN_FLAGS -I "$inc_dir" -I "$src_dir/src" \
       -c "$src_path" -o "$OUT_DIR/$obj_name"
     count=$((count + 1))
-  done
+  done < <(find "$src_dir/src" -name '*.c' | sort)
+
+  # Compile hardware acceleration stubs (returns NULL for all hw-accel vtables)
+  echo "Compiling bearssl_hw_stubs.c ..."
+  clang $CC_FLAGS $CC_WARN_FLAGS -I "$inc_dir" -I "$src_dir/src" \
+    -c "$VENDOR_DIR/bearssl_hw_stubs.c" -o "$OUT_DIR/bearssl_hw_stubs.o"
+  count=$((count + 1))
 
   echo "Compiled $count BearSSL objects into $OUT_DIR"
   # Emit a deterministic size/count summary so the validator (and CI) can
@@ -70,9 +73,9 @@ build_bearssl_inner() {
   # implementation_plan.md.
   if command -v du >/dev/null 2>&1; then
     local total_kb
-    total_kb=$(du -sk "$OUT_DIR" | awk '{print $1}')
+    total_kb=$(du -sk "$OUT_DIR" 2>/dev/null | awk '{print $1}')
     echo "BEARSSL_OBJECT_COUNT=$count"
-    echo "BEARSSL_OBJECT_TOTAL_KB=$total_kb"
+    echo "BEARSSL_OBJECT_TOTAL_KB=${total_kb:-unknown}"
   fi
 }
 

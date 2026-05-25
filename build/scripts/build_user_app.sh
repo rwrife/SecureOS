@@ -68,7 +68,7 @@ PY
     HAVE_BEARSSL=0
     if compgen -G "artifacts/bearssl/*.o" >/dev/null; then
       HAVE_BEARSSL=1
-      NETLIB_CFLAGS="$NETLIB_CFLAGS -I vendor/bearssl/BearSSL/inc"
+      NETLIB_CFLAGS="$NETLIB_CFLAGS -nostdlibinc -I vendor/bearssl/include -I vendor/bearssl/BearSSL/inc"
     fi
 
     clang $NETLIB_CFLAGS -c user/libs/netlib/api.c -o artifacts/user/netlib_api.o

@@ -44,7 +44,9 @@ $DockerRoot = $RootDir -replace '\\', '/'
 
 # Run the build inside the container
 Write-Host "Building SecureOS (target: $Target)..."
+$ErrorActionPreference = "Continue"
 docker run --rm -v "${DockerRoot}:/workspace" -w /workspace $ImageTag bash -lc "set -euo pipefail; ./build/scripts/build.sh $Target"
+$ErrorActionPreference = "Stop"
 if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
 Write-Host ""

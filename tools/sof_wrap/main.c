@@ -30,8 +30,8 @@
 #include "../../kernel/format/sof.h"
 
 enum {
-  SOF_WRAP_MAX_FILE_SIZE = 65536,
-  SOF_WRAP_MAX_OUTPUT_SIZE = 65536 + 4096,
+  SOF_WRAP_MAX_FILE_SIZE = 1048576,
+  SOF_WRAP_MAX_OUTPUT_SIZE = 1048576 + 4096,
 };
 
 static void usage(const char *prog) {
