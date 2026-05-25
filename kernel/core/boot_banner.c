@@ -3,7 +3,7 @@
  * @brief Renders a colorful ASCII-art boot banner during kernel startup.
  *
  * Purpose:
- *   Displays the SecureOS splash screen with a padlock icon and version
+ *   Displays the SecureOS splash screen with an SOS logo and version
  *   info on the VGA display. Serial output receives a plain-text
  *   representation so boot logs remain readable without color codes.
  *
@@ -23,40 +23,27 @@
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
 
-/*
- * Splash layout: small padlock (loop + square) on left, title on right.
- */
-static const char *splash_lines[] = {
-  "     _.__._",
-  "    / _  _ \\",
-  "    | |  | |     SecureOS v" SECUREOS_VERSION,
-  "    |_|__|_|     Zero-Trust OS",
-  "    |______|",
-};
-
-static const uint8_t splash_colors[] = {
-  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
-  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
-  VGA_ATTR(VGA_WHITE,         VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_GREY,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
-};
-
-#define SPLASH_LINE_COUNT (sizeof(splash_lines) / sizeof(splash_lines[0]))
+#define SOS_COLOR VGA_ATTR(VGA_YELLOW, VGA_BLACK)
 
 void boot_banner_display(void) {
-  unsigned int i;
-
   video_hal_write("\n");
   serial_hal_write("\n");
 
-  for (i = 0; i < SPLASH_LINE_COUNT; ++i) {
-    video_hal_write_color(splash_lines[i], splash_colors[i]);
-    video_hal_write("\n");
-    serial_hal_write(splash_lines[i]);
-    serial_hal_write("\n");
-  }
-
+  video_hal_write_color("   ___  ___  ___", SOS_COLOR);
   video_hal_write("\n");
-  serial_hal_write("\n");
+  serial_hal_write("   ___  ___  ___\n");
+
+  video_hal_write_color("  / __|| _ \\/ __|", SOS_COLOR);
+  video_hal_write_color("    SecureOS v" SECUREOS_VERSION "\n",
+                        VGA_ATTR(VGA_WHITE, VGA_BLACK));
+  serial_hal_write("  / __|| _ \\/ __|    SecureOS v" SECUREOS_VERSION "\n");
+
+  video_hal_write_color("  \\__ \\|  / \\__ \\", SOS_COLOR);
+  video_hal_write_color("    Zero-Trust OS\n",
+                        VGA_ATTR(VGA_LIGHT_GREY, VGA_BLACK));
+  serial_hal_write("  \\__ \\|  / \\__ \\    Zero-Trust OS\n");
+
+  video_hal_write_color("  |___/|_\\_\\|___/", SOS_COLOR);
+  video_hal_write("\n\n");
+  serial_hal_write("  |___/|_\\_\\|___/\n\n");
 }
