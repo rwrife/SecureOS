@@ -71,6 +71,11 @@ static int g_console_restoring_history = 0;
 static int console_directory_exists(const char *absolute_path);
 
 static void console_idle_wait(void) {
+  if (g_console_ctx != 0 && g_console_ctx->wm_managed) {
+    /* Yield back to the WM so it can process input and respond to auth */
+    session_manager_tick_yield();
+    return;
+  }
   volatile int spin = 0;
   spin++;
 }
@@ -945,6 +950,11 @@ static void console_write(const char *message) {
     console_screen_history[console_screen_history_len] = '\0';
   }
 
+  /* Render text into the session's VFB if WM-managed */
+  if (g_console_ctx->wm_managed) {
+    session_manager_vfb_write(session_manager_active_id(), message);
+  }
+
   serial_hal_write(message);
   video_hal_write(message);
 }
@@ -1105,6 +1115,87 @@ static char console_wait_for_yes_no(void) {
   }
 }
 
+/**
+ * Post an auth prompt to the pending table and wait for a response from
+ * the window manager (or other event consumer). Used when wm_managed is set.
+ */
+static auth_response_t console_auth_via_event(auth_prompt_type_t type,
+                                              const char *description) {
+  pending_auth_request_t *table = event_get_pending_auth_table();
+  size_t i;
+  size_t slot = (size_t)-1;
+  uint64_t correlation_id = console_next_correlation_id++;
+
+  /* Find a free slot */
+  for (i = 0u; i < PENDING_AUTH_MAX; ++i) {
+    if (!table[i].active) {
+      slot = i;
+      break;
+    }
+  }
+
+  if (slot == (size_t)-1) {
+    return AUTH_RESPONSE_DENY; /* no slot available, deny */
+  }
+
+  /* Fill the pending request */
+  table[slot].active = 1;
+  table[slot].correlation_id = correlation_id;
+  table[slot].session_id = session_manager_active_id();
+  table[slot].type = type;
+  table[slot].responded = 0;
+  table[slot].response = AUTH_RESPONSE_DENY;
+
+  /* Copy description */
+  {
+    size_t j = 0u;
+    while (description[j] != '\0' && j + 1u < EVENT_PAYLOAD_MAX) {
+      table[slot].description[j] = description[j];
+      ++j;
+    }
+    table[slot].description[j] = '\0';
+  }
+
+  /* Publish AUTH_PROMPT event */
+  {
+    uint8_t payload[EVENT_PAYLOAD_MAX];
+    size_t len = 0u;
+    uint64_t seq = 0u;
+    payload[0] = (uint8_t)type;
+    len = 1u;
+    {
+      size_t j = 0u;
+      while (description[j] != '\0' && len + 1u < EVENT_PAYLOAD_MAX) {
+        payload[len++] = (uint8_t)description[j++];
+      }
+    }
+    payload[len] = 0u;
+    (void)event_publish(console_subject_id,
+                        EVENT_TOPIC_AUTH_PROMPT,
+                        console_subject_id,
+                        correlation_id,
+                        payload, len,
+                        &seq);
+  }
+
+  /* Also write the prompt to screen_history so the WM can see it */
+  console_write("\n[auth] ");
+  console_write(description);
+  console_write("\n[auth] waiting for response...\n");
+
+  /* Spin-wait for the response. The WM event loop will call
+   * event_respond_auth() which sets the responded flag. */
+  while (!table[slot].responded) {
+    console_idle_wait();
+  }
+
+  {
+    auth_response_t result = table[slot].response;
+    table[slot].active = 0;
+    return result;
+  }
+}
+
 static cap_access_state_t console_authorize_disk_io(const char *operation, const char *path) {
   uint8_t request_payload[EVENT_PAYLOAD_MAX];
   uint8_t decision_payload[EVENT_PAYLOAD_MAX];
@@ -1134,6 +1225,23 @@ static cap_access_state_t console_authorize_disk_io(const char *operation, const
     }
     console_write("[auth-session] decision=deny (cached)\n");
     return CAP_ACCESS_DENY;
+  }
+
+  /* WM-managed sessions route auth through the event bus */
+  if (g_console_ctx != 0 && g_console_ctx->wm_managed) {
+    char desc[EVENT_PAYLOAD_MAX];
+    auth_response_t resp;
+    size_t dlen = 0u;
+    dlen = append_string(desc, sizeof(desc), 0u, "Disk ");
+    dlen = append_string(desc, sizeof(desc), dlen, operation);
+    dlen = append_string(desc, sizeof(desc), dlen, ": ");
+    dlen = append_string(desc, sizeof(desc), dlen, path);
+    (void)dlen;
+    resp = console_auth_via_event(AUTH_PROMPT_DISK_IO, desc);
+    if (resp == AUTH_RESPONSE_ALLOW_ALWAYS) {
+      (void)console_auth_cache_store(cache_key, AUTH_CACHE_ALLOW);
+    }
+    return (resp != AUTH_RESPONSE_DENY) ? CAP_ACCESS_ALLOW : CAP_ACCESS_DENY;
   }
 
   request_len = append_string((char *)request_payload, sizeof(request_payload), 0u, operation);
@@ -1213,6 +1321,21 @@ static cap_access_state_t console_authorize_unsigned_binary(const char *binary_p
     }
     console_write("[codesign] decision=deny (cached)\n");
     return CAP_ACCESS_DENY;
+  }
+
+  /* WM-managed sessions route auth through the event bus */
+  if (g_console_ctx != 0 && g_console_ctx->wm_managed) {
+    char desc[EVENT_PAYLOAD_MAX];
+    auth_response_t resp;
+    size_t dlen = 0u;
+    dlen = append_string(desc, sizeof(desc), 0u, "Run unsigned: ");
+    dlen = append_string(desc, sizeof(desc), dlen, binary_path != 0 ? binary_path : "(unknown)");
+    (void)dlen;
+    resp = console_auth_via_event(AUTH_PROMPT_UNSIGNED_BINARY, desc);
+    if (resp == AUTH_RESPONSE_ALLOW_ALWAYS) {
+      (void)console_auth_cache_store(cache_key, AUTH_CACHE_ALLOW);
+    }
+    return (resp != AUTH_RESPONSE_DENY) ? CAP_ACCESS_ALLOW : CAP_ACCESS_DENY;
   }
 
   request_len = append_string((char *)request_payload, sizeof(request_payload), 0u, "unsigned:");
@@ -1602,6 +1725,48 @@ void console_bind_context(console_context_t *context) {
   }
 }
 
+void console_process_injected(void) {
+  if (g_console_ctx == 0) {
+    return;
+  }
+
+  while (g_console_ctx->inject_tail != g_console_ctx->inject_head) {
+    char input = g_console_ctx->inject_buf[g_console_ctx->inject_tail];
+    g_console_ctx->inject_tail =
+        (g_console_ctx->inject_tail + 1u) % CONSOLE_LINE_MAX;
+
+    if (input == '\r' || input == '\n') {
+      console_write("\n");
+      console_line[console_line_len] = '\0';
+      console_history_push_current_line();
+      console_history_browse_index = -1;
+      console_pending_line[0] = '\0';
+      console_pending_line_len = 0u;
+      console_handle_command();
+      console_reset_line();
+      continue;
+    }
+
+    if (input == 0x08 || input == 0x7F) {
+      if (console_line_len > 0u) {
+        --console_line_len;
+        console_line[console_line_len] = '\0';
+        console_write("\b \b");
+      }
+      continue;
+    }
+
+    if (console_line_len + 1u >= CONSOLE_LINE_MAX) {
+      continue;
+    }
+
+    console_line[console_line_len] = input;
+    ++console_line_len;
+    console_line[console_line_len] = '\0';
+    console_emit_char(input);
+  }
+}
+
 void console_run(void) {
   if (g_console_ctx == 0) {
     return;
@@ -1614,7 +1779,11 @@ void console_run(void) {
      * block keyboard reads.  The console itself does not use mouse data. */
     mouse_hal_update();
 
-    if (!input_hal_try_read_char(&input)) {
+    /* Check injected input from window manager first */
+    if (g_console_ctx->inject_tail != g_console_ctx->inject_head) {
+      input = g_console_ctx->inject_buf[g_console_ctx->inject_tail];
+      g_console_ctx->inject_tail = (g_console_ctx->inject_tail + 1u) % CONSOLE_LINE_MAX;
+    } else if (!input_hal_try_read_char(&input)) {
       console_idle_wait();
       continue;
     }

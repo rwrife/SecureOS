@@ -93,6 +93,9 @@ build_disk_image_inner() {
 	./build/scripts/build_user_app.sh "draw"
 	app_mappings+=("artifacts/user/draw.bin=/apps/draw.bin")
 
+	./build/scripts/build_user_app.sh "win"
+	app_mappings+=("artifacts/user/win.bin=/apps/win.bin")
+
 	./build/scripts/build_user_app.sh "filedemo"
 	app_mappings+=("artifacts/user/filedemo.bin=/apps/filedemo.bin")
 

@@ -23,24 +23,56 @@
 
 #include "session_manager.h"
 
+#include "ctx_switch.h"
+#include "../gfx/vfb_font.h"
 #include "../hal/serial_hal.h"
+#include "../mem/kheap.h"
 #include "../sched/scheduler.h"
 #include "console.h"
 
 enum {
   SESSION_MAX = 8,
+  SESSION_VFB_WIDTH = 320,
+  SESSION_VFB_HEIGHT = 200,
+  SESSION_VFB_SIZE = 64000, /* 320 * 200 */
+  /* Text grid dimensions for VFB text rendering.
+   * Must match the window content area so scrolling triggers at the right time.
+   * Window content: 216px wide (36*6), 128px tall (16*8). */
+  SESSION_VFB_TEXT_COLS = 36,  /* 216 / (5+1) = 36 */
+  SESSION_VFB_TEXT_ROWS = 16,  /* 128 / (7+1) = 16 */
 };
+
+#define VFB_FG_COLOR 15  /* white */
+#define VFB_BG_COLOR 0   /* black */
+
+/* Each WM-managed session gets its own 16KB stack for tick execution
+ * so that yielded frames aren't corrupted by the WM's main loop. */
+#define SESSION_TICK_STACK_SIZE 16384
 
 typedef struct {
   int in_use;
   unsigned int session_id;
   cap_subject_id_t subject_id;
   console_context_t console_context;
+  /* Virtual framebuffer — always allocated for WM-managed sessions */
+  int gfx_mode;                     /* 0 = text, 1 = graphics */
+  unsigned char *vfb;               /* Allocated via kmalloc when needed */
+  /* Text cursor for kernel-side text rendering into VFB */
+  int vfb_cursor_col;
+  int vfb_cursor_row;
+  /* Cooperative yield state for auth spin-wait */
+  int blocked;                      /* 1 if yielded mid-command */
+  ctx_jmp_buf_t blocked_ctx;        /* Saved context at idle_wait point */
+  unsigned char *tick_stack;        /* Dedicated stack for tick execution */
 } session_record_t;
 
 static session_record_t g_sessions[SESSION_MAX];
 static unsigned int g_active_session_id;
 static cap_subject_id_t g_default_subject_id;
+
+/* Global yield context: tick saves here so idle_wait can return to it */
+static ctx_jmp_buf_t g_tick_return_ctx;
+static unsigned int g_tick_session_id;  /* session currently being ticked */
 
 static void session_copy_string(char *dst, size_t dst_size, const char *src) {
   size_t i = 0u;
@@ -78,10 +110,15 @@ static void session_init_context(console_context_t *context, cap_subject_id_t su
   context->history_browse_index = -1;
   context->screen_history[0] = '\0';
   context->screen_history_len = 0u;
+  context->screen_history_read_cursor = 0u;
   context->next_correlation_id = 1u;
   session_copy_string(context->cwd, sizeof(context->cwd), "/");
   context->escape_state = 0u;
   context->next_loaded_lib_handle = 1u;
+  context->inject_buf[0] = '\0';
+  context->inject_head = 0u;
+  context->inject_tail = 0u;
+  context->wm_managed = 0;
 
   for (i = 0u; i < CONSOLE_HISTORY_MAX; ++i) {
     context->history[i][0] = '\0';
@@ -115,9 +152,11 @@ static void session_manager_reset(void) {
     g_sessions[i].in_use = 0;
     g_sessions[i].session_id = 0u;
     g_sessions[i].subject_id = 0u;
+    g_sessions[i].blocked = 0;
     session_init_context(&g_sessions[i].console_context, 0u);
   }
   g_active_session_id = 0u;
+  g_tick_session_id = SESSION_MAX;
 }
 
 static int session_manager_create_session(cap_subject_id_t subject_id) {
@@ -185,6 +224,20 @@ int session_manager_create(cap_subject_id_t subject_id, unsigned int *out_sessio
   int session_id = session_manager_create_session(subject_id);
   if (session_id < 0) {
     return 0;
+  }
+
+  /* Initialize the console context so the session is ready for use.
+   * console_init clobbers the global context pointer, so save/restore. */
+  {
+    console_context_t *saved_ctx = 0;
+    /* The active session's context needs to be preserved */
+    if (g_active_session_id < SESSION_MAX && g_sessions[g_active_session_id].in_use) {
+      saved_ctx = &g_sessions[g_active_session_id].console_context;
+    }
+    console_init(&g_sessions[session_id].console_context, subject_id);
+    if (saved_ctx != 0) {
+      console_bind_context(saved_ctx);
+    }
   }
 
   if (out_session_id != 0) {
@@ -260,4 +313,359 @@ size_t session_manager_list(char *out_buffer, size_t out_buffer_size) {
     out_buffer[cursor] = '\0';
   }
   return cursor;
+}
+
+size_t session_manager_read_output(unsigned int session_id, char *out_buffer,
+                                   size_t out_buffer_size) {
+  console_context_t *ctx;
+  size_t available;
+  size_t to_copy;
+  size_t i;
+
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0u;
+  }
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 0u;
+  }
+
+  ctx = &g_sessions[session_id].console_context;
+  available = ctx->screen_history_len - ctx->screen_history_read_cursor;
+  if (available == 0u) {
+    out_buffer[0] = '\0';
+    return 0u;
+  }
+
+  to_copy = available;
+  if (to_copy >= out_buffer_size) {
+    to_copy = out_buffer_size - 1u;
+  }
+
+  for (i = 0u; i < to_copy; ++i) {
+    out_buffer[i] = ctx->screen_history[ctx->screen_history_read_cursor + i];
+  }
+  out_buffer[to_copy] = '\0';
+  ctx->screen_history_read_cursor += to_copy;
+
+  return to_copy;
+}
+
+size_t session_manager_write_input(unsigned int session_id, const char *input,
+                                   size_t len) {
+  console_context_t *ctx;
+  size_t injected = 0u;
+  size_t i;
+
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0u;
+  }
+  if (input == 0 || len == 0u) {
+    return 0u;
+  }
+
+  ctx = &g_sessions[session_id].console_context;
+
+  for (i = 0u; i < len; ++i) {
+    size_t next_head = (ctx->inject_head + 1u) % CONSOLE_LINE_MAX;
+    if (next_head == ctx->inject_tail) {
+      break; /* buffer full */
+    }
+    ctx->inject_buf[ctx->inject_head] = input[i];
+    ctx->inject_head = next_head;
+    ++injected;
+  }
+
+  return injected;
+}
+
+/* Wrapper that runs console_process_injected on the session's tick stack.
+ * When it completes (or if it never yields), jump back to the tick return
+ * point so we don't rely on the stale stack frame from ctx_call_on_stack. */
+static void tick_trampoline(void) {
+  console_process_injected();
+  /* Command completed without yielding (or after resume completed).
+   * Jump back to the tick's ctx_save point so we exit cleanly. */
+  ctx_resume(&g_tick_return_ctx, 2);
+}
+
+void session_manager_tick(unsigned int session_id) {
+  unsigned int prev_active;
+  int save_result;
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+
+  /* Allocate tick stack on first use */
+  if (g_sessions[session_id].tick_stack == 0 &&
+      g_sessions[session_id].console_context.wm_managed) {
+    g_sessions[session_id].tick_stack =
+        (unsigned char *)kmalloc(SESSION_TICK_STACK_SIZE);
+    if (g_sessions[session_id].tick_stack == 0) {
+      return; /* Cannot tick without a stack */
+    }
+  }
+
+  /* Non-WM sessions: just process injected input directly */
+  if (!g_sessions[session_id].console_context.wm_managed) {
+    prev_active = g_active_session_id;
+    g_active_session_id = session_id;
+    g_tick_session_id = session_id;
+    console_bind_context(&g_sessions[session_id].console_context);
+    console_process_injected();
+    g_active_session_id = prev_active;
+    g_tick_session_id = SESSION_MAX;
+    if (prev_active < SESSION_MAX && g_sessions[prev_active].in_use) {
+      console_bind_context(&g_sessions[prev_active].console_context);
+    }
+    return;
+  }
+
+  /* Temporarily switch active session so console_write's VFB hook
+   * targets the correct session during tick processing */
+  prev_active = g_active_session_id;
+  g_active_session_id = session_id;
+  g_tick_session_id = session_id;
+
+  /* Bind the target session's context */
+  console_bind_context(&g_sessions[session_id].console_context);
+
+  /* Save the "return to WM" context.
+   * Returns: 0 = initial save, 1 = yield (session blocked), 2 = completed */
+  save_result = ctx_save(&g_tick_return_ctx);
+  if (save_result == 1) {
+    /* Yielded from console_idle_wait — session is blocked on auth */
+    g_sessions[session_id].blocked = 1;
+    goto restore;
+  }
+  if (save_result == 2) {
+    /* tick_trampoline completed — command finished normally */
+    goto restore;
+  }
+
+  if (g_sessions[session_id].blocked) {
+    /* Session was previously yielded (blocked on auth).
+     * Resume into the saved context on the session's tick stack. */
+    g_sessions[session_id].blocked = 0;
+    ctx_resume(&g_sessions[session_id].blocked_ctx, 1);
+    /* Does not return */
+  }
+
+  /* Normal path: run on the session's dedicated tick stack */
+  {
+    unsigned char *stack_top = g_sessions[session_id].tick_stack +
+                               SESSION_TICK_STACK_SIZE;
+    /* Align to 16 bytes */
+    stack_top = (unsigned char *)((unsigned long)stack_top & ~0xFUL);
+    ctx_call_on_stack(stack_top, tick_trampoline);
+    /* Should not reach here — tick_trampoline always ctx_resumes back.
+     * But if it somehow does, fall through to restore. */
+  }
+
+restore:
+  /* Restore previous active session and context */
+  g_active_session_id = prev_active;
+  g_tick_session_id = SESSION_MAX; /* invalid = not in tick */
+  if (prev_active < SESSION_MAX && g_sessions[prev_active].in_use) {
+    console_bind_context(&g_sessions[prev_active].console_context);
+  }
+}
+
+void session_manager_set_wm_managed(unsigned int session_id, int managed) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  g_sessions[session_id].console_context.wm_managed = managed;
+
+  /* Eagerly allocate VFB when marking as WM-managed */
+  if (managed && g_sessions[session_id].vfb == 0) {
+    serial_hal_write("[wm] allocating VFB for session\n");
+    g_sessions[session_id].vfb =
+        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+    g_sessions[session_id].vfb_cursor_col = 0;
+    g_sessions[session_id].vfb_cursor_row = 0;
+    if (g_sessions[session_id].vfb != 0) {
+      /* Zero the buffer */
+      unsigned int bi;
+      for (bi = 0; bi < SESSION_VFB_SIZE; bi++) {
+        g_sessions[session_id].vfb[bi] = 0;
+      }
+      /* Render an initial prompt so the user sees something */
+      session_manager_vfb_write(session_id, "[s");
+      session_manager_vfb_putchar(session_id, '0' + (char)(session_id % 10));
+      session_manager_vfb_write(session_id, " /]> ");
+    }
+    serial_hal_write("[wm] VFB allocated\n");
+  }
+}
+
+int session_manager_is_wm_managed(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0;
+  }
+  return g_sessions[session_id].console_context.wm_managed;
+}
+
+int session_manager_get_gfx_mode(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return -1;
+  }
+  return g_sessions[session_id].gfx_mode;
+}
+
+void session_manager_set_gfx_mode(unsigned int session_id, int gfx_mode) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  g_sessions[session_id].gfx_mode = gfx_mode;
+}
+
+unsigned char *session_manager_get_vfb(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0;
+  }
+
+  /* Lazy allocate the VFB on first access */
+  if (g_sessions[session_id].vfb == 0) {
+    g_sessions[session_id].vfb =
+        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+  }
+
+  return g_sessions[session_id].vfb;
+}
+
+size_t session_manager_read_vfb(unsigned int session_id,
+                                unsigned char *out_pixels,
+                                unsigned int x, unsigned int y,
+                                unsigned int w, unsigned int h) {
+  unsigned char *vfb;
+  unsigned int row;
+  size_t written = 0u;
+
+  if (out_pixels == 0 || w == 0u || h == 0u) {
+    return 0u;
+  }
+  if (x >= SESSION_VFB_WIDTH || y >= SESSION_VFB_HEIGHT) {
+    return 0u;
+  }
+
+  vfb = session_manager_get_vfb(session_id);
+  if (vfb == 0) {
+    return 0u;
+  }
+
+  /* Clip to VFB bounds */
+  if (x + w > SESSION_VFB_WIDTH) {
+    w = SESSION_VFB_WIDTH - x;
+  }
+  if (y + h > SESSION_VFB_HEIGHT) {
+    h = SESSION_VFB_HEIGHT - y;
+  }
+
+  /* Copy row by row */
+  for (row = 0u; row < h; ++row) {
+    unsigned int src_offset = (y + row) * SESSION_VFB_WIDTH + x;
+    unsigned int col;
+    for (col = 0u; col < w; ++col) {
+      out_pixels[written++] = vfb[src_offset + col];
+    }
+  }
+
+  return written;
+}
+
+/* --- VFB text rendering for WM-managed sessions --- */
+
+/**
+ * Scroll the VFB up by one text line (VFB_FONT_H+1 pixels).
+ * Moves all pixel rows up and clears the bottom line.
+ */
+static void vfb_scroll_up(unsigned char *vfb) {
+  int line_h = VFB_FONT_H + VFB_FONT_SPACING;
+  int shift_bytes = line_h * SESSION_VFB_WIDTH;
+  int total_bytes = SESSION_VFB_SIZE;
+  int i;
+
+  /* Shift pixels up */
+  for (i = 0; i < total_bytes - shift_bytes; i++) {
+    vfb[i] = vfb[i + shift_bytes];
+  }
+  /* Clear the bottom area */
+  for (i = total_bytes - shift_bytes; i < total_bytes; i++) {
+    vfb[i] = VFB_BG_COLOR;
+  }
+}
+
+void session_manager_vfb_putchar(unsigned int session_id, char ch) {
+  session_record_t *s;
+  unsigned char *vfb;
+  int px, py;
+
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  s = &g_sessions[session_id];
+  vfb = s->vfb;
+  if (vfb == 0) {
+    return;
+  }
+
+  if (ch == '\n') {
+    s->vfb_cursor_col = 0;
+    s->vfb_cursor_row++;
+  } else if (ch == '\r') {
+    s->vfb_cursor_col = 0;
+  } else if (ch == '\t') {
+    s->vfb_cursor_col = (s->vfb_cursor_col + 4) & ~3;
+  } else {
+    /* Render the character glyph at current cursor position */
+    px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
+    py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
+    vfb_font_draw_char(vfb, SESSION_VFB_WIDTH, px, py, ch, VFB_FG_COLOR);
+    s->vfb_cursor_col++;
+  }
+
+  /* Wrap at end of line */
+  if (s->vfb_cursor_col >= SESSION_VFB_TEXT_COLS) {
+    s->vfb_cursor_col = 0;
+    s->vfb_cursor_row++;
+  }
+
+  /* Scroll if past last row */
+  if (s->vfb_cursor_row >= SESSION_VFB_TEXT_ROWS) {
+    vfb_scroll_up(vfb);
+    s->vfb_cursor_row = SESSION_VFB_TEXT_ROWS - 1;
+  }
+}
+
+void session_manager_vfb_write(unsigned int session_id, const char *text) {
+  if (text == 0) return;
+  while (*text != '\0') {
+    session_manager_vfb_putchar(session_id, *text);
+    text++;
+  }
+}
+
+int session_manager_tick_yield(void) {
+  /* Called from console_idle_wait when a WM-managed session needs to yield.
+   * Saves the blocked context and jumps back to session_manager_tick. */
+  if (g_tick_session_id >= SESSION_MAX) {
+    return 0; /* Not inside a tick — cannot yield */
+  }
+  /* Save where we are (the idle_wait loop) */
+  if (ctx_save(&g_sessions[g_tick_session_id].blocked_ctx) != 0) {
+    /* Resumed! We're back from yield. Return 1 so idle_wait knows
+     * to re-check the condition. */
+    return 1;
+  }
+  /* Jump back to session_manager_tick's ctx_save(g_tick_return_ctx) */
+  ctx_resume(&g_tick_return_ctx, 1);
+  /* Never reached */
+  return 0;
+}
+
+int session_manager_is_blocked(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0;
+  }
+  return g_sessions[session_id].blocked;
 }

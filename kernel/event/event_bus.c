@@ -41,7 +41,7 @@ static int event_subject_valid(cap_subject_id_t subject_id) {
 }
 
 static int event_topic_valid(event_topic_t topic) {
-  return topic >= EVENT_TOPIC_DISK_IO_REQUEST && topic <= EVENT_TOPIC_DISK_IO_DECISION;
+  return topic >= EVENT_TOPIC_DISK_IO_REQUEST && (int)topic <= EVENT_TOPIC_COUNT;
 }
 
 static size_t event_topic_index(event_topic_t topic) {
@@ -231,4 +231,23 @@ event_result_t event_get_for_topic_for_tests(event_topic_t topic,
   slot = (start + index) % EVENT_QUEUE_CAPACITY;
   event_copy_struct(out_event, &ring->events[slot]);
   return EVENT_OK;
+}
+
+/* --- Pending auth request table --- */
+
+static pending_auth_request_t g_pending_auth[PENDING_AUTH_MAX];
+
+pending_auth_request_t *event_get_pending_auth_table(void) {
+  return g_pending_auth;
+}
+
+void event_respond_auth(uint64_t correlation_id, auth_response_t response) {
+  size_t i;
+  for (i = 0u; i < PENDING_AUTH_MAX; ++i) {
+    if (g_pending_auth[i].active && g_pending_auth[i].correlation_id == correlation_id) {
+      g_pending_auth[i].response = response;
+      g_pending_auth[i].responded = 1;
+      return;
+    }
+  }
 }

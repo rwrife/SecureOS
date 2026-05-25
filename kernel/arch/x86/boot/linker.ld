@@ -2,8 +2,8 @@
  *
  * Load base: 1 MB (0x100000) — canonical GRUB/Multiboot load address.
  * The kernel runs identity-mapped (phys == virt) during early boot.
- * All sections must fit within the first 4 MB so that the bootstrap
- * identity-map page tables (two 2 MB huge pages) cover everything.
+ * All sections must fit within the first 16 MB (eight 2 MB huge pages
+ * are identity-mapped by the bootstrap page tables in entry.asm).
  */
 
 OUTPUT_FORMAT(elf64-x86-64)

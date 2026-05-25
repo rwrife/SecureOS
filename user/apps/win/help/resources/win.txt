@@ -1,0 +1,22 @@
+win - SecureOS Window Manager
+
+USAGE
+  run /apps/win.bin
+
+DESCRIPTION
+  Launches the graphical window manager. Enters VGA mode 13h (320x200,
+  256 colors) and displays terminal windows that can be moved and focused
+  with the mouse.
+
+  Each window represents a terminal session. Keyboard input is routed to
+  the currently focused window.
+
+CONTROLS
+  Mouse left-click on title bar  - drag to move window
+  Mouse left-click on content    - give window keyboard focus
+  Mouse left-click on [X]        - close window
+  ESC                            - exit window manager
+
+NOTES
+  The window manager runs in session 0 and creates child sessions for
+  each terminal window. Currently supports up to 4 simultaneous windows.
