@@ -22,6 +22,7 @@
 #include "window.h"
 #include "font.h"
 #include "secureos_api.h"
+#include "auth_dialog.h"
 
 #define SCREEN_W 320
 #define SCREEN_H 200
@@ -179,6 +180,9 @@ void compositor_render(int mouse_x, int mouse_y) {
   for (i = 0; i < count; i++) {
     draw_window(sorted[i]);
   }
+
+  /* Draw auth dialog overlay if active */
+  auth_dialog_render(g_backbuffer, SCREEN_W, SCREEN_H);
 
   /* Draw cursor on top */
   draw_cursor(mouse_x, mouse_y);

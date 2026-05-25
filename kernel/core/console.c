@@ -71,6 +71,11 @@ static int g_console_restoring_history = 0;
 static int console_directory_exists(const char *absolute_path);
 
 static void console_idle_wait(void) {
+  if (g_console_ctx != 0 && g_console_ctx->wm_managed) {
+    /* Yield back to the WM so it can process input and respond to auth */
+    session_manager_tick_yield();
+    return;
+  }
   volatile int spin = 0;
   spin++;
 }

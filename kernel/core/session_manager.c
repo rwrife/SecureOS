@@ -23,6 +23,7 @@
 
 #include "session_manager.h"
 
+#include "ctx_switch.h"
 #include "../gfx/vfb_font.h"
 #include "../hal/serial_hal.h"
 #include "../mem/kheap.h"
@@ -53,11 +54,18 @@ typedef struct {
   /* Text cursor for kernel-side text rendering into VFB */
   int vfb_cursor_col;
   int vfb_cursor_row;
+  /* Cooperative yield state for auth spin-wait */
+  int blocked;                      /* 1 if yielded mid-command */
+  ctx_jmp_buf_t blocked_ctx;        /* Saved context at idle_wait point */
 } session_record_t;
 
 static session_record_t g_sessions[SESSION_MAX];
 static unsigned int g_active_session_id;
 static cap_subject_id_t g_default_subject_id;
+
+/* Global yield context: tick saves here so idle_wait can return to it */
+static ctx_jmp_buf_t g_tick_return_ctx;
+static unsigned int g_tick_session_id;  /* session currently being ticked */
 
 static void session_copy_string(char *dst, size_t dst_size, const char *src) {
   size_t i = 0u;
@@ -137,9 +145,11 @@ static void session_manager_reset(void) {
     g_sessions[i].in_use = 0;
     g_sessions[i].session_id = 0u;
     g_sessions[i].subject_id = 0u;
+    g_sessions[i].blocked = 0;
     session_init_context(&g_sessions[i].console_context, 0u);
   }
   g_active_session_id = 0u;
+  g_tick_session_id = SESSION_MAX;
 }
 
 static int session_manager_create_session(cap_subject_id_t subject_id) {
@@ -371,13 +381,35 @@ void session_manager_tick(unsigned int session_id) {
    * targets the correct session during tick processing */
   prev_active = g_active_session_id;
   g_active_session_id = session_id;
+  g_tick_session_id = session_id;
 
-  /* Bind the target session's context, process injected input, restore */
+  /* Bind the target session's context */
   console_bind_context(&g_sessions[session_id].console_context);
+
+  /* Save the "return to WM" context. If console_idle_wait yields,
+   * it will ctx_resume here with value 1. */
+  if (ctx_save(&g_tick_return_ctx) != 0) {
+    /* We got here via yield from console_idle_wait — session is blocked */
+    g_sessions[session_id].blocked = 1;
+    goto restore;
+  }
+
+  if (g_sessions[session_id].blocked) {
+    /* Session was previously yielded (blocked on auth).
+     * Resume into the saved context — execution continues inside
+     * console_idle_wait's spin loop which will re-check if responded. */
+    g_sessions[session_id].blocked = 0;
+    ctx_resume(&g_sessions[session_id].blocked_ctx, 1);
+    /* Does not return — control goes to ctx_save in console_idle_wait */
+  }
+
+  /* Normal path: process injected input */
   console_process_injected();
 
+restore:
   /* Restore previous active session and context */
   g_active_session_id = prev_active;
+  g_tick_session_id = SESSION_MAX; /* invalid = not in tick */
   if (prev_active < SESSION_MAX && g_sessions[prev_active].in_use) {
     console_bind_context(&g_sessions[prev_active].console_context);
   }
@@ -558,3 +590,27 @@ void session_manager_vfb_write(unsigned int session_id, const char *text) {
   }
 }
 
+int session_manager_tick_yield(void) {
+  /* Called from console_idle_wait when a WM-managed session needs to yield.
+   * Saves the blocked context and jumps back to session_manager_tick. */
+  if (g_tick_session_id >= SESSION_MAX) {
+    return 0; /* Not inside a tick — cannot yield */
+  }
+  /* Save where we are (the idle_wait loop) */
+  if (ctx_save(&g_sessions[g_tick_session_id].blocked_ctx) != 0) {
+    /* Resumed! We're back from yield. Return 1 so idle_wait knows
+     * to re-check the condition. */
+    return 1;
+  }
+  /* Jump back to session_manager_tick's ctx_save(g_tick_return_ctx) */
+  ctx_resume(&g_tick_return_ctx, 1);
+  /* Never reached */
+  return 0;
+}
+
+int session_manager_is_blocked(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0;
+  }
+  return g_sessions[session_id].blocked;
+}

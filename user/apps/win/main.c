@@ -28,6 +28,7 @@
 #include "window.h"
 #include "compositor.h"
 #include "input.h"
+#include "auth_dialog.h"
 
 /* Declared in input.c */
 int input_get_mouse_x(void);
@@ -89,6 +90,9 @@ int main(void) {
 
   /* Main event loop */
   while (1) {
+    /* Poll for auth prompts — must happen before input so dialog can intercept */
+    auth_dialog_poll();
+
     /* Process input; returns 1 if ESC pressed */
     if (input_update()) {
       break;

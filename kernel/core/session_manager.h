@@ -90,4 +90,17 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch);
  */
 void session_manager_vfb_write(unsigned int session_id, const char *text);
 
+/**
+ * Yield from inside a tick when a WM-managed session is blocked (e.g. on auth).
+ * Saves the blocked context and returns to session_manager_tick which then
+ * returns to the WM so it can continue its event loop.
+ * Returns 1 when resumed (auth responded), 0 if yield not possible.
+ */
+int session_manager_tick_yield(void);
+
+/**
+ * Check if a session is currently blocked (yielded mid-command).
+ */
+int session_manager_is_blocked(unsigned int session_id);
+
 #endif

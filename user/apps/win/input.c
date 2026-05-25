@@ -19,6 +19,7 @@
 #include "input.h"
 #include "window.h"
 #include "secureos_api.h"
+#include "auth_dialog.h"
 
 #define KEY_ESCAPE 0x1Bu
 
@@ -85,6 +86,10 @@ int input_update(void) {
   left_released = !(buttons & 0x01) && (g_prev_buttons & 0x01);
 
   if (left_pressed && !g_dragging) {
+    /* Auth dialog takes priority over window interaction */
+    if (auth_dialog_active() && auth_dialog_click(g_mouse_x, g_mouse_y)) {
+      /* Click consumed by dialog */
+    } else {
     win_window_t *hit_win = 0;
     win_hit_zone_t zone = win_hit_test(g_mouse_x, g_mouse_y, &hit_win);
 
@@ -99,6 +104,7 @@ int input_update(void) {
       win_set_focus(hit_win);
     } else if (zone == WIN_HIT_CONTENT && hit_win != 0) {
       win_set_focus(hit_win);
+    }
     }
   }
 
