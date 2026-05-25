@@ -5,13 +5,14 @@
 # All compilation happens inside the container — this script just
 # orchestrates the docker run.
 #
-# Usage: scripts/build.sh [kernel|disk|all]  (default: all)
+# Usage: scripts/build.sh [kernel|disk|all|app <name>|force]  (default: all)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 DOCKERFILE="$ROOT_DIR/build/docker/Dockerfile.toolchain"
 TARGET="${1:-all}"
+EXTRA_ARGS="${2:-}"
 
 # Ensure Docker is available
 if ! command -v docker >/dev/null 2>&1; then
@@ -31,12 +32,12 @@ if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
 fi
 
 # Run the build inside the container
-echo "Building SecureOS (target: $TARGET)..."
+echo "Building SecureOS (target: $TARGET $EXTRA_ARGS)..."
 docker run --rm \
   -v "$ROOT_DIR":/workspace \
   -w /workspace \
   "$IMAGE_TAG" \
-  bash -lc "set -euo pipefail; ./build/scripts/build.sh $TARGET"
+  bash -lc "set -euo pipefail; ./build/scripts/build.sh $TARGET $EXTRA_ARGS"
 
 # Fix permissions on artifacts (container may create as root)
 if [[ -d "$ROOT_DIR/artifacts" ]]; then

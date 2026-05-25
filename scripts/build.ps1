@@ -4,12 +4,14 @@
 # All compilation happens inside the container - this script just
 # orchestrates the docker run.
 #
-# Usage: scripts\build.ps1 [kernel|disk|all]  (default: all)
+# Usage: scripts\build.ps1 [kernel|disk|all|app <name>|force]  (default: all)
 
 [CmdletBinding()]
 param(
   [Parameter(Position = 0)]
-  [string]$Target = "all"
+  [string]$Target = "all",
+  [Parameter(Position = 1)]
+  [string]$ExtraArg = ""
 )
 
 Set-StrictMode -Version Latest
@@ -43,9 +45,11 @@ if ($LASTEXITCODE -ne 0) {
 $DockerRoot = $RootDir -replace '\\', '/'
 
 # Run the build inside the container
-Write-Host "Building SecureOS (target: $Target)..."
+$buildCmd = "$Target"
+if ($ExtraArg) { $buildCmd = "$Target $ExtraArg" }
+Write-Host "Building SecureOS (target: $buildCmd)..."
 $ErrorActionPreference = "Continue"
-docker run --rm -v "${DockerRoot}:/workspace" -w /workspace $ImageTag bash -lc "set -euo pipefail; ./build/scripts/build.sh $Target"
+docker run --rm -v "${DockerRoot}:/workspace" -w /workspace $ImageTag bash -lc "set -euo pipefail; ./build/scripts/build.sh $buildCmd"
 $ErrorActionPreference = "Stop"
 if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
