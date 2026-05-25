@@ -114,6 +114,7 @@ static bool capability_id_known(capability_id_t cap) {
     case CAP_IPC_RECV:
     case CAP_SYSCALL:
     case CAP_CLOCK_SET:
+    case CAP_MOUSE:
       return true;
   }
   return false;

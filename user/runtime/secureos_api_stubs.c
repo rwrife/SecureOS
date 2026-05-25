@@ -43,6 +43,16 @@ typedef struct {
                         unsigned int out_buffer_size,
                         unsigned int *out_frame_len);
   const char *raw_args;
+  int (*input_read_char)(char *out_char);
+  int (*mouse_get_state)(int *out_x, int *out_y, unsigned char *out_buttons);
+  int (*video_clear)(void);
+  int (*video_set_cursor)(int col, int row);
+  int (*video_putchar_at)(int col, int row, char ch, unsigned char attr);
+  int (*video_set_mode)(int mode);
+  int (*video_put_pixel)(int x, int y, unsigned char color);
+  int (*video_get_pixel)(int x, int y, unsigned char *out_color);
+  int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
+  int (*video_get_resolution)(int *out_width, int *out_height);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -355,4 +365,115 @@ os_status_t os_clock_ticks(unsigned int *out) {
     *out = 0u;
   }
   return OS_STATUS_OK;
+}
+
+os_status_t os_input_read_char(char *out_char) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (out_char == 0) {
+    return OS_STATUS_ERROR;
+  }
+
+  if (bridge != 0 && bridge->input_read_char != 0) {
+    return (os_status_t)bridge->input_read_char(out_char);
+  }
+
+  *out_char = '\0';
+  return OS_STATUS_ERROR;
+}
+
+os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_buttons) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->mouse_get_state != 0) {
+    return (os_status_t)bridge->mouse_get_state(out_x, out_y, out_buttons);
+  }
+
+  if (out_x != 0) *out_x = 0;
+  if (out_y != 0) *out_y = 0;
+  if (out_buttons != 0) *out_buttons = 0;
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_clear(void) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_clear != 0) {
+    return (os_status_t)bridge->video_clear();
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_set_cursor(int col, int row) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_set_cursor != 0) {
+    return (os_status_t)bridge->video_set_cursor(col, row);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_putchar_at(int col, int row, char ch, unsigned char attr) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_putchar_at != 0) {
+    return (os_status_t)bridge->video_putchar_at(col, row, ch, attr);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_set_mode(int mode) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_set_mode != 0) {
+    return (os_status_t)bridge->video_set_mode(mode);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_put_pixel(int x, int y, unsigned char color) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_put_pixel != 0) {
+    return (os_status_t)bridge->video_put_pixel(x, y, color);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_get_pixel(int x, int y, unsigned char *out_color) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_get_pixel != 0) {
+    return (os_status_t)bridge->video_get_pixel(x, y, out_color);
+  }
+
+  if (out_color != 0) *out_color = 0;
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_draw_rect(int x, int y, int w, int h, unsigned char color) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_draw_rect != 0) {
+    return (os_status_t)bridge->video_draw_rect(x, y, w, h, color);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_get_resolution(int *out_width, int *out_height) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_get_resolution != 0) {
+    return (os_status_t)bridge->video_get_resolution(out_width, out_height);
+  }
+
+  if (out_width != 0) *out_width = 0;
+  if (out_height != 0) *out_height = 0;
+  return OS_STATUS_NOT_FOUND;
 }

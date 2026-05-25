@@ -37,7 +37,12 @@
 #include "../crypto/sha512.h"
 #include "../format/sof.h"
 #include "../fs/fs_service.h"
+#include "../hal/input_hal.h"
+#include "../hal/mouse_hal.h"
 #include "../hal/storage_hal.h"
+#include "../hal/video_hal.h"
+#include "../drivers/video/vga_text.h"
+#include "../drivers/video/vga_gfx.h"
 #include "native_net_service.h"
 
 /* ---- Signature verification cache ----------------------------------------
@@ -231,6 +236,16 @@ typedef struct {
                         unsigned int out_buffer_size,
                         unsigned int *out_frame_len);
   const char *raw_args;
+  int (*input_read_char)(char *out_char);
+  int (*mouse_get_state)(int *out_x, int *out_y, unsigned char *out_buttons);
+  int (*video_clear)(void);
+  int (*video_set_cursor)(int col, int row);
+  int (*video_putchar_at)(int col, int row, char ch, unsigned char attr);
+  int (*video_set_mode)(int mode);
+  int (*video_put_pixel)(int x, int y, unsigned char color);
+  int (*video_get_pixel)(int x, int y, unsigned char *out_color);
+  int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
+  int (*video_get_resolution)(int *out_width, int *out_height);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -627,6 +642,110 @@ static int app_native_net_frame_recv(unsigned char *out_buffer,
   return native_net_frame_recv(out_buffer, out_buffer_size, out_frame_len);
 }
 
+/* ---- Input / Video / Mouse bridge functions ----------------------------- */
+
+static int app_native_input_read_char(char *out_char) {
+  if (out_char == 0) {
+    return 3;
+  }
+  if (input_hal_try_read_char(out_char)) {
+    return 0;
+  }
+  *out_char = '\0';
+  return 2; /* no data available */
+}
+
+static int app_native_mouse_get_state(int *out_x, int *out_y,
+                                      unsigned char *out_buttons) {
+  mouse_state_t state;
+  mouse_hal_update();
+  mouse_hal_get_state(&state);
+  if (out_x != 0) *out_x = state.x;
+  if (out_y != 0) *out_y = state.y;
+  if (out_buttons != 0) *out_buttons = state.buttons;
+  return 0;
+}
+
+static int app_native_video_clear(void) {
+  if (vga_gfx_is_active()) {
+    vga_gfx_clear(0);
+  } else {
+    video_hal_clear();
+  }
+  return 0;
+}
+
+static int app_native_video_set_cursor(int col, int row) {
+  vga_text_set_cursor(col, row);
+  return 0;
+}
+
+static int app_native_video_putchar_at(int col, int row, char ch,
+                                       unsigned char attr) {
+  vga_text_putchar_at(col, row, ch, attr);
+  return 0;
+}
+
+static int app_native_video_set_mode(int mode) {
+  if (mode == 1) {
+    /* Graphics mode 13h (320x200x256) */
+    if (!vga_gfx_enter()) {
+      return 3;
+    }
+    /* Switch mouse to pixel-resolution tracking */
+    mouse_hal_set_bounds(VGA_GFX_WIDTH, VGA_GFX_HEIGHT);
+    return 0;
+  } else if (mode == 0) {
+    /* Text mode */
+    if (vga_gfx_is_active()) {
+      vga_gfx_leave();
+    }
+    /* Restore mouse to text-cell tracking */
+    mouse_hal_set_bounds(80, 25);
+    return 0;
+  }
+  return 3; /* unsupported mode */
+}
+
+static int app_native_video_put_pixel(int x, int y, unsigned char color) {
+  if (!vga_gfx_is_active()) {
+    return 3;
+  }
+  vga_gfx_put_pixel(x, y, color);
+  return 0;
+}
+
+static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
+  if (!vga_gfx_is_active()) {
+    return 3;
+  }
+  if (out_color == 0) {
+    return 3;
+  }
+  *out_color = vga_gfx_get_pixel(x, y);
+  return 0;
+}
+
+static int app_native_video_draw_rect(int x, int y, int w, int h,
+                                      unsigned char color) {
+  if (!vga_gfx_is_active()) {
+    return 3;
+  }
+  vga_gfx_draw_rect(x, y, w, h, color);
+  return 0;
+}
+
+static int app_native_video_get_resolution(int *out_width, int *out_height) {
+  if (vga_gfx_is_active()) {
+    if (out_width != 0) *out_width = VGA_GFX_WIDTH;
+    if (out_height != 0) *out_height = VGA_GFX_HEIGHT;
+  } else {
+    if (out_width != 0) *out_width = 80;
+    if (out_height != 0) *out_height = 25;
+  }
+  return 0;
+}
+
 static int app_payload_looks_like_script(const uint8_t *program, size_t program_len) {
   size_t i = 0u;
   size_t sample_len = program_len;
@@ -756,9 +875,25 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->net_frame_send = app_native_net_frame_send;
   bridge->net_frame_recv = app_native_net_frame_recv;
   bridge->raw_args = g_native_raw_args;
+  bridge->input_read_char = app_native_input_read_char;
+  bridge->mouse_get_state = app_native_mouse_get_state;
+  bridge->video_clear = app_native_video_clear;
+  bridge->video_set_cursor = app_native_video_set_cursor;
+  bridge->video_putchar_at = app_native_video_putchar_at;
+  bridge->video_set_mode = app_native_video_set_mode;
+  bridge->video_put_pixel = app_native_video_put_pixel;
+  bridge->video_get_pixel = app_native_video_get_pixel;
+  bridge->video_draw_rect = app_native_video_draw_rect;
+  bridge->video_get_resolution = app_native_video_get_resolution;
 
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
   (void)entry();
+
+  /* If app left graphics mode active, restore text mode */
+  if (vga_gfx_is_active()) {
+    vga_gfx_leave();
+    mouse_hal_set_bounds(80, 25);
+  }
 
   bridge->magic = 0u;
   bridge->version = 0u;
@@ -770,6 +905,16 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->net_frame_send = 0;
   bridge->net_frame_recv = 0;
   bridge->raw_args = 0;
+  bridge->input_read_char = 0;
+  bridge->mouse_get_state = 0;
+  bridge->video_clear = 0;
+  bridge->video_set_cursor = 0;
+  bridge->video_putchar_at = 0;
+  bridge->video_set_mode = 0;
+  bridge->video_put_pixel = 0;
+  bridge->video_get_pixel = 0;
+  bridge->video_draw_rect = 0;
+  bridge->video_get_resolution = 0;
 
   g_native_context = 0;
   g_native_raw_args = "";

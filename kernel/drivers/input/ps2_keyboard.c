@@ -140,8 +140,15 @@ int ps2_keyboard_try_read_char(char *out_char) {
     return 1;
   }
 
-  /* Check if data is available */
-  if (!(ps2_inb(PS2_STATUS_PORT) & PS2_STATUS_OUTPUT_FULL)) {
+  /* Check if data is available from the keyboard (not mouse) */
+  unsigned char status = ps2_inb(PS2_STATUS_PORT);
+  if (!(status & PS2_STATUS_OUTPUT_FULL)) {
+    return 0;
+  }
+  /* Bit 5 (0x20) indicates auxiliary device (mouse) data - skip it.
+   * The mouse driver (mouse_hal_update) is responsible for draining
+   * mouse bytes from the port. */
+  if (status & 0x20u) {
     return 0;
   }
 

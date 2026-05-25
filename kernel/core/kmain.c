@@ -46,6 +46,7 @@
 #include "../clock/clock_service.h"
 #include "../hal/network_hal.h"
 #include "../hal/input_hal.h"
+#include "../hal/mouse_hal.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
 #include "../event/event_bus.h"
@@ -72,6 +73,7 @@ void kmain(void) {
   }
   video_hal_clear();
   input_hal_init();
+  (void)mouse_hal_init(); /* Optional: non-fatal if mouse not present */
   cap_table_init();
   event_bus_reset_for_tests();
   if (!ata_pio_init_primary()) {

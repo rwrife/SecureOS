@@ -37,6 +37,7 @@
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../hal/input_hal.h"
+#include "../hal/mouse_hal.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
 #include "../user/launcher_exec.h"
@@ -1086,6 +1087,7 @@ static void console_history_recall_down(void) {
 static char console_wait_for_yes_no(void) {
   for (;;) {
     char input = '\0';
+    mouse_hal_update();
     if (!input_hal_try_read_char(&input)) {
       console_idle_wait();
       continue;
@@ -1607,6 +1609,10 @@ void console_run(void) {
 
   for (;;) {
     char input = '\0';
+
+    /* Drain pending mouse bytes from the shared PS/2 port so they don't
+     * block keyboard reads.  The console itself does not use mouse data. */
+    mouse_hal_update();
 
     if (!input_hal_try_read_char(&input)) {
       console_idle_wait();

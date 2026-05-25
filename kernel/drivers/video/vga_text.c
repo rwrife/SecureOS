@@ -171,3 +171,71 @@ int vga_text_init_primary(void) {
   video_hal_register_primary(&g_vga_text_device);
   return video_hal_init();
 }
+
+/* --- Mouse cursor overlay ---
+ * The mouse cursor is rendered by inverting the attribute byte at the
+ * cursor's text-mode cell position. We save the original cell value
+ * so it can be restored when the cursor moves.
+ */
+
+static int g_mouse_cursor_active;
+static int g_mouse_cursor_col;
+static int g_mouse_cursor_row;
+static unsigned short g_mouse_saved_cell;
+
+void vga_text_mouse_cursor_show(int col, int row) {
+  if (col < 0 || col >= VGA_TEXT_WIDTH || row < 0 || row >= VGA_TEXT_HEIGHT) {
+    return;
+  }
+
+  /* If cursor was already shown elsewhere, restore old cell first */
+  if (g_mouse_cursor_active) {
+    VGA_TEXT_BUFFER[g_mouse_cursor_row * VGA_TEXT_WIDTH + g_mouse_cursor_col] =
+        g_mouse_saved_cell;
+  }
+
+  g_mouse_cursor_col = col;
+  g_mouse_cursor_row = row;
+  g_mouse_cursor_active = 1;
+
+  /* Save the cell under the new position */
+  int offset = row * VGA_TEXT_WIDTH + col;
+  g_mouse_saved_cell = VGA_TEXT_BUFFER[offset];
+
+  /* Render cursor by inverting foreground/background colors */
+  unsigned short cell = g_mouse_saved_cell;
+  unsigned char attr = (unsigned char)(cell >> 8);
+  unsigned char fg = attr & 0x0Fu;
+  unsigned char bg = (attr >> 4) & 0x0Fu;
+  unsigned char inverted = (unsigned char)((fg << 4) | bg);
+  VGA_TEXT_BUFFER[offset] = (unsigned short)((unsigned short)inverted << 8) |
+                            (cell & 0x00FFu);
+}
+
+void vga_text_mouse_cursor_hide(void) {
+  if (!g_mouse_cursor_active) {
+    return;
+  }
+
+  VGA_TEXT_BUFFER[g_mouse_cursor_row * VGA_TEXT_WIDTH + g_mouse_cursor_col] =
+      g_mouse_saved_cell;
+  g_mouse_cursor_active = 0;
+}
+
+void vga_text_set_cursor(int col, int row) {
+  if (col < 0 || col >= VGA_TEXT_WIDTH || row < 0 || row >= VGA_TEXT_HEIGHT) {
+    return;
+  }
+  g_col = col;
+  g_row = row;
+  vga_text_update_cursor();
+}
+
+void vga_text_putchar_at(int col, int row, char ch, unsigned char attr) {
+  if (col < 0 || col >= VGA_TEXT_WIDTH || row < 0 || row >= VGA_TEXT_HEIGHT) {
+    return;
+  }
+  int offset = row * VGA_TEXT_WIDTH + col;
+  VGA_TEXT_BUFFER[offset] = vga_text_entry_color(ch, attr);
+}
+
