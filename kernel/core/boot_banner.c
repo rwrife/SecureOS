@@ -28,25 +28,25 @@
  * Each line has a color attribute for the VGA display.
  */
 static const char *splash_lines[] = {
-  "   .-------.",
-  "   | .-. .-.|",
-  "   | | | | ||    SecureOS v" SECUREOS_VERSION,
-  "   |_'-' '-'|    Zero-Trust OS",
-  "   |  ___   |",
-  "   | |   | ||",
-  "   | | O | ||",
-  "   | |___| ||",
-  "   |_______|",
+  "       _._",
+  "      | | |",
+  "     /     \\",
+  "    |       |",
+  "    |  ___  |       SecureOS v" SECUREOS_VERSION,
+  "    | |   | |       Zero-Trust OS",
+  "    | | O | |",
+  "    | |_|_| |",
+  "    |_______|",
 };
 
 static const uint8_t splash_colors[] = {
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
+  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
+  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
+  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
   VGA_ATTR(VGA_WHITE,         VGA_BLACK),
   VGA_ATTR(VGA_LIGHT_GREY,    VGA_BLACK),
   VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
-  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
   VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
   VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
 };
