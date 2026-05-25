@@ -59,6 +59,7 @@ static int sosh_app_streq(const char *a, const char *b) {
 #include "../../libs/soshlib/sosh_eval.h"
 
 /* We need the implementations too — include .c files for static linking */
+#include "../../libs/soshlib/sosh_compat.c"
 #include "../../libs/soshlib/sosh_lexer.c"
 #include "../../libs/soshlib/sosh_vars.c"
 #include "../../libs/soshlib/sosh_builtins.c"
