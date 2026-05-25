@@ -16,6 +16,11 @@ changes are deliberate and reviewable rather than emergent.
   representation, grant/revoke semantics, admin-gate, non-delegability, and
   audit/sequence guarantees. Cross-references the deeper architecture notes
   in `docs/architecture/CAPABILITIES.md`.
+- [capability-handle.md](capability-handle.md) — Dedicated stub for the
+  `cap_handle_t` 32-bit layout, revocation generation contract, and
+  `cap_gate_check_handle()` ABI. To be filled by
+  [#233](https://github.com/rwrife/SecureOS/issues/233) (M1-CAPTBL-002);
+  carved out per the four §7 surfaces in #181.
 - [manifest.md](manifest.md) — Launcher manifest schema: how an app declares
   the capabilities it needs and how the launcher mediates grants today.
 - [ipc-wire.md](ipc-wire.md) — IPC wire format (`ipc_msg_v0`) + error
@@ -36,4 +41,4 @@ touch the underlying surface (a syscall signature, a capability ID, the
 launcher API, the manifest layout), bump the verification line in the
 corresponding doc in the same change.
 
-Last verified against commit: 9b2089bbcfac9813eda86503e076f11f85ca4ab6
+Last verified against commit: ddd678e1add3ee82f260a44612a498913be17eac
