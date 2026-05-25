@@ -22,6 +22,7 @@
 #include "../ipc/ipc_ops.h"
 #include "../ipc/ipc_port.h"
 #include "../proc/address_space.h"
+#include "../svc/broker_svc.h"
 #include "../../user/include/secureos_abi.h"
 
 /*
@@ -133,4 +134,174 @@ void helloapp_entry_fs_demo(const address_space_t *aspace,
   if (out->read_send_result == IPC_OK) {
     fputs("TEST:PASS:m3_helloapp_fs_qemu_op\n", stdout);
   }
+}
+
+/* ---------------- M4 broker-demo entries (slice 3, issue #304) ----
+ *
+ * Decode the broker handle slot stamped by
+ * `launcher_broker_spawn_app_with_broker_cap()` (#303). LE64 at
+ * `ipc_scratch[24..32)`; upper 32 bits reserved-zero under
+ * OS_ABI_VERSION=0, so we read the low 32 as the cap_handle_t.
+ */
+static cap_handle_t helloapp_scratch_load_broker_handle(const uint8_t *p) {
+  return  (cap_handle_t)p[24]
+       | ((cap_handle_t)p[25] <<  8)
+       | ((cap_handle_t)p[26] << 16)
+       | ((cap_handle_t)p[27] << 24);
+}
+
+static void helloapp_broker_zero_msg(ipc_msg_v0 *msg) {
+  memset(msg, 0, sizeof(*msg));
+  msg->abi_version = (uint16_t)OS_ABI_VERSION;
+  msg->flags       = 0u;
+}
+
+/* Locate a scratch envelope buffer inside the spawned aspace's window
+ * so the IPC bounds-check (issue #260) accepts it as caller-owned
+ * memory. We place it well past the handoff region
+ * (`ipc_scratch[0..64)`) at `aspace->base + IPC_MSG_PAYLOAD_MAX`,
+ * which is inside the window — the launcher carves windows of size
+ * `PROC_KSTACK_BYTES + IPC_MSG_PAYLOAD_MAX + 64` bytes minimum, so
+ * the 80-byte envelope at offset 64 lies fully in-bounds.
+ *
+ * Returns NULL on degenerate aspace inputs. */
+static ipc_msg_v0 *helloapp_broker_envelope_in_aspace(
+    const address_space_t *aspace) {
+  if (aspace == NULL || aspace->ipc_scratch == NULL) {
+    return NULL;
+  }
+  /* ipc_scratch points at aspace->base; envelope sits just past the
+   * 64-byte handoff scratch region. */
+  return (ipc_msg_v0 *)(aspace->ipc_scratch + IPC_MSG_PAYLOAD_MAX);
+}
+
+/* Shared helper used by the approve / deny convenience entries: build
+ * a tag-tagged envelope carrying a single LE32 share_id payload, send
+ * via `broker_h` on `broker_port`, and emit the matching marker on
+ * IPC_OK. Forward-declared because the request entry below also uses
+ * it for the approve leg. */
+static ipc_result_t helloapp_entry_broker_owner_send_sid_op(
+    const address_space_t *aspace,
+    ipc_port_t broker_port,
+    broker_op_t op,
+    cap_share_id_t share_id,
+    const char *marker);
+
+void helloapp_entry_broker_owner(const address_space_t *aspace,
+                                 ipc_port_t broker_port,
+                                 cap_subject_id_t recipient_subject,
+                                 capability_id_t capability,
+                                 const char *resource_name,
+                                 size_t resource_name_len,
+                                 const cap_share_id_t *share_id_in,
+                                 helloapp_broker_owner_result_t *out) {
+  if (out == NULL) {
+    return;
+  }
+  out->broker_handle        = CAP_HANDLE_NULL;
+  out->request_send_result  = IPC_ERR_INVALID_MSG;
+  out->approve_send_result  = IPC_ERR_INVALID_MSG;
+
+  if (aspace == NULL || aspace->ipc_scratch == NULL) {
+    return;
+  }
+  /* Resource name must fit within the 31-byte slot in the request
+   * payload schema. */
+  if (resource_name_len > 31u ||
+      (resource_name_len > 0u && resource_name == NULL)) {
+    return;
+  }
+
+  const uint8_t *p = (const uint8_t *)aspace->ipc_scratch;
+  cap_handle_t broker_h = helloapp_scratch_load_broker_handle(p);
+  out->broker_handle = broker_h;
+
+  ipc_msg_v0 *req = helloapp_broker_envelope_in_aspace(aspace);
+  if (req == NULL) {
+    return;
+  }
+
+  /* Leg 1: BROKER_OP_REQUEST. Payload schema in broker_svc.h. */
+  helloapp_broker_zero_msg(req);
+  req->tag = (uint32_t)BROKER_OP_REQUEST;
+  req->payload_len = 40u;
+  uint32_t recip32 = (uint32_t)recipient_subject;
+  uint32_t cap32   = (uint32_t)capability;
+  req->payload[0] = (uint8_t)(recip32      & 0xFFu);
+  req->payload[1] = (uint8_t)((recip32 >> 8)  & 0xFFu);
+  req->payload[2] = (uint8_t)((recip32 >> 16) & 0xFFu);
+  req->payload[3] = (uint8_t)((recip32 >> 24) & 0xFFu);
+  req->payload[4] = (uint8_t)(cap32      & 0xFFu);
+  req->payload[5] = (uint8_t)((cap32 >> 8)  & 0xFFu);
+  req->payload[6] = (uint8_t)((cap32 >> 16) & 0xFFu);
+  req->payload[7] = (uint8_t)((cap32 >> 24) & 0xFFu);
+  req->payload[8] = (uint8_t)resource_name_len;
+  if (resource_name_len > 0u) {
+    memcpy(&req->payload[9], resource_name, resource_name_len);
+  }
+  out->request_send_result = ipc_send_h(broker_h, broker_port, req);
+  if (out->request_send_result == IPC_OK) {
+    fputs("TEST:PASS:m4_broker_owner_qemu:request\n", stdout);
+  } else {
+    return; /* skip approve if request didn't even send */
+  }
+
+  /* Leg 2 (optional): BROKER_OP_APPROVE. Skipped when share_id_in is
+   * NULL; callers that need fan-out symmetry use
+   * `helloapp_entry_broker_owner_approve` (or `_deny`) directly after
+   * the test driver drains the request envelope. */
+  if (share_id_in == NULL) {
+    out->approve_send_result = IPC_OK; /* not exercised; not a failure */
+    return;
+  }
+  out->approve_send_result = helloapp_entry_broker_owner_send_sid_op(
+      aspace, broker_port, BROKER_OP_APPROVE, *share_id_in,
+      "TEST:PASS:m4_broker_owner_qemu:approve\n");
+}
+
+static ipc_result_t helloapp_entry_broker_owner_send_sid_op(
+    const address_space_t *aspace,
+    ipc_port_t broker_port,
+    broker_op_t op,
+    cap_share_id_t share_id,
+    const char *marker) {
+  if (aspace == NULL || aspace->ipc_scratch == NULL) {
+    return IPC_ERR_INVALID_MSG;
+  }
+  const uint8_t *p = (const uint8_t *)aspace->ipc_scratch;
+  cap_handle_t broker_h = helloapp_scratch_load_broker_handle(p);
+
+  ipc_msg_v0 *msg = helloapp_broker_envelope_in_aspace(aspace);
+  if (msg == NULL) {
+    return IPC_ERR_INVALID_MSG;
+  }
+  helloapp_broker_zero_msg(msg);
+  msg->tag = (uint32_t)op;
+  msg->payload_len = 4u;
+  uint32_t sid32 = (uint32_t)share_id;
+  msg->payload[0] = (uint8_t)(sid32      & 0xFFu);
+  msg->payload[1] = (uint8_t)((sid32 >> 8)  & 0xFFu);
+  msg->payload[2] = (uint8_t)((sid32 >> 16) & 0xFFu);
+  msg->payload[3] = (uint8_t)((sid32 >> 24) & 0xFFu);
+  ipc_result_t rc = ipc_send_h(broker_h, broker_port, msg);
+  if (rc == IPC_OK && marker != NULL) {
+    fputs(marker, stdout);
+  }
+  return rc;
+}
+
+ipc_result_t helloapp_entry_broker_owner_approve(const address_space_t *aspace,
+                                                 ipc_port_t broker_port,
+                                                 cap_share_id_t share_id) {
+  return helloapp_entry_broker_owner_send_sid_op(
+      aspace, broker_port, BROKER_OP_APPROVE, share_id,
+      "TEST:PASS:m4_broker_owner_qemu:approve\n");
+}
+
+ipc_result_t helloapp_entry_broker_owner_deny(const address_space_t *aspace,
+                                              ipc_port_t broker_port,
+                                              cap_share_id_t share_id) {
+  return helloapp_entry_broker_owner_send_sid_op(
+      aspace, broker_port, BROKER_OP_DENY, share_id,
+      "TEST:PASS:m4_broker_owner_qemu:deny\n");
 }

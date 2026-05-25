@@ -51,6 +51,9 @@
 #ifndef SECUREOS_KERNEL_USER_HELLOAPP_H
 #define SECUREOS_KERNEL_USER_HELLOAPP_H
 
+#include "../cap/cap_broker.h"
+#include "../cap/cap_handle.h"
+#include "../cap/capability.h"
 #include "../ipc/ipc_msg.h"
 #include "../ipc/ipc_port.h"
 #include "../proc/address_space.h"
@@ -154,6 +157,82 @@ void helloapp_entry_fs_demo(const address_space_t *aspace,
                             ipc_port_t fs_read_port,
                             ipc_port_t fs_write_port,
                             helloapp_fs_demo_result_t *out);
+
+/* ---------------- M4 broker-demo entries (slice 3 of plan #300, issue #304)
+ *
+ * Opt-in entries that exercise the M4-on-M1 broker round-trip the same
+ * way `helloapp_run_once` / `helloapp_entry_fs_demo` exercise the M2 /
+ * M3 substrates. The owner / recipient bodies stay deliberately tiny so
+ * the `_qemu` validators can call them inline (no scheduler).
+ *
+ * Layout consumed (matches `launcher_broker_spawn_app_with_broker_cap`,
+ * #303):
+ *   ipc_scratch[ 0.. 8) : reserved (M1 console single-handle handoff)
+ *   ipc_scratch[ 8..24) : reserved (M3 fs READ/WRITE handle pair)
+ *   ipc_scratch[24..32) : LE64(cap_handle_t) — CAP_IPC_SEND on broker-svc port
+ *   ipc_scratch[32..64) : reserved / available for normal IPC send buffer
+ *
+ * Both entries follow the BROKER_OP_* on-wire schema declared in
+ * `kernel/svc/broker_svc.h`. The recipient entry is OPTIONAL and a
+ * convenience: it allocates its own reply-to port via `ipc_port_create`,
+ * encodes the port id in the request payload (a future broker dispatch
+ * can use this to push the minted handle), and — in the slice-3 host
+ * harness — only emits a final `read_via_shared_cap` marker when the
+ * test driver successfully wires the fan-out. The strict allow-side
+ * sub-check markers required by issue #304's "Done when" are emitted by
+ * the test driver itself after fanning the request/approve into
+ * `cap_broker_*`.
+ */
+
+#define HELLOAPP_BROKER_DEMO_RESOURCE      "doc-alpha"
+#define HELLOAPP_BROKER_DEMO_RESOURCE_LEN  ((size_t)9u)
+
+typedef struct {
+  /* The broker handle decoded from ipc_scratch[24..32). */
+  cap_handle_t broker_handle;
+  /* Result of the BROKER_OP_REQUEST ipc_send_h. */
+  ipc_result_t request_send_result;
+  /* Result of the BROKER_OP_APPROVE ipc_send_h. */
+  ipc_result_t approve_send_result;
+} helloapp_broker_owner_result_t;
+
+/* Drive the owner side of one broker share round-trip.
+ *
+ * Builds + sends a BROKER_OP_REQUEST envelope (offering `capability` on
+ * `resource_name` to `recipient_subject`) followed immediately by a
+ * BROKER_OP_APPROVE envelope. The approve targets the share id the test
+ * driver writes back into `*shared_share_id_in` between the two calls
+ * (kept as an in/out so the test driver can stage the id without owning
+ * helloapp state). Pass `share_id_in == NULL` to skip the approve leg
+ * (used by the deny-path peer, which the driver finishes with a
+ * BROKER_OP_DENY of its own).
+ *
+ * On `IPC_OK` for each leg, emits exactly one of:
+ *   TEST:PASS:m4_broker_owner_qemu:request
+ *   TEST:PASS:m4_broker_owner_qemu:approve
+ */
+void helloapp_entry_broker_owner(const address_space_t *aspace,
+                                 ipc_port_t broker_port,
+                                 cap_subject_id_t recipient_subject,
+                                 capability_id_t capability,
+                                 const char *resource_name,
+                                 size_t resource_name_len,
+                                 const cap_share_id_t *share_id_in,
+                                 helloapp_broker_owner_result_t *out);
+
+/* Convenience helper: build a BROKER_OP_DENY envelope and send it via
+ * the owner's broker handle. Same in/out conventions as the approve leg
+ * above. Emits TEST:PASS:m4_broker_owner_qemu:deny on IPC_OK. */
+ipc_result_t helloapp_entry_broker_owner_deny(const address_space_t *aspace,
+                                              ipc_port_t broker_port,
+                                              cap_share_id_t share_id);
+
+/* Convenience helper: build a BROKER_OP_APPROVE envelope and send it
+ * via the owner's broker handle. Same in/out conventions as deny.
+ * Emits TEST:PASS:m4_broker_owner_qemu:approve on IPC_OK. */
+ipc_result_t helloapp_entry_broker_owner_approve(const address_space_t *aspace,
+                                                 ipc_port_t broker_port,
+                                                 cap_share_id_t share_id);
 
 #ifdef __cplusplus
 }
