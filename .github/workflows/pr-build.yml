@@ -44,10 +44,15 @@ jobs:
             -t secureos/toolchain:bookworm-2026-02-12 \
             .
 
-      - name: Install runtime test dependencies
+      - name: Install host-side runtime dependencies
+        # QEMU + python3-jsonschema run on the host (qemu needs /dev/kvm,
+        # jsonschema is invoked by the host-side validate_manifests.sh).
+        # The kernel toolchain (clang/lld/nasm/etc.) lives in the Docker
+        # toolchain image built above — see issue #332 for why we no longer
+        # apt-install those on the bare runner.
         run: |
           sudo apt-get update
-          sudo apt-get install -y nasm qemu-system-x86 python3-jsonschema
+          sudo apt-get install -y qemu-system-x86 python3-jsonschema
 
       - name: Manifest schema validate (issue #195, #227)
         # Re-validates every in-tree app manifest under manifests/examples/
@@ -62,10 +67,21 @@ jobs:
         run: ./build/scripts/validate_manifests.sh --require-abi-major-from-header user/include/secureos_abi.h
 
       - name: Kernel entry build
-        run: ./build/scripts/build.sh kernel
+        # Go through the host-side wrapper which docker-runs the
+        # container-internal build.sh. The bare runner no longer has
+        # clang/lld/nasm installed (issue #332).
+        run: ./scripts/build.sh kernel
 
       - name: Full validation bundle (machine-readable)
-        run: ./build/scripts/validate_bundle.sh
+        # validate_bundle.sh is a container-internal script (it shells out to
+        # clang via the per-target test_*.sh harnesses). Run it inside the
+        # toolchain image; bind-mount the workspace so artifacts land back
+        # on the host for the upload-artifact steps below.
+        run: |
+          docker run --rm \
+            -v "$PWD":/workspace -w /workspace \
+            secureos/toolchain:bookworm-2026-02-12 \
+            bash -lc 'set -euo pipefail; ./build/scripts/validate_bundle.sh'
 
       - name: Capability matrix harness (non-blocking, nightly intent)
         # Issue #151 / BUILD_ROADMAP §6.1 nightly + §6.2.
@@ -73,7 +89,11 @@ jobs:
         # current PR-red posture while the matrix cells stabilize. Flip to
         # required once cell coverage and signal are trusted.
         continue-on-error: true
-        run: ./build/scripts/test_matrix.sh
+        run: |
+          docker run --rm \
+            -v "$PWD":/workspace -w /workspace \
+            secureos/toolchain:bookworm-2026-02-12 \
+            bash -lc 'set -euo pipefail; ./build/scripts/test_matrix.sh'
 
       - name: Upload kernel artifacts
         if: always()
