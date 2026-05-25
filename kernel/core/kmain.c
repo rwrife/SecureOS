@@ -37,6 +37,7 @@
 #include "../drivers/clock/cmos_rtc.h"
 #include "../drivers/disk/ata_pio.h"
 #include "../drivers/disk/ramdisk.h"
+#include "../drivers/input/ps2_keyboard.h"
 #include "../drivers/network/virtio_net.h"
 #include "../drivers/video/framebuffer_text_stub.h"
 #include "../drivers/video/gpio_text_stub.h"
@@ -44,6 +45,7 @@
 #include "../drivers/video/vga_text.h"
 #include "../clock/clock_service.h"
 #include "../hal/network_hal.h"
+#include "../hal/input_hal.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
 #include "../event/event_bus.h"
@@ -62,12 +64,14 @@ static const cap_subject_id_t FILEDEMO_SUBJECT = 1u;
 __attribute__((used))
 void kmain(void) {
   (void)pc_com_serial_init_primary();
+  (void)ps2_keyboard_init();
   if (!vga_text_init_primary()) {
     if (!framebuffer_text_stub_init_primary()) {
       (void)gpio_text_stub_init_primary();
     }
   }
   video_hal_clear();
+  input_hal_init();
   cap_table_init();
   event_bus_reset_for_tests();
   if (!ata_pio_init_primary()) {

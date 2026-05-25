@@ -27,8 +27,26 @@
 #define VGA_TEXT_HEIGHT 25
 #define VGA_TEXT_ATTR 0x07
 
+/* VGA CRT controller ports for hardware cursor */
+#define VGA_CRTC_INDEX 0x3D4u
+#define VGA_CRTC_DATA  0x3D5u
+#define VGA_CURSOR_HIGH 0x0Eu
+#define VGA_CURSOR_LOW  0x0Fu
+
 static int g_row;
 static int g_col;
+
+static inline void vga_crtc_outb(unsigned short port, unsigned char value) {
+  __asm__ __volatile__("outb %0, %1" : : "a"(value), "Nd"(port));
+}
+
+static void vga_text_update_cursor(void) {
+  unsigned short pos = (unsigned short)(g_row * VGA_TEXT_WIDTH + g_col);
+  vga_crtc_outb(VGA_CRTC_INDEX, VGA_CURSOR_HIGH);
+  vga_crtc_outb(VGA_CRTC_DATA, (unsigned char)(pos >> 8));
+  vga_crtc_outb(VGA_CRTC_INDEX, VGA_CURSOR_LOW);
+  vga_crtc_outb(VGA_CRTC_DATA, (unsigned char)(pos & 0xFF));
+}
 
 static inline unsigned short vga_text_entry(char value) {
   return (unsigned short)(VGA_TEXT_ATTR << 8) | (unsigned char)value;
@@ -56,6 +74,7 @@ static void vga_text_clear(void) {
 
   g_row = 0;
   g_col = 0;
+  vga_text_update_cursor();
 }
 
 static void vga_text_scroll(void) {
@@ -85,6 +104,11 @@ static void vga_text_advance_row(void) {
 static void vga_text_putc(char value) {
   if (value == '\n') {
     vga_text_advance_row();
+  } else if (value == '\b') {
+    if (g_col > 0) {
+      --g_col;
+      VGA_TEXT_BUFFER[g_row * VGA_TEXT_WIDTH + g_col] = vga_text_entry(' ');
+    }
   } else {
     VGA_TEXT_BUFFER[g_row * VGA_TEXT_WIDTH + g_col] = vga_text_entry(value);
     ++g_col;
@@ -92,11 +116,17 @@ static void vga_text_putc(char value) {
       vga_text_advance_row();
     }
   }
+  vga_text_update_cursor();
 }
 
 static void vga_text_putc_color(char value, uint8_t attr) {
   if (value == '\n') {
     vga_text_advance_row();
+  } else if (value == '\b') {
+    if (g_col > 0) {
+      --g_col;
+      VGA_TEXT_BUFFER[g_row * VGA_TEXT_WIDTH + g_col] = vga_text_entry(' ');
+    }
   } else {
     VGA_TEXT_BUFFER[g_row * VGA_TEXT_WIDTH + g_col] =
         vga_text_entry_color(value, attr);
@@ -105,6 +135,7 @@ static void vga_text_putc_color(char value, uint8_t attr) {
       vga_text_advance_row();
     }
   }
+  vga_text_update_cursor();
 }
 
 static void vga_text_write(const char *message) {
