@@ -20,11 +20,20 @@
  */
 
 #include "vga_gfx.h"
+#include "vga_text.h"
 
 #define VGA_GFX_FRAMEBUFFER ((volatile unsigned char *)0xA0000)
 #define VGA_GFX_FB_SIZE     (VGA_GFX_WIDTH * VGA_GFX_HEIGHT)
 
+/* VGA font is stored in plane 2. Each character uses 32 bytes (16 rows of
+ * glyph data + 16 bytes padding). 256 characters = 8192 bytes total.
+ * Mode 13h chain-4 writes corrupt plane 2, so we save/restore the font. */
+#define VGA_FONT_CHARS     256
+#define VGA_FONT_CHAR_SIZE 32
+#define VGA_FONT_SIZE      (VGA_FONT_CHARS * VGA_FONT_CHAR_SIZE)
+
 static int g_gfx_active = 0;
+static unsigned char g_font_save[VGA_FONT_SIZE];
 
 static inline void vga_outb(unsigned short port, unsigned char value) {
   __asm__ __volatile__("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -36,7 +45,61 @@ static inline unsigned char vga_inb(unsigned short port) {
   return ret;
 }
 
+/**
+ * Access plane 2 directly for font save/restore.
+ * Sets VGA registers to map plane 2 at 0xA0000 in sequential mode.
+ */
+static void vga_font_access_begin(void) {
+  /* Sequencer: write to plane 2 only, sequential access */
+  vga_outb(0x3C4, 0x02); vga_outb(0x3C5, 0x04); /* map mask = plane 2 */
+  vga_outb(0x3C4, 0x04); vga_outb(0x3C5, 0x06); /* sequential, no chain */
+
+  /* Graphics controller: read from plane 2, sequential */
+  vga_outb(0x3CE, 0x04); vga_outb(0x3CF, 0x02); /* read map = plane 2 */
+  vga_outb(0x3CE, 0x05); vga_outb(0x3CF, 0x00); /* mode: sequential */
+  vga_outb(0x3CE, 0x06); vga_outb(0x3CF, 0x0C); /* misc: A0000, 64K */
+}
+
+/**
+ * Restore VGA registers to text-mode settings after font access.
+ */
+static void vga_font_access_end(void) {
+  /* Sequencer: write to planes 0,1; odd/even mode */
+  vga_outb(0x3C4, 0x02); vga_outb(0x3C5, 0x03);
+  vga_outb(0x3C4, 0x04); vga_outb(0x3C5, 0x02);
+
+  /* Graphics controller: text-mode settings */
+  vga_outb(0x3CE, 0x04); vga_outb(0x3CF, 0x00);
+  vga_outb(0x3CE, 0x05); vga_outb(0x3CF, 0x10); /* odd/even */
+  vga_outb(0x3CE, 0x06); vga_outb(0x3CF, 0x0E); /* B8000, text */
+}
+
+static void vga_save_font(void) {
+  volatile unsigned char *plane2 = (volatile unsigned char *)0xA0000;
+  int i;
+
+  vga_font_access_begin();
+  for (i = 0; i < VGA_FONT_SIZE; i++) {
+    g_font_save[i] = plane2[i];
+  }
+  vga_font_access_end();
+}
+
+static void vga_restore_font(void) {
+  volatile unsigned char *plane2 = (volatile unsigned char *)0xA0000;
+  int i;
+
+  vga_font_access_begin();
+  for (i = 0; i < VGA_FONT_SIZE; i++) {
+    plane2[i] = g_font_save[i];
+  }
+  vga_font_access_end();
+}
+
 int vga_gfx_enter(void) {
+  /* Save text-mode font from plane 2 before mode switch corrupts it */
+  vga_save_font();
+
   /* Use BIOS-style VGA register programming to set mode 13h (320x200x256).
    * In a real BIOS environment we'd use int 0x10 AH=0x00 AL=0x13, but
    * since we're in protected mode we program the VGA registers directly. */
@@ -176,11 +239,15 @@ int vga_gfx_leave(void) {
 
   g_gfx_active = 0;
 
-  /* Clear text framebuffer */
+  /* Restore the text-mode font into plane 2 */
+  vga_restore_font();
+
+  /* Clear text framebuffer and reset cursor via the text driver */
   volatile unsigned short *text_buf = (volatile unsigned short *)0xB8000;
   for (i = 0; i < 80 * 25; i++) {
     text_buf[i] = 0x0720; /* grey-on-black space */
   }
+  vga_text_set_cursor(0, 0);
 
   return 1;
 }
