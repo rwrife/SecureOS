@@ -203,6 +203,13 @@ void vga_gfx_put_pixel(int x, int y, unsigned char color) {
   VGA_GFX_FRAMEBUFFER[y * VGA_GFX_WIDTH + x] = color;
 }
 
+unsigned char vga_gfx_get_pixel(int x, int y) {
+  if (x < 0 || x >= VGA_GFX_WIDTH || y < 0 || y >= VGA_GFX_HEIGHT) {
+    return 0;
+  }
+  return VGA_GFX_FRAMEBUFFER[y * VGA_GFX_WIDTH + x];
+}
+
 void vga_gfx_draw_rect(int x, int y, int w, int h, unsigned char color) {
   int row, col;
   int x_end = x + w;

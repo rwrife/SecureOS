@@ -80,6 +80,7 @@ os_status_t os_video_putchar_at(int col, int row, char ch, unsigned char attr);
 /* Graphics-mode pixel drawing */
 os_status_t os_video_set_mode(int mode);
 os_status_t os_video_put_pixel(int x, int y, unsigned char color);
+os_status_t os_video_get_pixel(int x, int y, unsigned char *out_color);
 os_status_t os_video_draw_rect(int x, int y, int w, int h, unsigned char color);
 os_status_t os_video_get_resolution(int *out_width, int *out_height);
 

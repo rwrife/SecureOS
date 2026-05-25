@@ -243,6 +243,7 @@ typedef struct {
   int (*video_putchar_at)(int col, int row, char ch, unsigned char attr);
   int (*video_set_mode)(int mode);
   int (*video_put_pixel)(int x, int y, unsigned char color);
+  int (*video_get_pixel)(int x, int y, unsigned char *out_color);
   int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
   int (*video_get_resolution)(int *out_width, int *out_height);
 } app_native_bridge_t;
@@ -688,12 +689,19 @@ static int app_native_video_putchar_at(int col, int row, char ch,
 static int app_native_video_set_mode(int mode) {
   if (mode == 1) {
     /* Graphics mode 13h (320x200x256) */
-    return vga_gfx_enter() ? 0 : 3;
+    if (!vga_gfx_enter()) {
+      return 3;
+    }
+    /* Switch mouse to pixel-resolution tracking */
+    mouse_hal_set_bounds(VGA_GFX_WIDTH, VGA_GFX_HEIGHT);
+    return 0;
   } else if (mode == 0) {
     /* Text mode */
     if (vga_gfx_is_active()) {
       vga_gfx_leave();
     }
+    /* Restore mouse to text-cell tracking */
+    mouse_hal_set_bounds(80, 25);
     return 0;
   }
   return 3; /* unsupported mode */
@@ -704,6 +712,17 @@ static int app_native_video_put_pixel(int x, int y, unsigned char color) {
     return 3;
   }
   vga_gfx_put_pixel(x, y, color);
+  return 0;
+}
+
+static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
+  if (!vga_gfx_is_active()) {
+    return 3;
+  }
+  if (out_color == 0) {
+    return 3;
+  }
+  *out_color = vga_gfx_get_pixel(x, y);
   return 0;
 }
 
@@ -863,6 +882,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->video_putchar_at = app_native_video_putchar_at;
   bridge->video_set_mode = app_native_video_set_mode;
   bridge->video_put_pixel = app_native_video_put_pixel;
+  bridge->video_get_pixel = app_native_video_get_pixel;
   bridge->video_draw_rect = app_native_video_draw_rect;
   bridge->video_get_resolution = app_native_video_get_resolution;
 
@@ -872,6 +892,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   /* If app left graphics mode active, restore text mode */
   if (vga_gfx_is_active()) {
     vga_gfx_leave();
+    mouse_hal_set_bounds(80, 25);
   }
 
   bridge->magic = 0u;
@@ -891,6 +912,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->video_putchar_at = 0;
   bridge->video_set_mode = 0;
   bridge->video_put_pixel = 0;
+  bridge->video_get_pixel = 0;
   bridge->video_draw_rect = 0;
   bridge->video_get_resolution = 0;
 

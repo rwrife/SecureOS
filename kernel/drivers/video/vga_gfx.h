@@ -56,4 +56,9 @@ void vga_gfx_put_pixel(int x, int y, unsigned char color);
  */
 void vga_gfx_draw_rect(int x, int y, int w, int h, unsigned char color);
 
+/**
+ * Read the current color of pixel at (x, y). Returns 0 for out-of-bounds.
+ */
+unsigned char vga_gfx_get_pixel(int x, int y);
+
 #endif

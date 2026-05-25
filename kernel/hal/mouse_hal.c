@@ -41,8 +41,12 @@ static unsigned char g_prev_buttons;
 
 /* Sub-cell accumulator for smooth movement.
  * PS/2 reports pixel-level deltas; we accumulate and only move the cursor
- * when enough movement has built up to cross a cell boundary. */
-#define MOUSE_SCALE_FACTOR 8
+ * when enough movement has built up to cross a cell boundary.
+ * In text mode (80x25) we use a scale of 8, in graphics mode (320x200)
+ * we use 1 for direct pixel mapping. */
+#define MOUSE_SCALE_TEXT 8
+#define MOUSE_SCALE_GFX  1
+static int g_scale_factor;
 static int g_accum_x;
 static int g_accum_y;
 
@@ -75,6 +79,7 @@ int mouse_hal_init(void) {
   g_cursor_y = 0;
   g_accum_x = 0;
   g_accum_y = 0;
+  g_scale_factor = MOUSE_SCALE_TEXT;
   g_screen_width = DEFAULT_WIDTH;
   g_screen_height = DEFAULT_HEIGHT;
   g_buttons = 0;
@@ -108,8 +113,8 @@ void mouse_hal_update(void) {
   g_accum_x += raw.dx;
   g_accum_y += raw.dy;
 
-  int cell_dx = g_accum_x / MOUSE_SCALE_FACTOR;
-  int cell_dy = g_accum_y / MOUSE_SCALE_FACTOR;
+  int cell_dx = g_accum_x / g_scale_factor;
+  int cell_dy = g_accum_y / g_scale_factor;
 
   if (cell_dx == 0 && cell_dy == 0) {
     /* Not enough movement to cross a cell boundary yet.
@@ -118,8 +123,8 @@ void mouse_hal_update(void) {
   }
 
   /* Consume the accumulated movement that resulted in cell moves */
-  g_accum_x -= cell_dx * MOUSE_SCALE_FACTOR;
-  g_accum_y -= cell_dy * MOUSE_SCALE_FACTOR;
+  g_accum_x -= cell_dx * g_scale_factor;
+  g_accum_y -= cell_dy * g_scale_factor;
 
   /* Update position, clamped to screen bounds */
   g_cursor_x += cell_dx;
@@ -186,6 +191,17 @@ int mouse_hal_poll_event(mouse_event_t *out_event) {
 void mouse_hal_set_bounds(int width, int height) {
   if (width > 0) g_screen_width = width;
   if (height > 0) g_screen_height = height;
+
+  /* Use direct pixel mapping for graphics modes, scaled for text */
+  if (g_screen_width > 80) {
+    g_scale_factor = MOUSE_SCALE_GFX;
+  } else {
+    g_scale_factor = MOUSE_SCALE_TEXT;
+  }
+
+  /* Reset accumulators when switching modes */
+  g_accum_x = 0;
+  g_accum_y = 0;
 
   /* Re-clamp cursor if bounds shrunk */
   if (g_cursor_x >= g_screen_width) g_cursor_x = g_screen_width - 1;

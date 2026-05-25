@@ -50,6 +50,7 @@ typedef struct {
   int (*video_putchar_at)(int col, int row, char ch, unsigned char attr);
   int (*video_set_mode)(int mode);
   int (*video_put_pixel)(int x, int y, unsigned char color);
+  int (*video_get_pixel)(int x, int y, unsigned char *out_color);
   int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
   int (*video_get_resolution)(int *out_width, int *out_height);
 } secureos_native_bridge_t;
@@ -441,6 +442,17 @@ os_status_t os_video_put_pixel(int x, int y, unsigned char color) {
     return (os_status_t)bridge->video_put_pixel(x, y, color);
   }
 
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_get_pixel(int x, int y, unsigned char *out_color) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_get_pixel != 0) {
+    return (os_status_t)bridge->video_get_pixel(x, y, out_color);
+  }
+
+  if (out_color != 0) *out_color = 0;
   return OS_STATUS_NOT_FOUND;
 }
 

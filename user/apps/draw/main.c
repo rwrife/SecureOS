@@ -7,10 +7,13 @@
  *   canvas. The user draws by holding the left mouse button and moving the
  *   cursor. Pressing ESC exits the application and restores text mode.
  *
+ *   The app manages its own cursor by saving/restoring pixels under the
+ *   crosshair. The graphics driver provides raw framebuffer access only.
+ *
  * Interactions:
  *   - secureos_api.h: uses os_video_set_mode, os_video_put_pixel,
- *     os_video_clear, os_video_draw_rect, os_mouse_get_state,
- *     os_input_read_char syscalls.
+ *     os_video_get_pixel, os_video_clear, os_video_draw_rect,
+ *     os_mouse_get_state, os_input_read_char syscalls.
  *   - kernel/drivers/video/vga_gfx: provides mode 13h pixel drawing.
  *   - kernel/hal/mouse_hal: provides mouse position data via syscalls.
  *   - kernel/hal/input_hal: provides keyboard input via syscalls.
@@ -42,36 +45,70 @@ static const unsigned char palette[] = {
 };
 #define PALETTE_SIZE 8
 
-/* Mouse cursor size */
-#define CURSOR_SIZE 3
+/* Cursor shape (5x5 crosshair) */
+#define CURSOR_SIZE 5
+#define CURSOR_HALF (CURSOR_SIZE / 2)
+
+/* Save buffer for pixels under the cursor */
+static unsigned char cursor_save[CURSOR_SIZE * CURSOR_SIZE];
+static int cursor_drawn = 0;
+static int cursor_sx = -1;
+static int cursor_sy = -1;
 
 static unsigned char current_color = COLOR_WHITE;
 static int brush_size = 2;
 
+static void save_under_cursor(int cx, int cy) {
+  int i, j;
+  int ox = cx - CURSOR_HALF;
+  int oy = cy - CURSOR_HALF;
+
+  for (j = 0; j < CURSOR_SIZE; j++) {
+    for (i = 0; i < CURSOR_SIZE; i++) {
+      os_video_get_pixel(ox + i, oy + j, &cursor_save[j * CURSOR_SIZE + i]);
+    }
+  }
+  cursor_sx = cx;
+  cursor_sy = cy;
+}
+
+static void restore_under_cursor(void) {
+  int i, j;
+  int ox = cursor_sx - CURSOR_HALF;
+  int oy = cursor_sy - CURSOR_HALF;
+
+  if (!cursor_drawn) return;
+
+  for (j = 0; j < CURSOR_SIZE; j++) {
+    for (i = 0; i < CURSOR_SIZE; i++) {
+      os_video_put_pixel(ox + i, oy + j, cursor_save[j * CURSOR_SIZE + i]);
+    }
+  }
+  cursor_drawn = 0;
+}
+
+static void draw_cursor(int cx, int cy, unsigned char color) {
+  int i;
+  /* Crosshair: horizontal and vertical lines */
+  for (i = -CURSOR_HALF; i <= CURSOR_HALF; i++) {
+    os_video_put_pixel(cx + i, cy, color);
+    os_video_put_pixel(cx, cy + i, color);
+  }
+  cursor_drawn = 1;
+}
+
 static void draw_palette_bar(void) {
   int i;
   int bar_y = 190;
-  int swatch_w = 320 / PALETTE_SIZE;
+  int swatch_w = OS_GFX_WIDTH / PALETTE_SIZE;
 
   for (i = 0; i < PALETTE_SIZE; i++) {
     os_video_draw_rect(i * swatch_w, bar_y, swatch_w, 10, palette[i]);
   }
 }
 
-static void draw_cursor(int x, int y, unsigned char color) {
-  /* Simple crosshair cursor */
-  int i;
-  for (i = -CURSOR_SIZE; i <= CURSOR_SIZE; i++) {
-    os_video_put_pixel(x + i, y, color);
-    os_video_put_pixel(x, y + i, color);
-  }
-}
-
 int main(void) {
   int running = 1;
-  int prev_mx = -1;
-  int prev_my = -1;
-  int palette_idx = 0;
 
   /* Enter graphics mode */
   if (os_video_set_mode(OS_VIDEO_MODE_GFX) != OS_STATUS_OK) {
@@ -94,15 +131,14 @@ int main(void) {
         running = 0;
         break;
       }
-      /* 'c' to clear canvas */
       if (key == 'c' || key == 'C') {
+        restore_under_cursor();
         os_video_clear();
         draw_palette_bar();
       }
       /* Number keys 1-8 select palette color */
       if (key >= '1' && key <= '8') {
-        palette_idx = key - '1';
-        current_color = palette[palette_idx];
+        current_color = palette[key - '1'];
       }
       /* +/- to change brush size */
       if (key == '+' || key == '=') {
@@ -116,17 +152,16 @@ int main(void) {
     /* Get mouse state */
     os_mouse_get_state(&mx, &my, &buttons);
 
-    /* Scale mouse from 80x25 text grid to 320x200 pixel grid */
-    mx = mx * 4;
-    my = my * 8;
-
     /* Clamp to canvas (above palette bar) */
-    if (mx >= 320) mx = 319;
+    if (mx >= OS_GFX_WIDTH) mx = OS_GFX_WIDTH - 1;
     if (my >= 190) my = 189;
     if (mx < 0) mx = 0;
     if (my < 0) my = 0;
 
-    /* Draw if left button held */
+    /* Erase old cursor */
+    restore_under_cursor();
+
+    /* Draw with left button */
     if (buttons & 0x01u) {
       os_video_draw_rect(mx - brush_size / 2, my - brush_size / 2,
                          brush_size, brush_size, current_color);
@@ -134,12 +169,11 @@ int main(void) {
 
     /* Right click picks color from palette bar */
     if (buttons & 0x02u) {
-      int raw_my = 0;
-      os_mouse_get_state(&mx, &raw_my, &buttons);
-      raw_my = raw_my * 8;
+      int raw_mx = 0, raw_my = 0;
+      unsigned char dummy = 0;
+      os_mouse_get_state(&raw_mx, &raw_my, &dummy);
       if (raw_my >= 190) {
-        int raw_mx = mx * 4;
-        int swatch_w = 320 / PALETTE_SIZE;
+        int swatch_w = OS_GFX_WIDTH / PALETTE_SIZE;
         int idx = raw_mx / swatch_w;
         if (idx >= 0 && idx < PALETTE_SIZE) {
           current_color = palette[idx];
@@ -147,15 +181,10 @@ int main(void) {
       }
     }
 
-    /* Draw cursor at current position */
+    /* Save pixels under new cursor position, then draw cursor */
+    save_under_cursor(mx, my);
     draw_cursor(mx, my, current_color);
-
-    prev_mx = mx;
-    prev_my = my;
   }
-
-  (void)prev_mx;
-  (void)prev_my;
 
   /* Restore text mode (also done automatically by kernel on exit) */
   os_video_set_mode(OS_VIDEO_MODE_TEXT);
