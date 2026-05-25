@@ -48,6 +48,15 @@ jobs:
       - name: Build seeded disk image
         run: ./scripts/build.sh disk
 
+      - name: Reclaim artifact ownership for host steps
+        # scripts/build.sh attempts chmod -R a+rwX on artifacts/ but can't
+        # chown root-created files. Use sudo on the runner to give the
+        # subsequent host-side qemu run write access to artifacts/qemu/.
+        if: always()
+        run: |
+          sudo chown -R "$USER" artifacts || true
+          chmod -R u+rwX artifacts || true
+
       - name: VM smoke boot (kernel console)
         run: ./build/scripts/run_qemu.sh --test kernel_console
 
@@ -92,7 +101,7 @@ jobs:
           docker run --rm \
             -v "$PWD":/workspace -w /workspace \
             secureos/toolchain:bookworm-2026-02-12 \
-            bash -lc 'set -euo pipefail; ./build/scripts/check_image_determinism.sh'
+            bash -lc 'set -euo pipefail; git config --global --add safe.directory /workspace; ./build/scripts/check_image_determinism.sh'
 
       - name: Upload determinism run bundle
         if: always()
