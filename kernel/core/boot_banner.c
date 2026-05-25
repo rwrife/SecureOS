@@ -24,30 +24,21 @@
 #include "../hal/video_hal.h"
 
 /*
- * Splash layout: padlock on the left, title and tagline on the right.
- * Each line has a color attribute for the VGA display.
+ * Splash layout: small padlock (loop + square) on left, title on right.
  */
 static const char *splash_lines[] = {
-  "       _._",
-  "      | | |",
-  "     /     \\",
-  "    |       |",
-  "    |  ___  |       SecureOS v" SECUREOS_VERSION,
-  "    | |   | |       Zero-Trust OS",
-  "    | | O | |",
-  "    | |_|_| |",
-  "    |_______|",
+  "     _.__._",
+  "    / _  _ \\",
+  "    | |  | |     SecureOS v" SECUREOS_VERSION,
+  "    |_|__|_|     Zero-Trust OS",
+  "    |______|",
 };
 
 static const uint8_t splash_colors[] = {
   VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
   VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
-  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
-  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
   VGA_ATTR(VGA_WHITE,         VGA_BLACK),
   VGA_ATTR(VGA_LIGHT_GREY,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
   VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
 };
 
