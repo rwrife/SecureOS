@@ -19,3 +19,4 @@ tools/sof_wrap/sof_wrap
 
 # Git worktrees
 .worktrees/
+tools/keygen/keygen

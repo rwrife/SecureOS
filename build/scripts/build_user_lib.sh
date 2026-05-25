@@ -61,10 +61,16 @@ build_user_lib_inner() {
     make -C tools/sof_wrap
   fi
 
-  # Wrap ELF in SOF container
+  # Wrap ELF in SOF container (signed if keys available)
+  SIGN_ARGS=""
+  if [ -f "artifacts/keys/intermediate.seed" ] && [ -f "artifacts/keys/intermediate.cert" ]; then
+    SIGN_ARGS="--sign-key artifacts/keys/intermediate.seed --sign-cert artifacts/keys/intermediate.cert"
+  fi
+
   ./tools/sof_wrap/sof_wrap \
     --type lib --name "$LIB_NAME" --author "SecureOS" --version "1.0.0" \
     --date "$(date -u +%Y-%m-%d)" \
+    $SIGN_ARGS \
     "artifacts/lib/$LIB_NAME.elf" "artifacts/lib/$LIB_NAME.lib"
   echo "Built artifacts/lib/$LIB_NAME.lib"
 }

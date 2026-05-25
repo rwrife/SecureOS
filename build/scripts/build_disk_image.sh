@@ -52,6 +52,11 @@ build_disk_image_inner() {
 	local os_app
 	local -a app_mappings=()
 
+	# Ensure signing keys exist (generate if missing)
+	if [ ! -f "$ROOT_DIR/artifacts/keys/intermediate.seed" ]; then
+		"$ROOT_DIR/build/scripts/generate_keys.sh"
+	fi
+
 	mkdir -p "$DISK_DIR" "$ROOT_DIR/artifacts/os" "$ROOT_DIR/artifacts/lib"
 
 	if compgen -G "user/os_commands/*.cmd" >/dev/null 2>&1; then
@@ -85,9 +90,18 @@ build_disk_image_inner() {
 	./build/scripts/build_user_app.sh "vgahello"
 	app_mappings+=("artifacts/user/vgahello.bin=/apps/vgahello.bin")
 
+	# Deploy root certificate to /certs for runtime signature validation
+	CERTS_ARGS=""
+	if [ -d "$ROOT_DIR/artifacts/keys" ] && [ -f "$ROOT_DIR/artifacts/keys/root.pub" ]; then
+		mkdir -p "$ROOT_DIR/artifacts/certs"
+		cp "$ROOT_DIR/artifacts/keys/root.pub" "$ROOT_DIR/artifacts/certs/root.pub"
+		CERTS_ARGS="--certs-dir artifacts/certs"
+	fi
+
 	python3 tools/populate_disk_image.py "$DISK_PATH" "$DISK_BLOCKS" \
 		--os-dir artifacts/os \
 		--lib-dir artifacts/lib \
+		$CERTS_ARGS \
 		"${app_mappings[@]}"
 	echo "Built $DISK_PATH"
 }
