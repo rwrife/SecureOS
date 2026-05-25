@@ -23,6 +23,7 @@ test_boot_sector_fail
 test_broker_share_allow
 test_broker_share_deny
 test_broker_share_revoke
+test_broker_svc_port_alloc
 test_cap_api_contract
 test_cap_broker
 test_cap_deny_marker_shape

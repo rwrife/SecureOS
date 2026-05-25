@@ -25,6 +25,8 @@
  *   SUBJECT_M2_CONSOLE_SVC = 2   in-kernel console service module
  *   SUBJECT_M2_HELLOAPP    = 3   spawned HelloApp under launcher
  *   SUBJECT_M3_FS_SVC      = 4   in-kernel fs service module (#278)
+ *   SUBJECT_M4_BROKER_SVC  = 5   in-kernel capability-broker service
+ *                                 module (#302)
  *
  * Backwards compatibility:
  *   The pre-existing `tests/harness/m2_subjects.h` header still
@@ -52,6 +54,7 @@ extern "C" {
 #define SUBJECT_M2_CONSOLE_SVC ((cap_subject_id_t)2u)
 #define SUBJECT_M2_HELLOAPP    ((cap_subject_id_t)3u)
 #define SUBJECT_M3_FS_SVC      ((cap_subject_id_t)4u)
+#define SUBJECT_M4_BROKER_SVC  ((cap_subject_id_t)5u)
 
 #ifdef __cplusplus
 }

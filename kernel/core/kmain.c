@@ -16,8 +16,10 @@
  *   5. Initial cap_grant() – Bootstrap capabilities for subject 0
  *   6. storage_hal_init()  – Storage HAL (ramdisk backend)
  *   7. fs_init()           – In-memory filesystem
- *   8. ipc_port_table_init() + console_svc_init() + fs_svc_init()
- *       – IPC port table and in-kernel substrate services (issue #283)
+ *   8. ipc_port_table_init() + console_svc_init() + fs_svc_init() +
+ *       broker_svc_init()
+ *       – IPC port table and in-kernel substrate services
+ *         (issues #283, #302)
  *   9. process subsystem setup  – User application registry and launch paths
  *  10. console_init()      – Interactive console + command loop
  *
@@ -46,6 +48,7 @@
 #include "../fs/fs_service.h"
 #include "../ipc/ipc_port.h"
 #include "../sched/scheduler.h"
+#include "../svc/broker_svc.h"
 #include "../svc/console_svc.h"
 #include "../svc/fs_svc.h"
 #include "session_manager.h"
@@ -86,6 +89,11 @@ void kmain(void) {
     serial_hal_write("TEST:FAIL:fs_svc_init\n");
   } else {
     serial_hal_write("TEST:PASS:fs_svc_init\n");
+  }
+  if (broker_svc_init() != BROKER_SVC_OK) {
+    serial_hal_write("TEST:FAIL:broker_svc_init\n");
+  } else {
+    serial_hal_write("TEST:PASS:broker_svc_init\n");
   }
 
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_CONSOLE_WRITE);
