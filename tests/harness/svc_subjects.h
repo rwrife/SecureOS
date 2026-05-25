@@ -55,6 +55,17 @@ extern "C" {
 #define SUBJECT_M2_HELLOAPP    ((cap_subject_id_t)3u)
 #define SUBJECT_M3_FS_SVC      ((cap_subject_id_t)4u)
 #define SUBJECT_M4_BROKER_SVC  ((cap_subject_id_t)5u)
+/*
+ * M5-SUBSTRATE-002 (#324): stand-in admin subject for the
+ * cap_broker_delete_owner authority predicate's admin-allow leg.
+ * Pinned at 6 — the next free slot after the M2/M3/M4 substrate
+ * services. Will be replaced by a real CAP_CAPABILITY_ADMIN check
+ * (CAP-013, #98) when that capability lands; treated by the v0
+ * predicate as a SKIP-shape stub-allow so the cascade path is
+ * exercisable from host tests without prematurely freezing an
+ * admin-id wire convention.
+ */
+#define SUBJECT_M5_ADMIN       ((cap_subject_id_t)6u)
 
 #ifdef __cplusplus
 }
