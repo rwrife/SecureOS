@@ -4,8 +4,8 @@
  *
  * Purpose:
  *   Implements classic VGA text output by writing to the 0xB8000 text buffer.
- *   Provides clear and string rendering primitives registered through video
- *   HAL.
+ *   Provides clear, string rendering, and colored string rendering primitives
+ *   registered through video HAL.
  *
  * Interactions:
  *   - hal/video_hal.c: backend registration and dispatch target.
@@ -17,6 +17,8 @@
  */
 
 #include "vga_text.h"
+
+#include <stdint.h>
 
 #include "../../hal/video_hal.h"
 
@@ -30,6 +32,10 @@ static int g_col;
 
 static inline unsigned short vga_text_entry(char value) {
   return (unsigned short)(VGA_TEXT_ATTR << 8) | (unsigned char)value;
+}
+
+static inline unsigned short vga_text_entry_color(char value, uint8_t attr) {
+  return (unsigned short)((unsigned short)attr << 8) | (unsigned char)value;
 }
 
 static int vga_text_init(void) {
@@ -52,21 +58,52 @@ static void vga_text_clear(void) {
   g_col = 0;
 }
 
+static void vga_text_scroll(void) {
+  int y, x;
+  for (y = 0; y < VGA_TEXT_HEIGHT - 1; ++y) {
+    for (x = 0; x < VGA_TEXT_WIDTH; ++x) {
+      VGA_TEXT_BUFFER[y * VGA_TEXT_WIDTH + x] =
+          VGA_TEXT_BUFFER[(y + 1) * VGA_TEXT_WIDTH + x];
+    }
+  }
+  /* Clear the last row */
+  for (x = 0; x < VGA_TEXT_WIDTH; ++x) {
+    VGA_TEXT_BUFFER[(VGA_TEXT_HEIGHT - 1) * VGA_TEXT_WIDTH + x] =
+        vga_text_entry(' ');
+  }
+  g_row = VGA_TEXT_HEIGHT - 1;
+}
+
+static void vga_text_advance_row(void) {
+  g_col = 0;
+  ++g_row;
+  if (g_row >= VGA_TEXT_HEIGHT) {
+    vga_text_scroll();
+  }
+}
+
 static void vga_text_putc(char value) {
   if (value == '\n') {
-    g_col = 0;
-    ++g_row;
+    vga_text_advance_row();
   } else {
     VGA_TEXT_BUFFER[g_row * VGA_TEXT_WIDTH + g_col] = vga_text_entry(value);
     ++g_col;
     if (g_col >= VGA_TEXT_WIDTH) {
-      g_col = 0;
-      ++g_row;
+      vga_text_advance_row();
     }
   }
+}
 
-  if (g_row >= VGA_TEXT_HEIGHT) {
-    g_row = 0;
+static void vga_text_putc_color(char value, uint8_t attr) {
+  if (value == '\n') {
+    vga_text_advance_row();
+  } else {
+    VGA_TEXT_BUFFER[g_row * VGA_TEXT_WIDTH + g_col] =
+        vga_text_entry_color(value, attr);
+    ++g_col;
+    if (g_col >= VGA_TEXT_WIDTH) {
+      vga_text_advance_row();
+    }
   }
 }
 
@@ -80,12 +117,23 @@ static void vga_text_write(const char *message) {
   }
 }
 
+static void vga_text_write_color(const char *message, uint8_t attr) {
+  if (message == 0) {
+    return;
+  }
+
+  while (*message != '\0') {
+    vga_text_putc_color(*message++, attr);
+  }
+}
+
 static const video_device_t g_vga_text_device = {
   VIDEO_BACKEND_VGA_TEXT,
   "vga-text",
   vga_text_init,
   vga_text_clear,
   vga_text_write,
+  vga_text_write_color,
 };
 
 int vga_text_init_primary(void) {

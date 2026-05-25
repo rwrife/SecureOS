@@ -76,3 +76,16 @@ void video_hal_write(const char *message) {
 
   video_primary_device->write(message);
 }
+
+void video_hal_write_color(const char *message, uint8_t attr) {
+  if (!video_hal_ready() || message == 0) {
+    return;
+  }
+
+  /* If the backend supports colored output, use it; otherwise fall back */
+  if (video_primary_device->write_color != 0) {
+    video_primary_device->write_color(message, attr);
+  } else {
+    video_primary_device->write(message);
+  }
+}

@@ -28,9 +28,12 @@ typedef enum {
   VIDEO_BACKEND_GPIO_TEXT_STUB = 3,
 } video_backend_t;
 
+#include <stdint.h>
+
 typedef int (*video_init_fn_t)(void);
 typedef void (*video_clear_fn_t)(void);
 typedef void (*video_write_fn_t)(const char *message);
+typedef void (*video_write_color_fn_t)(const char *message, uint8_t attr);
 
 typedef struct {
   video_backend_t backend;
@@ -38,6 +41,7 @@ typedef struct {
   video_init_fn_t init;
   video_clear_fn_t clear;
   video_write_fn_t write;
+  video_write_color_fn_t write_color;
 } video_device_t;
 
 void video_hal_reset_for_tests(void);
@@ -48,5 +52,6 @@ video_backend_t video_hal_backend(void);
 const char *video_hal_backend_name(void);
 void video_hal_clear(void);
 void video_hal_write(const char *message);
+void video_hal_write_color(const char *message, uint8_t attr);
 
 #endif

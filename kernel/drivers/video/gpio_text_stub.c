@@ -59,6 +59,7 @@ static const video_device_t g_gpio_text_stub_device = {
   gpio_text_stub_init,
   gpio_text_stub_clear,
   gpio_text_stub_write,
+  0,
 };
 
 int gpio_text_stub_init_primary(void) {

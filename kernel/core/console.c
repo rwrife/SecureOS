@@ -40,6 +40,7 @@
 #include "../hal/video_hal.h"
 #include "../user/launcher_exec.h"
 #include "session_manager.h"
+#include "version.h"
 
 #define CONSOLE_OUTPUT_MAX 512
 
@@ -963,11 +964,13 @@ static void console_restore_screen_history(void) {
 }
 
 static void console_write_prompt(void) {
-  char prompt[32];
+  char prompt[64];
   size_t cursor = 0u;
 
-  cursor = append_string(prompt, sizeof(prompt), cursor, "\nsecureos[s");
+  cursor = append_string(prompt, sizeof(prompt), cursor, "\n[s");
   cursor = append_u32_decimal(prompt, sizeof(prompt), cursor, session_manager_active_id());
+  cursor = append_string(prompt, sizeof(prompt), cursor, " ");
+  cursor = append_string(prompt, sizeof(prompt), cursor, console_cwd);
   cursor = append_string(prompt, sizeof(prompt), cursor, "]> ");
   console_write(prompt);
 }
@@ -1580,10 +1583,10 @@ void console_init(console_context_t *context, cap_subject_id_t subject_id) {
   (void)console_env_set("PATH", "/apps");
 
   console_write("TEST:START:console\n");
-  console_write("SecureOS console ready\n");
-  console_write("Type 'help' for commands\n");
-  console_write_prompt();
+  console_write("Welcome to SecureOS v" SECUREOS_VERSION "\n");
+  console_write("Type 'help' for available commands.\n");
   console_write("TEST:PASS:console\n");
+  console_write_prompt();
 }
 
 void console_bind_context(console_context_t *context) {
