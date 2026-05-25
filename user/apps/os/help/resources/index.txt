@@ -1,2 +1,41 @@
-commands: help, ping <host>, ifconfig, echo <text>, ls [dir], env [key[=value]|key value], cat <file>, write <file> <text>, append <file> <text>, mkdir <dir>, rm [-f] [-v] [-d] <path>, cd <dir>, clear, session [list|new|switch <id>], storage, apps, libs [loaded|use <h>|release <h>], loadlib <lib>, unload <handle>, about, http, run <app>, exit <pass|fail>
-tip: run "help <command>" for command-specific details.
+SecureOS Shell Commands
+=======================
+
+  Navigation & Files:
+    ls [dir]              list directory contents
+    cd <dir>              change working directory
+    cat <file>            display file contents
+    write <file> <text>   write text to a file
+    append <file> <text>  append text to a file
+    mkdir <dir>           create a directory
+    rm [-f] [-v] [-d] <path>  remove files or directories
+
+  System:
+    about [file]          show system or file information
+    env [key[=val]]       view or set environment variables
+    session [list|new|switch <id>]  manage sessions
+    storage               show storage information
+    clear                 clear the console
+    exit <pass|fail>      terminate the current session
+    date                  display the current date and time
+
+  Networking:
+    ping <host>           send an ICMP echo request
+    ifconfig              display network interfaces
+    http                  make HTTP requests
+
+  Applications & Libraries:
+    apps                  list installed applications
+    run <app>             launch an application
+    libs [loaded|use|release]  manage shared libraries
+    loadlib <lib>         load a shared library
+    unload <handle>       unload a shared library
+
+  Security:
+    auth-cache [list|reset]  manage authentication cache
+
+  Help:
+    help [command]        show this list or details for a command
+    echo <text>           print text to the console
+
+tip: run "help <command>" for detailed usage of any command.
