@@ -356,3 +356,36 @@ os_status_t os_clock_ticks(unsigned int *out) {
   }
   return OS_STATUS_OK;
 }
+
+os_status_t os_input_read_char(char *out_char) {
+  if (out_char == 0) {
+    return OS_STATUS_ERROR;
+  }
+  *out_char = '\0';
+  return OS_STATUS_ERROR;
+}
+
+os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_buttons) {
+  if (out_x != 0) *out_x = 0;
+  if (out_y != 0) *out_y = 0;
+  if (out_buttons != 0) *out_buttons = 0;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_video_clear(void) {
+  return OS_STATUS_OK;
+}
+
+os_status_t os_video_set_cursor(int col, int row) {
+  (void)col;
+  (void)row;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_video_putchar_at(int col, int row, char ch, unsigned char attr) {
+  (void)col;
+  (void)row;
+  (void)ch;
+  (void)attr;
+  return OS_STATUS_OK;
+}

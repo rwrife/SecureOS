@@ -29,6 +29,7 @@ case "$TARGET" in
     "$ROOT_DIR/build/scripts/build_user_lib.sh" envlib
     "$ROOT_DIR/build/scripts/build_user_lib.sh" mouselib
     "$ROOT_DIR/build/scripts/build_user_app.sh" filedemo
+    "$ROOT_DIR/build/scripts/build_user_app.sh" draw
     "$ROOT_DIR/build/scripts/build_kernel_image.sh"
     "$ROOT_DIR/build/scripts/build_disk_image.sh"
     echo "[build] All components built successfully"

@@ -61,6 +61,15 @@ os_status_t os_clock_ticks(unsigned int *out);
  */
 unsigned int os_get_abi_version(void);
 
+/* Input syscalls */
+os_status_t os_input_read_char(char *out_char);
+os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_buttons);
+
+/* Video syscalls for direct screen manipulation */
+os_status_t os_video_clear(void);
+os_status_t os_video_set_cursor(int col, int row);
+os_status_t os_video_putchar_at(int col, int row, char ch, unsigned char attr);
+
 #ifdef __cplusplus
 }
 #endif

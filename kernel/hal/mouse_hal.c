@@ -41,6 +41,13 @@ static int g_screen_height;
 static unsigned char g_buttons;
 static unsigned char g_prev_buttons;
 
+/* Sub-cell accumulator for smooth movement.
+ * PS/2 reports pixel-level deltas; we accumulate and only move the cursor
+ * when enough movement has built up to cross a cell boundary. */
+#define MOUSE_SCALE_FACTOR 8
+static int g_accum_x;
+static int g_accum_y;
+
 /* Simple ring buffer for events */
 static mouse_event_t g_event_queue[MOUSE_EVENT_QUEUE_MAX];
 static int g_event_head;
@@ -68,6 +75,8 @@ int mouse_hal_init(void) {
   g_mouse_available = 0;
   g_cursor_x = 0;
   g_cursor_y = 0;
+  g_accum_x = 0;
+  g_accum_y = 0;
   g_screen_width = DEFAULT_WIDTH;
   g_screen_height = DEFAULT_HEIGHT;
   g_buttons = 0;
@@ -98,12 +107,29 @@ void mouse_hal_update(void) {
     return;
   }
 
+  /* Accumulate sub-cell movement and only move when threshold crossed */
+  g_accum_x += raw.dx;
+  g_accum_y += raw.dy;
+
+  int cell_dx = g_accum_x / MOUSE_SCALE_FACTOR;
+  int cell_dy = g_accum_y / MOUSE_SCALE_FACTOR;
+
+  if (cell_dx == 0 && cell_dy == 0) {
+    /* Not enough movement to cross a cell boundary yet.
+     * Still check for button changes below. */
+    goto check_buttons;
+  }
+
+  /* Consume the accumulated movement that resulted in cell moves */
+  g_accum_x -= cell_dx * MOUSE_SCALE_FACTOR;
+  g_accum_y -= cell_dy * MOUSE_SCALE_FACTOR;
+
   /* Hide cursor at old position before moving */
   vga_text_mouse_cursor_hide();
 
-  /* Update position with delta, clamped to screen bounds */
-  g_cursor_x += raw.dx;
-  g_cursor_y += raw.dy;
+  /* Update position, clamped to screen bounds */
+  g_cursor_x += cell_dx;
+  g_cursor_y += cell_dy;
 
   if (g_cursor_x < 0) g_cursor_x = 0;
   if (g_cursor_y < 0) g_cursor_y = 0;
@@ -111,10 +137,12 @@ void mouse_hal_update(void) {
   if (g_cursor_y >= g_screen_height) g_cursor_y = g_screen_height - 1;
 
   /* Enqueue move event */
-  if (raw.dx != 0 || raw.dy != 0) {
-    mouse_enqueue_event(MOUSE_EVENT_MOVE, g_cursor_x, g_cursor_y, 0);
-  }
+  mouse_enqueue_event(MOUSE_EVENT_MOVE, g_cursor_x, g_cursor_y, 0);
 
+  /* Show cursor at new position */
+  vga_text_mouse_cursor_show(g_cursor_x, g_cursor_y);
+
+check_buttons:
   /* Detect button state changes */
   g_prev_buttons = g_buttons;
   g_buttons = raw.buttons;
@@ -134,9 +162,6 @@ void mouse_hal_update(void) {
       }
     }
   }
-
-  /* Show cursor at new position */
-  vga_text_mouse_cursor_show(g_cursor_x, g_cursor_y);
 }
 
 void mouse_hal_get_state(mouse_state_t *out_state) {

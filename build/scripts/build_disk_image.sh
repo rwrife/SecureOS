@@ -90,6 +90,9 @@ build_disk_image_inner() {
 	./build/scripts/build_user_app.sh "vgahello"
 	app_mappings+=("artifacts/user/vgahello.bin=/apps/vgahello.bin")
 
+	./build/scripts/build_user_app.sh "draw"
+	app_mappings+=("artifacts/user/draw.bin=/apps/draw.bin")
+
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""
 	if [ -d "$ROOT_DIR/artifacts/keys" ] && [ -f "$ROOT_DIR/artifacts/keys/root.pub" ]; then
