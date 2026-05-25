@@ -35,6 +35,7 @@ jobs:
         # `bash <path>` fallback tracked under #91.
         run: |
           find build/scripts -type f -name "*.sh" -exec chmod +x {} +
+          find scripts -maxdepth 1 -type f -name "*.sh" -exec chmod +x {} +
           find tools -type f \( -name "*.sh" -o -name "sof_wrap" \) -exec chmod +x {} + 2>/dev/null || true
 
       - name: Build pinned toolchain image
