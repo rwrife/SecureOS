@@ -362,6 +362,7 @@ def main() -> int:
     image.mkdir('/os')
     image.mkdir('/apps')
     image.mkdir('/lib')
+    image.mkdir('/scripts')
     image.write_file('/readme.txt', b'SecureOS filesystem')
 
     extra_args = sys.argv[3:]
