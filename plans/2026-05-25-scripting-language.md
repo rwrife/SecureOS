@@ -39,6 +39,10 @@ set GREETING = "Welcome to " + $NAME + " v" + $VERSION
 set FILES = $(ls /apps)
 set TODAY = $(date)
 
+# --- Substring and length ---
+set PATH = "/apps/sosh/main.c"
+set EXT = ${PATH:11:4}         # ".c" — wait, let's get the extension properly
+set FIRST5 = ${PATH:0:5}      # "/apps"
 # --- Positional args ---
 # $0 = script name, $1..$9 = arguments, $@ = all args
 set TARGET = $1
@@ -100,6 +104,12 @@ myapp --flag $TARGET
 
 - String literal: `"hello world"` or bare word (no spaces): `hello`
 - Variable ref: `$VAR`, `$1`, `$@`, `$?` (last exit code)
+- Substring: `${VAR:start:length}` — extract substring (0-indexed)
+  - `${FOO:0:10}` — first 10 characters of `$FOO`
+  - `${FOO:5}` — from index 5 to end
+  - `${FOO:2:3}` — 3 characters starting at index 2
+  - Start/length can be variable references: `${FOO:$START:$LEN}`
+- String length: `${#VAR}` — length of variable value as a numeric string
 - Command capture: `$(command args...)`
 - Concatenation: `expr + expr`
 - Arithmetic: `expr + expr`, `expr - expr` (when both sides parse as int)
