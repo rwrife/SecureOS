@@ -218,14 +218,19 @@ static cap_handle_t cap_handle_from_row(const cap_handle_row *row) {
                          (uint8_t)CAP_HANDLE_TAG_KERNEL);
 }
 
-cap_handle_t cap_handle_grant(cap_subject_id_t owner_subject,
-                              capability_id_t cap_id) {
+cap_handle_t cap_handle_grant_child(cap_subject_id_t owner_subject,
+                                    capability_id_t cap_id,
+                                    cap_handle_t parent_handle) {
   if (!cap_handle_subject_valid(owner_subject) ||
       !cap_handle_cap_id_valid(cap_id)) {
     return CAP_HANDLE_NULL;
   }
 
-  /* Idempotent: if a live row already exists, return its current handle. */
+  /* Idempotent: if a live row already exists, return its current handle.
+   * Do NOT overwrite the existing parent_handle -- the first grant wins.
+   * This protects M2/M3/M4 legacy call sites that re-grant via the
+   * cap_handle_grant forwarder (which passes CAP_HANDLE_NULL as parent)
+   * from accidentally clearing a previously-recorded edge. */
   cap_handle_row *existing = cap_handle_find_live(owner_subject, cap_id);
   if (existing != NULL) {
     return cap_handle_from_row(existing);
@@ -240,10 +245,20 @@ cap_handle_t cap_handle_grant(cap_subject_id_t owner_subject,
   row->cap_id = cap_id;
   row->owner_subject = owner_subject;
   row->granter_subject = owner_subject; /* one-arg form; M4 broker will widen */
-  row->parent_handle = 0u;
+  row->parent_handle = (uint32_t)parent_handle;
   row->generation += 1u;
   row->flags = CAP_HANDLE_FLAG_LIVE;
   return cap_handle_from_row(row);
+}
+
+cap_handle_t cap_handle_grant(cap_subject_id_t owner_subject,
+                              capability_id_t cap_id) {
+  /* Forwarder (M5-SUBSTRATE-001, issue #323): legacy callers get a row
+   * with parent_handle == CAP_HANDLE_NULL (the pre-M5 invariant), so
+   * cap_handle_revoke_subtree on an unrelated root cannot sweep them
+   * transitively. M5-SUBSTRATE-002 (issue #324) will switch the
+   * broker_svc approve path to cap_handle_grant_child directly. */
+  return cap_handle_grant_child(owner_subject, cap_id, CAP_HANDLE_NULL);
 }
 
 cap_result_t cap_gate_check_handle_result(cap_handle_t handle,
@@ -329,23 +344,103 @@ uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject) {
 }
 
 /* ----------------------------------------------------------------------
- * M1-CAPTBL-004: reserved subtree-revoke stub (issue #241).
+ * M5-SUBSTRATE-001: real cap_handle_revoke_subtree BFS walker (issue
+ * #323, plan plans/2026-05-25-m5-ownership-on-m1-substrate.md).
  *
- * Reserves the kernel symbol for the M5 ownership-graph cascading
- * deletion (#118) and the M4 broker subtree-revoke (#115). v0 contract
- * is unconditionally CAP_ERR_CAP_INVALID with zero side effects: the
- * parent_handle field on cap_handle_row is reserved-and-zero today, so
- * there is no graph to walk. The real implementation belongs to #118.
+ * Walks `g_rows[]` in deterministic slot order. A row is in the cascade
+ * iff its parent_handle chain transitively reaches `root_handle`'s slot.
+ * Implementation uses a fixed-point sweep over a per-call visited[64]
+ * bitmap on stack: each pass marks rows whose direct parent's slot is
+ * already in `visited`. The sweep terminates when a full pass adds no
+ * new entries (worst case CAP_HANDLE_TABLE_MAX passes, each scanning
+ * CAP_HANDLE_TABLE_MAX rows -- O(64^2)).
  *
- * NOTE: we intentionally do NOT validate `root_handle` here. The return
- * code is the same for every input, and (more importantly) silently
- * succeeding on a "valid" handle would be a footgun once #118 wires up
- * the real walk \u2014 callers might accidentally rely on a no-op. Returning
- * CAP_ERR_CAP_INVALID universally keeps the contract honest.
+ * Once the closure is computed, every visited row that is still LIVE is
+ * transitioned LIVE -> REVOKED with its generation bumped. The root row
+ * itself is included in the visited set, so the cascade fans out from a
+ * single primitive call.
+ *
+ * `parent_handle == CAP_HANDLE_NULL` is the sentinel "no parent":
+ * such rows are not transitively swept when an unrelated root drives
+ * the cascade. The walker checks against the SLOT only (the parent's
+ * generation in the cached parent_handle may already be stale if the
+ * parent was revoked, but the slot identity is stable).
  * --------------------------------------------------------------------*/
+static int cap_handle_visited_get(const uint64_t *visited, uint16_t slot) {
+  return (int)((visited[slot >> 6] >> (slot & 63u)) & 1ull);
+}
+
+static void cap_handle_visited_set(uint64_t *visited, uint16_t slot) {
+  visited[slot >> 6] |= (1ull << (slot & 63u));
+}
+
 cap_result_t cap_handle_revoke_subtree(cap_handle_t root_handle) {
-  (void)root_handle;
-  return CAP_ERR_CAP_INVALID;
+  if (root_handle == CAP_HANDLE_NULL) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  if (cap_handle_tag(root_handle) != CAP_HANDLE_TAG_KERNEL) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  uint16_t root_slot = cap_handle_slot(root_handle);
+  if (root_slot >= CAP_HANDLE_TABLE_MAX) {
+    return CAP_ERR_CAP_INVALID;
+  }
+  cap_handle_row *root_row = &g_rows[root_slot];
+  if ((root_row->flags & CAP_HANDLE_FLAG_LIVE) == 0u) {
+    return CAP_ERR_MISSING;
+  }
+  if ((root_row->generation & CAP_HANDLE_GEN_MASK) !=
+      cap_handle_generation(root_handle)) {
+    return CAP_ERR_MISSING;
+  }
+
+  /* CAP_HANDLE_TABLE_MAX is 64 (one uint64_t). Sized as an array so the
+   * code stays correct if the table is bumped to 128 without further
+   * change here. */
+  uint64_t visited[(CAP_HANDLE_TABLE_MAX + 63u) / 64u] = {0};
+  cap_handle_visited_set(visited, root_slot);
+
+  /* Fixed-point sweep. Each iteration adds rows whose direct parent's
+   * slot is already marked. Terminates when a full pass adds nothing. */
+  for (uint32_t pass = 0; pass < CAP_HANDLE_TABLE_MAX; ++pass) {
+    int added = 0;
+    for (uint32_t i = 0; i < CAP_HANDLE_TABLE_MAX; ++i) {
+      if (cap_handle_visited_get(visited, (uint16_t)i)) {
+        continue;
+      }
+      cap_handle_row *row = &g_rows[i];
+      cap_handle_t parent = (cap_handle_t)row->parent_handle;
+      if (parent == CAP_HANDLE_NULL) {
+        continue; /* sentinel root -- not part of an unrelated cascade */
+      }
+      uint16_t parent_slot = cap_handle_slot(parent);
+      if (parent_slot >= CAP_HANDLE_TABLE_MAX) {
+        continue; /* malformed cached parent -- treat as orphan */
+      }
+      if (cap_handle_visited_get(visited, parent_slot)) {
+        cap_handle_visited_set(visited, (uint16_t)i);
+        added = 1;
+      }
+    }
+    if (!added) {
+      break;
+    }
+  }
+
+  /* Revoke every visited LIVE row. Generation bump matches
+   * cap_handle_revoke's contract on the LIVE -> REVOKED edge. */
+  for (uint32_t i = 0; i < CAP_HANDLE_TABLE_MAX; ++i) {
+    if (!cap_handle_visited_get(visited, (uint16_t)i)) {
+      continue;
+    }
+    cap_handle_row *row = &g_rows[i];
+    if ((row->flags & CAP_HANDLE_FLAG_LIVE) == 0u) {
+      continue;
+    }
+    row->flags = CAP_HANDLE_FLAG_REVOKED;
+    row->generation += 1u;
+  }
+  return CAP_OK;
 }
 
 /* ----------------------------------------------------------------------
