@@ -5,7 +5,7 @@
 # Handles dependency setup, build, and boot in one step.
 #
 # Usage:
-#   ./start.sh [--setup-only] [--build-only] [--graphics] [--skip-setup] [--clean]
+#   ./start.sh [--setup-only] [--build-only] [--graphics] [--skip-setup] [--clean] [--force] [--app <name>]
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,14 +16,23 @@ BUILD_ONLY=0
 GRAPHICS=0
 SKIP_SETUP=0
 CLEAN=0
+FORCE=0
+APP_NAME=""
 
-for arg in "$@"; do
-  case "$arg" in
-    --setup-only) SETUP_ONLY=1 ;;
-    --build-only) BUILD_ONLY=1 ;;
-    --graphics)   GRAPHICS=1 ;;
-    --skip-setup) SKIP_SETUP=1 ;;
-    --clean)      CLEAN=1 ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --setup-only) SETUP_ONLY=1; shift ;;
+    --build-only) BUILD_ONLY=1; shift ;;
+    --graphics)   GRAPHICS=1; shift ;;
+    --skip-setup) SKIP_SETUP=1; shift ;;
+    --clean)      CLEAN=1; shift ;;
+    --force)      FORCE=1; shift ;;
+    --app)
+      if [[ -z "${2:-}" ]]; then
+        echo "ERROR: --app requires a name argument"
+        exit 1
+      fi
+      APP_NAME="$2"; shift 2 ;;
     -h|--help)
       cat <<EOF
 Usage: ./start.sh [OPTIONS]
@@ -33,13 +42,20 @@ Options:
   --build-only   Build the OS but don't boot it
   --graphics     Boot with VGA display window instead of serial console
   --skip-setup   Skip dependency checks (assumes Docker + QEMU installed)
-  --clean        Remove artifacts before building
+  --clean        Remove artifacts before building (forces full rebuild)
+  --force        Force full rebuild, ignoring change detection
+  --app <name>   Rebuild only the named app and repack the disk image
   -h, --help     Show this help message
+
+Build Targets (used internally):
+  The default 'all' target automatically detects which source files have
+  changed since the last build and only rebuilds affected layers. Use
+  --force to override this and rebuild everything.
 EOF
       exit 0
       ;;
     *)
-      echo "Unknown option: $arg"
+      echo "Unknown option: $1"
       echo "Run ./start.sh --help for usage."
       exit 1
       ;;
@@ -124,7 +140,17 @@ if [[ "$CLEAN" -eq 1 ]]; then
   rm -rf "$ROOT_DIR/artifacts"
 fi
 
-bash "$ROOT_DIR/scripts/build.sh" all
+# Determine build target
+BUILD_TARGET="all"
+BUILD_EXTRA=""
+if [[ "$FORCE" -eq 1 ]]; then
+  BUILD_TARGET="force"
+elif [[ -n "$APP_NAME" ]]; then
+  BUILD_TARGET="app"
+  BUILD_EXTRA="$APP_NAME"
+fi
+
+bash "$ROOT_DIR/scripts/build.sh" "$BUILD_TARGET" $BUILD_EXTRA
 echo ""
 
 if [[ "$BUILD_ONLY" -eq 1 ]]; then
