@@ -96,6 +96,21 @@ build_disk_image_inner() {
 	./build/scripts/build_user_app.sh "filedemo"
 	app_mappings+=("artifacts/user/filedemo.bin=/apps/filedemo.bin")
 
+	./build/scripts/build_user_app.sh "sosh"
+	app_mappings+=("artifacts/user/sosh.bin=/apps/sosh.bin")
+
+	# Deploy scripts to /scripts on disk
+	local -a script_mappings=()
+	if compgen -G "$ROOT_DIR/scripts/*.sosh" >/dev/null 2>&1; then
+		for script_path in "$ROOT_DIR"/scripts/*.sosh; do
+			local sname
+			sname="$(basename "$script_path")"
+			mkdir -p "$ROOT_DIR/artifacts/scripts"
+			cp "$script_path" "$ROOT_DIR/artifacts/scripts/$sname"
+			script_mappings+=("artifacts/scripts/$sname=/scripts/$sname")
+		done
+	fi
+
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""
 	if [ -d "$ROOT_DIR/artifacts/keys" ] && [ -f "$ROOT_DIR/artifacts/keys/root.pub" ]; then
@@ -108,7 +123,8 @@ build_disk_image_inner() {
 		--os-dir artifacts/os \
 		--lib-dir artifacts/lib \
 		$CERTS_ARGS \
-		"${app_mappings[@]}"
+		"${app_mappings[@]}" \
+		"${script_mappings[@]}"
 	echo "Built $DISK_PATH"
 }
 

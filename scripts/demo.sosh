@@ -1,0 +1,58 @@
+#!/sosh
+# /scripts/demo.sosh — exercises core sosh features
+
+# Variables and string concatenation
+set FILENAME = "/tmp/greeting.txt"
+set WHO = "SecureOS User"
+set MSG = "Hello, " + $WHO + "! Welcome to sosh."
+
+# Write to a file using the write command
+write $FILENAME $MSG
+
+# Read it back with cat and capture output
+set CONTENTS = $(cat $FILENAME)
+
+# Show the full contents
+echo "Full file: " + $CONTENTS
+
+# Use substring to display a partial value (first 5 chars)
+set PARTIAL = ${CONTENTS:0:5}
+echo "First 5 chars: " + $PARTIAL
+
+# Show string length
+set LEN = ${#CONTENTS}
+echo "Total length: " + $LEN + " characters"
+
+# Conditional based on content
+if $PARTIAL == "Hello"
+  echo "File starts with a greeting — looks correct!"
+else
+  echo "Unexpected content: " + $PARTIAL
+end
+
+# Loop example — iterate over words in a captured listing
+set LIBS = $(ls /lib)
+set COUNT = 0
+for LIB in $LIBS
+  set COUNT = $COUNT + 1
+  echo "  [" + $COUNT + "] " + $LIB
+end
+echo "Found " + $COUNT + " libraries."
+
+# Arithmetic demo
+set A = 10
+set B = 3
+set SUM = $A + $B
+set DIFF = $A - $B
+echo "Arithmetic: " + $A + " + " + $B + " = " + $SUM
+echo "Arithmetic: " + $A + " - " + $B + " = " + $DIFF
+
+# While loop demo
+set I = 0
+while $I < 3
+  echo "  while iteration: " + $I
+  set I = $I + 1
+end
+
+# Exit with success
+return 0

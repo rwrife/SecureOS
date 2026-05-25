@@ -48,6 +48,7 @@ build_apps() {
   # Build known user apps
   "$ROOT_DIR/build/scripts/build_user_app.sh" filedemo
   "$ROOT_DIR/build/scripts/build_user_app.sh" draw
+  "$ROOT_DIR/build/scripts/build_user_app.sh" sosh
 }
 
 build_disk() {

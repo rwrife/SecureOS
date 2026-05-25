@@ -1,0 +1,38 @@
+sosh - SecureOS Shell scripting language
+
+Usage: sosh <script-path> [args...]
+
+Description:
+  Executes a sosh script file. The script can use variables, string
+  operations, conditionals, loops, and external command execution.
+
+Syntax:
+  set VAR = expr          Assign a variable
+  echo expr              Print to console
+  if cond / elif / else / end   Conditional
+  while cond / end       Loop while condition is true
+  for VAR in expr / end  Iterate over space-separated tokens
+  return [code]          Exit script with code
+  export VAR = expr      Set environment variable
+  source path            Execute another script
+
+Expressions:
+  "string literal"       Quoted string (supports \n \t \\)
+  $VAR                   Variable reference
+  ${VAR:start:len}       Substring extraction
+  ${#VAR}                String length
+  $(command args)        Command output capture
+  expr + expr            Concatenation or addition
+  expr - expr            Subtraction (numeric only)
+
+Conditions:
+  expr == expr           String equality
+  expr != expr           String inequality
+  expr < > <= >= expr    Numeric comparison
+  exists path            File/directory existence
+  not cond               Negation
+
+Examples:
+  sosh /scripts/demo.sosh
+  sosh /scripts/startup.sosh
+  sosh /scripts/myscript.sosh arg1 arg2
