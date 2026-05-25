@@ -29,6 +29,7 @@ TEST_TARGETS=(
     event_bus
     scheduler
     sof_format
+    sof_verify_at_rest
     tls
     https
     fs_service
