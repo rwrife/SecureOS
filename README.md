@@ -84,6 +84,10 @@ For graphics mode with the VGA display:
 - `scripts/` — Host-side entry points (setup, build, boot, test)
 - `manifests/` — Capability manifests for processes
 - `docs/` — Architecture decisions, ABI reference, test plans
+  - `docs/abi/` — **canonical ABI reference** (`OS_ABI_VERSION = 0`):
+    syscall surface, IPC wire format, capability handle representation,
+    launcher manifest schema, and the `OS_ABI_VERSION` policy. See
+    [`docs/abi/README.md`](docs/abi/README.md) for the full index.
 - `plans/` — Planning documents for future work
 
 ## Design Principles

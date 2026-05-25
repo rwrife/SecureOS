@@ -448,7 +448,23 @@ Suggested policy:
 In-tree source of truth: `user/include/secureos_abi.h` defines
 `OS_ABI_VERSION_MAJOR`, `OS_ABI_VERSION_MINOR`, and the packed
 `OS_ABI_VERSION` constant; `os_get_abi_version()` exposes it at runtime.
-See `docs/abi/versioning.md` for the full policy and field layout.
+
+The canonical ABI documentation lives under [`docs/abi/`](docs/abi/README.md);
+each of the four §7 surfaces has a dedicated spec there:
+
+- syscall ABI — [`docs/abi/syscalls.md`](docs/abi/syscalls.md)
+- IPC wire format and error model — [`docs/abi/ipc-wire.md`](docs/abi/ipc-wire.md)
+- capability handle representation + revocation —
+  [`docs/abi/capability-handle.md`](docs/abi/capability-handle.md)
+  (see also [`docs/abi/capabilities.md`](docs/abi/capabilities.md))
+- module / launcher manifest schema + compatibility —
+  [`docs/abi/manifest.md`](docs/abi/manifest.md)
+- `OS_ABI_VERSION` policy and field layout —
+  [`docs/abi/versioning.md`](docs/abi/versioning.md)
+
+All new ABI-shaped surface (new syscall, new IPC opcode, new manifest
+field, new capability handle bit) must land its spec under `docs/abi/`
+in the same change that introduces it.
 
 ## 8) Immediate Next 14 Tasks (actionable backlog)
 
