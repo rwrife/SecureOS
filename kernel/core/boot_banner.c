@@ -29,21 +29,21 @@ void boot_banner_display(void) {
   video_hal_write("\n");
   serial_hal_write("\n");
 
-  video_hal_write_color("   ___  ___  ___", SOS_COLOR);
+  video_hal_write_color("   ___   ___   ___", SOS_COLOR);
   video_hal_write("\n");
-  serial_hal_write("   ___  ___  ___\n");
+  serial_hal_write("   ___   ___   ___\n");
 
-  video_hal_write_color("  / __|| _ \\/ __|", SOS_COLOR);
-  video_hal_write_color("    SecureOS v" SECUREOS_VERSION "\n",
+  video_hal_write_color("  / __| / _ \\ / __|", SOS_COLOR);
+  video_hal_write_color("   SecureOS v" SECUREOS_VERSION "\n",
                         VGA_ATTR(VGA_WHITE, VGA_BLACK));
-  serial_hal_write("  / __|| _ \\/ __|    SecureOS v" SECUREOS_VERSION "\n");
+  serial_hal_write("  / __| / _ \\ / __|   SecureOS v" SECUREOS_VERSION "\n");
 
-  video_hal_write_color("  \\__ \\|  / \\__ \\", SOS_COLOR);
-  video_hal_write_color("    Zero-Trust OS\n",
+  video_hal_write_color("  \\__ \\ |   | \\__ \\", SOS_COLOR);
+  video_hal_write_color("   Zero-Trust OS\n",
                         VGA_ATTR(VGA_LIGHT_GREY, VGA_BLACK));
-  serial_hal_write("  \\__ \\|  / \\__ \\    Zero-Trust OS\n");
+  serial_hal_write("  \\__ \\ |   | \\__ \\   Zero-Trust OS\n");
 
-  video_hal_write_color("  |___/|_\\_\\|___/", SOS_COLOR);
+  video_hal_write_color("  |___/ \\___/ |___/", SOS_COLOR);
   video_hal_write("\n\n");
-  serial_hal_write("  |___/|_\\_\\|___/\n\n");
+  serial_hal_write("  |___/ \\___/ |___/\n\n");
 }
