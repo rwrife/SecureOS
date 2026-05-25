@@ -1,27 +1,15 @@
 #!/usr/bin/env bash
+# build_disk_image.sh - Create FAT disk image with OS binaries and apps
+#
+# This script runs INSIDE the Docker toolchain container. It builds all
+# user-space components and packs them into a FAT disk image.
+# Called by: build/scripts/build.sh
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DISK_DIR="$ROOT_DIR/artifacts/disk"
 DISK_PATH="$DISK_DIR/secureos-disk.img"
 DISK_BLOCKS="${SECUREOS_DISK_BLOCKS:-4096}"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
-
-stop_secureos_instances() {
-	if command -v docker >/dev/null 2>&1; then
-		mapfile -t IDS < <(docker ps --filter "ancestor=$IMAGE_TAG" --format "{{.ID}}")
-		if [[ ${#IDS[@]} -gt 0 ]]; then
-			docker stop "${IDS[@]}" >/dev/null 2>&1 || true
-		fi
-	fi
-
-	if command -v pkill >/dev/null 2>&1; then
-		pkill -f "qemu-system-x86_64.*secureos-disk.img" >/dev/null 2>&1 || true
-		pkill -f "qemu-system-x86_64.*secureos.iso" >/dev/null 2>&1 || true
-	fi
-}
-
-stop_secureos_instances
 
 # Issue #226: gate the disk-image build on manifest validity, not just
 # schema validity (follow-up to #219). Validate every manifest the
@@ -104,26 +92,5 @@ build_disk_image_inner() {
 	echo "Built $DISK_PATH"
 }
 
-if command -v docker >/dev/null 2>&1; then
-	if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-		docker build -f "$ROOT_DIR/build/docker/Dockerfile.toolchain" -t "$IMAGE_TAG" "$ROOT_DIR"
-	fi
-
-	docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
-		bash -lc 'set -euo pipefail; ./build/scripts/build_disk_image.sh; chmod a+rw artifacts/disk/secureos-disk.img 2>/dev/null || true; chmod a+rwx artifacts/disk 2>/dev/null || true'
-
-	# Belt-and-suspenders: also try from host side (a no-op if container
-	# already set perms; useful when the container runs as the host uid).
-	# QEMU opens the disk read-write by default, so the host runner uid
-	# needs write access too, not just read.
-	if [[ -f "$DISK_PATH" ]]; then
-		chmod a+rw "$DISK_PATH" 2>/dev/null || true
-	fi
-	if [[ -d "$DISK_DIR" ]]; then
-		chmod a+rwx "$DISK_DIR" 2>/dev/null || true
-	fi
-else
-	build_disk_image_inner
-fi
-
+build_disk_image_inner
 echo "PASS: disk image build"

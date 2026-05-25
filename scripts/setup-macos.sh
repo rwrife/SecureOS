@@ -1,25 +1,23 @@
 #!/usr/bin/env bash
+# setup-macos.sh - Install Docker and QEMU on macOS
+#
+# This script installs the two host dependencies needed to build and run
+# SecureOS: Docker and QEMU. All other toolchain tools (compiler, linker,
+# etc.) live inside the Docker container.
 set -euo pipefail
 
-# SecureOS macOS bootstrap script
-# Installs a minimal OS-dev + validation toolchain for:
-# - containerized deterministic builds
-# - QEMU boot/test harness
-# - GitHub Actions + gh workflow integration
-
 if [[ "${OSTYPE:-}" != darwin* ]]; then
-  echo "❌ This script is for macOS only."
+  echo "ERROR: This script is for macOS only."
   exit 1
 fi
 
 log() { printf "\n==> %s\n" "$*"; }
-warn() { printf "⚠️  %s\n" "$*"; }
-ok() { printf "✅ %s\n" "$*"; }
+ok()  { printf "  ✓ %s\n" "$*"; }
+err() { printf "  ✗ %s\n" "$*"; }
 
-need_cmd() {
-  command -v "$1" >/dev/null 2>&1
-}
+need_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# --- Homebrew ---
 install_brew_if_missing() {
   if need_cmd brew; then
     ok "Homebrew already installed"
@@ -29,159 +27,107 @@ install_brew_if_missing() {
   log "Installing Homebrew"
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-  # shellcheck disable=SC2016
   if [[ -x /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
   elif [[ -x /usr/local/bin/brew ]]; then
     eval "$(/usr/local/bin/brew shellenv)"
   fi
 
-  need_cmd brew || { echo "❌ Homebrew install failed"; exit 1; }
+  need_cmd brew || { err "Homebrew install failed"; exit 1; }
   ok "Homebrew installed"
 }
 
-ensure_xcode_clt() {
-  if xcode-select -p >/dev/null 2>&1; then
-    ok "Xcode Command Line Tools already installed"
+# --- Docker ---
+install_docker() {
+  if docker info >/dev/null 2>&1; then
+    ok "Docker already available"
+    return
+  fi
+
+  log "Installing Docker runtime"
+
+  # Prefer existing Docker Desktop
+  if [[ -d "/Applications/Docker.app" ]]; then
+    echo "  Docker Desktop found but not running. Please start it."
+    open -a Docker
+    echo "  Waiting for Docker to start..."
+    local retries=30
+    while ! docker info >/dev/null 2>&1; do
+      sleep 2
+      retries=$((retries - 1))
+      if [[ $retries -le 0 ]]; then
+        err "Docker Desktop did not start in time."
+        exit 1
+      fi
+    done
+    ok "Docker Desktop started"
+    return
+  fi
+
+  # Install via Homebrew (colima for lightweight runtime)
+  echo "  Installing colima + docker CLI..."
+  brew install colima docker
+
+  colima start --cpu 4 --memory 6 --disk 40
+  sleep 3
+
+  if docker info >/dev/null 2>&1; then
+    ok "Docker (colima) ready"
   else
-    log "Installing Xcode Command Line Tools"
-    xcode-select --install || true
-    warn "If a popup appeared, complete installation and re-run this script."
+    err "Docker still unavailable after colima start."
+    echo "  Alternative: brew install --cask docker && open -a Docker"
     exit 1
   fi
 }
 
-install_formulae() {
-  local formulae=(
-    llvm
-    nasm
-    cmake
-    ninja
-    make
-    python
-    qemu
-    xorriso
-    mtools
-    git
-    gh
-    jq
-    shellcheck
-  )
-
-  log "Installing/updating Homebrew formulae"
-  brew update
-  brew install "${formulae[@]}"
-  ok "Core toolchain installed"
-}
-
-setup_docker_runtime() {
-  # Prefer existing Docker engine if available
-  if docker info >/dev/null 2>&1; then
-    ok "Docker engine is already available"
+# --- QEMU ---
+install_qemu() {
+  if need_cmd qemu-system-x86_64; then
+    ok "QEMU already installed"
     return
   fi
 
-  log "Docker engine not available; installing lightweight Colima runtime"
-  brew install colima docker
+  log "Installing QEMU"
+  brew install qemu
+  ok "QEMU installed"
+}
 
-  if ! pgrep -f "colima" >/dev/null 2>&1; then
-    colima start --cpu 4 --memory 6 --disk 40
-  fi
-
-  # Give it a brief moment
-  sleep 3
+# --- Verify ---
+verify() {
+  log "Verifying installation"
+  local failed=0
 
   if docker info >/dev/null 2>&1; then
-    ok "Docker + Colima ready"
+    ok "Docker: $(docker --version)"
   else
-    warn "Docker still unavailable. You can alternatively install Docker Desktop."
-    warn "Try: brew install --cask docker && open -a Docker"
+    err "Docker not accessible"
+    failed=1
   fi
-}
 
-print_versions() {
-  log "Tool versions"
-  {
-    echo "clang: $(clang --version | head -n1 || true)"
-    echo "llvm-config: $(llvm-config --version 2>/dev/null || true)"
-    echo "nasm: $(nasm -v || true)"
-    echo "cmake: $(cmake --version | head -n1 || true)"
-    echo "ninja: $(ninja --version || true)"
-    echo "python3: $(python3 --version || true)"
-    echo "qemu-x86_64: $(qemu-system-x86_64 --version | head -n1 || true)"
-    echo "qemu-aarch64: $(qemu-system-aarch64 --version | head -n1 || true)"
-    echo "xorriso: $(xorriso -version 2>/dev/null | head -n1 || true)"
-    echo "mtools (mcopy): $(mcopy -V 2>&1 | head -n1 || true)"
-    echo "git: $(git --version || true)"
-    echo "gh: $(gh --version | head -n1 || true)"
-    echo "docker: $(docker --version || true)"
-  } | sed 's/^/  /'
-}
-
-verify_basics() {
-  log "Running basic verification checks"
-
-  local missing=0
-  for cmd in clang nasm cmake ninja python3 qemu-system-x86_64 qemu-system-aarch64 xorriso mcopy git gh; do
-    if need_cmd "$cmd"; then
-      ok "Found: $cmd"
-    else
-      echo "❌ Missing: $cmd"
-      missing=1
-    fi
-  done
-
-  if docker info >/dev/null 2>&1; then
-    ok "Docker engine reachable"
+  if need_cmd qemu-system-x86_64; then
+    ok "QEMU: $(qemu-system-x86_64 --version | head -n1)"
   else
-    warn "Docker engine not reachable yet"
-    missing=1
+    err "QEMU not found"
+    failed=1
   fi
 
-  if [[ $missing -ne 0 ]]; then
-    warn "Some checks failed. See messages above."
-    return 1
+  if [[ $failed -ne 0 ]]; then
+    echo ""
+    echo "Some checks failed. See messages above."
+    exit 1
   fi
 
-  ok "All baseline checks passed"
+  echo ""
+  echo "✓ Setup complete! You can now run: ./start.sh"
 }
 
-next_steps() {
-  cat <<'EOF'
-
-🎉 SecureOS macOS bootstrap complete.
-
-Suggested next steps in this repo:
-  1) Create toolchain container:
-     - build/docker/Dockerfile.toolchain
-     - build/toolchain.lock
-
-  2) Add deterministic wrappers:
-     - build/scripts/build.sh
-     - build/scripts/test.sh
-     - build/scripts/run_qemu.sh
-
-  3) Add first validation slice:
-     - x86 boot to kmain
-     - serial log + TEST markers
-     - isa-debug-exit pass/fail
-
-  4) Add CI workflow to run the same containerized commands.
-
-If gh auth is needed:
-  gh auth login
-EOF
-}
-
+# --- Main ---
 main() {
-  log "SecureOS macOS environment bootstrap"
-  ensure_xcode_clt
+  log "SecureOS macOS Setup"
   install_brew_if_missing
-  install_formulae
-  setup_docker_runtime
-  print_versions
-  verify_basics
-  next_steps
+  install_docker
+  install_qemu
+  verify
 }
 
 main "$@"

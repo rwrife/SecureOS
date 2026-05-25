@@ -1,32 +1,25 @@
 #!/usr/bin/env bash
+# build_kernel_image.sh - Create bootable ISO from kernel.elf using GRUB
+#
+# This script runs INSIDE the Docker toolchain container. It takes the
+# compiled kernel.elf and wraps it into a bootable ISO using grub-mkrescue.
+# Called by: scripts/build.sh (via docker run)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 
-build_kernel_image_inner() {
-  test -f artifacts/kernel/kernel.elf
-  grub-file --is-x86-multiboot artifacts/kernel/kernel.elf
-  rm -rf artifacts/iso
-  mkdir -p artifacts/iso/boot/grub
-  cp build/grub/grub.cfg artifacts/iso/boot/grub/grub.cfg
-  cp artifacts/kernel/kernel.elf artifacts/iso/boot/kernel.elf
-  grub-mkrescue -o artifacts/kernel/secureos.iso artifacts/iso >/dev/null 2>&1
-  echo "Built artifacts/kernel/secureos.iso"
-}
-
+# Ensure kernel is compiled first
 "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
 
 mkdir -p "$ROOT_DIR/artifacts/kernel"
 
-if command -v docker >/dev/null 2>&1; then
-  if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-    docker build -f "$ROOT_DIR/build/docker/Dockerfile.toolchain" -t "$IMAGE_TAG" "$ROOT_DIR"
-  fi
+test -f artifacts/kernel/kernel.elf || { echo "ERROR: kernel.elf not found"; exit 1; }
+grub-file --is-x86-multiboot artifacts/kernel/kernel.elf
 
-  docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" bash -lc 'set -euo pipefail; ./build/scripts/build_kernel_image.sh'
-else
-  build_kernel_image_inner
-fi
+rm -rf artifacts/iso
+mkdir -p artifacts/iso/boot/grub
+cp build/grub/grub.cfg artifacts/iso/boot/grub/grub.cfg
+cp artifacts/kernel/kernel.elf artifacts/iso/boot/kernel.elf
+grub-mkrescue -o artifacts/kernel/secureos.iso artifacts/iso >/dev/null 2>&1
 
-echo "PASS: kernel ISO build"
+echo "Built artifacts/kernel/secureos.iso"

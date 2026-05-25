@@ -18,7 +18,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="$ROOT_DIR/artifacts/os"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 CMD_NAME="${1:-ls}"
 
 build_os_command_inner() {
@@ -49,15 +48,4 @@ build_os_command_inner() {
 }
 
 mkdir -p "$OUT_DIR"
-
-if command -v docker >/dev/null 2>&1; then
-  if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-    echo "Toolchain image not found, skipping OS command build"
-    exit 0
-  fi
-
-  docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
-    bash -lc "set -euo pipefail; ./build/scripts/build_os_command.sh '$CMD_NAME'"
-else
-  build_os_command_inner
-fi
+build_os_command_inner

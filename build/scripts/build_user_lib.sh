@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
+# build_user_lib.sh - Compile a user-space library into SOF format
+#
+# This script runs INSIDE the Docker toolchain container. It compiles a
+# user library from user/libs/<name>/ into artifacts/lib/<name>.lib (SOF).
+# Called by: build/scripts/build.sh
+#
+# Usage: build_user_lib.sh [lib_name]  (default: envlib)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="$ROOT_DIR/artifacts/lib"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 LIB_NAME="${1:-envlib}"
 
 build_user_lib_inner() {
@@ -64,15 +70,5 @@ build_user_lib_inner() {
 }
 
 mkdir -p "$OUT_DIR"
-
-if command -v docker >/dev/null 2>&1; then
-  if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-    docker build -f "$ROOT_DIR/build/docker/Dockerfile.toolchain" -t "$IMAGE_TAG" "$ROOT_DIR"
-  fi
-
-  docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" bash -lc "set -euo pipefail; ./build/scripts/build_user_lib.sh '$LIB_NAME'"
-else
-  build_user_lib_inner
-fi
-
+build_user_lib_inner
 echo "PASS: user lib build ($LIB_NAME)"

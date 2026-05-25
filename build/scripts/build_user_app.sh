@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
+# build_user_app.sh - Compile a user-space application into SOF format
+#
+# This script runs INSIDE the Docker toolchain container. It compiles a
+# user app from user/apps/<name>/ into artifacts/user/<name>.bin (SOF).
+# Called by: build/scripts/build.sh
+#
+# Usage: build_user_app.sh [app_name]  (default: filedemo)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="$ROOT_DIR/artifacts/user"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 APP_NAME="${1:-filedemo}"
 
 build_user_app_inner() {
@@ -129,15 +135,5 @@ EOF
 }
 
 mkdir -p "$OUT_DIR"
-
-if command -v docker >/dev/null 2>&1; then
-  if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-    docker build -f "$ROOT_DIR/build/docker/Dockerfile.toolchain" -t "$IMAGE_TAG" "$ROOT_DIR"
-  fi
-
-  docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" bash -lc "set -euo pipefail; ./build/scripts/build_user_app.sh '$APP_NAME'"
-else
-  build_user_app_inner
-fi
-
+build_user_app_inner
 echo "PASS: user app build ($APP_NAME)"

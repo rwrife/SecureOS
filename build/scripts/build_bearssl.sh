@@ -19,7 +19,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BEARSSL_DIR="$ROOT_DIR/vendor/bearssl/BearSSL"
 VENDOR_DIR="$ROOT_DIR/vendor/bearssl"
 OUT_DIR="$ROOT_DIR/artifacts/bearssl"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 
 # Determinism: enumerate sources from Makefile.secureos (no globbing). Use
 # -Wall -Werror to keep the freestanding compile honest, with the small
@@ -78,15 +77,5 @@ build_bearssl_inner() {
 }
 
 mkdir -p "$OUT_DIR"
-
-if command -v docker >/dev/null 2>&1; then
-  if ! docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
-    docker build -f "$ROOT_DIR/build/docker/Dockerfile.toolchain" -t "$IMAGE_TAG" "$ROOT_DIR"
-  fi
-  docker run --rm -v "$ROOT_DIR":/workspace -w /workspace "$IMAGE_TAG" \
-    bash -lc 'set -euo pipefail; ./build/scripts/build_bearssl.sh'
-else
-  build_bearssl_inner
-fi
-
+build_bearssl_inner
 echo "PASS: BearSSL build"

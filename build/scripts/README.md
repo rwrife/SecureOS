@@ -1,93 +1,40 @@
-# SecureOS Build Wrappers
+# SecureOS Internal Build Scripts
 
-Canonical wrapper scripts for deterministic local/agent workflows.
+These scripts run **inside** the Docker toolchain container. They are not
+intended to be called directly from the host — use the host-side entry
+points in `scripts/` instead.
 
-## Targets
-
-```bash
-./build/scripts/build.sh kernel
-./build/scripts/build.sh image
-./build/scripts/build.sh run
-./build/scripts/build.sh test-boot
-./build/scripts/build.sh user-app
-./build/scripts/build.sh user-lib
-./build/scripts/build.sh disk
-./build/scripts/build.sh console
-./build/scripts/build.sh graphics
-./build/scripts/build_user_app.sh filedemo
-./build/scripts/build_user_lib.sh envlib
-./build/scripts/build_user_lib.sh fslib
-./build/scripts/boot_console.sh
-./build/scripts/boot_graphics.sh
-```
-
-PowerShell (Windows):
-
-```powershell
-.\build\scripts\build.ps1 kernel
-.\build\scripts\build.ps1 image
-.\build\scripts\build.ps1 run
-.\build\scripts\build.ps1 test-boot
-.\build\scripts\build.ps1 user-app
-.\build\scripts\build.ps1 user-lib
-.\build\scripts\build.ps1 disk
-.\build\scripts\build.ps1 console
-.\build\scripts\build.ps1 graphics
-.\build\scripts\build_user_app.ps1 filedemo
-.\build\scripts\build_user_lib.ps1 envlib
-.\build\scripts\build_user_lib.ps1 fslib
-.\build\scripts\boot_console.ps1
-.\build\scripts\boot_graphics.ps1
-```
-
-## Direct test/run
+## Entry Points (host-side)
 
 ```bash
-./build/scripts/test.sh hello_boot
-./build/scripts/test.sh scheduler
-./build/scripts/test.sh app_runtime
-./build/scripts/test.sh kernel_console
-./build/scripts/test.sh kernel_filedemo
-./build/scripts/test.sh kernel_persistence
-./build/scripts/test.sh kernel_sessions
-./build/scripts/run_qemu.sh --test hello_boot
-./build/scripts/run_qemu.sh --test kernel_prompt
-./build/scripts/run_qemu.sh --test kernel_console
-./build/scripts/run_qemu.sh --test kernel_filedemo
-./build/scripts/run_qemu.sh --test kernel_persistence
-./build/scripts/validate_bundle.sh
+# From repo root:
+./start.sh                          # Setup + build + boot (one command)
+./scripts/build.sh [kernel|disk|all]  # Build inside container
+./scripts/boot.sh [console|graphics]  # Launch QEMU on host
+./scripts/test.sh [test_name|--all]   # Run tests in container
 ```
 
-PowerShell (Windows):
+## Internal Scripts (container-side)
 
-```powershell
-.\build\scripts\test.ps1 hello_boot
-.\build\scripts\test.ps1 scheduler
-.\build\scripts\test.ps1 app_runtime
-.\build\scripts\test.ps1 kernel_console
-.\build\scripts\test.ps1 kernel_filedemo
-.\build\scripts\test.ps1 kernel_persistence
-.\build\scripts\test.ps1 kernel_sessions
-.\build\scripts\run_qemu.ps1 -Test hello_boot
-.\build\scripts\run_qemu.ps1 -Test kernel_console
-.\build\scripts\run_qemu.ps1 -Test kernel_filedemo
-.\build\scripts\run_qemu.ps1 -Test kernel_persistence
-.\build\scripts\validate_bundle.ps1
-```
+| Script | Purpose |
+|--------|---------|
+| `build.sh` | Orchestrator — routes targets to sub-scripts |
+| `build_kernel_entry.sh` | Compile kernel asm/C → kernel.elf |
+| `build_kernel_image.sh` | Create bootable ISO via grub-mkrescue |
+| `build_disk_image.sh` | Build FAT disk image with OS binaries |
+| `build_bearssl.sh` | Compile BearSSL for freestanding x86-64 |
+| `build_user_lib.sh` | Compile a user library → SOF .lib |
+| `build_user_app.sh` | Compile a user app → SOF .bin |
+| `build_os_command.sh` | Compile an OS command → SOF .bin |
+| `test.sh` | Test dispatcher — routes named tests |
+| `run_qemu.sh` | QEMU launcher (used by test harness) |
 
-## Notes
+## Artifacts
 
-- Scripts are intended to run through the pinned toolchain container (`secureos/toolchain:bookworm-2026-02-12`).
-- If the image is missing, `build.sh` bootstraps it from `build/docker/Dockerfile.toolchain`.
-- Deterministic QEMU flags live in `build/qemu/x86_64-headless.args`.
-- Deterministic graphical QEMU flags live in `build/qemu/x86_64-graphical.args`.
-- QEMU logs are written to `artifacts/qemu/<test>.log`.
-- Per-run metadata is written to `artifacts/qemu/<test>.meta.json`.
-- The kernel ISO is written to `artifacts/kernel/secureos.iso`.
-- The attached raw disk image is written to `artifacts/disk/secureos-disk.img`.
-- In the kernel console, `storage` reports the active backend and geometry.
-- `run_qemu.sh --test kernel_prompt` starts an interactive session at `secureos>`.
-- Disk-image and interactive boot wrappers auto-stop stale SecureOS QEMU/container instances before launch.
-- Windows wrappers execute the same bash harness inside the pinned toolchain container.
-- User app artifacts are written to `artifacts/user/<app>.o` and `artifacts/user/<app>.elf`.
-- User library artifacts are written to `artifacts/lib/<lib>.o` and `artifacts/lib/<lib>.elf`.
+- `artifacts/kernel/kernel.elf` — Linked kernel binary
+- `artifacts/kernel/secureos.iso` — Bootable GRUB ISO
+- `artifacts/disk/secureos-disk.img` — FAT disk image
+- `artifacts/user/` — User app binaries
+- `artifacts/lib/` — User library binaries
+- `artifacts/os/` — OS command binaries
+

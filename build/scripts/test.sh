@@ -26,24 +26,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TEST_NAME="${1:-hello_boot}"
-IMAGE_TAG="${SECUREOS_TOOLCHAIN_IMAGE:-secureos/toolchain:bookworm-2026-02-12}"
 
 # Stable exit code for harness/infra errors (see header).
 HARNESS_ERROR_EXIT=78
-
-stop_secureos_instances() {
-  if command -v docker >/dev/null 2>&1; then
-    mapfile -t IDS < <(docker ps --filter "ancestor=$IMAGE_TAG" --format "{{.ID}}")
-    if [[ ${#IDS[@]} -gt 0 ]]; then
-      docker stop "${IDS[@]}" >/dev/null 2>&1 || true
-    fi
-  fi
-
-  if command -v pkill >/dev/null 2>&1; then
-    pkill -f "qemu-system-x86_64.*secureos-disk.img" >/dev/null 2>&1 || true
-    pkill -f "qemu-system-x86_64.*secureos.iso" >/dev/null 2>&1 || true
-  fi
-}
 
 # run_script <path> [args...]
 #
@@ -63,12 +48,8 @@ run_script() {
     printf 'TEST:FAIL:harness_unreadable_script:%s\n' "$path" >&2
     exit "$HARNESS_ERROR_EXIT"
   fi
-  # Always dispatch via `bash` -- no +x bit required. This is the core of the
-  # defense against the regression captured in issue #90.
   bash "$path" "$@"
 }
-
-stop_secureos_instances
 
 usage() {
   cat <<EOF

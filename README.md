@@ -1,162 +1,100 @@
 # SecureOS
 
-SecureOS is an experimental operating system project focused on **zero-trust by default** behavior.
+SecureOS is an experimental operating system focused on **zero-trust by default** behavior. Every process runs in total isolation and requires explicit user consent to access any resource.
 
-## Objective
-
-Build a small, capability-native OS where resource access is explicit, deny-by-default, and testable.
-
-Core principles:
-- tooling-first, deterministic builds
-- vertical slices over broad unfinished layers
-- strict validation of allow/deny paths
-
-## Current State
-
-What exists today:
-- macOS bootstrap script for local developer setup (`scripts/setup-macos.sh`)
-- pinned containerized toolchain baseline (`build/docker/Dockerfile.toolchain`, `build/toolchain.lock`)
-- canonical build/test/run wrappers under `build/scripts/`
-- deterministic headless QEMU harness with log + metadata outputs
-- minimal boot-sector smoke path that prints a serial success marker
-
-In progress:
-- moving from boot-sector smoke validation toward full kernel boot path to `kmain`
-- roadmap-driven issue queue for Phase 0 / boot milestone execution
-
-## Quick Start (Local)
-
-### 1) Optional: bootstrap macOS deps
+## Quick Start
 
 ```bash
-./scripts/setup-macos.sh
+# Clone and run — that's it
+git clone https://github.com/rwrife/SecureOS.git
+cd SecureOS
+
+# macOS / Linux
+./start.sh
+
+# Windows (PowerShell)
+.\start.ps1
 ```
 
-### 2) Run the current validation paths
+The start script automatically:
+1. Checks for Docker and QEMU (installs them if missing, with your confirmation)
+2. Builds the OS inside a Docker container
+3. Boots SecureOS in QEMU
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--graphics` / `-Graphics` | Boot with VGA display window |
+| `--build-only` / `-BuildOnly` | Build without booting |
+| `--setup-only` / `-SetupOnly` | Install dependencies only |
+| `--clean` / `-Clean` | Remove artifacts before building |
+| `--skip-setup` / `-SkipSetup` | Skip dependency checks |
+
+### Individual Scripts
+
+For iterative development, use the scripts separately:
 
 ```bash
-./build/scripts/test.sh hello_boot
-./build/scripts/test.sh kernel_console
-./build/scripts/test.sh kernel_filedemo
-./build/scripts/test.sh kernel_persistence
+./scripts/build.sh [kernel|disk|all]    # Build (default: all)
+./scripts/boot.sh [console|graphics]    # Boot (default: console)
+./scripts/test.sh [test_name|--all]     # Run tests
 ```
 
-Windows PowerShell:
-
+Windows:
 ```powershell
-.\build\scripts\test.ps1 hello_boot
-.\build\scripts\test.ps1 kernel_console
-.\build\scripts\test.ps1 kernel_filedemo
-.\build\scripts\test.ps1 kernel_persistence
+.\scripts\build.ps1 [kernel|disk|all]
+.\scripts\boot.ps1 [console|graphics]
+.\scripts\test.ps1 [test_name|--all]
 ```
 
-Expected success markers include:
-- `SecureOS boot sector OK`
-- `QEMU_PASS:hello_boot`
-- `QEMU_PASS:kernel_console`
-- `QEMU_PASS:kernel_filedemo`
-- `QEMU_PASS:kernel_persistence`
+## Prerequisites
 
-### 3) Check artifacts
+Only two tools are needed on your host machine:
+- **Docker** — all compilation happens inside a container
+- **QEMU** — runs the OS with hardware emulation
 
-```bash
-ls -la artifacts/qemu/
-./build/scripts/validate_bundle.sh
-ls -la artifacts/runs/
-```
+The setup scripts handle installation:
+- macOS: `./scripts/setup-macos.sh`
+- Linux: `./scripts/setup-linux.sh`
+- Windows: `.\scripts\setup-windows.ps1`
 
-Windows PowerShell:
+## Demo
 
-```powershell
-Get-ChildItem artifacts\qemu
-.\build\scripts\validate_bundle.ps1
-Get-ChildItem artifacts\runs
-```
-
-You should see:
-- `artifacts/qemu/hello_boot.log`
-- `artifacts/qemu/hello_boot.meta.json`
-- `artifacts/qemu/kernel_console.log`
-- `artifacts/qemu/kernel_filedemo.log`
-- `artifacts/qemu/kernel_persistence.log`
-- `artifacts/kernel/secureos.iso`
-- `artifacts/disk/secureos-disk.img`
-- `artifacts/runs/<run-id>/build_metadata.json`
-- `artifacts/runs/<run-id>/validator_report.json`
-
-### 4) Build the sample user app
-
-```bash
-./build/scripts/build.sh user-app
-```
-
-Windows PowerShell:
-
-```powershell
-.\build\scripts\build.ps1 user-app
-```
-
-This produces:
-- `artifacts/user/filedemo.o`
-- `artifacts/user/filedemo.elf`
-
-Inside the kernel console, the current demo flow is:
-- `help`
-- `storage`
-- `apps`
-- `run filedemo`
-- `cat appdemo.txt`
-- `exit pass`
-
-### 5) Boot To Interactive Command Prompt
-
-Use the dedicated interactive boot wrappers to get a live `secureos>` prompt:
-
-```bash
-./build/scripts/build.sh console
-```
-
-Windows PowerShell:
-
-```powershell
-.\build\scripts\build.ps1 console
-```
-
-This boots the kernel ISO with the attached disk image and leaves QEMU interactive.
-Type commands directly at `secureos>`. Use `exit pass` to stop QEMU cleanly.
-
-If a previous SecureOS QEMU/container session is still running, the boot and disk-image scripts
-now stop those stale instances automatically so `secureos-disk.img` can be reused.
-
-## Demo Quickstart
-
-After booting the interactive prompt (`secureos>`), run:
+After booting (via `./start.sh` or `./scripts/boot.sh`), interact with the OS:
 
 ```text
-apps
-run filedemo
-cat appdemo.txt
+secureos> help
+secureos> apps
+secureos> run filedemo
+secureos> cat appdemo.txt
+secureos> exit pass
 ```
 
-You can also try the networking demos (`ifconfig`, `ping`, `http`) and use `help` for command usage.
-
-Exit cleanly with:
-
-```text
-exit pass
+For graphics mode with the VGA display:
+```bash
+./start.sh --graphics
 ```
 
-For full contributor setup/build/run guidance, see `CONTRIBUTING.md`.
+## Architecture
 
-## Repo Pointers
+- `kernel/` — Minimal kernel: process isolation, capability system, hardware abstraction
+- `user/` — User-space libraries, apps, and OS commands
+- `build/` — Dockerfile, internal build scripts, QEMU configs
+- `scripts/` — Host-side entry points (setup, build, boot, test)
+- `manifests/` — Capability manifests for processes
+- `docs/` — Architecture decisions, ABI reference, test plans
+- `plans/` — Planning documents for future work
 
-- Roadmap: `BUILD_ROADMAP.md`
-- Milestone/task registry: `docs/test-plans/` (M0/M1/M2 status + closing PRs)
-- Task DAG schema: `manifests/task-dag.schema.json` (walk-through in `docs/test-plans/task-schema.md`)
-- Coding conventions: `docs/CODING_CONVENTIONS.md`
-- ABI reference: `docs/abi/` (syscalls, capabilities, capability-handle, manifest, ipc-wire, versioning)
-- ADRs: `docs/architecture/decisions/` (start at `0001-boot-protocol-multiboot-long-mode.md`)
-- Toolchain container: `build/docker/`
-- Build wrappers: `build/scripts/`
-- QEMU args: `build/qemu/`
-- Boot experiment: `experiments/bootloader/`
+## Design Principles
+
+- **Capability-native**: All resource access goes through explicit capability gates
+- **Deny-by-default**: Processes start with zero permissions
+- **User consent**: Hardware/resource access requires interactive confirmation
+- **Deterministic builds**: Pinned Docker toolchain ensures reproducibility
+- **Multi-architecture ready**: HAL layer abstracts hardware (x86 target first)
+
+## Contributing
+
+See `CONTRIBUTING.md` for full contributor guidance.
+
