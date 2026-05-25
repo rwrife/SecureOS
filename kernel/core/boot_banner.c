@@ -39,9 +39,9 @@ void boot_banner_display(void) {
   serial_hal_write("  / ___// __ \\/ ___/   SecureOS v" SECUREOS_VERSION "\n");
 
   video_hal_write_color("  \\__ \\/ / / /\\__ \\", SOS_COLOR);
-  video_hal_write_color("   Zero-Trust OS\n",
+  video_hal_write_color("    Zero-Trust OS\n",
                         VGA_ATTR(VGA_LIGHT_GREY, VGA_BLACK));
-  serial_hal_write("  \\__ \\/ / / /\\__ \\   Zero-Trust OS\n");
+  serial_hal_write("  \\__ \\/ / / /\\__ \\    Zero-Trust OS\n");
 
   video_hal_write_color(" ___/ / /_/ /___/ /", SOS_COLOR);
   video_hal_write("\n");
