@@ -54,27 +54,27 @@ if (-not $SkipSetup) {
   if (Get-Command docker -ErrorAction SilentlyContinue) {
     $null = docker info 2>&1
     if ($LASTEXITCODE -eq 0) {
-      Write-Host "  ✓ Docker" -ForegroundColor Green
+      Write-Host "  [OK] Docker" -ForegroundColor Green
       $hasDocker = $true
     } else {
-      Write-Host "  ✗ Docker installed but daemon not running" -ForegroundColor Red
+      Write-Host "  [X] Docker installed but daemon not running" -ForegroundColor Red
       $needSetup = $true
     }
   } else {
-    Write-Host "  ✗ Docker not found" -ForegroundColor Red
+    Write-Host "  [X] Docker not found" -ForegroundColor Red
     $needSetup = $true
   }
 
   # Check QEMU
   $hasQemu = $false
   if (Get-Command "qemu-system-x86_64" -ErrorAction SilentlyContinue) {
-    Write-Host "  ✓ QEMU" -ForegroundColor Green
+    Write-Host "  [OK] QEMU" -ForegroundColor Green
     $hasQemu = $true
   } elseif (Test-Path "C:\Program Files\qemu\qemu-system-x86_64.exe") {
-    Write-Host "  ✓ QEMU (found in Program Files)" -ForegroundColor Green
+    Write-Host "  [OK] QEMU (found in Program Files)" -ForegroundColor Green
     $hasQemu = $true
   } else {
-    Write-Host "  ✗ QEMU not found" -ForegroundColor Red
+    Write-Host "  [X] QEMU not found" -ForegroundColor Red
     $needSetup = $true
   }
 
@@ -84,7 +84,8 @@ if (-not $SkipSetup) {
     if ([string]::IsNullOrEmpty($response)) { $response = "Y" }
 
     if ($response -match '^[Yy]') {
-      & (Join-Path $RootDir "scripts\setup-windows.ps1")
+      $setupScript = Join-Path $RootDir 'scripts\setup-windows.ps1'
+      & $setupScript
     } else {
       Write-Host "Setup skipped. Install Docker Desktop and QEMU manually, then re-run."
       exit 1
@@ -112,11 +113,12 @@ if ($Clean) {
   }
 }
 
-& (Join-Path $RootDir "scripts\build.ps1") "all"
+$buildScript = Join-Path $RootDir 'scripts\build.ps1'
+& $buildScript "all"
 Write-Host ""
 
 if ($BuildOnly) {
-  Write-Host "Build complete. Artifacts in artifacts\"
+  Write-Host "Build complete. Artifacts in artifacts/"
   exit 0
 }
 
@@ -124,5 +126,6 @@ if ($BuildOnly) {
 Write-Host "[3/3] Booting SecureOS in QEMU..."
 Write-Host ""
 
-$bootMode = if ($Graphics) { "graphics" } else { "console" }
-& (Join-Path $RootDir "scripts\boot.ps1") $bootMode
+if ($Graphics) { $bootMode = "graphics" } else { $bootMode = "console" }
+$bootScript = Join-Path $RootDir 'scripts\boot.ps1'
+& $bootScript $bootMode

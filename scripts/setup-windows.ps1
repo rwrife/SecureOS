@@ -12,8 +12,8 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Write-Ok   { param([string]$Msg) Write-Host "  ✓ $Msg" -ForegroundColor Green }
-function Write-Err  { param([string]$Msg) Write-Host "  ✗ $Msg" -ForegroundColor Red }
+function Write-Ok   { param([string]$Msg) Write-Host "  [OK] $Msg" -ForegroundColor Green }
+function Write-Err  { param([string]$Msg) Write-Host "  [X] $Msg" -ForegroundColor Red }
 function Write-Step { param([string]$Msg) Write-Host "`n==> $Msg" }
 
 function Test-Command {
@@ -113,7 +113,7 @@ function Verify-Installation {
   if (Test-DockerRunning) {
     Write-Ok "Docker daemon is running"
   } else {
-    Write-Host "  ⚠ Docker daemon not running. Start Docker Desktop first." -ForegroundColor Yellow
+    Write-Host "  [!] Docker daemon not running. Start Docker Desktop first." -ForegroundColor Yellow
   }
 
   if ($failed) {
@@ -123,7 +123,7 @@ function Verify-Installation {
   }
 
   Write-Host ""
-  Write-Host "✓ Setup complete! You can now run: .\start.ps1" -ForegroundColor Green
+  Write-Host "[OK] Setup complete! You can now run: .\start.ps1" -ForegroundColor Green
 }
 
 # --- Main ---

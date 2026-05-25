@@ -48,7 +48,7 @@ docker run --rm -v "${DockerRoot}:/workspace" -w /workspace $ImageTag bash -lc "
 if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
 Write-Host ""
-Write-Host "✓ Build complete. Artifacts:" -ForegroundColor Green
+Write-Host "[OK] Build complete. Artifacts:" -ForegroundColor Green
 $isoPath = Join-Path $RootDir "artifacts\kernel\secureos.iso"
 $elfPath = Join-Path $RootDir "artifacts\kernel\kernel.elf"
 $diskPath = Join-Path $RootDir "artifacts\disk\secureos-disk.img"
