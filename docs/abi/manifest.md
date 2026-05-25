@@ -121,6 +121,23 @@ Field semantics we are committing to at v0:
   lands in issue #279 — so this is an additive, v0-compatible
   change and does **not** bump `OS_ABI_VERSION` (see Compatibility
   policy below).
+- `capabilities.broker_role` is an optional enum
+  (`"provider"` | `"consumer"` | `"none"`) that declares whether
+  this app participates in the broker-share contracts named in
+  BUILD_ROADMAP §5.4 (`DocumentProvider` / `AttachmentConsumer`,
+  see issue #312 and plan #299). The default is `"none"`, which
+  preserves today's behavior exactly: the launcher hands no broker
+  handle to the app at spawn time and `ipc_scratch[24..31]` is left
+  as it is in the pre-broker spawn path. `"provider"` marks an app
+  that exposes shareable handles via `broker_svc`; `"consumer"`
+  marks an app that expects to receive a broker-issued handle in
+  `ipc_scratch[24..31]` on spawn. Like `persistence`, this field is
+  schema-only at v0 — the launcher and `broker_svc` wiring lands
+  in a later slice (plan #299 follow-up). Because the field is
+  **optional**, has a non-`"none"` value only when explicitly
+  declared, and `"none"` exactly preserves the current spawn path,
+  adding it is additive and does **not** bump `OS_ABI_VERSION`
+  (same precedent as `capabilities.persistence` in #285/#286).
 - `provides[]` lists IPC endpoints the app exposes (see
   [`ipc-wire.md`](./ipc-wire.md)). Endpoint names use a narrow
   reverse-DNS-ish pattern.
@@ -157,6 +174,26 @@ into [`manifests/examples/`](../../manifests/examples/):
   capability-audit deny event is recorded (see #92 for the dedicated
   negative-path test and #84 for the audit assertion).
 
+Two additional fixtures exercise the optional
+`capabilities.broker_role` enum added in #312:
+
+- **Broker provider** —
+  [`helloapp.broker_provider.json`](../../manifests/examples/helloapp.broker_provider.json):
+  same as `helloapp.json` but with `capabilities.broker_role:
+  "provider"`. Demonstrates a `DocumentProvider` declaration.
+- **Broker consumer** —
+  [`helloapp.broker_consumer.json`](../../manifests/examples/helloapp.broker_consumer.json):
+  same as `helloapp.json` but with `capabilities.broker_role:
+  "consumer"`. Demonstrates an `AttachmentConsumer` declaration.
+
+Both fixtures are schema-only at v0: the launcher and `broker_svc`
+still behave as they do today (no broker handle is handed in on
+spawn) — the field's runtime meaning is wired up in a later slice
+(plan #299 follow-up). The existing `helloapp.json` /
+`helloapp.deny.json` / `helloapp.persistent.json` examples omit
+`broker_role` and so continue to behave as `broker_role: "none"`,
+proving that the addition is backward-compatible.
+
 ## Compatibility policy
 
 `manifest_version` and `os_abi_version` are two intentionally separate
@@ -190,4 +227,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 7f303d7e901d6707e6f223a2b1fa1b0621792963
+Last verified against commit: 756ea5d5454843dba079abc5a358591ccddbdad8
