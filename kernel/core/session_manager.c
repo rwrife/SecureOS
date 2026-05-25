@@ -362,13 +362,25 @@ size_t session_manager_write_input(unsigned int session_id, const char *input,
 }
 
 void session_manager_tick(unsigned int session_id) {
+  unsigned int prev_active;
   if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
     return;
   }
 
+  /* Temporarily switch active session so console_write's VFB hook
+   * targets the correct session during tick processing */
+  prev_active = g_active_session_id;
+  g_active_session_id = session_id;
+
   /* Bind the target session's context, process injected input, restore */
   console_bind_context(&g_sessions[session_id].console_context);
   console_process_injected();
+
+  /* Restore previous active session and context */
+  g_active_session_id = prev_active;
+  if (prev_active < SESSION_MAX && g_sessions[prev_active].in_use) {
+    console_bind_context(&g_sessions[prev_active].console_context);
+  }
 }
 
 void session_manager_set_wm_managed(unsigned int session_id, int managed) {
@@ -379,10 +391,23 @@ void session_manager_set_wm_managed(unsigned int session_id, int managed) {
 
   /* Eagerly allocate VFB when marking as WM-managed */
   if (managed && g_sessions[session_id].vfb == 0) {
+    serial_hal_write("[wm] allocating VFB for session\n");
     g_sessions[session_id].vfb =
         (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
     g_sessions[session_id].vfb_cursor_col = 0;
     g_sessions[session_id].vfb_cursor_row = 0;
+    if (g_sessions[session_id].vfb != 0) {
+      /* Zero the buffer */
+      unsigned int bi;
+      for (bi = 0; bi < SESSION_VFB_SIZE; bi++) {
+        g_sessions[session_id].vfb[bi] = 0;
+      }
+      /* Render an initial prompt so the user sees something */
+      session_manager_vfb_write(session_id, "[s");
+      session_manager_vfb_putchar(session_id, '0' + (char)(session_id % 10));
+      session_manager_vfb_write(session_id, " /]> ");
+    }
+    serial_hal_write("[wm] VFB allocated\n");
   }
 }
 

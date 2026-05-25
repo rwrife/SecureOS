@@ -37,32 +37,55 @@ int main(void) {
   win_window_t *initial_win;
   unsigned int session_id = 0;
 
+  os_console_write("[win] main() entered\n");
+
   /* Enter graphics mode */
-  if (os_video_set_mode(OS_VIDEO_MODE_GFX) != OS_STATUS_OK) {
-    os_console_write("win: failed to enter graphics mode\n");
-    return 1;
+  os_console_write("[win] calling os_video_set_mode(GFX)\n");
+  {
+    os_status_t st = os_video_set_mode(OS_VIDEO_MODE_GFX);
+    if (st != OS_STATUS_OK) {
+      os_console_write("[win] FAILED to enter gfx mode\n");
+      return 1;
+    }
   }
+  os_console_write("[win] gfx mode OK\n");
 
   /* Initialize subsystems */
+  os_console_write("[win] init subsystems\n");
   win_init();
+  os_console_write("[win] win_init done\n");
   compositor_init();
+  os_console_write("[win] compositor_init done\n");
   input_init();
+  os_console_write("[win] input_init done\n");
 
   /* Create a session for the first window */
+  os_console_write("[win] creating session\n");
   if (os_session_create(&session_id) != OS_STATUS_OK) {
     /* Fallback: use session 1 if create fails */
     session_id = 1;
+    os_console_write("[win] session_create failed, using 1\n");
+  } else {
+    os_console_write("[win] session created OK\n");
   }
 
   /* Mark the session as WM-managed so video calls go to virtual framebuffer
    * and auth prompts route through the event bus */
+  os_console_write("[win] setting wm_managed\n");
   os_session_set_wm_managed(session_id, 1);
+  os_console_write("[win] wm_managed set\n");
 
   /* Create initial window */
+  os_console_write("[win] creating window\n");
   initial_win = win_create(10, 10, "Session 1", session_id);
   if (initial_win != 0) {
     win_set_focus(initial_win);
+    os_console_write("[win] window created & focused\n");
+  } else {
+    os_console_write("[win] win_create returned NULL\n");
   }
+
+  os_console_write("[win] entering main loop\n");
 
   /* Main event loop */
   while (1) {
@@ -99,6 +122,6 @@ int main(void) {
 
   /* Restore text mode */
   os_video_set_mode(OS_VIDEO_MODE_TEXT);
-  os_console_write("win: exited\n");
+  os_console_write("[win] exited\n");
   return 0;
 }

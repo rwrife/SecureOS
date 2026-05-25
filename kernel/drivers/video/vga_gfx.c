@@ -21,6 +21,7 @@
 
 #include "vga_gfx.h"
 #include "vga_text.h"
+#include "../../hal/serial_hal.h"
 
 #define VGA_GFX_FRAMEBUFFER ((volatile unsigned char *)0xA0000)
 #define VGA_GFX_FB_SIZE     (VGA_GFX_WIDTH * VGA_GFX_HEIGHT)
@@ -127,7 +128,9 @@ static void vga_restore_text_palette(void) {
 
 int vga_gfx_enter(void) {
   /* Save text-mode font from plane 2 before mode switch corrupts it */
+  serial_hal_write("[vga_gfx] saving font\n");
   vga_save_font();
+  serial_hal_write("[vga_gfx] font saved, programming regs\n");
 
   /* Use BIOS-style VGA register programming to set mode 13h (320x200x256).
    * In a real BIOS environment we'd use int 0x10 AH=0x00 AL=0x13, but
@@ -208,7 +211,9 @@ int vga_gfx_enter(void) {
   vga_outb(0x3C0, 0x20);
 
   g_gfx_active = 1;
+  serial_hal_write("[vga_gfx] mode 13h active\n");
   vga_gfx_clear(0);
+  serial_hal_write("[vga_gfx] cleared, done\n");
   return 1;
 }
 

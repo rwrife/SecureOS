@@ -19,7 +19,7 @@ build_user_app_inner() {
   EXTRA_OBJECTS=""
   NETLIB_OBJECTS=""
   USER_CFLAGS="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -I user/include"
-  USER_LDFLAGS="-m elf_x86_64 -nostdlib -e main"
+  USER_LDFLAGS="-m elf_x86_64 -nostdlib -e main --image-base=0x800000"
 
   if [ -d "$APP_DIR/resources" ]; then
     python3 - "$APP_DIR/resources" "artifacts/user/${APP_NAME}_resources_gen.c" <<'PY'

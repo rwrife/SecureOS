@@ -39,6 +39,7 @@
 #include "../fs/fs_service.h"
 #include "../hal/input_hal.h"
 #include "../hal/mouse_hal.h"
+#include "../hal/serial_hal.h"
 #include "../hal/storage_hal.h"
 #include "../hal/video_hal.h"
 #include "../drivers/video/vga_text.h"
@@ -211,8 +212,8 @@ enum {
   APP_ARGV_MAX = 8,
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
   APP_NATIVE_BRIDGE_VERSION = 1u,
-  APP_NATIVE_BRIDGE_ADDR = 0x003FF000u,
-  APP_NATIVE_LOAD_MIN = 0x00200000u,
+  APP_NATIVE_BRIDGE_ADDR = 0x009FF000u,
+  APP_NATIVE_LOAD_MIN = 0x00800000u,
   APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
 };
 
@@ -707,6 +708,8 @@ static int app_native_video_set_mode(int mode) {
   unsigned int sid = session_manager_active_id();
   int wm_managed = session_manager_is_wm_managed(sid);
 
+  serial_hal_write("[bridge] video_set_mode called\n");
+
   if (mode == 1) {
     /* Graphics mode request */
     if (wm_managed) {
@@ -719,10 +722,12 @@ static int app_native_video_set_mode(int mode) {
       return 3; /* allocation failed */
     }
     /* Not WM-managed: use real hardware */
+    serial_hal_write("[bridge] calling vga_gfx_enter\n");
     if (!vga_gfx_enter()) {
       return 3;
     }
     mouse_hal_set_bounds(VGA_GFX_WIDTH, VGA_GFX_HEIGHT);
+    serial_hal_write("[bridge] gfx mode enter done\n");
     return 0;
   } else if (mode == 0) {
     /* Text mode request */
@@ -1085,9 +1090,11 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       return PROCESS_ERR_FORMAT;
     }
     if (p_vaddr < APP_NATIVE_LOAD_MIN || p_memsz > (uint64_t)APP_NATIVE_LOAD_MAX - p_vaddr) {
+      serial_hal_write("[elf] DENIED: segment vaddr out of range\n");
       return PROCESS_ERR_DENIED;
     }
 
+    serial_hal_write("[elf] loading segment at vaddr\n");
     dst = (uint8_t *)(uintptr_t)p_vaddr;
     app_mem_copy(dst, &elf_data[p_offset], (size_t)p_filesz);
     if (p_memsz > p_filesz) {
@@ -1140,6 +1147,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
   bridge->session_set_wm_managed = app_native_session_set_wm_managed;
 
+  serial_hal_write("[elf] bridge wired, calling entry\n");
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
   (void)entry();
 
