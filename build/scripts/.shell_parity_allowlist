@@ -76,6 +76,7 @@ test_launcher_console
 test_launcher_fs
 test_launcher_spawn_handoff
 test_launcher_fs_spawn_handoff
+test_launcher_broker_spawn_handoff
 test_manifest_persistence_enum
 test_manifest_required_fields
 test_netlib_url_scheme

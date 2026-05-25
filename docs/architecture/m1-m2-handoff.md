@@ -6,7 +6,7 @@
 | Status           | accepted (slice 2 of plan #263 / M2-on-M1 substrate)  |
 | Last reviewed    | 2026-05-24                                            |
 | Applies to       | `OS_ABI_VERSION = 0`                                  |
-| Tracking issue   | #269                                                  |
+| Tracking issue   | #269 / #279 / #303                                    |
 | Source-of-truth  | `kernel/user/launcher.{c,h}`, `kernel/proc/address_space.{c,h}` |
 
 ## Problem
@@ -46,8 +46,15 @@ offset  bytes  meaning
    4      4    reserved (zeroed by aspace_partition)
    8      8    LE64(cap_handle_t) — M3 fs_svc READ handle  (#279)
   16      8    LE64(cap_handle_t) — M3 fs_svc WRITE handle (#279, zero when not granted)
-  24     40    reserved (zeroed by aspace_partition)
+  24      8    LE64(cap_handle_t) — M4 broker_svc CAP_IPC_SEND handle (#303, zero when not granted)
+  32     32    reserved (zeroed by aspace_partition)
 ```
+
+The M4 broker-handle slot ([24..32)) is written by
+`launcher_broker_spawn_app_with_broker_cap()` (slice 2 of plan #300).
+The upper 32 bits of the LE64 slot are reserved-zero under
+`OS_ABI_VERSION = 0`; same forward-compatibility carve-out as the
+fs slots above.
 
 The M3 fs-handle slots ([8..16) and [16..24)) are written by
 `launcher_fs_spawn_app_with_fs_caps()` (slice 2 of plan #277). The
