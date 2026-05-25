@@ -73,6 +73,12 @@
           "type": "string",
           "enum": ["ephemeral", "persistent"],
           "default": "ephemeral"
+        },
+        "broker_role": {
+          "description": "Broker-share role this app participates in (BUILD_ROADMAP §5.4, issue #312). 'provider' is a DocumentProvider that produces shareable handles via broker_svc; 'consumer' is an AttachmentConsumer that receives broker-issued handles in ipc_scratch[24..31]; 'none' (default) keeps today's behavior of no broker handle on spawn. Schema-only / additive at v0 — launcher and broker_svc wiring lands in a later slice (plan #299 follow-up); this field does not bump OS_ABI_VERSION.",
+          "type": "string",
+          "enum": ["provider", "consumer", "none"],
+          "default": "none"
         }
       }
     },
