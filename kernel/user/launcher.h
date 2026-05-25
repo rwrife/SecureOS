@@ -238,4 +238,48 @@ launcher_result_t launcher_fs_spawn_app_with_fs_caps(
  * fail closed after the call. */
 launcher_result_t launcher_fs_spawn_destroy(process_id_t pid);
 
+/* ----------------------------------------------------------------
+ * Slice-2 of plan #300 (M4-SUBSTRATE-002, issue #303): launcher
+ * spawn variant that pre-stamps the broker-svc capability handle
+ * into the new process's per-process IPC scratch region.
+ *
+ * Mirrors the M3 fs-handle handoff shape (`launcher_fs_spawn_t`),
+ * but stamps the broker handle at the fixed offset in `ipc_scratch`:
+ *
+ *   offset  bytes  meaning
+ *      0      8    reserved (M1 console single-handle handoff)
+ *      8     16    reserved (M3 fs READ/WRITE handle pair)
+ *     24      8    LE64(cap_handle_t)  — CAP_IPC_SEND handle for
+ *                  broker-svc port (the v0 spelling for the
+ *                  broker request-send capability per plan
+ *                  §"Capability id for the broker-svc port" opt 1)
+ *     32     32    reserved / available for normal IPC send buffer
+ *
+ * Owner / recipient apps both consume the same handle; broker
+ * authority is enforced inside `cap_broker_*` against the
+ * `sender_subject` field on the inbound request, not at the gate.
+ *
+ * The upper 32 bits of the LE64 slot are reserved and MUST be zero
+ * in v0 (cap_handle_t is 32-bit under OS_ABI_VERSION=0).
+ *
+ * No ABI bump: `launcher_result_t` codes, `cap_handle_t` layout,
+ * and `address_space_t::ipc_scratch` sizing are all pre-frozen
+ * under `OS_ABI_VERSION = 0`. `ipc_scratch` is kernel-internal.
+ */
+typedef struct {
+  process_id_t      pid;
+  address_space_t  *aspace;
+  cap_handle_t      broker_handle;  /* CAP_IPC_SEND; non-NULL on success */
+} launcher_broker_spawn_t;
+
+launcher_result_t launcher_broker_spawn_app_with_broker_cap(
+    const launcher_manifest_t *manifest,
+    launcher_broker_spawn_t *out_spawn);
+
+/* Destroy a spawn produced by `launcher_broker_spawn_app_with_broker_cap()`.
+ * Same contract as `launcher_spawn_destroy()`: PCB tear-down cascades
+ * `cap_handle_revoke_subject()` per #239 so the stamped broker handle
+ * fails closed after the call. */
+launcher_result_t launcher_broker_spawn_destroy(process_id_t pid);
+
 #endif

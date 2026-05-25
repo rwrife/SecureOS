@@ -531,3 +531,103 @@ launcher_result_t launcher_fs_spawn_destroy(process_id_t pid) {
    * both the read and write handles fail cleanly post-call. */
   return launcher_spawn_destroy(pid);
 }
+
+/* ----------------------------------------------------------------
+ * M4-SUBSTRATE-002 (issue #303): launcher-mediated spawn variant
+ * that pre-stamps the broker-svc CAP_IPC_SEND handle into the
+ * spawned process's per-process ipc_scratch region at offset 24.
+ *
+ * Mirrors the M3 fs_spawn shape: the shared launcher spawn pool
+ * tracks the spawn; the slot's `handle`/`cap` fields hold the
+ * broker handle / CAP_IPC_SEND so `launcher_spawn_destroy()` can
+ * tear it down through the same code path.
+ * ---------------------------------------------------------------- */
+
+launcher_result_t launcher_broker_spawn_app_with_broker_cap(
+    const launcher_manifest_t *manifest,
+    launcher_broker_spawn_t *out_spawn) {
+  if (out_spawn == NULL) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+  out_spawn->pid = PID_INVALID;
+  out_spawn->aspace = NULL;
+  out_spawn->broker_handle = CAP_HANDLE_NULL;
+
+  if (manifest == NULL) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+  if (!launcher_subject_in_range(manifest->subject_id) ||
+      manifest->subject_id == 0u) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+  /* The broker-spawn path does not consume `auto_grant_caps` — the
+   * broker send handle is implied by calling this entry point. Reject
+   * a non-zero auto_grant_count so the caller can't smuggle in an
+   * unrelated console/fs grant by accident (matches fs-spawn contract). */
+  if (manifest->auto_grant_count != 0u) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+
+  launcher_spawn_slot_t *slot = launcher_spawn_slot_alloc();
+  if (slot == NULL) {
+    return LAUNCHER_ERR_INTERNAL;
+  }
+
+  /* (1) Carve a fresh aspace window. */
+  address_space_t *as = launcher_aspace_claim();
+  if (as == NULL) {
+    return LAUNCHER_ERR_ASPACE;
+  }
+  if (as->ipc_scratch == NULL) {
+    return LAUNCHER_ERR_SCRATCH;
+  }
+
+  /* (2) Spawn the PCB. */
+  process_id_t pid = PID_INVALID;
+  if (process_create(manifest->subject_id, as, &pid) != PROC_OK) {
+    return LAUNCHER_ERR_PROC_CREATE;
+  }
+
+  /* (3) Zero the full scratch slot so reserved-bytes guarantees hold
+   * regardless of arena re-use. The LE write below clobbers bytes
+   * [24..32); bytes [0..24) and [32..64) are left zero. */
+  memset(as->ipc_scratch, 0, IPC_MSG_PAYLOAD_MAX);
+
+  /* (4) Mint the CAP_IPC_SEND handle for the broker-svc port. Keep
+   * the legacy bitset grant in sync so audit-trail tests that go
+   * through cap_check still see the grant. */
+  if (cap_table_grant(manifest->subject_id, CAP_IPC_SEND) != CAP_OK) {
+    (void)process_destroy(pid);
+    return LAUNCHER_ERR_HANDLE_MINT;
+  }
+  cap_handle_t broker_h =
+      cap_handle_grant(manifest->subject_id, CAP_IPC_SEND);
+  if (broker_h == CAP_HANDLE_NULL) {
+    (void)process_destroy(pid);
+    return LAUNCHER_ERR_HANDLE_MINT;
+  }
+
+  /* (5) Stamp the handle into ipc_scratch[24..32). IPC_MSG_PAYLOAD_MAX
+   * == 64 so [24..32) is always in-bounds. */
+  uint8_t *p = as->ipc_scratch;
+  scratch_store_handle_le64(&p[24], broker_h);
+
+  slot->in_use = true;
+  slot->pid = pid;
+  slot->aspace = as;
+  slot->handle = broker_h;
+  slot->cap = CAP_IPC_SEND;
+
+  out_spawn->pid = pid;
+  out_spawn->aspace = as;
+  out_spawn->broker_handle = broker_h;
+  return LAUNCHER_OK;
+}
+
+launcher_result_t launcher_broker_spawn_destroy(process_id_t pid) {
+  /* Shared slot pool with console + fs spawn variants; one teardown
+   * path covers all three. process_destroy() cascades
+   * cap_handle_revoke_subject() (#239) so the stamped broker handle
+   * fails closed post-call. */
+  return launcher_spawn_destroy(pid);
+}
