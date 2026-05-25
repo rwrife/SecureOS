@@ -27,6 +27,7 @@
 #include "launcher_fs.h"
 
 #include "../cap/cap_table.h"
+#include "../cap/capability.h"
 
 #define LAUNCHER_FS_MAX_APPS CAP_TABLE_MAX_SUBJECTS
 #define LAUNCHER_FS_MAX_FILES_PER_APP 4
@@ -214,6 +215,14 @@ launcher_fs_result_t launcher_fs_app_write(cap_subject_id_t app_subject_id,
   }
 
   if (cap_table_check(app_subject_id, CAP_FS_WRITE) != CAP_OK) {
+    /* Issue #311: emit audit-deny record on the persistent-write deny
+     * path. The fs_svc deny is a CHECK outcome (no grant attempted), so
+     * we use CAP_AUDIT_OP_CHECK with the missing-cap result. */
+    cap_audit_emit(CAP_AUDIT_OP_CHECK,
+                   app_subject_id,
+                   app_subject_id,
+                   CAP_FS_WRITE,
+                   CAP_ERR_MISSING);
     return LAUNCHER_FS_ERR_DENIED;
   }
 

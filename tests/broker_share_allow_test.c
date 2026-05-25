@@ -33,10 +33,6 @@ static void marker_fail(const char *name, const char *reason) {
 
 static void marker_pass(const char *name) { printf("TEST:PASS:%s\n", name); }
 
-static void marker_skip(const char *name, const char *reason) {
-  printf("TEST:SKIP:%s:%s\n", name, reason);
-}
-
 int main(void) {
   printf("TEST:START:broker_share_allow\n");
 
@@ -104,9 +100,43 @@ int main(void) {
   }
   marker_pass("broker_share_allow:scope_is_capability_bound");
 
-  /* 6: audit_grant_recorded — gated on #98 broker→audit wiring. */
-  marker_skip("broker_share_allow:audit_grant_recorded",
-              "broker_audit_unwired_pending_issue_98");
+  /* 6: audit_grant_recorded — issue #311 wires broker approve into the
+   * cap_audit ring. Verify exactly one new grant record is recorded
+   * naming approver=owner, subject=recipient, cap=CAP_FS_READ, result=OK. */
+  cap_audit_reset_for_tests();
+  cap_share_id_t aud_sid = CAP_SHARE_ID_INVALID;
+  if (cap_broker_request_share(owner, recip, CAP_FS_READ, "doc-alpha", &aud_sid) !=
+      CAP_BROKER_OK) {
+    marker_fail("broker_share_allow:audit_grant_recorded",
+                "audit_request_setup_failed");
+  }
+  /* deny first to drop the recipient grant so approve re-grants and we
+   * observe a fresh audit record from the broker, not from setup. */
+  if (cap_table_revoke(recip, CAP_FS_READ) != CAP_OK) {
+    /* ok if it was missing */
+  }
+  size_t pre_count = cap_audit_count_for_tests();
+  if (cap_broker_approve(owner, aud_sid) != CAP_BROKER_OK) {
+    marker_fail("broker_share_allow:audit_grant_recorded", "approve_failed");
+  }
+  if (cap_audit_count_for_tests() != pre_count + 1u) {
+    marker_fail("broker_share_allow:audit_grant_recorded",
+                "audit_record_count_unexpected");
+  }
+  cap_audit_event_t aud_ev;
+  if (cap_audit_get_for_tests(pre_count, &aud_ev) != CAP_OK) {
+    marker_fail("broker_share_allow:audit_grant_recorded",
+                "audit_get_failed");
+  }
+  if (aud_ev.operation != CAP_AUDIT_OP_GRANT ||
+      aud_ev.actor_subject_id != owner ||
+      aud_ev.subject_id != recip ||
+      aud_ev.capability_id != CAP_FS_READ ||
+      aud_ev.result != CAP_OK) {
+    marker_fail("broker_share_allow:audit_grant_recorded",
+                "audit_record_fields_mismatch");
+  }
+  marker_pass("broker_share_allow:audit_grant_recorded");
 
   printf("TEST:DONE:broker_share_allow\n");
   return 0;

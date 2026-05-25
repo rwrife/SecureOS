@@ -22,9 +22,7 @@ grep -q "TEST:PASS:fs_service_persist_deny:fail_closed" "$LOG_PATH"
 grep -q "TEST:PASS:fs_service_persist_deny:redirected_to_ephemeral" "$LOG_PATH"
 grep -q "TEST:PASS:fs_service_persist_deny:no_persist_visibility:fail_closed" "$LOG_PATH"
 grep -q "TEST:PASS:fs_service_persist_deny:no_persist_visibility:redirected" "$LOG_PATH"
-# Audit-deny assertion is gated on #84 / #98 (capability audit ring). Until
-# that wires into launcher_fs deny path on main, the slice emits SKIP, which
-# we still assert is present so the validator JSON report distinguishes
-# "not asserted" from "asserted and passed".
-grep -q "TEST:SKIP:fs_service_persist_deny:audit_deny_recorded:audit_log_unwired" "$LOG_PATH"
+# Audit-deny assertion is wired via issue #311 (launcher_fs persistent-write
+# deny now publishes into the cap_audit ring through cap_audit_emit()).
+grep -q "TEST:PASS:fs_service_persist_deny:audit_deny_recorded" "$LOG_PATH"
 grep -q "TEST:PASS:fs_service_persist_deny$" "$LOG_PATH"

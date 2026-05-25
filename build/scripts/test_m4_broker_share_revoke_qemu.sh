@@ -19,8 +19,8 @@
 #   - A substrate-only assertion calls process_destroy() on the
 #     recipient PCB and observes that cap_handle_revoke_subject()
 #     invalidates a prior recipient handle.
-#   - audit_revoke_recorded_qemu is SKIPped pending #98 broker→audit
-#     wiring (same shape as the host fixture).
+#   - audit_revoke_recorded_qemu asserts a broker-revoke audit record
+#     is emitted into the cap_audit ring (wired via #311).
 #
 # Emits the following deterministic markers (consumed by
 # build/scripts/test.sh and validate_bundle.sh):
@@ -31,7 +31,7 @@
 #   TEST:PASS:m4_broker_share_revoke_qemu:order_observed_qemu
 #   TEST:PASS:m4_broker_share_revoke_qemu:recipient_self_revoke_qemu
 #   TEST:PASS:m4_broker_share_revoke_qemu:process_destroy_recycle_revokes
-#   TEST:SKIP:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu:broker_audit_unwired_pending_issue_98
+#   TEST:PASS:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu
 #   TEST:PASS:m4_broker_share_revoke_qemu
 
 set -euo pipefail
@@ -70,6 +70,6 @@ grep -q "TEST:PASS:m4_broker_share_revoke_qemu:double_revoke_is_idempotent_qemu"
 grep -q "TEST:PASS:m4_broker_share_revoke_qemu:order_observed_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m4_broker_share_revoke_qemu:recipient_self_revoke_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m4_broker_share_revoke_qemu:process_destroy_recycle_revokes" "$LOG_PATH"
-grep -q "TEST:SKIP:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu" "$LOG_PATH"
+grep -q "TEST:PASS:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m4_broker_share_revoke_qemu$" "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"

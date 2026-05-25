@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "../kernel/cap/cap_table.h"
+#include "../kernel/cap/capability.h"
 #include "../kernel/user/launcher_fs.h"
 
 static void fail_marker(const char *reason) {
@@ -150,11 +151,34 @@ int main(void) {
   run_fail_closed_branch();
   run_redirected_branch();
 
-  /* Audit-deny assertion is gated on #84 / #98 landing. Until the audit
-   * ring is wired through the launcher_fs deny path on main, emit a SKIP
-   * marker so the validator JSON report can distinguish "not asserted"
-   * from "asserted and passed". */
-  printf("TEST:SKIP:fs_service_persist_deny:audit_deny_recorded:audit_log_unwired\n");
+  /* Audit-deny assertion (issue #311): re-run the fail-closed write with
+   * a fresh audit ring and verify exactly one audit record is emitted
+   * naming actor=subject=denied, cap=CAP_FS_WRITE, result=CAP_ERR_MISSING. */
+  cap_table_reset();
+  launcher_fs_reset();
+  cap_audit_reset_for_tests();
+  if (launcher_fs_register_app(1u, LAUNCHER_FS_MODE_PERSISTENT) != LAUNCHER_FS_OK) {
+    fail_marker("audit_deny_register");
+  }
+  size_t pre = cap_audit_count_for_tests();
+  if (launcher_fs_app_write(1u, "secret.txt", "x") != LAUNCHER_FS_ERR_DENIED) {
+    fail_marker("audit_deny_write_should_be_denied");
+  }
+  if (cap_audit_count_for_tests() != pre + 1u) {
+    fail_marker("audit_deny_record_count_unexpected");
+  }
+  cap_audit_event_t ev;
+  if (cap_audit_get_for_tests(pre, &ev) != CAP_OK) {
+    fail_marker("audit_deny_get_failed");
+  }
+  if (ev.operation != CAP_AUDIT_OP_CHECK ||
+      ev.actor_subject_id != 1u ||
+      ev.subject_id != 1u ||
+      ev.capability_id != CAP_FS_WRITE ||
+      ev.result != CAP_ERR_MISSING) {
+    fail_marker("audit_deny_record_fields_mismatch");
+  }
+  printf("TEST:PASS:fs_service_persist_deny:audit_deny_recorded\n");
 
   printf("TEST:PASS:fs_service_persist_deny\n");
   return 0;

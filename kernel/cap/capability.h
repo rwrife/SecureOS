@@ -119,6 +119,25 @@ cap_result_t cap_revoke_as_for_tests(cap_subject_id_t actor_subject_id,
                                      capability_id_t capability_id);
 cap_result_t cap_check(cap_subject_id_t subject_id, capability_id_t capability_id);
 
+/*
+ * Public audit-ring emitter.
+ *
+ * Records a structured audit event for a capability-mediated decision made
+ * outside `capability.c` itself (e.g. broker grant/deny/revoke, fs_svc
+ * persistent-write deny). This is the canonical wiring path closed by issue
+ * #311: callers that previously had no way to publish into the audit ring
+ * now share the same `cap_audit_event_t` tuple used by `cap_check` /
+ * `cap_grant_as_for_tests` / `cap_revoke_as_for_tests`.
+ *
+ * No-ABI-bump: this is an additive in-tree symbol; the on-wire and on-disk
+ * audit record schema is unchanged.
+ */
+void cap_audit_emit(cap_audit_op_t operation,
+                    cap_subject_id_t actor_subject_id,
+                    cap_subject_id_t subject_id,
+                    capability_id_t capability_id,
+                    cap_result_t result);
+
 void cap_audit_reset_for_tests(void);
 size_t cap_audit_count_for_tests(void);
 size_t cap_audit_dropped_for_tests(void);

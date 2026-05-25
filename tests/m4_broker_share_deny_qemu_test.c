@@ -313,9 +313,30 @@ int main(void) {
   }
   printf("TEST:PASS:m4_broker_share_deny_qemu:scope_is_capability_bound_qemu\n");
 
-  /* audit_deny_recorded_qemu — gated on #98 broker→audit wiring,
-   * same SKIP shape as the host fixture. */
-  printf("TEST:SKIP:m4_broker_share_deny_qemu:audit_deny_recorded_qemu:broker_audit_unwired_pending_issue_98\n");
+  /* audit_deny_recorded_qemu — issue #311. The deny envelope drained
+   * above already called cap_broker_deny(owner, sid); assert the audit
+   * ring contains a matching deny record. */
+  {
+    size_t total = cap_audit_count_for_tests();
+    int found = 0;
+    for (size_t i = 0; i < total; ++i) {
+      cap_audit_event_t ev;
+      if (cap_audit_get_for_tests(i, &ev) != CAP_OK) continue;
+      if (ev.operation == CAP_AUDIT_OP_GRANT &&
+          ev.actor_subject_id == owner &&
+          ev.subject_id == recip &&
+          ev.capability_id == CAP_FS_READ &&
+          ev.result == CAP_ERR_MISSING) {
+        found = 1;
+        break;
+      }
+    }
+    if (!found) {
+      fail("audit_deny_record_not_found");
+      goto out;
+    }
+  }
+  printf("TEST:PASS:m4_broker_share_deny_qemu:audit_deny_recorded_qemu\n");
 
   if (launcher_broker_spawn_destroy(sp.pid) != LAUNCHER_OK) {
     fail("broker_spawn_destroy_failed");

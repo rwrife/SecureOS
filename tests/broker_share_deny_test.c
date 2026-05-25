@@ -25,10 +25,6 @@ static void marker_fail(const char *name, const char *reason) {
 
 static void marker_pass(const char *name) { printf("TEST:PASS:%s\n", name); }
 
-static void marker_skip(const char *name, const char *reason) {
-  printf("TEST:SKIP:%s:%s\n", name, reason);
-}
-
 int main(void) {
   printf("TEST:START:broker_share_deny\n");
 
@@ -111,9 +107,38 @@ int main(void) {
   }
   marker_pass("broker_share_deny:bystander_cannot_mutate");
 
-  /* 7: audit_deny_recorded — gated on #98. */
-  marker_skip("broker_share_deny:audit_deny_recorded",
-              "broker_audit_unwired_pending_issue_98");
+  /* 7: audit_deny_recorded — issue #311. Set up a fresh request, then
+   * call cap_broker_deny and assert a single new audit record naming
+   * approver=owner, subject=recipient, cap=CAP_FS_READ, with the deny
+   * encoded as CAP_ERR_MISSING (no grant taken). */
+  cap_audit_reset_for_tests();
+  cap_share_id_t sid_aud = CAP_SHARE_ID_INVALID;
+  if (cap_broker_request_share(owner, recip, CAP_FS_READ, "doc-alpha", &sid_aud) !=
+      CAP_BROKER_OK) {
+    marker_fail("broker_share_deny:audit_deny_recorded",
+                "audit_request_setup_failed");
+  }
+  size_t pre = cap_audit_count_for_tests();
+  if (cap_broker_deny(owner, sid_aud) != CAP_BROKER_OK) {
+    marker_fail("broker_share_deny:audit_deny_recorded", "deny_failed");
+  }
+  if (cap_audit_count_for_tests() != pre + 1u) {
+    marker_fail("broker_share_deny:audit_deny_recorded",
+                "audit_record_count_unexpected");
+  }
+  cap_audit_event_t ev;
+  if (cap_audit_get_for_tests(pre, &ev) != CAP_OK) {
+    marker_fail("broker_share_deny:audit_deny_recorded", "audit_get_failed");
+  }
+  if (ev.operation != CAP_AUDIT_OP_GRANT ||
+      ev.actor_subject_id != owner ||
+      ev.subject_id != recip ||
+      ev.capability_id != CAP_FS_READ ||
+      ev.result != CAP_ERR_MISSING) {
+    marker_fail("broker_share_deny:audit_deny_recorded",
+                "audit_record_fields_mismatch");
+  }
+  marker_pass("broker_share_deny:audit_deny_recorded");
 
   printf("TEST:DONE:broker_share_deny\n");
   return 0;
