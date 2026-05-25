@@ -52,6 +52,14 @@ Write-Host "|            SecureOS Launcher                 |"
 Write-Host "+==============================================+"
 Write-Host ""
 
+# --- Step 0: Ensure git submodules are initialized ---
+$gitmodulesPath = Join-Path $RootDir ".gitmodules"
+$bearsslHeader = Join-Path $RootDir "vendor\bearssl\BearSSL\inc\bearssl.h"
+if ((Test-Path $gitmodulesPath) -and (-not (Test-Path $bearsslHeader))) {
+  Write-Host "[0/3] Initializing git submodules..."
+  git -C $RootDir submodule update --init --recursive
+}
+
 # --- Step 1: Dependency checks ---
 if (-not $SkipSetup) {
   Write-Host "[1/3] Checking dependencies..."

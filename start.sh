@@ -69,6 +69,14 @@ echo "║          SecureOS Launcher           ║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 
+# --- Step 0: Ensure git submodules are initialized ---
+if [ -f "$ROOT_DIR/.gitmodules" ]; then
+  if [ ! -f "$ROOT_DIR/vendor/bearssl/BearSSL/inc/bearssl.h" ]; then
+    echo "[0/3] Initializing git submodules..."
+    git -C "$ROOT_DIR" submodule update --init --recursive
+  fi
+fi
+
 # --- Step 1: Dependency checks ---
 if [[ "$SKIP_SETUP" -eq 0 ]]; then
   echo "[1/3] Checking dependencies..."
