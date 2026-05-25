@@ -69,12 +69,14 @@ static int lex_string(const char *line, int pos, sosh_token_list_t *out) {
   while (line[i] != '\0' && line[i] != '"') {
     if (line[i] == '\\' && line[i + 1] != '\0') {
       char escaped = line[i + 1];
-      switch (escaped) {
-        case 'n': buf[buf_len++] = '\n'; break;
-        case 't': buf[buf_len++] = '\t'; break;
-        case '\\': buf[buf_len++] = '\\'; break;
-        case '"': buf[buf_len++] = '"'; break;
-        default: buf[buf_len++] = escaped; break;
+      if (buf_len < SOSH_TOKEN_LEN_MAX - 1) {
+        switch (escaped) {
+          case 'n': buf[buf_len++] = '\n'; break;
+          case 't': buf[buf_len++] = '\t'; break;
+          case '\\': buf[buf_len++] = '\\'; break;
+          case '"': buf[buf_len++] = '"'; break;
+          default: buf[buf_len++] = escaped; break;
+        }
       }
       i += 2;
     } else {
@@ -121,8 +123,9 @@ static int lex_dollar(const char *line, int pos, sosh_token_list_t *out) {
     if (line[i] == '#') {
       /* ${#VAR} — string length */
       i++; /* skip '#' */
-      while (line[i] != '\0' && line[i] != '}' && buf_len < SOSH_TOKEN_LEN_MAX - 1) {
-        buf[buf_len++] = line[i++];
+      while (line[i] != '\0' && line[i] != '}') {
+        if (buf_len < SOSH_TOKEN_LEN_MAX - 1) buf[buf_len++] = line[i];
+        i++;
       }
       if (line[i] == '}') i++;
       add_token(out, SOSH_TOK_VARLEN, buf, buf_len);
@@ -130,8 +133,9 @@ static int lex_dollar(const char *line, int pos, sosh_token_list_t *out) {
     }
 
     /* ${VAR:start:len} — substring */
-    while (line[i] != '\0' && line[i] != '}' && buf_len < SOSH_TOKEN_LEN_MAX - 1) {
-      buf[buf_len++] = line[i++];
+    while (line[i] != '\0' && line[i] != '}') {
+      if (buf_len < SOSH_TOKEN_LEN_MAX - 1) buf[buf_len++] = line[i];
+      i++;
     }
     if (line[i] == '}') i++;
     add_token(out, SOSH_TOK_VARSUBSTR, buf, buf_len);

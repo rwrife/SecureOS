@@ -364,12 +364,17 @@ static int for_next_item(sosh_block_t *block, char *item, int item_size) {
   int i = 0;
   const char *items = block->for_items;
 
-  /* Skip leading spaces */
-  while (items[pos] == ' ' || items[pos] == '\t') pos++;
+  /* Skip leading whitespace including newlines */
+  while (items[pos] == ' ' || items[pos] == '\t' ||
+         items[pos] == '\n' || items[pos] == '\r') pos++;
   if (items[pos] == '\0') return 0;
 
-  while (items[pos] && items[pos] != ' ' && items[pos] != '\t' && i < item_size - 1) {
-    item[i++] = items[pos++];
+  while (items[pos] && items[pos] != ' ' && items[pos] != '\t' &&
+         items[pos] != '\n' && items[pos] != '\r') {
+    if (i < item_size - 1) {
+      item[i++] = items[pos];
+    }
+    pos++;
   }
   item[i] = '\0';
   block->for_pos = pos;
@@ -555,9 +560,16 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
           sosh_strcpy(var_name, tokens.tokens[1].value, SOSH_VAR_NAME_MAX);
           sosh_strcpy(blocks[block_depth].for_var, var_name, SOSH_VAR_NAME_MAX);
 
-          /* Evaluate the expression after "in" */
+          /* Evaluate all tokens after "in" into items, space-separated */
           pos = 3;
-          eval_expr(&tokens, &pos, state, items, sizeof(items));
+          items[0] = '\0';
+          while (pos < tokens.count) {
+            char tok_val[SOSH_VAR_VALUE_MAX];
+            resolve_token(&tokens.tokens[pos], state, tok_val, sizeof(tok_val));
+            if (items[0] != '\0') sosh_strcat(items, " ", sizeof(items));
+            sosh_strcat(items, tok_val, sizeof(items));
+            pos++;
+          }
           sosh_strcpy(blocks[block_depth].for_items, items, SOSH_VAR_VALUE_MAX);
           blocks[block_depth].for_pos = 0;
 
@@ -706,6 +718,7 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
       char out_buf[SOSH_VAR_VALUE_MAX];
       int rc;
 
+      out_buf[0] = '\0';
       resolve_token(&tokens.tokens[0], state, cmd, sizeof(cmd));
 
       /* Build args from remaining tokens */
