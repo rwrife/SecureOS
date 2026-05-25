@@ -48,4 +48,4 @@ manifest) each have a dedicated page per #181.
 
 ## Provenance
 
-Last verified against commit: f73b31b6a8cf992923e3b6d82e67644bcf9059ee
+Last verified against commit: ddd678e1add3ee82f260a44612a498913be17eac
