@@ -43,4 +43,11 @@ int ctx_save(ctx_jmp_buf_t *buf);
  */
 void ctx_resume(ctx_jmp_buf_t *buf, int value) __attribute__((noreturn));
 
+/**
+ * Switch to a new stack and call a void(void) function. When the function
+ * returns, switches back to the original stack and returns to the caller.
+ * stack_top must be 16-byte aligned.
+ */
+void ctx_call_on_stack(void *stack_top, void (*func)(void));
+
 #endif /* SECUREOS_CTX_SWITCH_H */

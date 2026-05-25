@@ -43,6 +43,10 @@ enum {
 #define VFB_FG_COLOR 15  /* white */
 #define VFB_BG_COLOR 0   /* black */
 
+/* Each WM-managed session gets its own 16KB stack for tick execution
+ * so that yielded frames aren't corrupted by the WM's main loop. */
+#define SESSION_TICK_STACK_SIZE 16384
+
 typedef struct {
   int in_use;
   unsigned int session_id;
@@ -57,6 +61,7 @@ typedef struct {
   /* Cooperative yield state for auth spin-wait */
   int blocked;                      /* 1 if yielded mid-command */
   ctx_jmp_buf_t blocked_ctx;        /* Saved context at idle_wait point */
+  unsigned char *tick_stack;        /* Dedicated stack for tick execution */
 } session_record_t;
 
 static session_record_t g_sessions[SESSION_MAX];
@@ -371,9 +376,45 @@ size_t session_manager_write_input(unsigned int session_id, const char *input,
   return injected;
 }
 
+/* Wrapper that runs console_process_injected on the session's tick stack.
+ * When it completes (or if it never yields), jump back to the tick return
+ * point so we don't rely on the stale stack frame from ctx_call_on_stack. */
+static void tick_trampoline(void) {
+  console_process_injected();
+  /* Command completed without yielding (or after resume completed).
+   * Jump back to the tick's ctx_save point so we exit cleanly. */
+  ctx_resume(&g_tick_return_ctx, 2);
+}
+
 void session_manager_tick(unsigned int session_id) {
   unsigned int prev_active;
+  int save_result;
   if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+
+  /* Allocate tick stack on first use */
+  if (g_sessions[session_id].tick_stack == 0 &&
+      g_sessions[session_id].console_context.wm_managed) {
+    g_sessions[session_id].tick_stack =
+        (unsigned char *)kmalloc(SESSION_TICK_STACK_SIZE);
+    if (g_sessions[session_id].tick_stack == 0) {
+      return; /* Cannot tick without a stack */
+    }
+  }
+
+  /* Non-WM sessions: just process injected input directly */
+  if (!g_sessions[session_id].console_context.wm_managed) {
+    prev_active = g_active_session_id;
+    g_active_session_id = session_id;
+    g_tick_session_id = session_id;
+    console_bind_context(&g_sessions[session_id].console_context);
+    console_process_injected();
+    g_active_session_id = prev_active;
+    g_tick_session_id = SESSION_MAX;
+    if (prev_active < SESSION_MAX && g_sessions[prev_active].in_use) {
+      console_bind_context(&g_sessions[prev_active].console_context);
+    }
     return;
   }
 
@@ -386,25 +427,37 @@ void session_manager_tick(unsigned int session_id) {
   /* Bind the target session's context */
   console_bind_context(&g_sessions[session_id].console_context);
 
-  /* Save the "return to WM" context. If console_idle_wait yields,
-   * it will ctx_resume here with value 1. */
-  if (ctx_save(&g_tick_return_ctx) != 0) {
-    /* We got here via yield from console_idle_wait — session is blocked */
+  /* Save the "return to WM" context.
+   * Returns: 0 = initial save, 1 = yield (session blocked), 2 = completed */
+  save_result = ctx_save(&g_tick_return_ctx);
+  if (save_result == 1) {
+    /* Yielded from console_idle_wait — session is blocked on auth */
     g_sessions[session_id].blocked = 1;
+    goto restore;
+  }
+  if (save_result == 2) {
+    /* tick_trampoline completed — command finished normally */
     goto restore;
   }
 
   if (g_sessions[session_id].blocked) {
     /* Session was previously yielded (blocked on auth).
-     * Resume into the saved context — execution continues inside
-     * console_idle_wait's spin loop which will re-check if responded. */
+     * Resume into the saved context on the session's tick stack. */
     g_sessions[session_id].blocked = 0;
     ctx_resume(&g_sessions[session_id].blocked_ctx, 1);
-    /* Does not return — control goes to ctx_save in console_idle_wait */
+    /* Does not return */
   }
 
-  /* Normal path: process injected input */
-  console_process_injected();
+  /* Normal path: run on the session's dedicated tick stack */
+  {
+    unsigned char *stack_top = g_sessions[session_id].tick_stack +
+                               SESSION_TICK_STACK_SIZE;
+    /* Align to 16 bytes */
+    stack_top = (unsigned char *)((unsigned long)stack_top & ~0xFUL);
+    ctx_call_on_stack(stack_top, tick_trampoline);
+    /* Should not reach here — tick_trampoline always ctx_resumes back.
+     * But if it somehow does, fall through to restore. */
+  }
 
 restore:
   /* Restore previous active session and context */

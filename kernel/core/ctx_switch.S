@@ -63,3 +63,28 @@ ctx_resume:
     movl %esi, %eax
     /* Jump to saved return address */
     jmpq *56(%rdi)
+
+/**
+ * void ctx_call_on_stack(void *stack_top, void (*func)(void))
+ *   stack_top in %rdi, func in %rsi
+ *   Switches to the new stack, calls func, then restores original stack.
+ */
+.global ctx_call_on_stack
+ctx_call_on_stack:
+    /* Save original stack pointer and base pointer */
+    movq %rsp, %rdx
+    movq %rbp, %rcx
+    /* Switch to new stack (already 16-byte aligned by caller) */
+    movq %rdi, %rsp
+    /* Push original rsp so we can restore it */
+    pushq %rdx
+    pushq %rcx
+    /* Align stack for the call (16-byte aligned minus 16 for saved regs) */
+    /* Call the function */
+    callq *%rsi
+    /* Restore original stack */
+    popq %rcx
+    popq %rdx
+    movq %rcx, %rbp
+    movq %rdx, %rsp
+    ret
