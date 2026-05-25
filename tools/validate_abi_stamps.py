@@ -155,6 +155,24 @@ def main() -> int:
         print(f"ABI_STAMP:FAIL:not_a_git_checkout:{exc}", file=sys.stderr)
         return 2
 
+    # Refuse to run against a shallow clone: `git log -- <path>` on a
+    # shallow checkout returns only the visible tip, which would make
+    # every file appear to have been (re)introduced in that one commit
+    # and silently inflate freshness failures. CI is responsible for
+    # `fetch-depth: 0` (see .github/workflows/pr-build.yml); fail loudly
+    # if that ever regresses rather than emitting confusing FAIL markers.
+    try:
+        shallow = git(["rev-parse", "--is-shallow-repository"], root).strip()
+    except RuntimeError:
+        shallow = "false"
+    if shallow == "true":
+        print(
+            "ABI_STAMP:FAIL:shallow_clone:"
+            "need_full_history_for_per_file_log",
+            file=sys.stderr,
+        )
+        return 2
+
     exempt = DEFAULT_EXEMPT | set(args.exempt)
     files = iter_in_scope(abi_dir, exempt)
     if not files:

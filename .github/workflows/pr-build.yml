@@ -13,6 +13,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # validate_abi_stamps (#297) walks `git log -- docs/abi/*.md`
+          # to find the most-recent content-changing commit per file.
+          # On a shallow checkout (the actions/checkout@v4 default of
+          # fetch-depth: 1) `git log` only sees the synthetic PR merge
+          # commit, which makes every file appear to have been created
+          # in that single commit and the validator wrongly reports
+          # `last_content=<merge-sha>` newer than every stamp. Fetch full
+          # history so freshness comparisons are accurate.
+          fetch-depth: 0
 
       - name: Ensure build scripts are executable
         # Defensive: mirrors the same step in iso-vm-build.yml.
