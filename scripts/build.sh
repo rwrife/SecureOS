@@ -41,7 +41,7 @@ docker run --rm \
 
 # Fix permissions on artifacts (container may create as root)
 if [[ -d "$ROOT_DIR/artifacts" ]]; then
-  chmod -R a+rw "$ROOT_DIR/artifacts" 2>/dev/null || true
+  chmod -R a+rwX "$ROOT_DIR/artifacts" 2>/dev/null || true
 fi
 
 echo ""
