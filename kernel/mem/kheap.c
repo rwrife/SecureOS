@@ -29,10 +29,10 @@
 #include <stdint.h>
 
 /*
- * Arena size: 512 KB. Enough for multiple 64KB framebuffers plus overhead.
- * Can be increased if needed by changing this constant.
+ * Arena size: 2 MB. The kernel identity-maps 16 MB, giving ample room.
+ * Supports multiple 64KB virtual framebuffers plus general allocations.
  */
-#define KHEAP_ARENA_SIZE (512u * 1024u)
+#define KHEAP_ARENA_SIZE (2u * 1024u * 1024u)
 
 /* Alignment for all returned pointers (must be power of 2) */
 #define KHEAP_ALIGN 16u
