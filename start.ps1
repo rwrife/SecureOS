@@ -4,7 +4,7 @@
 # Handles dependency setup, build, and boot in one step.
 #
 # Usage:
-#   .\start.ps1 [-SetupOnly] [-BuildOnly] [-Graphics] [-SkipSetup] [-Clean]
+#   .\start.ps1 [-SetupOnly] [-BuildOnly] [-Graphics] [-SkipSetup] [-Clean] [-Force] [-App <name>]
 
 [CmdletBinding()]
 param(
@@ -13,6 +13,8 @@ param(
   [switch]$Graphics,
   [switch]$SkipSetup,
   [switch]$Clean,
+  [switch]$Force,
+  [string]$App = "",
   [switch]$Help
 )
 
@@ -30,8 +32,15 @@ Options:
   -BuildOnly   Build the OS but don't boot it
   -Graphics    Boot with VGA display window instead of serial console
   -SkipSetup   Skip dependency checks (assumes Docker + QEMU installed)
-  -Clean       Remove artifacts before building
+  -Clean       Remove artifacts before building (forces full rebuild)
+  -Force       Force full rebuild, ignoring change detection
+  -App <name>  Rebuild only the named app and repack the disk image
   -Help        Show this help message
+
+Build Targets (used internally):
+  The default 'all' target automatically detects which source files have
+  changed since the last build and only rebuilds affected layers. Use
+  -Force to override this and rebuild everything.
 "@
   exit 0
 }
@@ -42,6 +51,14 @@ Write-Host "+==============================================+"
 Write-Host "|            SecureOS Launcher                 |"
 Write-Host "+==============================================+"
 Write-Host ""
+
+# --- Step 0: Ensure git submodules are initialized ---
+$gitmodulesPath = Join-Path $RootDir ".gitmodules"
+$bearsslHeader = Join-Path $RootDir "vendor\bearssl\BearSSL\inc\bearssl.h"
+if ((Test-Path $gitmodulesPath) -and (-not (Test-Path $bearsslHeader))) {
+  Write-Host "[0/3] Initializing git submodules..."
+  git -C $RootDir submodule update --init --recursive
+}
 
 # --- Step 1: Dependency checks ---
 if (-not $SkipSetup) {
@@ -113,8 +130,18 @@ if ($Clean) {
   }
 }
 
+# Determine build target
+$buildTarget = "all"
+$buildExtra = ""
+if ($Force) {
+  $buildTarget = "force"
+} elseif ($App) {
+  $buildTarget = "app"
+  $buildExtra = $App
+}
+
 $buildScript = Join-Path $RootDir 'scripts\build.ps1'
-& $buildScript "all"
+& $buildScript $buildTarget $buildExtra
 Write-Host ""
 
 if ($BuildOnly) {
