@@ -54,8 +54,10 @@ static void fill_rect(int x, int y, int w, int h, unsigned char color) {
 
 static void draw_window(win_window_t *w) {
   int content_x, content_y;
+  int content_w, content_h;
   int row;
   unsigned char tb_color;
+  int gfx_mode = 0;
 
   if (w == 0 || !w->active) return;
 
@@ -80,29 +82,57 @@ static void draw_window(win_window_t *w) {
                  w->x + w->width - 9, w->y + WIN_BORDER + 1,
                  'X', COLOR_TITLE_TEXT);
 
-  /* Content area background */
+  /* Content area */
   content_x = w->x + WIN_BORDER;
   content_y = w->y + WIN_TITLE_HEIGHT;
-  fill_rect(content_x, content_y,
-            w->width - WIN_BORDER * 2,
-            w->height - WIN_TITLE_HEIGHT - WIN_BORDER,
-            COLOR_CONTENT_BG);
+  content_w = w->width - WIN_BORDER * 2;
+  content_h = w->height - WIN_TITLE_HEIGHT - WIN_BORDER;
+  fill_rect(content_x, content_y, content_w, content_h, COLOR_CONTENT_BG);
 
-  /* Render text content */
-  for (row = 0; row < WIN_CONTENT_ROWS; row++) {
-    if (w->text[row][0] != '\0') {
-      font_draw_string(g_backbuffer, SCREEN_W,
-                       content_x + 2,
-                       content_y + row * (FONT_CHAR_H + 1) + 1,
-                       w->text[row], COLOR_CONTENT_FG);
+  /* Check if session is in graphics mode */
+  os_session_get_gfx_mode(w->session_id, &gfx_mode);
+
+  if (gfx_mode == 1) {
+    /* Graphics mode: blit virtual framebuffer into window content area */
+    /* Read a region from the session's VFB that fits the content area */
+    unsigned char vfb_line[320]; /* max width we'd ever read */
+    int vfb_w = content_w;
+    int vfb_h = content_h;
+    if (vfb_w > 320) vfb_w = 320;
+    if (vfb_h > 200) vfb_h = 200;
+
+    for (row = 0; row < vfb_h; row++) {
+      int dst_y = content_y + row;
+      if (dst_y < 0 || dst_y >= SCREEN_H) continue;
+      if (os_session_read_framebuffer(w->session_id, vfb_line,
+                                      0, (unsigned int)row,
+                                      (unsigned int)vfb_w, 1) == OS_STATUS_OK) {
+        int col;
+        for (col = 0; col < vfb_w; col++) {
+          int dst_x = content_x + col;
+          if (dst_x >= 0 && dst_x < SCREEN_W) {
+            g_backbuffer[dst_y * SCREEN_W + dst_x] = vfb_line[col];
+          }
+        }
+      }
     }
-  }
+  } else {
+    /* Text mode: render terminal text using bitmap font */
+    for (row = 0; row < WIN_CONTENT_ROWS; row++) {
+      if (w->text[row][0] != '\0') {
+        font_draw_string(g_backbuffer, SCREEN_W,
+                         content_x + 2,
+                         content_y + row * (FONT_CHAR_H + 1) + 1,
+                         w->text[row], COLOR_CONTENT_FG);
+      }
+    }
 
-  /* Blinking cursor indicator */
-  if (w->focused) {
-    int cx = content_x + 2 + w->cursor_col * (FONT_CHAR_W + 1);
-    int cy = content_y + w->cursor_row * (FONT_CHAR_H + 1) + 1;
-    fill_rect(cx, cy + FONT_CHAR_H, FONT_CHAR_W, 1, COLOR_CONTENT_FG);
+    /* Blinking cursor indicator */
+    if (w->focused) {
+      int cx = content_x + 2 + w->cursor_col * (FONT_CHAR_W + 1);
+      int cy = content_y + w->cursor_row * (FONT_CHAR_H + 1) + 1;
+      fill_rect(cx, cy + FONT_CHAR_H, FONT_CHAR_W, 1, COLOR_CONTENT_FG);
+    }
   }
 }
 

@@ -12,10 +12,12 @@ typedef enum {
   EVENT_TOPIC_NETWORK_TX_REQUEST = 3,
   EVENT_TOPIC_NETWORK_RX_PACKET = 4,
   EVENT_TOPIC_NETWORK_DECISION = 5,
+  EVENT_TOPIC_AUTH_PROMPT = 6,
+  EVENT_TOPIC_AUTH_RESPONSE = 7,
 } event_topic_t;
 
 enum {
-  EVENT_TOPIC_COUNT = 5,
+  EVENT_TOPIC_COUNT = 7,
   EVENT_QUEUE_CAPACITY = 16,
   EVENT_PAYLOAD_MAX = 96,
 };
@@ -38,6 +40,52 @@ typedef struct {
   size_t payload_size;
   uint8_t payload[EVENT_PAYLOAD_MAX];
 } os_event_t;
+
+/**
+ * Auth prompt types for EVENT_TOPIC_AUTH_PROMPT payloads.
+ * The payload is: [1 byte type] [null-terminated description string]
+ */
+typedef enum {
+  AUTH_PROMPT_DISK_IO = 1,
+  AUTH_PROMPT_UNSIGNED_BINARY = 2,
+  AUTH_PROMPT_NETWORK = 3,
+} auth_prompt_type_t;
+
+/**
+ * Auth response values for EVENT_TOPIC_AUTH_RESPONSE payloads.
+ * The payload is a single byte with one of these values.
+ */
+typedef enum {
+  AUTH_RESPONSE_DENY = 0,
+  AUTH_RESPONSE_ALLOW = 1,
+  AUTH_RESPONSE_ALLOW_ALWAYS = 2,
+} auth_response_t;
+
+/**
+ * Pending auth request slot. When an authorization is needed, the kernel
+ * publishes an AUTH_PROMPT event and stores the request here. The UI layer
+ * (console or window manager) reads the pending prompt and publishes an
+ * AUTH_RESPONSE event with the matching correlation_id.
+ */
+typedef struct {
+  int active;
+  uint64_t correlation_id;
+  unsigned int session_id;
+  auth_prompt_type_t type;
+  char description[EVENT_PAYLOAD_MAX];
+  auth_response_t response;
+  int responded;
+} pending_auth_request_t;
+
+enum {
+  PENDING_AUTH_MAX = 4,
+};
+
+/** Get the pending auth request table (PENDING_AUTH_MAX entries). */
+pending_auth_request_t *event_get_pending_auth_table(void);
+
+/** Submit a response for a pending auth request by correlation_id. */
+void event_respond_auth(uint64_t correlation_id, auth_response_t response);
 
 void event_bus_reset_for_tests(void);
 

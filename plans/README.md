@@ -33,6 +33,7 @@ back to its design doc should start here.
 - `2026-03-17-video-hal-vga-driver.md`
 - `2026-03-17-vgahello-user-app-test-plan.md`
 - `2026-05-25-window-manager.md`
+- `2026-05-26-virtual-vga.md`
 
 ### Filesystem and code-signing
 

@@ -24,11 +24,15 @@
 #include "session_manager.h"
 
 #include "../hal/serial_hal.h"
+#include "../mem/kheap.h"
 #include "../sched/scheduler.h"
 #include "console.h"
 
 enum {
   SESSION_MAX = 8,
+  SESSION_VFB_WIDTH = 320,
+  SESSION_VFB_HEIGHT = 200,
+  SESSION_VFB_SIZE = 64000, /* 320 * 200 */
 };
 
 typedef struct {
@@ -36,6 +40,9 @@ typedef struct {
   unsigned int session_id;
   cap_subject_id_t subject_id;
   console_context_t console_context;
+  /* Virtual framebuffer for WM-managed graphics sessions */
+  int gfx_mode;                     /* 0 = text, 1 = graphics */
+  unsigned char *vfb;               /* Allocated via kmalloc when needed */
 } session_record_t;
 
 static session_record_t g_sessions[SESSION_MAX];
@@ -78,10 +85,15 @@ static void session_init_context(console_context_t *context, cap_subject_id_t su
   context->history_browse_index = -1;
   context->screen_history[0] = '\0';
   context->screen_history_len = 0u;
+  context->screen_history_read_cursor = 0u;
   context->next_correlation_id = 1u;
   session_copy_string(context->cwd, sizeof(context->cwd), "/");
   context->escape_state = 0u;
   context->next_loaded_lib_handle = 1u;
+  context->inject_buf[0] = '\0';
+  context->inject_head = 0u;
+  context->inject_tail = 0u;
+  context->wm_managed = 0;
 
   for (i = 0u; i < CONSOLE_HISTORY_MAX; ++i) {
     context->history[i][0] = '\0';
@@ -187,6 +199,20 @@ int session_manager_create(cap_subject_id_t subject_id, unsigned int *out_sessio
     return 0;
   }
 
+  /* Initialize the console context so the session is ready for use.
+   * console_init clobbers the global context pointer, so save/restore. */
+  {
+    console_context_t *saved_ctx = 0;
+    /* The active session's context needs to be preserved */
+    if (g_active_session_id < SESSION_MAX && g_sessions[g_active_session_id].in_use) {
+      saved_ctx = &g_sessions[g_active_session_id].console_context;
+    }
+    console_init(&g_sessions[session_id].console_context, subject_id);
+    if (saved_ctx != 0) {
+      console_bind_context(saved_ctx);
+    }
+  }
+
   if (out_session_id != 0) {
     *out_session_id = (unsigned int)session_id;
   }
@@ -260,4 +286,159 @@ size_t session_manager_list(char *out_buffer, size_t out_buffer_size) {
     out_buffer[cursor] = '\0';
   }
   return cursor;
+}
+
+size_t session_manager_read_output(unsigned int session_id, char *out_buffer,
+                                   size_t out_buffer_size) {
+  console_context_t *ctx;
+  size_t available;
+  size_t to_copy;
+  size_t i;
+
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0u;
+  }
+  if (out_buffer == 0 || out_buffer_size == 0u) {
+    return 0u;
+  }
+
+  ctx = &g_sessions[session_id].console_context;
+  available = ctx->screen_history_len - ctx->screen_history_read_cursor;
+  if (available == 0u) {
+    out_buffer[0] = '\0';
+    return 0u;
+  }
+
+  to_copy = available;
+  if (to_copy >= out_buffer_size) {
+    to_copy = out_buffer_size - 1u;
+  }
+
+  for (i = 0u; i < to_copy; ++i) {
+    out_buffer[i] = ctx->screen_history[ctx->screen_history_read_cursor + i];
+  }
+  out_buffer[to_copy] = '\0';
+  ctx->screen_history_read_cursor += to_copy;
+
+  return to_copy;
+}
+
+size_t session_manager_write_input(unsigned int session_id, const char *input,
+                                   size_t len) {
+  console_context_t *ctx;
+  size_t injected = 0u;
+  size_t i;
+
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0u;
+  }
+  if (input == 0 || len == 0u) {
+    return 0u;
+  }
+
+  ctx = &g_sessions[session_id].console_context;
+
+  for (i = 0u; i < len; ++i) {
+    size_t next_head = (ctx->inject_head + 1u) % CONSOLE_LINE_MAX;
+    if (next_head == ctx->inject_tail) {
+      break; /* buffer full */
+    }
+    ctx->inject_buf[ctx->inject_head] = input[i];
+    ctx->inject_head = next_head;
+    ++injected;
+  }
+
+  return injected;
+}
+
+void session_manager_tick(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+
+  /* Bind the target session's context, process injected input, restore */
+  console_bind_context(&g_sessions[session_id].console_context);
+  console_process_injected();
+}
+
+void session_manager_set_wm_managed(unsigned int session_id, int managed) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  g_sessions[session_id].console_context.wm_managed = managed;
+}
+
+int session_manager_is_wm_managed(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0;
+  }
+  return g_sessions[session_id].console_context.wm_managed;
+}
+
+int session_manager_get_gfx_mode(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return -1;
+  }
+  return g_sessions[session_id].gfx_mode;
+}
+
+void session_manager_set_gfx_mode(unsigned int session_id, int gfx_mode) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  g_sessions[session_id].gfx_mode = gfx_mode;
+}
+
+unsigned char *session_manager_get_vfb(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0;
+  }
+
+  /* Lazy allocate the VFB on first access */
+  if (g_sessions[session_id].vfb == 0) {
+    g_sessions[session_id].vfb =
+        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+  }
+
+  return g_sessions[session_id].vfb;
+}
+
+size_t session_manager_read_vfb(unsigned int session_id,
+                                unsigned char *out_pixels,
+                                unsigned int x, unsigned int y,
+                                unsigned int w, unsigned int h) {
+  unsigned char *vfb;
+  unsigned int row;
+  size_t written = 0u;
+
+  if (out_pixels == 0 || w == 0u || h == 0u) {
+    return 0u;
+  }
+  if (x >= SESSION_VFB_WIDTH || y >= SESSION_VFB_HEIGHT) {
+    return 0u;
+  }
+
+  vfb = session_manager_get_vfb(session_id);
+  if (vfb == 0) {
+    return 0u;
+  }
+
+  /* Clip to VFB bounds */
+  if (x + w > SESSION_VFB_WIDTH) {
+    w = SESSION_VFB_WIDTH - x;
+  }
+  if (y + h > SESSION_VFB_HEIGHT) {
+    h = SESSION_VFB_HEIGHT - y;
+  }
+
+  /* Copy row by row */
+  for (row = 0u; row < h; ++row) {
+    unsigned int src_offset = (y + row) * SESSION_VFB_WIDTH + x;
+    unsigned int col;
+    for (col = 0u; col < w; ++col) {
+      out_pixels[written++] = vfb[src_offset + col];
+    }
+  }
+
+  return written;
 }

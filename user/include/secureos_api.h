@@ -98,6 +98,34 @@ os_status_t os_session_read_output(unsigned int session_id, char *out_buffer,
                                    unsigned int *out_len);
 os_status_t os_session_write_input(unsigned int session_id, const char *input,
                                    unsigned int len);
+os_status_t os_session_tick(unsigned int session_id);
+os_status_t os_session_set_wm_managed(unsigned int session_id, int managed);
+
+/* Auth prompt polling and response (for window manager) */
+#define AUTH_TYPE_DISK_IO       0
+#define AUTH_TYPE_UNSIGNED_BIN  1
+
+#define AUTH_RESP_DENY          0
+#define AUTH_RESP_ALLOW         1
+#define AUTH_RESP_ALLOW_ALWAYS  2
+
+typedef struct {
+    int active;
+    unsigned int session_id;
+    int type;
+    char description[128];
+    unsigned int slot_index;
+} os_auth_prompt_t;
+
+os_status_t os_auth_poll_prompt(os_auth_prompt_t *out_prompt);
+os_status_t os_auth_respond(unsigned int slot_index, int response);
+
+/* Virtual framebuffer access (for window manager) */
+os_status_t os_session_read_framebuffer(unsigned int session_id,
+                                        unsigned char *out_pixels,
+                                        unsigned int x, unsigned int y,
+                                        unsigned int w, unsigned int h);
+os_status_t os_session_get_gfx_mode(unsigned int session_id, int *out_mode);
 
 #ifdef __cplusplus
 }

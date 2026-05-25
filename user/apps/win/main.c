@@ -54,6 +54,10 @@ int main(void) {
     session_id = 1;
   }
 
+  /* Mark the session as WM-managed so video calls go to virtual framebuffer
+   * and auth prompts route through the event bus */
+  os_session_set_wm_managed(session_id, 1);
+
   /* Create initial window */
   initial_win = win_create(10, 10, "Session 1", session_id);
   if (initial_win != 0) {

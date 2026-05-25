@@ -45,6 +45,7 @@
 #include "../drivers/video/vga_gfx.h"
 #include "native_net_service.h"
 #include "../core/session_manager.h"
+#include "../event/event_bus.h"
 
 /* ---- Signature verification cache ----------------------------------------
  * Once a binary passes signature verification there is no reason to re-verify
@@ -253,6 +254,15 @@ typedef struct {
                              unsigned int out_buffer_size, unsigned int *out_len);
   int (*session_write_input)(unsigned int session_id, const char *input,
                              unsigned int len);
+  int (*session_tick)(unsigned int session_id);
+  int (*auth_poll_prompt)(void *out_prompt);
+  int (*auth_respond)(unsigned int slot_index, int response);
+  int (*session_read_framebuffer)(unsigned int session_id,
+                                  unsigned char *out_pixels,
+                                  unsigned int x, unsigned int y,
+                                  unsigned int w, unsigned int h);
+  int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
+  int (*session_set_wm_managed)(unsigned int session_id, int managed);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -694,27 +704,56 @@ static int app_native_video_putchar_at(int col, int row, char ch,
 }
 
 static int app_native_video_set_mode(int mode) {
+  unsigned int sid = session_manager_active_id();
+  int wm_managed = session_manager_is_wm_managed(sid);
+
   if (mode == 1) {
-    /* Graphics mode 13h (320x200x256) */
+    /* Graphics mode request */
+    if (wm_managed) {
+      /* WM-managed: allocate VFB and set virtual gfx mode */
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      if (vfb != 0) {
+        session_manager_set_gfx_mode(sid, 1);
+        return 0;
+      }
+      return 3; /* allocation failed */
+    }
+    /* Not WM-managed: use real hardware */
     if (!vga_gfx_enter()) {
       return 3;
     }
-    /* Switch mouse to pixel-resolution tracking */
     mouse_hal_set_bounds(VGA_GFX_WIDTH, VGA_GFX_HEIGHT);
     return 0;
   } else if (mode == 0) {
-    /* Text mode */
+    /* Text mode request */
+    if (wm_managed && session_manager_get_gfx_mode(sid) == 1) {
+      session_manager_set_gfx_mode(sid, 0);
+      return 0;
+    }
+    /* Real hardware path */
     if (vga_gfx_is_active()) {
       vga_gfx_leave();
     }
-    /* Restore mouse to text-cell tracking */
     mouse_hal_set_bounds(80, 25);
     return 0;
   }
-  return 3; /* unsupported mode */
+  return 3;
 }
 
 static int app_native_video_put_pixel(int x, int y, unsigned char color) {
+  unsigned int sid = session_manager_active_id();
+
+  /* If session is in virtual gfx mode, write to VFB */
+  if (session_manager_get_gfx_mode(sid) == 1) {
+    unsigned char *vfb = session_manager_get_vfb(sid);
+    if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
+      vfb[y * 320 + x] = color;
+      return 0;
+    }
+    return 3;
+  }
+
+  /* Real hardware path */
   if (!vga_gfx_is_active()) {
     return 3;
   }
@@ -723,10 +762,23 @@ static int app_native_video_put_pixel(int x, int y, unsigned char color) {
 }
 
 static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
-  if (!vga_gfx_is_active()) {
+  unsigned int sid = session_manager_active_id();
+
+  if (out_color == 0) {
     return 3;
   }
-  if (out_color == 0) {
+
+  /* Virtual framebuffer path */
+  if (session_manager_get_gfx_mode(sid) == 1) {
+    unsigned char *vfb = session_manager_get_vfb(sid);
+    if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
+      *out_color = vfb[y * 320 + x];
+      return 0;
+    }
+    return 3;
+  }
+
+  if (!vga_gfx_is_active()) {
     return 3;
   }
   *out_color = vga_gfx_get_pixel(x, y);
@@ -735,6 +787,27 @@ static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
 
 static int app_native_video_draw_rect(int x, int y, int w, int h,
                                       unsigned char color) {
+  unsigned int sid = session_manager_active_id();
+
+  /* Virtual framebuffer path */
+  if (session_manager_get_gfx_mode(sid) == 1) {
+    unsigned char *vfb = session_manager_get_vfb(sid);
+    if (vfb != 0) {
+      int row, col;
+      for (row = 0; row < h; row++) {
+        int py = y + row;
+        if (py < 0 || py >= 200) continue;
+        for (col = 0; col < w; col++) {
+          int px = x + col;
+          if (px < 0 || px >= 320) continue;
+          vfb[py * 320 + px] = color;
+        }
+      }
+      return 0;
+    }
+    return 3;
+  }
+
   if (!vga_gfx_is_active()) {
     return 3;
   }
@@ -743,9 +816,12 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
 }
 
 static int app_native_video_get_resolution(int *out_width, int *out_height) {
-  if (vga_gfx_is_active()) {
-    if (out_width != 0) *out_width = VGA_GFX_WIDTH;
-    if (out_height != 0) *out_height = VGA_GFX_HEIGHT;
+  unsigned int sid = session_manager_active_id();
+
+  /* Virtual or real gfx mode both report 320x200 */
+  if (session_manager_get_gfx_mode(sid) == 1 || vga_gfx_is_active()) {
+    if (out_width != 0) *out_width = 320;
+    if (out_height != 0) *out_height = 200;
   } else {
     if (out_width != 0) *out_width = 80;
     if (out_height != 0) *out_height = 25;
@@ -755,8 +831,33 @@ static int app_native_video_get_resolution(int *out_width, int *out_height) {
 
 static int app_native_video_blit(int x, int y, int w, int h,
                                  const unsigned char *pixels) {
+  unsigned int sid = session_manager_active_id();
   int row, col;
-  if (!vga_gfx_is_active() || pixels == 0 || w <= 0 || h <= 0) {
+
+  if (pixels == 0 || w <= 0 || h <= 0) {
+    return 3;
+  }
+
+  /* Virtual framebuffer path */
+  if (session_manager_get_gfx_mode(sid) == 1) {
+    unsigned char *vfb = session_manager_get_vfb(sid);
+    if (vfb != 0) {
+      for (row = 0; row < h; row++) {
+        int py = y + row;
+        if (py < 0 || py >= 200) continue;
+        for (col = 0; col < w; col++) {
+          int px = x + col;
+          if (px < 0 || px >= 320) continue;
+          vfb[py * 320 + px] = pixels[row * w + col];
+        }
+      }
+      return 0;
+    }
+    return 3;
+  }
+
+  /* Real hardware path */
+  if (!vga_gfx_is_active()) {
     return 3;
   }
   for (row = 0; row < h; row++) {
@@ -782,22 +883,110 @@ static int app_native_session_read_output(unsigned int session_id,
                                           char *out_buffer,
                                           unsigned int out_buffer_size,
                                           unsigned int *out_len) {
-  /* Stub: session output capture not yet wired. Returns empty. */
-  (void)session_id;
-  if (out_buffer != 0 && out_buffer_size > 0) {
-    out_buffer[0] = '\0';
-  }
-  if (out_len != 0) *out_len = 0;
+  size_t read_count;
+
+  read_count = session_manager_read_output(session_id, out_buffer,
+                                           (size_t)out_buffer_size);
+  if (out_len != 0) *out_len = (unsigned int)read_count;
   return 0;
 }
 
 static int app_native_session_write_input(unsigned int session_id,
                                           const char *input,
                                           unsigned int len) {
-  /* Stub: session input injection not yet wired. */
-  (void)session_id;
-  (void)input;
-  (void)len;
+  session_manager_write_input(session_id, input, (size_t)len);
+  /* Tick the session so injected input gets processed immediately */
+  session_manager_tick(session_id);
+  return 0;
+}
+
+static int app_native_session_tick(unsigned int session_id) {
+  session_manager_tick(session_id);
+  return 0;
+}
+
+static int app_native_auth_poll_prompt(void *out_prompt) {
+  /* out_prompt layout matches os_auth_prompt_t in secureos_api.h:
+   *   int active; unsigned int session_id; int type;
+   *   char description[128]; unsigned int slot_index; */
+  typedef struct {
+    int active;
+    unsigned int session_id;
+    int type;
+    char description[128];
+    unsigned int slot_index;
+  } user_auth_prompt_t;
+
+  user_auth_prompt_t *p = (user_auth_prompt_t *)out_prompt;
+  pending_auth_request_t *table;
+  size_t i;
+
+  if (p == 0) return 3;
+
+  p->active = 0;
+  table = event_get_pending_auth_table();
+
+  for (i = 0u; i < PENDING_AUTH_MAX; ++i) {
+    if (table[i].active && !table[i].responded) {
+      p->active = 1;
+      p->session_id = table[i].session_id;
+      p->type = (int)table[i].type;
+      p->slot_index = (unsigned int)i;
+      /* Copy description */
+      {
+        size_t j = 0u;
+        while (table[i].description[j] != '\0' && j + 1u < 128u) {
+          p->description[j] = table[i].description[j];
+          ++j;
+        }
+        p->description[j] = '\0';
+      }
+      return 0;
+    }
+  }
+  return 0; /* No pending prompt, active=0 */
+}
+
+static int app_native_auth_respond(unsigned int slot_index, int response) {
+  pending_auth_request_t *table;
+  auth_response_t resp;
+
+  switch (response) {
+    case 0: resp = AUTH_RESPONSE_DENY; break;
+    case 1: resp = AUTH_RESPONSE_ALLOW; break;
+    case 2: resp = AUTH_RESPONSE_ALLOW_ALWAYS; break;
+    default: resp = AUTH_RESPONSE_DENY; break;
+  }
+
+  table = event_get_pending_auth_table();
+  if (slot_index < PENDING_AUTH_MAX && table[slot_index].active) {
+    table[slot_index].response = resp;
+    table[slot_index].responded = 1;
+  }
+  return 0;
+}
+
+static int app_native_session_read_framebuffer(unsigned int session_id,
+                                               unsigned char *out_pixels,
+                                               unsigned int x, unsigned int y,
+                                               unsigned int w, unsigned int h) {
+  size_t written = session_manager_read_vfb(session_id, out_pixels, x, y, w, h);
+  return (written > 0u) ? 0 : 3;
+}
+
+static int app_native_session_get_gfx_mode(unsigned int session_id,
+                                           int *out_mode) {
+  int mode;
+  if (out_mode == 0) return 3;
+  mode = session_manager_get_gfx_mode(session_id);
+  if (mode < 0) return 3;
+  *out_mode = mode;
+  return 0;
+}
+
+static int app_native_session_set_wm_managed(unsigned int session_id,
+                                             int managed) {
+  session_manager_set_wm_managed(session_id, managed);
   return 0;
 }
 
@@ -944,6 +1133,12 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->session_create = app_native_session_create;
   bridge->session_read_output = app_native_session_read_output;
   bridge->session_write_input = app_native_session_write_input;
+  bridge->session_tick = app_native_session_tick;
+  bridge->auth_poll_prompt = app_native_auth_poll_prompt;
+  bridge->auth_respond = app_native_auth_respond;
+  bridge->session_read_framebuffer = app_native_session_read_framebuffer;
+  bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
+  bridge->session_set_wm_managed = app_native_session_set_wm_managed;
 
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
   (void)entry();
@@ -978,6 +1173,12 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->session_create = 0;
   bridge->session_read_output = 0;
   bridge->session_write_input = 0;
+  bridge->session_tick = 0;
+  bridge->auth_poll_prompt = 0;
+  bridge->auth_respond = 0;
+  bridge->session_read_framebuffer = 0;
+  bridge->session_get_gfx_mode = 0;
+  bridge->session_set_wm_managed = 0;
 
   g_native_context = 0;
   g_native_raw_args = "";

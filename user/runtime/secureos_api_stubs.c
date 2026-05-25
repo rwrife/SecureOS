@@ -59,6 +59,15 @@ typedef struct {
                              unsigned int out_buffer_size, unsigned int *out_len);
   int (*session_write_input)(unsigned int session_id, const char *input,
                              unsigned int len);
+  int (*session_tick)(unsigned int session_id);
+  int (*auth_poll_prompt)(os_auth_prompt_t *out_prompt);
+  int (*auth_respond)(unsigned int slot_index, int response);
+  int (*session_read_framebuffer)(unsigned int session_id,
+                                  unsigned char *out_pixels,
+                                  unsigned int x, unsigned int y,
+                                  unsigned int w, unsigned int h);
+  int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
+  int (*session_set_wm_managed)(unsigned int session_id, int managed);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -537,5 +546,75 @@ os_status_t os_session_write_input(unsigned int session_id, const char *input,
     return (os_status_t)bridge->session_write_input(session_id, input, len);
   }
 
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_tick(unsigned int session_id) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_tick != 0) {
+    return (os_status_t)bridge->session_tick(session_id);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_set_wm_managed(unsigned int session_id, int managed) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_set_wm_managed != 0) {
+    return (os_status_t)bridge->session_set_wm_managed(session_id, managed);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_auth_poll_prompt(os_auth_prompt_t *out_prompt) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->auth_poll_prompt != 0) {
+    return (os_status_t)bridge->auth_poll_prompt(out_prompt);
+  }
+
+  if (out_prompt != 0) {
+    out_prompt->active = 0;
+  }
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_auth_respond(unsigned int slot_index, int response) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->auth_respond != 0) {
+    return (os_status_t)bridge->auth_respond(slot_index, response);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_read_framebuffer(unsigned int session_id,
+                                        unsigned char *out_pixels,
+                                        unsigned int x, unsigned int y,
+                                        unsigned int w, unsigned int h) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_read_framebuffer != 0) {
+    return (os_status_t)bridge->session_read_framebuffer(
+        session_id, out_pixels, x, y, w, h);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_get_gfx_mode(unsigned int session_id, int *out_mode) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_get_gfx_mode != 0) {
+    return (os_status_t)bridge->session_get_gfx_mode(session_id, out_mode);
+  }
+
+  if (out_mode != 0) {
+    *out_mode = 0;
+  }
   return OS_STATUS_NOT_FOUND;
 }
