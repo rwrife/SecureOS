@@ -57,7 +57,7 @@ static void vga_font_access_begin(void) {
   /* Graphics controller: read from plane 2, sequential */
   vga_outb(0x3CE, 0x04); vga_outb(0x3CF, 0x02); /* read map = plane 2 */
   vga_outb(0x3CE, 0x05); vga_outb(0x3CF, 0x00); /* mode: sequential */
-  vga_outb(0x3CE, 0x06); vga_outb(0x3CF, 0x0C); /* misc: A0000, 64K */
+  vga_outb(0x3CE, 0x06); vga_outb(0x3CF, 0x04); /* misc: A0000-AFFFF, 64K */
 }
 
 /**
@@ -94,6 +94,35 @@ static void vga_restore_font(void) {
     plane2[i] = g_font_save[i];
   }
   vga_font_access_end();
+}
+
+/* Standard VGA text-mode DAC palette (first 16 entries, 6-bit RGB values) */
+static const unsigned char g_default_palette[16 * 3] = {
+  0x00, 0x00, 0x00,  /*  0: black */
+  0x00, 0x00, 0x2A,  /*  1: blue */
+  0x00, 0x2A, 0x00,  /*  2: green */
+  0x00, 0x2A, 0x2A,  /*  3: cyan */
+  0x2A, 0x00, 0x00,  /*  4: red */
+  0x2A, 0x00, 0x2A,  /*  5: magenta */
+  0x2A, 0x15, 0x00,  /*  6: brown */
+  0x2A, 0x2A, 0x2A,  /*  7: light grey */
+  0x15, 0x15, 0x15,  /*  8: dark grey */
+  0x15, 0x15, 0x3F,  /*  9: light blue */
+  0x15, 0x3F, 0x15,  /* 10: light green */
+  0x15, 0x3F, 0x3F,  /* 11: light cyan */
+  0x3F, 0x15, 0x15,  /* 12: light red */
+  0x3F, 0x15, 0x3F,  /* 13: light magenta */
+  0x3F, 0x3F, 0x15,  /* 14: yellow */
+  0x3F, 0x3F, 0x3F,  /* 15: white */
+};
+
+static void vga_restore_text_palette(void) {
+  int i;
+  /* Write DAC palette entries 0-15 via port 0x3C8 (index) + 0x3C9 (data) */
+  vga_outb(0x3C8, 0x00);
+  for (i = 0; i < 16 * 3; i++) {
+    vga_outb(0x3C9, g_default_palette[i]);
+  }
 }
 
 int vga_gfx_enter(void) {
@@ -241,6 +270,9 @@ int vga_gfx_leave(void) {
 
   /* Restore the text-mode font into plane 2 */
   vga_restore_font();
+
+  /* Restore the standard 16-color text-mode palette */
+  vga_restore_text_palette();
 
   /* Clear text framebuffer and reset cursor via the text driver */
   volatile unsigned short *text_buf = (volatile unsigned short *)0xB8000;
