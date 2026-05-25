@@ -308,8 +308,76 @@ Deliver:
 
 Validate:
 
-- allow flow succeeds and logs audited transfer
-- deny flow issues no cap and app handles gracefully
+- allow flow succeeds and logs audited transfer — satisfied by
+  `TEST:PASS:broker_share_allow` plus sub-checks
+  `:owner_holds_cap`, `:request_returns_pending_share_id`,
+  `:approve_grants_recipient`, `:scope_is_resource_bound`, and
+  `:scope_is_capability_bound` (see `tests/broker_share_allow_test.c`,
+  run via `build/scripts/test.sh broker_share_allow`). The `_qemu`
+  substrate peer asserts the same contract end-to-end with the
+  `_qemu`-suffixed marker spellings
+  `TEST:PASS:m4_broker_share_allow_qemu` plus sub-checks
+  `:owner_holds_cap_qemu`, `:request_returns_pending_share_id_qemu`,
+  `:approve_grants_recipient_qemu`, `:scope_is_resource_bound_qemu`, and
+  `:scope_is_capability_bound_qemu` (see
+  `tests/m4_broker_share_allow_qemu_test.c`, run via
+  `build/scripts/test.sh m4_broker_share_allow_qemu` /
+  `build/scripts/test_m4_broker_share_allow_qemu.sh`). The audit-side
+  `audit_grant_recorded` assertion is currently gated behind the
+  broker→audit wiring follow-up #311 (depends on #84 / #98) and the
+  host slice asserts the explicit
+  `TEST:SKIP:broker_share_allow:audit_grant_recorded:broker_audit_unwired_pending_issue_98`
+  marker so the validator distinguishes "not asserted" from
+  "asserted and passed".
+- deny flow issues no cap and app handles gracefully — satisfied by
+  `TEST:PASS:broker_share_deny` plus sub-checks
+  `:owner_holds_cap`, `:request_returns_pending_share_id`, `:deny_path`,
+  `:no_recipient_grant`, `:cannot_be_re_approved`, and
+  `:bystander_cannot_mutate` (see `tests/broker_share_deny_test.c`,
+  run via `build/scripts/test.sh broker_share_deny`). The `_qemu`
+  substrate peer asserts the same contract under QEMU with markers
+  `TEST:PASS:m4_broker_share_deny_qemu` plus sub-checks
+  `:request_returns_pending_share_id_qemu`, `:deny_blocks_recipient_qemu`,
+  `:cannot_be_re_approved_qemu`, `:bystander_cannot_mutate_qemu`,
+  `:scope_is_resource_bound_qemu`, and `:scope_is_capability_bound_qemu`
+  (see `tests/m4_broker_share_deny_qemu_test.c`, run via
+  `build/scripts/test.sh m4_broker_share_deny_qemu` /
+  `build/scripts/test_m4_broker_share_deny_qemu.sh`). Both host and
+  `_qemu` slices currently emit
+  `TEST:SKIP:broker_share_deny:audit_deny_recorded:broker_audit_unwired_pending_issue_98`
+  and
+  `TEST:SKIP:m4_broker_share_deny_qemu:audit_deny_recorded_qemu:broker_audit_unwired_pending_issue_98`
+  respectively, gated on the broker→audit wiring follow-up #311.
+- revoke flow restores the deny posture and is idempotent — satisfied
+  by `TEST:PASS:broker_share_revoke` plus sub-checks
+  `:setup_grants_recipient`, `:owner_revoke_takes_effect`,
+  `:underlying_table_revoked`, `:double_revoke_is_idempotent`, and
+  `:recipient_self_revoke` (see `tests/broker_share_revoke_test.c`,
+  run via `build/scripts/test.sh broker_share_revoke`). The `_qemu`
+  substrate peer asserts the same contract under QEMU with markers
+  `TEST:PASS:m4_broker_share_revoke_qemu` plus sub-checks
+  `:setup_grants_recipient_qemu`, `:owner_revoke_takes_effect_qemu`,
+  `:underlying_table_revoked_qemu`, `:double_revoke_is_idempotent_qemu`,
+  `:order_observed_qemu`, `:recipient_self_revoke_qemu`, and
+  `:process_destroy_recycle_revokes` (see
+  `tests/m4_broker_share_revoke_qemu_test.c`, run via
+  `build/scripts/test.sh m4_broker_share_revoke_qemu` /
+  `build/scripts/test_m4_broker_share_revoke_qemu.sh`). Both host and
+  `_qemu` slices emit
+  `TEST:SKIP:broker_share_revoke:audit_revoke_recorded:broker_audit_unwired_pending_issue_98`
+  and
+  `TEST:SKIP:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu:broker_audit_unwired_pending_issue_98`
+  respectively, gated on the broker→audit wiring follow-up #311.
+
+These markers are anchored by the M4 host-fixture acceptance work in
+#115 (broker_share_{allow,deny,revoke} + 16 sub-checks) and the
+substrate plan #299 (M4 capability broker re-platformed onto merged M1
+substrate + M2/M3 service-module precedent), with the `_qemu` peers
+landed by #304 (allow + deny) and #305 (revoke), matching how §5.2
+references plan #259 and §5.3 references plan #277 + its closed slice
+issues. The currently-SKIPped `audit_*_recorded` markers will be
+turned into PASS by the broker→audit wiring follow-up #311 (which
+depends on the audit-ring wiring tracked in #84 / #98).
 
 ## 5.5 M5: Ownership graph + cascading deletion
 
