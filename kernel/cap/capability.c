@@ -110,6 +110,16 @@ static void cap_audit_record(cap_audit_op_t operation,
   cap_audit_maybe_emit_checkpoint(sequence_id);
 }
 
+void cap_audit_emit(cap_audit_op_t operation,
+                    cap_subject_id_t actor_subject_id,
+                    cap_subject_id_t subject_id,
+                    capability_id_t capability_id,
+                    cap_result_t result) {
+  /* Issue #311: public entry point for broker_svc / fs_svc to publish into
+   * the same audit ring used by cap_check / cap_grant_as_for_tests. */
+  cap_audit_record(operation, actor_subject_id, subject_id, capability_id, result);
+}
+
 void cap_audit_reset_for_tests(void) {
   cap_audit_next_index = 0u;
   cap_audit_event_count = 0u;

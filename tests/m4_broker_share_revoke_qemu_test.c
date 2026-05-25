@@ -476,8 +476,29 @@ int main(void) {
   }
   printf("TEST:PASS:m4_broker_share_revoke_qemu:process_destroy_recycle_revokes\n");
 
-  /* audit_revoke_recorded_qemu — gated on #98, same SKIP as host. */
-  printf("TEST:SKIP:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu:broker_audit_unwired_pending_issue_98\n");
+  /* audit_revoke_recorded_qemu — issue #311. Multiple revokes happen
+   * across this fixture (owner-driven, recipient-self, process-destroy
+   * cascade). Assert at least one REVOKE record with owner-as-actor and
+   * recip-as-subject for CAP_FS_READ is present in the audit ring. */
+  {
+    size_t total = cap_audit_count_for_tests();
+    int found = 0;
+    for (size_t i = 0; i < total; ++i) {
+      cap_audit_event_t ev;
+      if (cap_audit_get_for_tests(i, &ev) != CAP_OK) continue;
+      if (ev.operation == CAP_AUDIT_OP_REVOKE &&
+          ev.subject_id == recip &&
+          ev.capability_id == CAP_FS_READ) {
+        found = 1;
+        break;
+      }
+    }
+    if (!found) {
+      fail("audit_revoke_record_not_found");
+      goto out;
+    }
+  }
+  printf("TEST:PASS:m4_broker_share_revoke_qemu:audit_revoke_recorded_qemu\n");
 
   /* Tear down the owner PCB. */
   if (launcher_broker_spawn_destroy(sp_owner.pid) != LAUNCHER_OK) {

@@ -26,9 +26,6 @@ static void marker_fail(const char *name, const char *reason) {
 
 static void marker_pass(const char *name) { printf("TEST:PASS:%s\n", name); }
 
-static void marker_skip(const char *name, const char *reason) {
-  printf("TEST:SKIP:%s:%s\n", name, reason);
-}
 
 static cap_share_id_t setup_approved_share(cap_subject_id_t owner,
                                            cap_subject_id_t recip,
@@ -124,9 +121,36 @@ int main(void) {
   }
   marker_pass("broker_share_revoke:recipient_self_revoke");
 
-  /* 6: audit_revoke_recorded — gated on #98. */
-  marker_skip("broker_share_revoke:audit_revoke_recorded",
-              "broker_audit_unwired_pending_issue_98");
+  /* 6: audit_revoke_recorded — issue #311. Set up an approved share,
+   * then revoke and assert a new audit record was emitted naming
+   * actor=owner, subject=recipient, cap=CAP_FS_READ, op=REVOKE. */
+  cap_table_reset();
+  cap_broker_reset();
+  cap_share_id_t sid_aud = setup_approved_share(
+      owner, recip, "broker_share_revoke:audit_revoke_recorded");
+  cap_audit_reset_for_tests();
+  size_t pre = cap_audit_count_for_tests();
+  if (cap_broker_revoke(owner, sid_aud) != CAP_BROKER_OK) {
+    marker_fail("broker_share_revoke:audit_revoke_recorded", "revoke_failed");
+  }
+  if (cap_audit_count_for_tests() != pre + 1u) {
+    marker_fail("broker_share_revoke:audit_revoke_recorded",
+                "audit_record_count_unexpected");
+  }
+  cap_audit_event_t ev;
+  if (cap_audit_get_for_tests(pre, &ev) != CAP_OK) {
+    marker_fail("broker_share_revoke:audit_revoke_recorded",
+                "audit_get_failed");
+  }
+  if (ev.operation != CAP_AUDIT_OP_REVOKE ||
+      ev.actor_subject_id != owner ||
+      ev.subject_id != recip ||
+      ev.capability_id != CAP_FS_READ ||
+      ev.result != CAP_OK) {
+    marker_fail("broker_share_revoke:audit_revoke_recorded",
+                "audit_record_fields_mismatch");
+  }
+  marker_pass("broker_share_revoke:audit_revoke_recorded");
 
   printf("TEST:DONE:broker_share_revoke\n");
   return 0;

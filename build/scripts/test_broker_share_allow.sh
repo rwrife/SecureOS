@@ -21,5 +21,5 @@ grep -q "TEST:PASS:broker_share_allow:request_returns_pending_share_id" "$LOG_PA
 grep -q "TEST:PASS:broker_share_allow:approve_grants_recipient" "$LOG_PATH"
 grep -q "TEST:PASS:broker_share_allow:scope_is_resource_bound" "$LOG_PATH"
 grep -q "TEST:PASS:broker_share_allow:scope_is_capability_bound" "$LOG_PATH"
-grep -q "TEST:SKIP:broker_share_allow:audit_grant_recorded" "$LOG_PATH"
+grep -q "TEST:PASS:broker_share_allow:audit_grant_recorded" "$LOG_PATH"
 grep -q "TEST:DONE:broker_share_allow" "$LOG_PATH"

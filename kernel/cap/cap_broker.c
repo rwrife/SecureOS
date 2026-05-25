@@ -161,6 +161,14 @@ cap_broker_result_t cap_broker_approve(cap_subject_id_t approver_subject_id,
   }
 
   cap_result_t grant = cap_table_grant(share->recipient_subject_id, share->capability_id);
+  /* Issue #311: emit one structured audit record per approve outcome
+   * (grant success or grant failure), attributing the action to the
+   * approver and naming the recipient as subject. */
+  cap_audit_emit(CAP_AUDIT_OP_GRANT,
+                 approver_subject_id,
+                 share->recipient_subject_id,
+                 share->capability_id,
+                 grant);
   if (grant != CAP_OK) {
     return CAP_BROKER_ERR_INVALID_CAPABILITY;
   }
@@ -184,6 +192,15 @@ cap_broker_result_t cap_broker_deny(cap_subject_id_t approver_subject_id,
     return CAP_BROKER_ERR_NOT_AUTHORIZED;
   }
   share->state = CAP_SHARE_STATE_DENIED;
+  /* Issue #311: audit-deny record for the broker-deny path. Uses
+   * CAP_ERR_MISSING as the result to encode "recipient still does not
+   * hold the capability through this share", matching the deny semantics
+   * the rest of the audit pipeline uses for refused grants. */
+  cap_audit_emit(CAP_AUDIT_OP_GRANT,
+                 approver_subject_id,
+                 share->recipient_subject_id,
+                 share->capability_id,
+                 CAP_ERR_MISSING);
   return CAP_BROKER_OK;
 }
 
@@ -203,8 +220,17 @@ cap_broker_result_t cap_broker_revoke(cap_subject_id_t actor_subject_id,
       actor_subject_id != share->recipient_subject_id) {
     return CAP_BROKER_ERR_NOT_AUTHORIZED;
   }
-  (void)cap_table_revoke(share->recipient_subject_id, share->capability_id);
+  cap_result_t revoke_result =
+      cap_table_revoke(share->recipient_subject_id, share->capability_id);
   share->state = CAP_SHARE_STATE_REVOKED;
+  /* Issue #311: audit-revoke record (covers both owner-driven revoke and
+   * the recipient-self-revoke branch; the cascade revoke from
+   * process_destroy enters via the same path through cap_broker_revoke). */
+  cap_audit_emit(CAP_AUDIT_OP_REVOKE,
+                 actor_subject_id,
+                 share->recipient_subject_id,
+                 share->capability_id,
+                 revoke_result);
   return CAP_BROKER_OK;
 }
 

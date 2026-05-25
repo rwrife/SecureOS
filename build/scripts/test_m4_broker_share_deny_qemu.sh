@@ -15,8 +15,9 @@
 #     them into cap_broker_*, asserting deny-blocks-recipient,
 #     cannot-be-re-approved, bystander-cannot-mutate, and the two
 #     scope_is_* invariants.
-#   - audit_deny_recorded_qemu is SKIPped pending #98 broker→audit
-#     wiring (same shape as the host fixture).
+#   - audit_deny_recorded_qemu asserts a broker-deny audit record is
+#     emitted into the cap_audit ring (wired via #311; same shape as
+#     the host fixture).
 #
 # Emits the following deterministic markers (consumed by
 # build/scripts/test.sh and validate_bundle.sh):
@@ -26,7 +27,7 @@
 #   TEST:PASS:m4_broker_share_deny_qemu:bystander_cannot_mutate_qemu
 #   TEST:PASS:m4_broker_share_deny_qemu:scope_is_resource_bound_qemu
 #   TEST:PASS:m4_broker_share_deny_qemu:scope_is_capability_bound_qemu
-#   TEST:SKIP:m4_broker_share_deny_qemu:audit_deny_recorded_qemu:broker_audit_unwired_pending_issue_98
+#   TEST:PASS:m4_broker_share_deny_qemu:audit_deny_recorded_qemu
 #   TEST:PASS:m4_broker_share_deny_qemu
 
 set -euo pipefail
@@ -64,6 +65,6 @@ grep -q "TEST:PASS:m4_broker_share_deny_qemu:cannot_be_re_approved_qemu" "$LOG_P
 grep -q "TEST:PASS:m4_broker_share_deny_qemu:bystander_cannot_mutate_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m4_broker_share_deny_qemu:scope_is_resource_bound_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m4_broker_share_deny_qemu:scope_is_capability_bound_qemu" "$LOG_PATH"
-grep -q "TEST:SKIP:m4_broker_share_deny_qemu:audit_deny_recorded_qemu" "$LOG_PATH"
+grep -q "TEST:PASS:m4_broker_share_deny_qemu:audit_deny_recorded_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m4_broker_share_deny_qemu$" "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"
