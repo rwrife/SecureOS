@@ -3,10 +3,9 @@
  * @brief Renders a colorful ASCII-art boot banner during kernel startup.
  *
  * Purpose:
- *   Displays the SecureOS logo as rainbow-colored ASCII art on the VGA
- *   display, followed by the version number and a short tagline. Serial
- *   output receives a plain-text representation so boot logs remain
- *   readable without color codes.
+ *   Displays the SecureOS splash screen with a padlock icon and version
+ *   info on the VGA display. Serial output receives a plain-text
+ *   representation so boot logs remain readable without color codes.
  *
  * Interactions:
  *   - hal/video_hal.c: video_hal_write_color() for colored VGA output.
@@ -24,55 +23,49 @@
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
 
-/* Rainbow color cycle for each line of the ASCII art */
-static const uint8_t rainbow_colors[] = {
-  VGA_ATTR(VGA_LIGHT_RED,     VGA_BLACK),
-  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_GREEN,   VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_BLUE,    VGA_BLACK),
-  VGA_ATTR(VGA_LIGHT_MAGENTA, VGA_BLACK),
-};
-
-#define RAINBOW_COUNT (sizeof(rainbow_colors) / sizeof(rainbow_colors[0]))
-
 /*
- * ASCII art banner -- each line is rendered in the next rainbow color.
- * Font style: blocky / small for 80-column VGA text mode.
+ * Splash layout: padlock on the left, title and tagline on the right.
+ * Each line has a color attribute for the VGA display.
  */
-static const char *banner_lines[] = {
-  "  ____                           ___  ____  ",
-  " / ___|  ___  ___ _   _ _ __ ___|_ _|/ ___| ",
-  " \\___ \\ / _ \\/ __| | | | '__/ _ \\| | \\___ \\ ",
-  "  ___) |  __/ (__| |_| | | |  __/| |  ___) |",
-  " |____/ \\___|\\___|\\__,_|_|  \\___|___|/____/ ",
-  "                                             ",
+static const char *splash_lines[] = {
+  "   .-------.",
+  "   | .-. .-.|",
+  "   | | | | ||    SecureOS v" SECUREOS_VERSION,
+  "   |_'-' '-'|    Zero-Trust OS",
+  "   |  ___   |",
+  "   | |   | ||",
+  "   | | O | ||",
+  "   | |___| ||",
+  "   |_______|",
 };
 
-#define BANNER_LINE_COUNT (sizeof(banner_lines) / sizeof(banner_lines[0]))
+static const uint8_t splash_colors[] = {
+  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+  VGA_ATTR(VGA_WHITE,         VGA_BLACK),
+  VGA_ATTR(VGA_LIGHT_GREY,    VGA_BLACK),
+  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+  VGA_ATTR(VGA_YELLOW,        VGA_BLACK),
+  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+  VGA_ATTR(VGA_LIGHT_CYAN,    VGA_BLACK),
+};
+
+#define SPLASH_LINE_COUNT (sizeof(splash_lines) / sizeof(splash_lines[0]))
 
 void boot_banner_display(void) {
   unsigned int i;
 
-  /* Blank line before banner */
   video_hal_write("\n");
   serial_hal_write("\n");
 
-  /* Render each line in a cycling rainbow color */
-  for (i = 0; i < BANNER_LINE_COUNT; ++i) {
-    uint8_t color = rainbow_colors[i % RAINBOW_COUNT];
-    video_hal_write_color(banner_lines[i], color);
+  for (i = 0; i < SPLASH_LINE_COUNT; ++i) {
+    video_hal_write_color(splash_lines[i], splash_colors[i]);
     video_hal_write("\n");
-    serial_hal_write(banner_lines[i]);
+    serial_hal_write(splash_lines[i]);
     serial_hal_write("\n");
   }
 
-  /* Version line in bright white */
-  video_hal_write_color("  SecureOS v" SECUREOS_VERSION, VGA_ATTR_BRIGHT);
-  video_hal_write_color("  --  Zero-Trust OS\n",
-                        VGA_ATTR(VGA_LIGHT_GREY, VGA_BLACK));
   video_hal_write("\n");
-
-  serial_hal_write("  SecureOS v" SECUREOS_VERSION
-                   "  --  Zero-Trust OS\n\n");
+  serial_hal_write("\n");
 }
