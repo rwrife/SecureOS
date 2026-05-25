@@ -330,3 +330,29 @@ os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size) {
   }
   return OS_STATUS_OK;
 }
+
+os_status_t os_clock_get(char *out_buffer, unsigned int out_buffer_size) {
+  if (out_buffer != 0 && out_buffer_size > 0u) {
+    out_buffer[0] = '\0';
+  }
+  return OS_STATUS_OK;
+}
+
+os_status_t os_clock_set(const char *datetime_str) {
+  (void)datetime_str;
+  return OS_STATUS_DENIED;
+}
+
+os_status_t os_clock_epoch(unsigned int *out) {
+  if (out != 0) {
+    *out = 0u;
+  }
+  return OS_STATUS_OK;
+}
+
+os_status_t os_clock_ticks(unsigned int *out) {
+  if (out != 0) {
+    *out = 0u;
+  }
+  return OS_STATUS_OK;
+}

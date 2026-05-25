@@ -34,6 +34,7 @@
  */
 
 #include "../cap/cap_table.h"
+#include "../drivers/clock/cmos_rtc.h"
 #include "../drivers/disk/ata_pio.h"
 #include "../drivers/disk/ramdisk.h"
 #include "../drivers/network/virtio_net.h"
@@ -41,6 +42,7 @@
 #include "../drivers/video/gpio_text_stub.h"
 #include "../drivers/serial/pc_com.h"
 #include "../drivers/video/vga_text.h"
+#include "../clock/clock_service.h"
 #include "../hal/network_hal.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
@@ -73,6 +75,8 @@ void kmain(void) {
     if (!virtio_net_init_primary()) {
       /* virtio-net NIC not found – network HAL remains unregistered */
     }
+  cmos_rtc_init();
+  clock_service_init();
   fs_service_init();
 
   /* Bring up IPC port table and the in-kernel substrate services. These
@@ -108,6 +112,7 @@ void kmain(void) {
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_NETWORK);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_IPC_SEND);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_IPC_RECV);
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_CLOCK_SET);
 
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_CONSOLE_WRITE);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_DISK_IO_REQUEST);

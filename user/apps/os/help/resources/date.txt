@@ -1,0 +1,14 @@
+usage: date [set YYYY-MM-DD HH:MM:SS] [--epoch] [--ticks]
+displays or sets the system date and time.
+
+options:
+  (no args)     show current date/time as YYYY-MM-DD HH:MM:SS
+  set <dt>      set system time (requires CAP_CLOCK_SET)
+  --epoch       show seconds since 2000-01-01 00:00:00
+  --ticks       show monotonic tick count since boot
+
+examples:
+  date                           show current time
+  date set 2026-05-25 14:30:00   set system time
+  date --epoch                   show epoch seconds
+  date --ticks                   show boot ticks

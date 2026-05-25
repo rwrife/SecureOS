@@ -373,43 +373,146 @@ static fs_result_t fs_find_free_cluster(const uint8_t fat[], uint32_t *out_clust
   return FS_ERR_NO_SPACE;
 }
 
-static fs_result_t fs_find_entry_in_dir(uint32_t dir_cluster,
-                                        const char name83[11],
-                                        uint8_t dir_data[FS_BLOCK_SIZE],
-                                        uint32_t *out_offset,
-                                        int *out_found) {
-  size_t i = 0u;
+/* Extend a directory by allocating and chaining a new cluster.
+ * Returns the new cluster number and loads its (empty) data into dir_data. */
+static fs_result_t fs_extend_directory(uint32_t dir_start_cluster,
+                                       uint8_t fat[],
+                                       uint8_t dir_data[FS_BLOCK_SIZE],
+                                       uint32_t *out_new_cluster) {
+  uint32_t current = dir_start_cluster;
+  uint32_t new_cluster = 0u;
+  fs_result_t result = FS_OK;
+  size_t chain_count = 0u;
+
+  /* Walk to end of chain */
+  while (chain_count < 128u) {
+    uint32_t next = fs_fat_get_entry(fat, current);
+    chain_count++;
+    if (next == FS_FAT_ENTRY_EOC || next < FS_CLUSTER_MIN_ALLOC
+        || next > FS_CLUSTER_MAX_ALLOC) {
+      break;
+    }
+    current = next;
+  }
+
+  result = fs_find_free_cluster(fat, &new_cluster);
+  if (result != FS_OK) {
+    return result;
+  }
+
+  fs_fat_set_entry(fat, current, new_cluster);
+  fs_fat_set_entry(fat, new_cluster, FS_FAT_ENTRY_EOC);
+
+  fs_zero_bytes(dir_data, FS_BLOCK_SIZE);
+  if (fs_write_cluster(new_cluster, dir_data) != FS_OK) {
+    return FS_ERR_STORAGE;
+  }
+
+  *out_new_cluster = new_cluster;
+  return FS_OK;
+}
+
+/* Extended version that also reports which cluster the entry resides in.
+ * If out_entry_cluster is non-null, it receives the cluster number that
+ * contains the found/free slot.  This is needed for multi-cluster directories
+ * where the caller must write back to the correct cluster. */
+static fs_result_t fs_find_entry_in_dir_ext(uint32_t dir_cluster,
+                                            const char name83[11],
+                                            uint8_t dir_data[FS_BLOCK_SIZE],
+                                            uint32_t *out_offset,
+                                            int *out_found,
+                                            uint32_t *out_entry_cluster) {
+  static uint8_t dir_fat[FS_FAT_BUFFER_SIZE];
+  uint32_t current = dir_cluster;
+  uint32_t first_free_cluster = 0u;
+  uint32_t first_free_offset = 0u;
+  int have_free = 0;
+  size_t chain_count = 0u;
 
   if (name83 == 0 || out_offset == 0 || out_found == 0) {
     return FS_ERR_INVALID_ARG;
   }
 
-  if (fs_read_cluster(dir_cluster, dir_data) != FS_OK) {
+  if (fs_load_fat(dir_fat) != FS_OK) {
     return FS_ERR_STORAGE;
   }
 
-  for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
-    size_t off = i * FS_DIR_ENTRY_SIZE;
-    uint8_t marker = dir_data[off];
+  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC
+         && chain_count < 128u) {
+    size_t i = 0u;
+    chain_count++;
 
-    if (marker == 0x00u) {
-      *out_offset = (uint32_t)off;
-      *out_found = 0;
-      return FS_OK;
+    if (fs_read_cluster(current, dir_data) != FS_OK) {
+      return FS_ERR_STORAGE;
     }
 
-    if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
-      continue;
+    for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
+      size_t off = i * FS_DIR_ENTRY_SIZE;
+      uint8_t marker = dir_data[off];
+
+      if (marker == 0x00u) {
+        if (!have_free) {
+          first_free_cluster = current;
+          first_free_offset = (uint32_t)off;
+          have_free = 1;
+        }
+        /* 0x00 means end of entries in this cluster — move to next cluster */
+        goto next_cluster;
+      }
+
+      if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
+        if (!have_free) {
+          first_free_cluster = current;
+          first_free_offset = (uint32_t)off;
+          have_free = 1;
+        }
+        continue;
+      }
+
+      if (fs_entry_name_matches(&dir_data[off], name83)) {
+        *out_offset = (uint32_t)off;
+        *out_found = 1;
+        if (out_entry_cluster) {
+          *out_entry_cluster = current;
+        }
+        return FS_OK;
+      }
     }
 
-    if (fs_entry_name_matches(&dir_data[off], name83)) {
-      *out_offset = (uint32_t)off;
-      *out_found = 1;
-      return FS_OK;
+next_cluster:
+    {
+      uint32_t next = fs_fat_get_entry(dir_fat, current);
+      if (next == FS_FAT_ENTRY_EOC || next < FS_CLUSTER_MIN_ALLOC
+          || next > FS_CLUSTER_MAX_ALLOC) {
+        break;
+      }
+      current = next;
     }
   }
 
+  if (have_free) {
+    /* Re-read the cluster containing the free slot */
+    if (fs_read_cluster(first_free_cluster, dir_data) != FS_OK) {
+      return FS_ERR_STORAGE;
+    }
+    *out_offset = first_free_offset;
+    *out_found = 0;
+    if (out_entry_cluster) {
+      *out_entry_cluster = first_free_cluster;
+    }
+    return FS_OK;
+  }
+
   return FS_ERR_NO_SPACE;
+}
+
+static fs_result_t fs_find_entry_in_dir(uint32_t dir_cluster,
+                                        const char name83[11],
+                                        uint8_t dir_data[FS_BLOCK_SIZE],
+                                        uint32_t *out_offset,
+                                        int *out_found) {
+  return fs_find_entry_in_dir_ext(dir_cluster, name83, dir_data, out_offset,
+                                  out_found, 0);
 }
 
 static fs_result_t fs_resolve_dir_cluster(const char *path, uint32_t *out_cluster) {
@@ -732,29 +835,49 @@ static fs_result_t fs_free_cluster_chain(uint32_t first_cluster, uint8_t fat[FS_
 
 static int fs_directory_is_empty(uint32_t dir_cluster) {
   uint8_t dir_data[FS_BLOCK_SIZE];
-  size_t i = 0u;
+  static uint8_t empty_fat[FS_FAT_BUFFER_SIZE];
+  uint32_t current = dir_cluster;
+  size_t chain_count = 0u;
 
   if (dir_cluster < FS_ROOT_CLUSTER || dir_cluster > FS_CLUSTER_MAX_ALLOC) {
     return 0;
   }
 
-  if (fs_read_cluster(dir_cluster, dir_data) != FS_OK) {
+  if (fs_load_fat(empty_fat) != FS_OK) {
     return 0;
   }
 
-  for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
-    size_t off = i * FS_DIR_ENTRY_SIZE;
-    uint8_t marker = dir_data[off];
+  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC
+         && chain_count < 128u) {
+    size_t i = 0u;
+    uint32_t next = 0u;
+    chain_count++;
 
-    if (marker == 0x00u) {
-      return 1;
+    if (fs_read_cluster(current, dir_data) != FS_OK) {
+      return 0;
     }
 
-    if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
-      continue;
+    for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
+      size_t off = i * FS_DIR_ENTRY_SIZE;
+      uint8_t marker = dir_data[off];
+
+      if (marker == 0x00u) {
+        return 1;
+      }
+
+      if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
+        continue;
+      }
+
+      return 0;
     }
 
-    return 0;
+    next = fs_fat_get_entry(empty_fat, current);
+    if (next == FS_FAT_ENTRY_EOC || next < FS_CLUSTER_MIN_ALLOC
+        || next > FS_CLUSTER_MAX_ALLOC) {
+      break;
+    }
+    current = next;
   }
 
   return 1;
@@ -917,9 +1040,11 @@ fs_result_t fs_list_root(char *out_buffer, size_t out_buffer_size, size_t *out_l
 
 fs_result_t fs_list_dir(const char *path, char *out_buffer, size_t out_buffer_size, size_t *out_len) {
   uint8_t dir_data[FS_BLOCK_SIZE];
+  static uint8_t list_fat[FS_FAT_BUFFER_SIZE];
   uint32_t dir_cluster = FS_ROOT_CLUSTER;
+  uint32_t current = 0u;
   size_t cursor = 0u;
-  size_t i = 0u;
+  size_t chain_count = 0u;
 
   if (out_buffer == 0 || out_len == 0 || out_buffer_size == 0u) {
     return FS_ERR_INVALID_ARG;
@@ -933,41 +1058,61 @@ fs_result_t fs_list_dir(const char *path, char *out_buffer, size_t out_buffer_si
     return FS_ERR_NOT_FOUND;
   }
 
-  if (fs_read_cluster(dir_cluster, dir_data) != FS_OK) {
+  if (fs_load_fat(list_fat) != FS_OK) {
     return FS_ERR_STORAGE;
   }
 
   out_buffer[0] = '\0';
+  current = dir_cluster;
 
-  for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
-    size_t off = i * FS_DIR_ENTRY_SIZE;
-    uint8_t marker = dir_data[off];
-    int is_dir = 0;
-    char formatted[16];
-    size_t j = 0u;
+  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC
+         && chain_count < 128u) {
+    size_t i = 0u;
+    uint32_t next = 0u;
+    chain_count++;
 
-    if (marker == 0x00u) {
-      break;
-    }
-    if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
-      continue;
+    if (fs_read_cluster(current, dir_data) != FS_OK) {
+      return FS_ERR_STORAGE;
     }
 
-    is_dir = (dir_data[off + 11u] & FS_ATTR_DIRECTORY) != 0u;
-    fs_format_name_for_list(&dir_data[off], formatted, sizeof(formatted), is_dir);
+    for (i = 0u; i < FS_DIR_ENTRIES; ++i) {
+      size_t off = i * FS_DIR_ENTRY_SIZE;
+      uint8_t marker = dir_data[off];
+      int is_dir = 0;
+      char formatted[16];
+      size_t j = 0u;
 
-    while (formatted[j] != '\0') {
+      if (marker == 0x00u) {
+        goto list_done;
+      }
+      if (marker == 0xE5u || dir_data[off + 11u] == 0x0Fu) {
+        continue;
+      }
+
+      is_dir = (dir_data[off + 11u] & FS_ATTR_DIRECTORY) != 0u;
+      fs_format_name_for_list(&dir_data[off], formatted, sizeof(formatted), is_dir);
+
+      while (formatted[j] != '\0') {
+        if (cursor + 1u >= out_buffer_size) {
+          return FS_ERR_NO_SPACE;
+        }
+        out_buffer[cursor++] = formatted[j++];
+      }
       if (cursor + 1u >= out_buffer_size) {
         return FS_ERR_NO_SPACE;
       }
-      out_buffer[cursor++] = formatted[j++];
+      out_buffer[cursor++] = '\n';
     }
-    if (cursor + 1u >= out_buffer_size) {
-      return FS_ERR_NO_SPACE;
+
+    next = fs_fat_get_entry(list_fat, current);
+    if (next == FS_FAT_ENTRY_EOC || next < FS_CLUSTER_MIN_ALLOC
+        || next > FS_CLUSTER_MAX_ALLOC) {
+      break;
     }
-    out_buffer[cursor++] = '\n';
+    current = next;
   }
 
+list_done:
   out_buffer[cursor] = '\0';
   *out_len = cursor;
   return FS_OK;
@@ -1092,6 +1237,7 @@ fs_result_t fs_write_file_bytes(const char *path,
   uint8_t parent_dir[FS_BLOCK_SIZE];
   static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
+  uint32_t entry_cluster = 0u;
   char name83[11];
   uint32_t offset = 0u;
   int found = 0;
@@ -1116,9 +1262,16 @@ fs_result_t fs_write_file_bytes(const char *path,
     return result;
   }
 
-  result = fs_find_entry_in_dir(parent_cluster, name83, parent_dir, &offset, &found);
+  result = fs_find_entry_in_dir_ext(parent_cluster, name83, parent_dir, &offset,
+                                    &found, &entry_cluster);
   if (result == FS_ERR_NO_SPACE) {
-    return FS_ERR_NO_SPACE;
+    /* Directory full — extend it with a new cluster */
+    result = fs_extend_directory(parent_cluster, fat, parent_dir, &entry_cluster);
+    if (result != FS_OK) {
+      return FS_ERR_NO_SPACE;
+    }
+    offset = 0u;
+    found = 0;
   }
   if (result != FS_OK) {
     return FS_ERR_STORAGE;
@@ -1167,7 +1320,7 @@ fs_result_t fs_write_file_bytes(const char *path,
   if (fs_store_fat(fat) != FS_OK) {
     return FS_ERR_STORAGE;
   }
-  if (fs_write_cluster(parent_cluster, parent_dir) != FS_OK) {
+  if (fs_write_cluster(entry_cluster, parent_dir) != FS_OK) {
     return FS_ERR_STORAGE;
   }
 
@@ -1179,6 +1332,7 @@ fs_result_t fs_mkdir(const char *path) {
   uint8_t child_dir[FS_BLOCK_SIZE];
   static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
+  uint32_t entry_cluster = 0u;
   char name83[11];
   uint32_t offset = 0u;
   uint32_t new_cluster = 0u;
@@ -1202,9 +1356,16 @@ fs_result_t fs_mkdir(const char *path) {
     return result;
   }
 
-  result = fs_find_entry_in_dir(parent_cluster, name83, parent_dir, &offset, &found);
+  result = fs_find_entry_in_dir_ext(parent_cluster, name83, parent_dir, &offset,
+                                    &found, &entry_cluster);
   if (result == FS_ERR_NO_SPACE) {
-    return FS_ERR_NO_SPACE;
+    /* Directory full — extend it with a new cluster */
+    result = fs_extend_directory(parent_cluster, fat, parent_dir, &entry_cluster);
+    if (result != FS_OK) {
+      return FS_ERR_NO_SPACE;
+    }
+    offset = 0u;
+    found = 0;
   }
   if (result != FS_OK) {
     return FS_ERR_STORAGE;
@@ -1236,7 +1397,7 @@ fs_result_t fs_mkdir(const char *path) {
   if (fs_store_fat(fat) != FS_OK) {
     return FS_ERR_STORAGE;
   }
-  if (fs_write_cluster(parent_cluster, parent_dir) != FS_OK) {
+  if (fs_write_cluster(entry_cluster, parent_dir) != FS_OK) {
     return FS_ERR_STORAGE;
   }
   if (fs_write_cluster(new_cluster, child_dir) != FS_OK) {
@@ -1250,6 +1411,7 @@ fs_result_t fs_unlink(const char *path) {
   uint8_t parent_dir[FS_BLOCK_SIZE];
   static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
+  uint32_t entry_cluster = 0u;
   char name83[11];
   uint32_t offset = 0u;
   int found = 0;
@@ -1273,7 +1435,8 @@ fs_result_t fs_unlink(const char *path) {
     return result;
   }
 
-  result = fs_find_entry_in_dir(parent_cluster, name83, parent_dir, &offset, &found);
+  result = fs_find_entry_in_dir_ext(parent_cluster, name83, parent_dir, &offset,
+                                    &found, &entry_cluster);
   if (result != FS_OK) {
     return result == FS_ERR_NO_SPACE ? FS_ERR_NOT_FOUND : result;
   }
@@ -1300,7 +1463,7 @@ fs_result_t fs_unlink(const char *path) {
   if (fs_store_fat(fat) != FS_OK) {
     return FS_ERR_STORAGE;
   }
-  if (fs_write_cluster(parent_cluster, parent_dir) != FS_OK) {
+  if (fs_write_cluster(entry_cluster, parent_dir) != FS_OK) {
     return FS_ERR_STORAGE;
   }
 
@@ -1311,6 +1474,7 @@ fs_result_t fs_rmdir(const char *path) {
   uint8_t parent_dir[FS_BLOCK_SIZE];
   static uint8_t fat[FS_FAT_BUFFER_SIZE];
   uint32_t parent_cluster = FS_ROOT_CLUSTER;
+  uint32_t entry_cluster = 0u;
   char name83[11];
   uint32_t offset = 0u;
   int found = 0;
@@ -1334,7 +1498,8 @@ fs_result_t fs_rmdir(const char *path) {
     return result;
   }
 
-  result = fs_find_entry_in_dir(parent_cluster, name83, parent_dir, &offset, &found);
+  result = fs_find_entry_in_dir_ext(parent_cluster, name83, parent_dir, &offset,
+                                    &found, &entry_cluster);
   if (result != FS_OK) {
     return result == FS_ERR_NO_SPACE ? FS_ERR_NOT_FOUND : result;
   }
@@ -1365,7 +1530,7 @@ fs_result_t fs_rmdir(const char *path) {
   if (fs_store_fat(fat) != FS_OK) {
     return FS_ERR_STORAGE;
   }
-  if (fs_write_cluster(parent_cluster, parent_dir) != FS_OK) {
+  if (fs_write_cluster(entry_cluster, parent_dir) != FS_OK) {
     return FS_ERR_STORAGE;
   }
 

@@ -47,6 +47,12 @@ os_status_t os_apps_list(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_storage_info(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_get_args(char *out_buffer, unsigned int out_buffer_size);
 
+/* Clock / time syscalls */
+os_status_t os_clock_get(char *out_buffer, unsigned int out_buffer_size);
+os_status_t os_clock_set(const char *datetime_str);
+os_status_t os_clock_epoch(unsigned int *out);
+os_status_t os_clock_ticks(unsigned int *out);
+
 /*
  * Information-only accessor for the runtime ABI version. Returns the same
  * packed (major << 16) | minor value defined by OS_ABI_VERSION in

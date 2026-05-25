@@ -158,25 +158,69 @@ class DiskImage:
                 return cluster
         raise RuntimeError("disk image out of clusters")
 
-    def _find_entry(self, dir_cluster: int, name83: bytes) -> tuple[bytearray, int, bool]:
-        dir_data = bytearray(self._read_cluster(dir_cluster))
-        first_free = -1
+    def _dir_clusters(self, start_cluster: int) -> list[int]:
+        """Return all clusters in a directory's FAT chain."""
+        clusters = [start_cluster]
+        current = start_cluster
+        while True:
+            next_c = self._fat_get(current)
+            if next_c == FS_FAT_ENTRY_EOC:
+                break
+            if next_c < FS_CLUSTER_MIN_ALLOC or next_c > FS_CLUSTER_MAX_ALLOC:
+                break
+            if next_c in clusters:
+                break
+            clusters.append(next_c)
+            current = next_c
+        return clusters
 
-        for index in range(FS_DIR_ENTRIES):
-            offset = index * FS_DIR_ENTRY_SIZE
-            marker = dir_data[offset]
-            if marker == 0x00:
-                return dir_data, offset, False
-            if marker == 0xE5 or dir_data[offset + 11] == 0x0F:
-                if first_free < 0:
-                    first_free = offset
-                continue
-            if dir_data[offset:offset + 11] == name83:
-                return dir_data, offset, True
+    def _extend_dir(self, last_cluster: int) -> int:
+        """Allocate a new cluster and chain it to last_cluster."""
+        new_cluster = self._find_free_cluster()
+        self._fat_set(last_cluster, new_cluster)
+        self._fat_set(new_cluster, FS_FAT_ENTRY_EOC)
+        self._store_fat()
+        self._write_cluster(new_cluster, bytes(FS_BLOCK_SIZE))
+        return new_cluster
 
-        if first_free >= 0:
-            return dir_data, first_free, False
-        raise RuntimeError("directory is full")
+    def _find_entry(self, dir_cluster: int, name83: bytes) -> tuple[bytearray, int, bool, int]:
+        """Search for an entry in a multi-cluster directory.
+
+        Returns (cluster_data, offset_within_cluster, found, cluster_number).
+        If not found, returns the first free slot (extending the directory
+        if needed).
+        """
+        clusters = self._dir_clusters(dir_cluster)
+        first_free_cluster = -1
+        first_free_offset = -1
+
+        for cluster in clusters:
+            dir_data = bytearray(self._read_cluster(cluster))
+            for index in range(FS_DIR_ENTRIES):
+                offset = index * FS_DIR_ENTRY_SIZE
+                marker = dir_data[offset]
+                if marker == 0x00:
+                    if first_free_cluster < 0:
+                        first_free_cluster = cluster
+                        first_free_offset = offset
+                    # 0x00 means no more entries after this in this cluster
+                    break
+                if marker == 0xE5 or dir_data[offset + 11] == 0x0F:
+                    if first_free_cluster < 0:
+                        first_free_cluster = cluster
+                        first_free_offset = offset
+                    continue
+                if dir_data[offset:offset + 11] == name83:
+                    return dir_data, offset, True, cluster
+
+        if first_free_cluster >= 0:
+            dir_data = bytearray(self._read_cluster(first_free_cluster))
+            return dir_data, first_free_offset, False, first_free_cluster
+
+        # All clusters full — extend the directory
+        new_cluster = self._extend_dir(clusters[-1])
+        dir_data = bytearray(self._read_cluster(new_cluster))
+        return dir_data, 0, False, new_cluster
 
     def _resolve_dir_cluster(self, path: str) -> int:
         if not path or path == "/":
@@ -184,7 +228,7 @@ class DiskImage:
         current = FS_ROOT_CLUSTER
         for component in [part for part in path.replace('\\', '/').split('/') if part]:
             name83 = self._parse_83_name(component)
-            dir_data, offset, found = self._find_entry(current, name83)
+            dir_data, offset, found, cluster = self._find_entry(current, name83)
             if not found:
                 raise FileNotFoundError(path)
             entry = dir_data[offset:offset + FS_DIR_ENTRY_SIZE]
@@ -201,7 +245,7 @@ class DiskImage:
         parent_path, _, leaf = normalized.rpartition('/')
         parent_cluster = self._resolve_dir_cluster('/' + parent_path) if parent_path else FS_ROOT_CLUSTER
         name83 = self._parse_83_name(leaf)
-        parent_dir, offset, found = self._find_entry(parent_cluster, name83)
+        parent_dir, offset, found, write_cluster = self._find_entry(parent_cluster, name83)
         if found:
             return
 
@@ -215,14 +259,14 @@ class DiskImage:
         entry[11] = FS_ATTR_DIRECTORY
         self._set_entry_cluster(entry, cluster)
         parent_dir[offset:offset + FS_DIR_ENTRY_SIZE] = entry
-        self._write_cluster(parent_cluster, parent_dir)
+        self._write_cluster(write_cluster, parent_dir)
 
     def write_file(self, path: str, content: bytes) -> None:
         normalized = path.replace('\\', '/').strip('/')
         parent_path, _, leaf = normalized.rpartition('/')
         parent_cluster = self._resolve_dir_cluster('/' + parent_path) if parent_path else FS_ROOT_CLUSTER
         name83 = self._parse_83_name(leaf)
-        parent_dir, offset, found = self._find_entry(parent_cluster, name83)
+        parent_dir, offset, found, write_cluster = self._find_entry(parent_cluster, name83)
 
         required_clusters = (len(content) + FS_BLOCK_SIZE - 1) // FS_BLOCK_SIZE
         if required_clusters == 0:
@@ -280,7 +324,7 @@ class DiskImage:
 
         struct.pack_into("<I", entry, 28, len(content))
         parent_dir[offset:offset + FS_DIR_ENTRY_SIZE] = entry
-        self._write_cluster(parent_cluster, parent_dir)
+        self._write_cluster(write_cluster, parent_dir)
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

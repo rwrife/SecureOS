@@ -8,6 +8,8 @@ none
 -smp
 1
 -no-reboot
+-rtc
+base=utc,clock=host
 -netdev
 user,id=net0
 -device

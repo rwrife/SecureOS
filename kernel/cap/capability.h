@@ -34,6 +34,7 @@ typedef enum {
    * caller is wired in M2+.
    */
   CAP_SYSCALL = 15,
+  CAP_CLOCK_SET = 16,
 } capability_id_t;
 
 typedef enum {

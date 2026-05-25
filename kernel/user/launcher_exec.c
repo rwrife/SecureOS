@@ -31,6 +31,7 @@
 #include <stdint.h>
 
 #include "../cap/cap_table.h"
+#include "../clock/clock_service.h"
 #include "../crypto/cert.h"
 #include "../crypto/ed25519.h"
 #include "../crypto/sha512.h"
@@ -2153,6 +2154,111 @@ static process_result_t app_script_cmd_releaselib(const process_context_t *conte
   return app_sys_releaselib(context, args);
 }
 
+static process_result_t app_script_cmd_date(const process_context_t *context, const char *args) {
+  char output[APP_OUTPUT_MAX];
+  size_t cursor = 0u;
+  hal_time_t t;
+  clock_result_t cr;
+
+  if (args != 0 && app_string_equals(args, "--epoch")) {
+    uint32_t epoch = 0;
+    cr = clock_service_get_epoch(&epoch);
+    if (cr != CLOCK_OK) {
+      app_emit(context, "clock not ready\n");
+      return PROCESS_ERR_STORAGE;
+    }
+    cursor = app_append_u32_decimal(output, sizeof(output), cursor, epoch);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+    return PROCESS_OK;
+  }
+
+  if (args != 0 && app_string_equals(args, "--ticks")) {
+    uint32_t ticks = clock_service_get_ticks();
+    cursor = app_append_u32_decimal(output, sizeof(output), cursor, ticks);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+    app_emit(context, output);
+    return PROCESS_OK;
+  }
+
+  if (args != 0 && args[0] == 's' && args[1] == 'e' && args[2] == 't' &&
+      args[3] == ' ') {
+    /* Parse "set YYYY-MM-DD HH:MM:SS" */
+    const char *dt = args + 4;
+    hal_time_t new_time;
+    unsigned int val = 0;
+    int i = 0;
+
+    /* Skip leading whitespace */
+    while (dt[i] == ' ') i++;
+
+    /* Parse year */
+    val = 0;
+    while (dt[i] >= '0' && dt[i] <= '9') { val = val * 10 + (unsigned int)(dt[i] - '0'); i++; }
+    new_time.year = (uint16_t)val;
+    if (dt[i] == '-') i++;
+
+    /* Parse month */
+    val = 0;
+    while (dt[i] >= '0' && dt[i] <= '9') { val = val * 10 + (unsigned int)(dt[i] - '0'); i++; }
+    new_time.month = (uint8_t)val;
+    if (dt[i] == '-') i++;
+
+    /* Parse day */
+    val = 0;
+    while (dt[i] >= '0' && dt[i] <= '9') { val = val * 10 + (unsigned int)(dt[i] - '0'); i++; }
+    new_time.day = (uint8_t)val;
+    if (dt[i] == ' ') i++;
+
+    /* Parse hour */
+    val = 0;
+    while (dt[i] >= '0' && dt[i] <= '9') { val = val * 10 + (unsigned int)(dt[i] - '0'); i++; }
+    new_time.hour = (uint8_t)val;
+    if (dt[i] == ':') i++;
+
+    /* Parse minute */
+    val = 0;
+    while (dt[i] >= '0' && dt[i] <= '9') { val = val * 10 + (unsigned int)(dt[i] - '0'); i++; }
+    new_time.minute = (uint8_t)val;
+    if (dt[i] == ':') i++;
+
+    /* Parse second */
+    val = 0;
+    while (dt[i] >= '0' && dt[i] <= '9') { val = val * 10 + (unsigned int)(dt[i] - '0'); i++; }
+    new_time.second = (uint8_t)val;
+    new_time.weekday = 0;
+
+    cr = clock_service_set_time(context->subject_id, &new_time);
+    if (cr == CLOCK_ERR_DENIED) {
+      app_emit(context, "denied: missing CAP_CLOCK_SET\n");
+      return PROCESS_ERR_CAPABILITY;
+    }
+    if (cr != CLOCK_OK) {
+      app_emit(context, "failed to set time\n");
+      return PROCESS_ERR_STORAGE;
+    }
+    app_emit(context, "time updated\n");
+    return PROCESS_OK;
+  }
+
+  /* Default: show current date/time */
+  cr = clock_service_get_time(&t);
+  if (cr != CLOCK_OK) {
+    app_emit(context, "clock not ready\n");
+    return PROCESS_ERR_STORAGE;
+  }
+
+  {
+    char datetime_buf[CLOCK_FMT_DATETIME_SIZE];
+    clock_service_format_datetime(&t, datetime_buf, sizeof(datetime_buf));
+    cursor = app_append_string(output, sizeof(output), cursor, datetime_buf);
+    cursor = app_append_string(output, sizeof(output), cursor, "\n");
+  }
+
+  app_emit(context, output);
+  return PROCESS_OK;
+}
+
 static process_result_t app_try_execute_builtin_command(const char *command,
                                                         const char *rest,
                                                         const process_context_t *context,
@@ -2169,6 +2275,7 @@ static process_result_t app_try_execute_builtin_command(const char *command,
       {"apps", app_script_cmd_apps, 0, ""},
       {"libs", app_script_cmd_libs, 0, ""},
       {"storage", app_script_cmd_storage, 0, ""},
+      {"date", app_script_cmd_date, 0, ""},
       {"about", app_script_cmd_about, 1, 0},
       {"loadlib", app_script_cmd_loadlib, 1, 0},
       {"unloadlib", app_script_cmd_unloadlib, 1, 0},
