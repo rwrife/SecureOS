@@ -486,26 +486,17 @@ sof_result_t sof_verify_signature(const uint8_t *data,
     }
   }
 
-  /* Validate cert signature using sign-and-compare (workaround for
-   * ed25519_verify failure on i386 freestanding target).
-   * Ed25519 signing is deterministic: same key + same message = same sig.
-   * Rebuild the expected cert and compare its signature bytes. */
+  /* Validate the cert signature against the baked-in root public key.
+   * Earlier revisions used a deterministic sign-and-compare workaround
+   * because of an ed25519_verify bug on the freestanding i386 target;
+   * that bug was fixed in #134 and is regression-tested via the RFC 8032
+   * §7.1 KAT (`tests/ed25519_kat_test.c`, #200), so we now use the real
+   * verifier — which also lets us trust any cert genuinely signed by
+   * root, not just one rebuilt for the baked-in intermediate key. */
   {
-    secureos_cert_t expected_cert;
-    uint8_t root_priv[ED25519_PRIVATE_KEY_SIZE];
-    uint8_t root_pub[ED25519_PUBLIC_KEY_SIZE];
-    size_t i;
-    uint8_t root_seed_copy[ED25519_SEED_SIZE];
-
-    /* Copy baked-in root seed and derive the root keypair */
-    for (i = 0; i < ED25519_SEED_SIZE; ++i) root_seed_copy[i] = SECUREOS_ROOT_SEED[i];
-    ed25519_create_keypair(root_seed_copy, root_pub, root_priv);
-
-    /* Build the expected cert with the subject key from the parsed cert */
-    cert_build(root_pub, root_priv, cert.subject_public_key, &expected_cert);
-
-    /* Compare the cert signature byte-by-byte */
-    if (!sof_mem_equal(cert.signature, expected_cert.signature, ED25519_SIGNATURE_SIZE)) {
+    const uint8_t *root_pk = cert_get_root_public_key();
+    cert_result_t chain_res = cert_verify(&cert, root_pk);
+    if (chain_res != CERT_OK) {
       return SOF_ERR_SIGNATURE_INVALID;
     }
   }
@@ -516,31 +507,15 @@ sof_result_t sof_verify_signature(const uint8_t *data,
   /* Hash the payload */
   sha512_hash(parsed->payload, parsed->payload_size, payload_hash);
 
-  /* Verify payload signature using sign-and-compare:
-   * Re-derive the intermediate keypair and re-sign the payload hash. */
+  /* Verify the payload signature against the (now-trusted) cert subject
+   * key. Same rationale as above: ed25519_verify is KAT-validated, so
+   * use it directly instead of re-signing with a hard-coded seed. */
   {
-    uint8_t int_seed_copy[ED25519_SEED_SIZE];
-    uint8_t int_priv[ED25519_PRIVATE_KEY_SIZE];
-    uint8_t int_pub[ED25519_PUBLIC_KEY_SIZE];
-    uint8_t expected_sig[ED25519_SIGNATURE_SIZE];
-    size_t i;
-
-    /* Copy baked-in intermediate seed and derive the intermediate keypair */
-    for (i = 0; i < ED25519_SEED_SIZE; ++i) int_seed_copy[i] = SECUREOS_INTERMEDIATE_SEED[i];
-    ed25519_create_keypair(int_seed_copy, int_pub, int_priv);
-
-    /* Verify the subject key in the cert matches our intermediate key */
-    if (!sof_mem_equal(cert.subject_public_key, int_pub, ED25519_PUBLIC_KEY_SIZE)) {
-      return SOF_ERR_SIGNATURE_INVALID;
-    }
-
-    /* Re-sign the payload hash using the intermediate keypair.
-     * ed25519_create_keypair stores seed||pub in int_priv (64 bytes),
-     * which is the same format sof_build_signed constructs for signing. */
-    ed25519_sign(payload_hash, SHA512_HASH_SIZE, int_pub, int_priv, expected_sig);
-
-    /* Compare signatures — deterministic Ed25519 means same key+msg = same sig */
-    if (!sof_mem_equal(sig_bytes, expected_sig, ED25519_SIGNATURE_SIZE)) {
+    ed25519_result_t sig_res = ed25519_verify(sig_bytes,
+                                              payload_hash,
+                                              SHA512_HASH_SIZE,
+                                              cert.subject_public_key);
+    if (sig_res != ED25519_OK) {
       return SOF_ERR_SIGNATURE_INVALID;
     }
   }
