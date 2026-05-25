@@ -1,3 +1,16 @@
+# Workflow
+
+Before starting any new work:
+
+1. Pull the latest `main` branch: `git pull origin main`
+2. Create a worktree in the `.worktrees/` folder with a descriptive branch name suitable for a PR:
+   ```
+   git worktree add .worktrees/<branch-name> -b <branch-name>
+   ```
+   Branch names should follow the pattern `<type>/<short-description>` (e.g., `feature/add-scheduler`, `fix/memory-leak-in-hal`, `docs/update-build-instructions`).
+3. Do all work inside the worktree directory (`.worktrees/<branch-name>/`).
+4. When finished, push the branch and open a PR against `main`.
+
 # Overview
 
 The goal is to build a operating system where all processes are run in total isolation and will not execute without explicit user consent. This OS should be built in a way to run on multiple architectures, however we're building for QEMU, x86 on the first pass since it'll offer the most compatibility
