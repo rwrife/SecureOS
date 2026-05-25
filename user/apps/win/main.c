@@ -62,9 +62,6 @@ int main(void) {
   initial_win = win_create(10, 10, "Session 1", session_id);
   if (initial_win != 0) {
     win_set_focus(initial_win);
-    win_puts(initial_win, "SecureOS Window Manager v1\n");
-    win_puts(initial_win, "Type to interact. ESC to exit.\n");
-    win_puts(initial_win, "> ");
   }
 
   /* Main event loop */
@@ -74,23 +71,18 @@ int main(void) {
       break;
     }
 
-    /* Read session output into window text buffers */
+    /* Tick all active sessions to process injected input */
     {
       win_window_t *table = win_get_table();
       int i;
       for (i = 0; i < WIN_MAX_WINDOWS; i++) {
         if (table[i].active) {
-          char buf[64];
-          unsigned int len = 0;
-          if (os_session_read_output(table[i].session_id, buf, sizeof(buf) - 1, &len) == OS_STATUS_OK && len > 0) {
-            buf[len] = '\0';
-            win_puts(&table[i], buf);
-          }
+          os_session_tick(table[i].session_id);
         }
       }
     }
 
-    /* Render frame */
+    /* Render frame — compositor reads VFB pixels directly */
     compositor_render(input_get_mouse_x(), input_get_mouse_y());
 
     /* Check if all windows are closed */

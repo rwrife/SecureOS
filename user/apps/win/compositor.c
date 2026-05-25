@@ -57,7 +57,6 @@ static void draw_window(win_window_t *w) {
   int content_w, content_h;
   int row;
   unsigned char tb_color;
-  int gfx_mode = 0;
 
   if (w == 0 || !w->active) return;
 
@@ -89,13 +88,9 @@ static void draw_window(win_window_t *w) {
   content_h = w->height - WIN_TITLE_HEIGHT - WIN_BORDER;
   fill_rect(content_x, content_y, content_w, content_h, COLOR_CONTENT_BG);
 
-  /* Check if session is in graphics mode */
-  os_session_get_gfx_mode(w->session_id, &gfx_mode);
-
-  if (gfx_mode == 1) {
-    /* Graphics mode: blit virtual framebuffer into window content area */
-    /* Read a region from the session's VFB that fits the content area */
-    unsigned char vfb_line[320]; /* max width we'd ever read */
+  /* Always read session's VFB pixels — the kernel renders text/graphics there */
+  {
+    unsigned char vfb_line[320];
     int vfb_w = content_w;
     int vfb_h = content_h;
     if (vfb_w > 320) vfb_w = 320;
@@ -115,23 +110,6 @@ static void draw_window(win_window_t *w) {
           }
         }
       }
-    }
-  } else {
-    /* Text mode: render terminal text using bitmap font */
-    for (row = 0; row < WIN_CONTENT_ROWS; row++) {
-      if (w->text[row][0] != '\0') {
-        font_draw_string(g_backbuffer, SCREEN_W,
-                         content_x + 2,
-                         content_y + row * (FONT_CHAR_H + 1) + 1,
-                         w->text[row], COLOR_CONTENT_FG);
-      }
-    }
-
-    /* Blinking cursor indicator */
-    if (w->focused) {
-      int cx = content_x + 2 + w->cursor_col * (FONT_CHAR_W + 1);
-      int cy = content_y + w->cursor_row * (FONT_CHAR_H + 1) + 1;
-      fill_rect(cx, cy + FONT_CHAR_H, FONT_CHAR_W, 1, COLOR_CONTENT_FG);
     }
   }
 }

@@ -77,4 +77,17 @@ size_t session_manager_read_vfb(unsigned int session_id,
                                 unsigned int x, unsigned int y,
                                 unsigned int w, unsigned int h);
 
+/**
+ * Write a single character into the session's VFB at the text cursor position.
+ * Handles newline, carriage return, tab, and line wrapping/scrolling.
+ * Used by the console to render text output for WM-managed sessions.
+ */
+void session_manager_vfb_putchar(unsigned int session_id, char ch);
+
+/**
+ * Write a null-terminated string into the session's VFB.
+ * Renders each character at the text cursor, advancing as needed.
+ */
+void session_manager_vfb_write(unsigned int session_id, const char *text);
+
 #endif

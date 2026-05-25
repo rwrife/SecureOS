@@ -23,6 +23,7 @@
 
 #include "session_manager.h"
 
+#include "../gfx/vfb_font.h"
 #include "../hal/serial_hal.h"
 #include "../mem/kheap.h"
 #include "../sched/scheduler.h"
@@ -33,16 +34,25 @@ enum {
   SESSION_VFB_WIDTH = 320,
   SESSION_VFB_HEIGHT = 200,
   SESSION_VFB_SIZE = 64000, /* 320 * 200 */
+  /* Text grid dimensions for VFB text rendering */
+  SESSION_VFB_TEXT_COLS = 53,  /* 320 / (5+1) = 53 */
+  SESSION_VFB_TEXT_ROWS = 25,  /* 200 / (7+1) = 25 */
 };
+
+#define VFB_FG_COLOR 15  /* white */
+#define VFB_BG_COLOR 0   /* black */
 
 typedef struct {
   int in_use;
   unsigned int session_id;
   cap_subject_id_t subject_id;
   console_context_t console_context;
-  /* Virtual framebuffer for WM-managed graphics sessions */
+  /* Virtual framebuffer — always allocated for WM-managed sessions */
   int gfx_mode;                     /* 0 = text, 1 = graphics */
   unsigned char *vfb;               /* Allocated via kmalloc when needed */
+  /* Text cursor for kernel-side text rendering into VFB */
+  int vfb_cursor_col;
+  int vfb_cursor_row;
 } session_record_t;
 
 static session_record_t g_sessions[SESSION_MAX];
@@ -366,6 +376,14 @@ void session_manager_set_wm_managed(unsigned int session_id, int managed) {
     return;
   }
   g_sessions[session_id].console_context.wm_managed = managed;
+
+  /* Eagerly allocate VFB when marking as WM-managed */
+  if (managed && g_sessions[session_id].vfb == 0) {
+    g_sessions[session_id].vfb =
+        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+    g_sessions[session_id].vfb_cursor_col = 0;
+    g_sessions[session_id].vfb_cursor_row = 0;
+  }
 }
 
 int session_manager_is_wm_managed(unsigned int session_id) {
@@ -442,3 +460,76 @@ size_t session_manager_read_vfb(unsigned int session_id,
 
   return written;
 }
+
+/* --- VFB text rendering for WM-managed sessions --- */
+
+/**
+ * Scroll the VFB up by one text line (VFB_FONT_H+1 pixels).
+ * Moves all pixel rows up and clears the bottom line.
+ */
+static void vfb_scroll_up(unsigned char *vfb) {
+  int line_h = VFB_FONT_H + VFB_FONT_SPACING;
+  int shift_bytes = line_h * SESSION_VFB_WIDTH;
+  int total_bytes = SESSION_VFB_SIZE;
+  int i;
+
+  /* Shift pixels up */
+  for (i = 0; i < total_bytes - shift_bytes; i++) {
+    vfb[i] = vfb[i + shift_bytes];
+  }
+  /* Clear the bottom area */
+  for (i = total_bytes - shift_bytes; i < total_bytes; i++) {
+    vfb[i] = VFB_BG_COLOR;
+  }
+}
+
+void session_manager_vfb_putchar(unsigned int session_id, char ch) {
+  session_record_t *s;
+  unsigned char *vfb;
+  int px, py;
+
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  s = &g_sessions[session_id];
+  vfb = s->vfb;
+  if (vfb == 0) {
+    return;
+  }
+
+  if (ch == '\n') {
+    s->vfb_cursor_col = 0;
+    s->vfb_cursor_row++;
+  } else if (ch == '\r') {
+    s->vfb_cursor_col = 0;
+  } else if (ch == '\t') {
+    s->vfb_cursor_col = (s->vfb_cursor_col + 4) & ~3;
+  } else {
+    /* Render the character glyph at current cursor position */
+    px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
+    py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
+    vfb_font_draw_char(vfb, SESSION_VFB_WIDTH, px, py, ch, VFB_FG_COLOR);
+    s->vfb_cursor_col++;
+  }
+
+  /* Wrap at end of line */
+  if (s->vfb_cursor_col >= SESSION_VFB_TEXT_COLS) {
+    s->vfb_cursor_col = 0;
+    s->vfb_cursor_row++;
+  }
+
+  /* Scroll if past last row */
+  if (s->vfb_cursor_row >= SESSION_VFB_TEXT_ROWS) {
+    vfb_scroll_up(vfb);
+    s->vfb_cursor_row = SESSION_VFB_TEXT_ROWS - 1;
+  }
+}
+
+void session_manager_vfb_write(unsigned int session_id, const char *text) {
+  if (text == 0) return;
+  while (*text != '\0') {
+    session_manager_vfb_putchar(session_id, *text);
+    text++;
+  }
+}
+

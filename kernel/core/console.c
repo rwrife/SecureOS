@@ -945,6 +945,11 @@ static void console_write(const char *message) {
     console_screen_history[console_screen_history_len] = '\0';
   }
 
+  /* Render text into the session's VFB if WM-managed */
+  if (g_console_ctx->wm_managed) {
+    session_manager_vfb_write(session_manager_active_id(), message);
+  }
+
   serial_hal_write(message);
   video_hal_write(message);
 }
