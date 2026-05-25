@@ -46,6 +46,6 @@ fi
 
 echo ""
 echo "✓ Build complete. Artifacts:"
-[[ -f "$ROOT_DIR/artifacts/kernel/secureos.iso" ]] && echo "  - artifacts/kernel/secureos.iso"
-[[ -f "$ROOT_DIR/artifacts/kernel/kernel.elf" ]]   && echo "  - artifacts/kernel/kernel.elf"
-[[ -f "$ROOT_DIR/artifacts/disk/secureos-disk.img" ]] && echo "  - artifacts/disk/secureos-disk.img"
+[[ -f "$ROOT_DIR/artifacts/kernel/secureos.iso" ]] && echo "  - artifacts/kernel/secureos.iso" || true
+[[ -f "$ROOT_DIR/artifacts/kernel/kernel.elf" ]]   && echo "  - artifacts/kernel/kernel.elf"   || true
+[[ -f "$ROOT_DIR/artifacts/disk/secureos-disk.img" ]] && echo "  - artifacts/disk/secureos-disk.img" || true
