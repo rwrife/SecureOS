@@ -30,16 +30,21 @@ jobs:
             -t secureos/toolchain:bookworm-2026-02-12 \
             .
 
-      - name: Install VM test dependencies
+      - name: Install host-side VM dependencies
+        # qemu runs on the host (needs /dev/kvm), python3 is used by the
+        # determinism check below. The kernel toolchain lives in the Docker
+        # toolchain image built above (issue #332).
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 python3
 
       - name: Build kernel ISO
-        run: ./build/scripts/build.sh image
+        # `image` was renamed to `kernel` in the docker-toolchain
+        # consolidation; route through the host-side wrapper.
+        run: ./scripts/build.sh kernel
 
       - name: Build seeded disk image
-        run: ./build/scripts/build.sh disk
+        run: ./scripts/build.sh disk
 
       - name: VM smoke boot (kernel console)
         run: ./build/scripts/run_qemu.sh --test kernel_console
@@ -81,7 +86,11 @@ jobs:
       # before "Upload kernel artifacts" can publish it.
       - name: Image determinism check (baseline; non-blocking, #174)
         continue-on-error: true
-        run: ./build/scripts/check_image_determinism.sh
+        run: |
+          docker run --rm \
+            -v "$PWD":/workspace -w /workspace \
+            secureos/toolchain:bookworm-2026-02-12 \
+            bash -lc 'set -euo pipefail; ./build/scripts/check_image_determinism.sh'
 
       - name: Upload determinism run bundle
         if: always()
