@@ -84,6 +84,21 @@ os_status_t os_video_get_pixel(int x, int y, unsigned char *out_color);
 os_status_t os_video_draw_rect(int x, int y, int w, int h, unsigned char color);
 os_status_t os_video_get_resolution(int *out_width, int *out_height);
 
+/**
+ * Bulk-copy a pixel buffer to the VGA framebuffer starting at (x, y).
+ * The buffer contains w*h bytes in row-major order (one byte per pixel,
+ * palette index). Pixels outside screen bounds are clipped.
+ */
+os_status_t os_video_blit(int x, int y, int w, int h, const unsigned char *pixels);
+
+/* Session management syscalls (used by window manager) */
+os_status_t os_session_create(unsigned int *out_session_id);
+os_status_t os_session_read_output(unsigned int session_id, char *out_buffer,
+                                   unsigned int out_buffer_size,
+                                   unsigned int *out_len);
+os_status_t os_session_write_input(unsigned int session_id, const char *input,
+                                   unsigned int len);
+
 #ifdef __cplusplus
 }
 #endif

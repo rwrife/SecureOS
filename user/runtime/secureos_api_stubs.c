@@ -53,6 +53,12 @@ typedef struct {
   int (*video_get_pixel)(int x, int y, unsigned char *out_color);
   int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
   int (*video_get_resolution)(int *out_width, int *out_height);
+  int (*video_blit)(int x, int y, int w, int h, const unsigned char *pixels);
+  int (*session_create)(unsigned int *out_session_id);
+  int (*session_read_output)(unsigned int session_id, char *out_buffer,
+                             unsigned int out_buffer_size, unsigned int *out_len);
+  int (*session_write_input)(unsigned int session_id, const char *input,
+                             unsigned int len);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -475,5 +481,61 @@ os_status_t os_video_get_resolution(int *out_width, int *out_height) {
 
   if (out_width != 0) *out_width = 0;
   if (out_height != 0) *out_height = 0;
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_video_blit(int x, int y, int w, int h, const unsigned char *pixels) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->video_blit != 0) {
+    return (os_status_t)bridge->video_blit(x, y, w, h, pixels);
+  }
+
+  /* Fallback: draw pixel-by-pixel via put_pixel */
+  if (bridge != 0 && bridge->video_put_pixel != 0 && pixels != 0) {
+    int row, col;
+    for (row = 0; row < h; row++) {
+      for (col = 0; col < w; col++) {
+        bridge->video_put_pixel(x + col, y + row, pixels[row * w + col]);
+      }
+    }
+    return OS_STATUS_OK;
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_create(unsigned int *out_session_id) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_create != 0) {
+    return (os_status_t)bridge->session_create(out_session_id);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_read_output(unsigned int session_id, char *out_buffer,
+                                   unsigned int out_buffer_size,
+                                   unsigned int *out_len) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_read_output != 0) {
+    return (os_status_t)bridge->session_read_output(session_id, out_buffer,
+                                                    out_buffer_size, out_len);
+  }
+
+  if (out_len != 0) *out_len = 0;
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_write_input(unsigned int session_id, const char *input,
+                                   unsigned int len) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_write_input != 0) {
+    return (os_status_t)bridge->session_write_input(session_id, input, len);
+  }
+
   return OS_STATUS_NOT_FOUND;
 }

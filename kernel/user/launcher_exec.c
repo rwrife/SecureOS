@@ -44,6 +44,7 @@
 #include "../drivers/video/vga_text.h"
 #include "../drivers/video/vga_gfx.h"
 #include "native_net_service.h"
+#include "../core/session_manager.h"
 
 /* ---- Signature verification cache ----------------------------------------
  * Once a binary passes signature verification there is no reason to re-verify
@@ -246,6 +247,12 @@ typedef struct {
   int (*video_get_pixel)(int x, int y, unsigned char *out_color);
   int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
   int (*video_get_resolution)(int *out_width, int *out_height);
+  int (*video_blit)(int x, int y, int w, int h, const unsigned char *pixels);
+  int (*session_create)(unsigned int *out_session_id);
+  int (*session_read_output)(unsigned int session_id, char *out_buffer,
+                             unsigned int out_buffer_size, unsigned int *out_len);
+  int (*session_write_input)(unsigned int session_id, const char *input,
+                             unsigned int len);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -746,6 +753,54 @@ static int app_native_video_get_resolution(int *out_width, int *out_height) {
   return 0;
 }
 
+static int app_native_video_blit(int x, int y, int w, int h,
+                                 const unsigned char *pixels) {
+  int row, col;
+  if (!vga_gfx_is_active() || pixels == 0 || w <= 0 || h <= 0) {
+    return 3;
+  }
+  for (row = 0; row < h; row++) {
+    for (col = 0; col < w; col++) {
+      vga_gfx_put_pixel(x + col, y + row, pixels[row * w + col]);
+    }
+  }
+  return 0;
+}
+
+static int app_native_session_create(unsigned int *out_session_id) {
+  cap_subject_id_t subject_id = 0u;
+  if (g_native_context != 0) {
+    subject_id = g_native_context->subject_id;
+  }
+  if (session_manager_create(subject_id, out_session_id)) {
+    return 0;
+  }
+  return 3;
+}
+
+static int app_native_session_read_output(unsigned int session_id,
+                                          char *out_buffer,
+                                          unsigned int out_buffer_size,
+                                          unsigned int *out_len) {
+  /* Stub: session output capture not yet wired. Returns empty. */
+  (void)session_id;
+  if (out_buffer != 0 && out_buffer_size > 0) {
+    out_buffer[0] = '\0';
+  }
+  if (out_len != 0) *out_len = 0;
+  return 0;
+}
+
+static int app_native_session_write_input(unsigned int session_id,
+                                          const char *input,
+                                          unsigned int len) {
+  /* Stub: session input injection not yet wired. */
+  (void)session_id;
+  (void)input;
+  (void)len;
+  return 0;
+}
+
 static int app_payload_looks_like_script(const uint8_t *program, size_t program_len) {
   size_t i = 0u;
   size_t sample_len = program_len;
@@ -885,6 +940,10 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->video_get_pixel = app_native_video_get_pixel;
   bridge->video_draw_rect = app_native_video_draw_rect;
   bridge->video_get_resolution = app_native_video_get_resolution;
+  bridge->video_blit = app_native_video_blit;
+  bridge->session_create = app_native_session_create;
+  bridge->session_read_output = app_native_session_read_output;
+  bridge->session_write_input = app_native_session_write_input;
 
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
   (void)entry();
@@ -915,6 +974,10 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->video_get_pixel = 0;
   bridge->video_draw_rect = 0;
   bridge->video_get_resolution = 0;
+  bridge->video_blit = 0;
+  bridge->session_create = 0;
+  bridge->session_read_output = 0;
+  bridge->session_write_input = 0;
 
   g_native_context = 0;
   g_native_raw_args = "";
