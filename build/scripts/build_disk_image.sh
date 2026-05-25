@@ -52,6 +52,11 @@ build_disk_image_inner() {
 	local os_app
 	local -a app_mappings=()
 
+	# Ensure signing keys exist (generate if missing)
+	if [ ! -f "$ROOT_DIR/artifacts/keys/intermediate.seed" ]; then
+		"$ROOT_DIR/build/scripts/generate_keys.sh"
+	fi
+
 	mkdir -p "$DISK_DIR" "$ROOT_DIR/artifacts/os" "$ROOT_DIR/artifacts/lib"
 
 	if compgen -G "user/os_commands/*.cmd" >/dev/null 2>&1; then

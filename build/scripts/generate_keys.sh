@@ -14,6 +14,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 KEYS_DIR="$ROOT_DIR/artifacts/keys"
 
+# Skip if keys already generated (idempotent)
+if [ -f "$KEYS_DIR/root.pub" ] && [ -f "$KEYS_DIR/intermediate.seed" ] && [ -f "$KEYS_DIR/intermediate.cert" ]; then
+  echo "generate_keys: signing materials already exist in $KEYS_DIR"
+  exit 0
+fi
+
 mkdir -p "$KEYS_DIR"
 
 # Build keygen if not already built
