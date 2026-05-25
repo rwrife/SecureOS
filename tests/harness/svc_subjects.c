@@ -31,11 +31,14 @@ _Static_assert(SUBJECT_M2_HELLOAPP < 8u,
                "SUBJECT_M2_HELLOAPP must fit under CAP_TABLE_MAX_SUBJECTS");
 _Static_assert(SUBJECT_M3_FS_SVC < 8u,
                "SUBJECT_M3_FS_SVC must fit under CAP_TABLE_MAX_SUBJECTS");
+_Static_assert(SUBJECT_M4_BROKER_SVC < 8u,
+               "SUBJECT_M4_BROKER_SVC must fit under CAP_TABLE_MAX_SUBJECTS");
 
 _Static_assert(SUBJECT_M2_LAUNCHER != 0u
                && SUBJECT_M2_CONSOLE_SVC != 0u
                && SUBJECT_M2_HELLOAPP != 0u
-               && SUBJECT_M3_FS_SVC != 0u,
+               && SUBJECT_M3_FS_SVC != 0u
+               && SUBJECT_M4_BROKER_SVC != 0u,
                "substrate subject ids must not collide with the "
                "reserved 0 used by ipc_msg_v0 to signal "
                "unstamped/invalid sender_subject");
@@ -43,9 +46,13 @@ _Static_assert(SUBJECT_M2_LAUNCHER != 0u
 _Static_assert(SUBJECT_M2_LAUNCHER != SUBJECT_M2_CONSOLE_SVC
                && SUBJECT_M2_LAUNCHER != SUBJECT_M2_HELLOAPP
                && SUBJECT_M2_LAUNCHER != SUBJECT_M3_FS_SVC
+               && SUBJECT_M2_LAUNCHER != SUBJECT_M4_BROKER_SVC
                && SUBJECT_M2_CONSOLE_SVC != SUBJECT_M2_HELLOAPP
                && SUBJECT_M2_CONSOLE_SVC != SUBJECT_M3_FS_SVC
-               && SUBJECT_M2_HELLOAPP != SUBJECT_M3_FS_SVC,
+               && SUBJECT_M2_CONSOLE_SVC != SUBJECT_M4_BROKER_SVC
+               && SUBJECT_M2_HELLOAPP != SUBJECT_M3_FS_SVC
+               && SUBJECT_M2_HELLOAPP != SUBJECT_M4_BROKER_SVC
+               && SUBJECT_M3_FS_SVC != SUBJECT_M4_BROKER_SVC,
                "substrate subject ids must be pairwise distinct");
 
 /* Keep at least one external symbol in the .o so linkers that strip
