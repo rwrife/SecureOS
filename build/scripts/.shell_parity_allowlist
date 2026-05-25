@@ -62,6 +62,8 @@ test_m2_helloapp_deny_qemu
 test_m3_fs_persist_allow_qemu
 test_m3_fs_persist_deny_qemu
 test_m3_fs_ephemeral_reset_qemu
+test_m4_broker_share_allow_qemu
+test_m4_broker_share_deny_qemu
 test_m2_launcher_console_qemu
 test_https
 test_ipc_sync_v0

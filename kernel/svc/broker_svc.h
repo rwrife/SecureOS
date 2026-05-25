@@ -127,6 +127,52 @@ ipc_port_t broker_svc_port(void);
  */
 bool broker_svc_is_initialised(void);
 
+/* ----------------------------------------------------------------
+ * Broker IPC envelope op vocabulary (slice 3 of plan #300, issue
+ * #304). The owner / recipient peers carry the op tag in
+ * `ipc_msg_v0::tag` and the op-specific parameters in the 64-byte
+ * payload region per the schemas below. The on-wire envelope itself
+ * remains the canonical `ipc_msg_v0` — no new ABI surface is
+ * introduced; `tag` is documented as caller-defined by
+ * `kernel/ipc/ipc_msg.h`.
+ *
+ * Payload schemas (all multi-byte fields little-endian; reserved
+ * bytes MUST be zero):
+ *
+ *   BROKER_OP_REQUEST  ─ owner → broker
+ *     offset  size  field
+ *          0     4  recipient_subject_id  (cap_subject_id_t)
+ *          4     4  capability_id         (capability_id_t)
+ *          8     1  resource_name_len     (0..31)
+ *          9    31  resource_name         (NUL-padded; not required
+ *                                          NUL-terminated, len drives)
+ *         40    24  reserved (MBZ)
+ *
+ *   BROKER_OP_APPROVE  ─ owner → broker
+ *     offset  size  field
+ *          0     4  share_id              (cap_share_id_t)
+ *          4    60  reserved (MBZ)
+ *
+ *   BROKER_OP_DENY     ─ owner → broker
+ *     same layout as BROKER_OP_APPROVE
+ *
+ * The slice-3 test driver acts as the broker recv loop (mirroring
+ * how M2/M3 test drivers act as the console/fs recv loops) and
+ * fans the parsed envelopes into `cap_broker_*`. A future slice
+ * may move the dispatch in-kernel; the on-wire schema above is
+ * the contract that boundary will follow.
+ *
+ * `tag` values are namespaced under the BROKER_OP_* prefix so they
+ * cannot collide with future fs/console op tags. The numeric values
+ * are stable for v0 — do not renumber without an ABI bump.
+ */
+typedef enum {
+  BROKER_OP_INVALID = 0,
+  BROKER_OP_REQUEST = 1,
+  BROKER_OP_APPROVE = 2,
+  BROKER_OP_DENY    = 3,
+} broker_op_t;
+
 #ifdef __cplusplus
 }
 #endif
