@@ -437,7 +437,7 @@ static fs_result_t fs_find_entry_in_dir_ext(uint32_t dir_cluster,
     return FS_ERR_STORAGE;
   }
 
-  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC
+  while (current >= FS_ROOT_CLUSTER && current <= FS_CLUSTER_MAX_ALLOC
          && chain_count < 128u) {
     size_t i = 0u;
     chain_count++;
@@ -815,7 +815,7 @@ static fs_result_t fs_free_cluster_chain(uint32_t first_cluster, uint8_t fat[FS_
     return FS_ERR_INVALID_ARG;
   }
 
-  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC) {
+  while (current >= FS_ROOT_CLUSTER && current <= FS_CLUSTER_MAX_ALLOC) {
     uint32_t next = fs_fat_get_entry(fat, current);
     fs_fat_set_entry(fat, current, FS_FAT_ENTRY_FREE);
 
@@ -847,7 +847,7 @@ static int fs_directory_is_empty(uint32_t dir_cluster) {
     return 0;
   }
 
-  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC
+  while (current >= FS_ROOT_CLUSTER && current <= FS_CLUSTER_MAX_ALLOC
          && chain_count < 128u) {
     size_t i = 0u;
     uint32_t next = 0u;
@@ -1065,7 +1065,7 @@ fs_result_t fs_list_dir(const char *path, char *out_buffer, size_t out_buffer_si
   out_buffer[0] = '\0';
   current = dir_cluster;
 
-  while (current >= FS_CLUSTER_MIN_ALLOC && current <= FS_CLUSTER_MAX_ALLOC
+  while (current >= FS_ROOT_CLUSTER && current <= FS_CLUSTER_MAX_ALLOC
          && chain_count < 128u) {
     size_t i = 0u;
     uint32_t next = 0u;
