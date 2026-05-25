@@ -77,6 +77,7 @@ static const video_device_t g_framebuffer_text_stub_device = {
   framebuffer_text_stub_init,
   framebuffer_text_stub_clear,
   framebuffer_text_stub_write,
+  0,
 };
 
 int framebuffer_text_stub_init_primary(void) {

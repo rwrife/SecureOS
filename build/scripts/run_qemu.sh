@@ -324,13 +324,13 @@ cmd = [
 
 scripts = {
     'kernel_console': [
-  ('secureos[s0]> ', 'help\ny\ncd os\nls\ny\nlibs\nloadlib envlib\ny\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\ny\nexit pass\n'),
+  ('[s0 /]> ', 'help\ny\ncd os\nls\ny\nlibs\nloadlib envlib\ny\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nsession new\nsession list\nsession switch 1\nstorage\ny\nexit pass\n'),
     ],
     'kernel_network_libs': [
-      ('secureos[s0]> ', 'ifconfig\ny\ny\ny\nhttp https://example.invalid\ny\ny\ny\nping nowhere.invalid\ny\ny\ny\nexit pass\n'),
+      ('[s0 /]> ', 'ifconfig\ny\ny\ny\nhttp https://example.invalid\ny\ny\ny\nping nowhere.invalid\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_filedemo': [
-      ('secureos[s0]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
+      ('[s0 /]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_persistence': [
       # Issue #188: a single mega-blob ('cat appdemo.txt\ny\nexit pass\n')
@@ -343,11 +343,11 @@ scripts = {
       # surprises (option 3 from the issue).
       # cat triggers two prompts: codesign (unsigned binary) and auth-session
       # (disk read). Send 'y' for both before waiting on the cat output.
-      ('secureos[s0]> ', 'cat appdemo.txt\ny\ny\n'),
+      ('[s0 /]> ', 'cat appdemo.txt\ny\ny\n'),
       ('filedemo-updated', '\nexit pass\nexit pass\n'),
     ],
     'kernel_sessions': [
-      ('secureos[s0]> ', 'env PROJECT=alpha\nenv PROJECT\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nmkdir s0dir\ny\ncd s0dir\nsession new\nsession switch 1\nlibs loaded\nenv PROJECT=beta\nenv PROJECT\nloadlib envlib\ny\nlibs loaded\nmkdir s1dir\ny\ncd s1dir\nsession switch 0\nenv PROJECT\nlibs loaded\nls /\ny\nexit pass\n'),
+      ('[s0 /]> ', 'env PROJECT=alpha\nenv PROJECT\nloadlib envlib\ny\nlibs use 1\nunload 1\nlibs release 1\nlibs loaded\nunload 1\nlibs loaded\nmkdir s0dir\ny\ncd s0dir\nsession new\nsession switch 1\nlibs loaded\nenv PROJECT=beta\nenv PROJECT\nloadlib envlib\ny\nlibs loaded\nmkdir s1dir\ny\ncd s1dir\nsession switch 0\nenv PROJECT\nlibs loaded\nls /\ny\nexit pass\n'),
     ],
 }
 
@@ -360,8 +360,8 @@ expected_markers = {
       'TEST:PASS:session_manager',
         'TEST:START:console',
         'TEST:PASS:console',
-        'SecureOS console ready',
-        'commands: help, ping <host>, ifconfig, echo <text>',
+        'Welcome to SecureOS v0.1.0',
+        'SecureOS Shell Commands',
         '[lib] loaded /lib/envlib.lib',
       '[lib] use handle=1 refs=1',
       'app failed: library in use',
@@ -374,7 +374,7 @@ expected_markers = {
       'session 0 (active)',
       'session 1',
       'switched to session 1',
-      'secureos[s1]>',
+      '[s1 /]>',
       'storage backend=',
     ],
     'kernel_network_libs': [
@@ -386,7 +386,7 @@ expected_markers = {
       '[codesign] path=os/http.bin',
       '[codesign] path=os/ping.bin',
       'ifconfig',
-      'secureos[s0]>',
+      '[s0 /]>',
     ],
     'kernel_filedemo': [
         'TEST:START:boot_entry',
@@ -411,8 +411,8 @@ expected_markers = {
       'session created: 1',
       'switched to session 1',
       'switched to session 0',
-      'secureos[s1]>',
-      'secureos[s0]>',
+      '[s1 /]>',
+      '[s0 /]>',
       'alpha',
       'beta',
       '(no loaded libraries)',

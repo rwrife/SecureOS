@@ -53,6 +53,7 @@
 #include "../svc/broker_svc.h"
 #include "../svc/console_svc.h"
 #include "../svc/fs_svc.h"
+#include "boot_banner.h"
 #include "session_manager.h"
 
 static const cap_subject_id_t KERNEL_BOOTSTRAP_SUBJECT = 0u;
@@ -121,8 +122,7 @@ void kmain(void) {
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_APP_EXEC);
 
   serial_hal_write("TEST:START:boot_entry\n");
-  serial_hal_write("Hello, SecureOS\n");
-  video_hal_write("Hello, SecureOS\n");
+  boot_banner_display();
   serial_hal_write("KMAIN_REACHED\n");
   serial_hal_write("TEST:PASS:boot_entry\n");
 
