@@ -35,9 +35,11 @@ enum {
   SESSION_VFB_WIDTH = 320,
   SESSION_VFB_HEIGHT = 200,
   SESSION_VFB_SIZE = 64000, /* 320 * 200 */
-  /* Text grid dimensions for VFB text rendering */
-  SESSION_VFB_TEXT_COLS = 53,  /* 320 / (5+1) = 53 */
-  SESSION_VFB_TEXT_ROWS = 25,  /* 200 / (7+1) = 25 */
+  /* Text grid dimensions for VFB text rendering.
+   * Must match the window content area so scrolling triggers at the right time.
+   * Window content: 216px wide (36*6), 128px tall (16*8). */
+  SESSION_VFB_TEXT_COLS = 36,  /* 216 / (5+1) = 36 */
+  SESSION_VFB_TEXT_ROWS = 16,  /* 128 / (7+1) = 16 */
 };
 
 #define VFB_FG_COLOR 15  /* white */
