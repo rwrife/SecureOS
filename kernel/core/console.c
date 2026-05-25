@@ -1585,8 +1585,8 @@ void console_init(console_context_t *context, cap_subject_id_t subject_id) {
   console_write("TEST:START:console\n");
   console_write("Welcome to SecureOS v" SECUREOS_VERSION "\n");
   console_write("Type 'help' for available commands.\n");
-  console_write_prompt();
   console_write("TEST:PASS:console\n");
+  console_write_prompt();
 }
 
 void console_bind_context(console_context_t *context) {

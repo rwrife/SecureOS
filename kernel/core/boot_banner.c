@@ -45,7 +45,7 @@ static const char *banner_lines[] = {
   " / ___|  ___  ___ _   _ _ __ ___|_ _|/ ___| ",
   " \\___ \\ / _ \\/ __| | | | '__/ _ \\| | \\___ \\ ",
   "  ___) |  __/ (__| |_| | | |  __/| |  ___) |",
-  " |____/ \\___|\\___|\\_  _|_|  \\___|___|/____/ ",
+  " |____/ \\___|\\___|\\__,_|_|  \\___|___|/____/ ",
   "                                             ",
 };
 
@@ -69,10 +69,10 @@ void boot_banner_display(void) {
 
   /* Version line in bright white */
   video_hal_write_color("  SecureOS v" SECUREOS_VERSION, VGA_ATTR_BRIGHT);
-  video_hal_write_color("  --  Zero-Trust Capability OS\n",
+  video_hal_write_color("  --  Zero-Trust OS\n",
                         VGA_ATTR(VGA_LIGHT_GREY, VGA_BLACK));
   video_hal_write("\n");
 
   serial_hal_write("  SecureOS v" SECUREOS_VERSION
-                   "  --  Zero-Trust Capability OS\n\n");
+                   "  --  Zero-Trust OS\n\n");
 }
