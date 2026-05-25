@@ -1,4 +1,15 @@
 usage: help [command]
+
+display help information for shell commands.
+
+  help          show all available commands grouped by category
+  help <cmd>    show detailed usage for a specific command
+
+adding help for new commands:
+  place a text file named <command>.txt in the help resources
+  directory. the file contents will be displayed when the user
+  runs "help <command>".
+
 examples:
   help
   help ls
