@@ -276,4 +276,4 @@ implementation work begins under #180 / #185. Implementation issues that
 must conform to this surface are enumerated in the M1 plan referenced
 above.
 
-Last verified against commit: 76b3fff60c4f1b06da5feee72149f95dda8cc117
+Last verified against commit: 7f303d7e901d6707e6f223a2b1fa1b0621792963
