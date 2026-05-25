@@ -37,6 +37,7 @@
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../hal/input_hal.h"
+#include "../hal/mouse_hal.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
 #include "../user/launcher_exec.h"
@@ -1607,6 +1608,9 @@ void console_run(void) {
 
   for (;;) {
     char input = '\0';
+
+    /* Poll mouse for cursor updates (non-blocking, no-op if no mouse) */
+    mouse_hal_update();
 
     if (!input_hal_try_read_char(&input)) {
       console_idle_wait();
