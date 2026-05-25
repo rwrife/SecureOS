@@ -234,6 +234,16 @@ ipc_result_t helloapp_entry_broker_owner_approve(const address_space_t *aspace,
                                                  ipc_port_t broker_port,
                                                  cap_share_id_t share_id);
 
+/* Convenience helper: build a BROKER_OP_REVOKE envelope and send it
+ * via the broker handle stamped into ipc_scratch[24..32). May be
+ * called by either the owner or the recipient (both spawn paths
+ * stamp a CAP_IPC_SEND handle for the broker port); broker_svc
+ * authorises by sender subject id, not by a separate cap. Emits
+ * TEST:PASS:m4_broker_owner_qemu:revoke on IPC_OK. */
+ipc_result_t helloapp_entry_broker_owner_revoke(const address_space_t *aspace,
+                                                ipc_port_t broker_port,
+                                                cap_share_id_t share_id);
+
 #ifdef __cplusplus
 }
 #endif

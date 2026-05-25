@@ -171,6 +171,7 @@ typedef enum {
   BROKER_OP_REQUEST = 1,
   BROKER_OP_APPROVE = 2,
   BROKER_OP_DENY    = 3,
+  BROKER_OP_REVOKE  = 4,
 } broker_op_t;
 
 #ifdef __cplusplus

@@ -305,3 +305,17 @@ ipc_result_t helloapp_entry_broker_owner_deny(const address_space_t *aspace,
       aspace, broker_port, BROKER_OP_DENY, share_id,
       "TEST:PASS:m4_broker_owner_qemu:deny\n");
 }
+
+ipc_result_t helloapp_entry_broker_owner_revoke(const address_space_t *aspace,
+                                                ipc_port_t broker_port,
+                                                cap_share_id_t share_id) {
+  /* Same wire shape as APPROVE/DENY (single LE32 share id). May be
+   * called by either the owner or the recipient: broker_svc authorises
+   * the sender by subject id, not by a separate cap. The marker is
+   * generic on the owner-channel marker namespace; the test driver
+   * separately emits the per-sub-check m4_broker_share_revoke_qemu:*
+   * markers after fanning the parsed envelope into cap_broker_revoke. */
+  return helloapp_entry_broker_owner_send_sid_op(
+      aspace, broker_port, BROKER_OP_REVOKE, share_id,
+      "TEST:PASS:m4_broker_owner_qemu:revoke\n");
+}
