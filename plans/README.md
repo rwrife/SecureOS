@@ -58,6 +58,10 @@ back to its design doc should start here.
 - `2026-04-14-console-service-launcher-helloapp.md`
 - `2026-04-18-capability-audit-deny-log.md`
 - `2026-04-21-capability-broker-share-workflow.md`
+- `2026-05-14-m4-broker-acceptance-tests.md`
+- `2026-05-23-m2-on-m1-substrate.md`
+- `2026-05-24-m3-fs-on-m1-substrate.md`
+- `2026-05-25-m4-broker-on-m1-substrate.md`
 
 ## Adding a new plan
 
