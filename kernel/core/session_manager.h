@@ -85,7 +85,7 @@ void session_manager_get_virtual_mouse(unsigned int session_id,
                                        unsigned char *out_buttons);
 
 /**
- * Get a pointer to the session's virtual framebuffer (320x200).
+ * Get a pointer to the session's virtual framebuffer (default 320x240).
  * Returns NULL if session doesn't exist or has no VFB allocated.
  * Allocates a VFB from the pool if the session is WM-managed and doesn't
  * have one yet.
@@ -102,7 +102,7 @@ void session_manager_set_vfb_size(unsigned int session_id,
 
 /**
  * Get the VFB pixel dimensions for a session.
- * Returns defaults (320x200) if not explicitly set.
+ * Returns defaults (320x240) if not explicitly set.
  */
 void session_manager_get_vfb_size(unsigned int session_id,
                                   unsigned int *out_width,
