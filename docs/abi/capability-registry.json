@@ -152,6 +152,46 @@
       "deny_test_target": "syscall_entry_stub",
       "owning_plan": "plans/2026-05-20-m1-kernel-capability-table.md",
       "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_CLOCK_SET",
+      "numeric_id": 16,
+      "subject_kinds": ["kernel", "app"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:clock_set:-",
+      "allow_test_target": null,
+      "deny_test_target": null,
+      "owning_plan": "plans/2026-03-16-system-clock-rtc.md",
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_INPUT_MOUSE",
+      "numeric_id": 17,
+      "subject_kinds": ["app", "window_manager"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:input_mouse:-",
+      "allow_test_target": null,
+      "deny_test_target": null,
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_GFX_FRAMEBUFFER",
+      "numeric_id": 18,
+      "subject_kinds": ["app", "window_manager"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:gfx_framebuffer:-",
+      "allow_test_target": null,
+      "deny_test_target": null,
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
+    },
+    {
+      "cap_id": "CAP_INPUT_KEYBOARD",
+      "numeric_id": 19,
+      "subject_kinds": ["app", "window_manager"],
+      "deny_marker": "CAP:DENY:<actor_subject_id>:input_keyboard:-",
+      "allow_test_target": null,
+      "deny_test_target": null,
+      "owning_plan": null,
+      "frozen_since_abi": "0.0"
     }
   ]
 }
