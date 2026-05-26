@@ -1767,6 +1767,19 @@ void console_process_injected(void) {
   }
 }
 
+int console_try_read_injected(char *out_char) {
+  if (g_console_ctx == 0 || out_char == 0) {
+    return 0;
+  }
+  if (g_console_ctx->inject_tail == g_console_ctx->inject_head) {
+    return 0; /* buffer empty */
+  }
+  *out_char = g_console_ctx->inject_buf[g_console_ctx->inject_tail];
+  g_console_ctx->inject_tail =
+      (g_console_ctx->inject_tail + 1u) % CONSOLE_LINE_MAX;
+  return 1;
+}
+
 void console_run(void) {
   if (g_console_ctx == 0) {
     return;

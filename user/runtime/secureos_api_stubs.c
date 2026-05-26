@@ -68,6 +68,8 @@ typedef struct {
                                   unsigned int w, unsigned int h);
   int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
+  int (*session_set_virtual_mouse)(unsigned int session_id,
+                                   int x, int y, unsigned char buttons);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -616,5 +618,18 @@ os_status_t os_session_get_gfx_mode(unsigned int session_id, int *out_mode) {
   if (out_mode != 0) {
     *out_mode = 0;
   }
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_set_virtual_mouse(unsigned int session_id,
+                                         int x, int y,
+                                         unsigned char buttons) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_set_virtual_mouse != 0) {
+    return (os_status_t)bridge->session_set_virtual_mouse(session_id, x, y,
+                                                          buttons);
+  }
+
   return OS_STATUS_NOT_FOUND;
 }

@@ -123,5 +123,44 @@ int input_update(void) {
   }
 
   g_prev_buttons = buttons;
+
+  /* Inject virtual mouse state into the focused window's session.
+   * Translate physical screen coordinates to coordinates relative to
+   * the window's content area (which maps to the session's VFB). */
+  {
+    win_window_t *focused = win_get_focused();
+    if (focused != 0) {
+      int content_x = focused->x + WIN_BORDER;
+      int content_y = focused->y + WIN_TITLE_HEIGHT;
+      int content_w = focused->width - WIN_BORDER * 2;
+      int content_h = focused->height - WIN_TITLE_HEIGHT - WIN_BORDER;
+      int rel_x = g_mouse_x - content_x;
+      int rel_y = g_mouse_y - content_y;
+
+      /* Scale to VFB dimensions (320x200) */
+      if (content_w > 0 && content_h > 0) {
+        rel_x = rel_x * 320 / content_w;
+        rel_y = rel_y * 200 / content_h;
+      }
+
+      /* Clamp to VFB bounds */
+      if (rel_x < 0) rel_x = 0;
+      if (rel_x >= 320) rel_x = 319;
+      if (rel_y < 0) rel_y = 0;
+      if (rel_y >= 200) rel_y = 199;
+
+      /* Only pass buttons through if cursor is over content area */
+      {
+        unsigned char vbuttons = 0;
+        if (g_mouse_x >= content_x && g_mouse_x < content_x + content_w &&
+            g_mouse_y >= content_y && g_mouse_y < content_y + content_h) {
+          vbuttons = buttons;
+        }
+        os_session_set_virtual_mouse(focused->session_id, rel_x, rel_y,
+                                     vbuttons);
+      }
+    }
+  }
+
   return 0;
 }

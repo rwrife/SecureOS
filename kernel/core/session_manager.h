@@ -60,6 +60,30 @@ int session_manager_get_gfx_mode(unsigned int session_id);
 void session_manager_set_gfx_mode(unsigned int session_id, int gfx_mode);
 
 /**
+ * Clear the session's virtual framebuffer to black (all zeros).
+ * Used when a WM-managed app calls video_clear in graphics mode.
+ */
+void session_manager_clear_vfb(unsigned int session_id);
+
+/**
+ * Set virtual mouse state for a WM-managed session.
+ * Called by the window manager to inject mouse coordinates relative to
+ * the session's virtual framebuffer. Child apps read this instead of
+ * raw hardware mouse state.
+ */
+void session_manager_set_virtual_mouse(unsigned int session_id,
+                                       int x, int y,
+                                       unsigned char buttons);
+
+/**
+ * Get virtual mouse state for a WM-managed session.
+ * Bridge functions call this to provide mouse data to child apps.
+ */
+void session_manager_get_virtual_mouse(unsigned int session_id,
+                                       int *out_x, int *out_y,
+                                       unsigned char *out_buttons);
+
+/**
  * Get a pointer to the session's virtual framebuffer (320x200).
  * Returns NULL if session doesn't exist or has no VFB allocated.
  * Allocates a VFB from the pool if the session is WM-managed and doesn't

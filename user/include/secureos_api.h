@@ -127,6 +127,11 @@ os_status_t os_session_read_framebuffer(unsigned int session_id,
                                         unsigned int w, unsigned int h);
 os_status_t os_session_get_gfx_mode(unsigned int session_id, int *out_mode);
 
+/* Virtual mouse injection (for window manager to provide mouse to windowed apps) */
+os_status_t os_session_set_virtual_mouse(unsigned int session_id,
+                                         int x, int y,
+                                         unsigned char buttons);
+
 #ifdef __cplusplus
 }
 #endif

@@ -46,6 +46,7 @@
 #include "../drivers/video/vga_gfx.h"
 #include "native_net_service.h"
 #include "../core/session_manager.h"
+#include "../core/console.h"
 #include "../event/event_bus.h"
 
 /* ---- Signature verification cache ----------------------------------------
@@ -264,6 +265,8 @@ typedef struct {
                                   unsigned int w, unsigned int h);
   int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
+  int (*session_set_virtual_mouse)(unsigned int session_id,
+                                   int x, int y, unsigned char buttons);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -663,9 +666,26 @@ static int app_native_net_frame_recv(unsigned char *out_buffer,
 /* ---- Input / Video / Mouse bridge functions ----------------------------- */
 
 static int app_native_input_read_char(char *out_char) {
+  unsigned int sid = session_manager_active_id();
+
   if (out_char == 0) {
     return 3;
   }
+
+  /* WM-managed sessions read from inject buffer, not raw hardware.
+   * The WM routes keyboard input via os_session_write_input which feeds
+   * the inject buffer. For graphics apps that poll input_read_char,
+   * we drain from the same inject buffer. */
+  if (session_manager_is_wm_managed(sid)) {
+    /* console_try_read_injected reads one char from the session's inject
+     * ring buffer. If empty, return "no data". */
+    if (console_try_read_injected(out_char)) {
+      return 0;
+    }
+    *out_char = '\0';
+    return 2; /* no data available */
+  }
+
   if (input_hal_try_read_char(out_char)) {
     return 0;
   }
@@ -675,16 +695,39 @@ static int app_native_input_read_char(char *out_char) {
 
 static int app_native_mouse_get_state(int *out_x, int *out_y,
                                       unsigned char *out_buttons) {
-  mouse_state_t state;
-  mouse_hal_update();
-  mouse_hal_get_state(&state);
-  if (out_x != 0) *out_x = state.x;
-  if (out_y != 0) *out_y = state.y;
-  if (out_buttons != 0) *out_buttons = state.buttons;
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions get virtual mouse state injected by the WM */
+  if (session_manager_is_wm_managed(sid)) {
+    session_manager_get_virtual_mouse(sid, out_x, out_y, out_buttons);
+    return 0;
+  }
+
+  /* Non-WM sessions use real hardware */
+  {
+    mouse_state_t state;
+    mouse_hal_update();
+    mouse_hal_get_state(&state);
+    if (out_x != 0) *out_x = state.x;
+    if (out_y != 0) *out_y = state.y;
+    if (out_buttons != 0) *out_buttons = state.buttons;
+  }
   return 0;
 }
 
 static int app_native_video_clear(void) {
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions clear their virtual framebuffer, not real hardware */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      session_manager_clear_vfb(sid);
+    }
+    /* Text mode clear for WM session is a no-op (VFB text is managed by
+     * session_manager_vfb_write) */
+    return 0;
+  }
+
   if (vga_gfx_is_active()) {
     vga_gfx_clear(0);
   } else {
@@ -694,12 +737,26 @@ static int app_native_video_clear(void) {
 }
 
 static int app_native_video_set_cursor(int col, int row) {
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions don't touch real VGA text cursor */
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+
   vga_text_set_cursor(col, row);
   return 0;
 }
 
 static int app_native_video_putchar_at(int col, int row, char ch,
                                        unsigned char attr) {
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions don't touch real VGA text hardware */
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+
   vga_text_putchar_at(col, row, ch, attr);
   return 0;
 }
@@ -731,11 +788,14 @@ static int app_native_video_set_mode(int mode) {
     return 0;
   } else if (mode == 0) {
     /* Text mode request */
-    if (wm_managed && session_manager_get_gfx_mode(sid) == 1) {
-      session_manager_set_gfx_mode(sid, 0);
+    if (wm_managed) {
+      /* WM-managed: just clear the gfx_mode flag, never touch real VGA */
+      if (session_manager_get_gfx_mode(sid) == 1) {
+        session_manager_set_gfx_mode(sid, 0);
+      }
       return 0;
     }
-    /* Real hardware path */
+    /* Real hardware path (non-WM sessions only) */
     if (vga_gfx_is_active()) {
       vga_gfx_leave();
     }
@@ -748,17 +808,19 @@ static int app_native_video_set_mode(int mode) {
 static int app_native_video_put_pixel(int x, int y, unsigned char color) {
   unsigned int sid = session_manager_active_id();
 
-  /* If session is in virtual gfx mode, write to VFB */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
-      vfb[y * 320 + x] = color;
-      return 0;
+  /* WM-managed sessions always use VFB — never touch real hardware */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
+        vfb[y * 320 + x] = color;
+        return 0;
+      }
     }
-    return 3;
+    return 3; /* not in gfx mode or out of bounds */
   }
 
-  /* Real hardware path */
+  /* Real hardware path (non-WM sessions only) */
   if (!vga_gfx_is_active()) {
     return 3;
   }
@@ -773,13 +835,16 @@ static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
     return 3;
   }
 
-  /* Virtual framebuffer path */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
-      *out_color = vfb[y * 320 + x];
-      return 0;
+  /* WM-managed sessions always use VFB */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
+        *out_color = vfb[y * 320 + x];
+        return 0;
+      }
     }
+    *out_color = 0;
     return 3;
   }
 
@@ -794,21 +859,23 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
                                       unsigned char color) {
   unsigned int sid = session_manager_active_id();
 
-  /* Virtual framebuffer path */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0) {
-      int row, col;
-      for (row = 0; row < h; row++) {
-        int py = y + row;
-        if (py < 0 || py >= 200) continue;
-        for (col = 0; col < w; col++) {
-          int px = x + col;
-          if (px < 0 || px >= 320) continue;
-          vfb[py * 320 + px] = color;
+  /* WM-managed sessions always use VFB */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      if (vfb != 0) {
+        int row, col;
+        for (row = 0; row < h; row++) {
+          int py = y + row;
+          if (py < 0 || py >= 200) continue;
+          for (col = 0; col < w; col++) {
+            int px = x + col;
+            if (px < 0 || px >= 320) continue;
+            vfb[py * 320 + px] = color;
+          }
         }
+        return 0;
       }
-      return 0;
     }
     return 3;
   }
@@ -823,8 +890,20 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
 static int app_native_video_get_resolution(int *out_width, int *out_height) {
   unsigned int sid = session_manager_active_id();
 
-  /* Virtual or real gfx mode both report 320x200 */
-  if (session_manager_get_gfx_mode(sid) == 1 || vga_gfx_is_active()) {
+  /* WM-managed sessions: report VFB dimensions when in gfx mode */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      if (out_width != 0) *out_width = 320;
+      if (out_height != 0) *out_height = 200;
+    } else {
+      if (out_width != 0) *out_width = 80;
+      if (out_height != 0) *out_height = 25;
+    }
+    return 0;
+  }
+
+  /* Non-WM sessions use real hardware state */
+  if (vga_gfx_is_active()) {
     if (out_width != 0) *out_width = 320;
     if (out_height != 0) *out_height = 200;
   } else {
@@ -843,20 +922,22 @@ static int app_native_video_blit(int x, int y, int w, int h,
     return 3;
   }
 
-  /* Virtual framebuffer path */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0) {
-      for (row = 0; row < h; row++) {
-        int py = y + row;
-        if (py < 0 || py >= 200) continue;
-        for (col = 0; col < w; col++) {
-          int px = x + col;
-          if (px < 0 || px >= 320) continue;
-          vfb[py * 320 + px] = pixels[row * w + col];
+  /* WM-managed sessions always use VFB */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      if (vfb != 0) {
+        for (row = 0; row < h; row++) {
+          int py = y + row;
+          if (py < 0 || py >= 200) continue;
+          for (col = 0; col < w; col++) {
+            int px = x + col;
+            if (px < 0 || px >= 320) continue;
+            vfb[py * 320 + px] = pixels[row * w + col];
+          }
         }
+        return 0;
       }
-      return 0;
     }
     return 3;
   }
@@ -992,6 +1073,13 @@ static int app_native_session_get_gfx_mode(unsigned int session_id,
 static int app_native_session_set_wm_managed(unsigned int session_id,
                                              int managed) {
   session_manager_set_wm_managed(session_id, managed);
+  return 0;
+}
+
+static int app_native_session_set_virtual_mouse(unsigned int session_id,
+                                               int x, int y,
+                                               unsigned char buttons) {
+  session_manager_set_virtual_mouse(session_id, x, y, buttons);
   return 0;
 }
 
@@ -1146,15 +1234,26 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->session_read_framebuffer = app_native_session_read_framebuffer;
   bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
   bridge->session_set_wm_managed = app_native_session_set_wm_managed;
+  bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
 
   serial_hal_write("[elf] bridge wired, calling entry\n");
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
   (void)entry();
 
-  /* If app left graphics mode active, restore text mode */
-  if (vga_gfx_is_active()) {
-    vga_gfx_leave();
-    mouse_hal_set_bounds(80, 25);
+  /* If app left graphics mode active, restore text mode.
+   * Only do this for non-WM-managed sessions — WM-managed sessions use
+   * virtual framebuffers and should never touch the real VGA hardware. */
+  {
+    unsigned int sid = session_manager_active_id();
+    if (session_manager_is_wm_managed(sid)) {
+      /* Clean up virtual gfx state if the app didn't */
+      if (session_manager_get_gfx_mode(sid) == 1) {
+        session_manager_set_gfx_mode(sid, 0);
+      }
+    } else if (vga_gfx_is_active()) {
+      vga_gfx_leave();
+      mouse_hal_set_bounds(80, 25);
+    }
   }
 
   bridge->magic = 0u;
@@ -1187,6 +1286,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->session_read_framebuffer = 0;
   bridge->session_get_gfx_mode = 0;
   bridge->session_set_wm_managed = 0;
+  bridge->session_set_virtual_mouse = 0;
 
   g_native_context = 0;
   g_native_raw_args = "";

@@ -60,6 +60,10 @@ typedef struct {
   /* Text cursor for kernel-side text rendering into VFB */
   int vfb_cursor_col;
   int vfb_cursor_row;
+  /* Virtual mouse state — injected by WM, read by child apps */
+  int virtual_mouse_x;
+  int virtual_mouse_y;
+  unsigned char virtual_mouse_buttons;
   /* Cooperative yield state for auth spin-wait */
   int blocked;                      /* 1 if yielded mid-command */
   ctx_jmp_buf_t blocked_ctx;        /* Saved context at idle_wait point */
@@ -517,6 +521,45 @@ void session_manager_set_gfx_mode(unsigned int session_id, int gfx_mode) {
     return;
   }
   g_sessions[session_id].gfx_mode = gfx_mode;
+}
+
+void session_manager_set_virtual_mouse(unsigned int session_id,
+                                       int x, int y,
+                                       unsigned char buttons) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  g_sessions[session_id].virtual_mouse_x = x;
+  g_sessions[session_id].virtual_mouse_y = y;
+  g_sessions[session_id].virtual_mouse_buttons = buttons;
+}
+
+void session_manager_get_virtual_mouse(unsigned int session_id,
+                                       int *out_x, int *out_y,
+                                       unsigned char *out_buttons) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    if (out_x) *out_x = 0;
+    if (out_y) *out_y = 0;
+    if (out_buttons) *out_buttons = 0;
+    return;
+  }
+  if (out_x) *out_x = g_sessions[session_id].virtual_mouse_x;
+  if (out_y) *out_y = g_sessions[session_id].virtual_mouse_y;
+  if (out_buttons) *out_buttons = g_sessions[session_id].virtual_mouse_buttons;
+}
+
+void session_manager_clear_vfb(unsigned int session_id) {
+  unsigned char *vfb;
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  vfb = session_manager_get_vfb(session_id);
+  if (vfb != 0) {
+    unsigned int i;
+    for (i = 0; i < SESSION_VFB_SIZE; i++) {
+      vfb[i] = 0;
+    }
+  }
 }
 
 unsigned char *session_manager_get_vfb(unsigned int session_id) {
