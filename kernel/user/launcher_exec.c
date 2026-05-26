@@ -203,7 +203,7 @@ static process_result_t app_validate_codesign(const uint8_t *file_data,
 enum {
   APP_FILE_MAX = 65536,
   APP_LIBRARY_FILE_MAX = 32768,
-  APP_OUTPUT_MAX = 512,
+  APP_OUTPUT_MAX = 4096,
   APP_LINE_MAX = 192,
   APP_TOKEN_MAX = 64,
   APP_ARGS_MAX = 128,
@@ -1349,7 +1349,7 @@ static process_result_t app_sys_print(const process_context_t *context, const ch
 }
 
 static process_result_t app_sys_ls(const process_context_t *context, const char *path) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   char resolved[APP_TOKEN_MAX];
   size_t out_len = 0u;
   process_result_t access = PROCESS_OK;
@@ -1375,7 +1375,7 @@ static process_result_t app_sys_ls(const process_context_t *context, const char 
 }
 
 static process_result_t app_sys_cat(const process_context_t *context, const char *path) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   char resolved[APP_TOKEN_MAX];
   size_t out_len = 0u;
   process_result_t access = PROCESS_OK;
@@ -1597,7 +1597,7 @@ static process_result_t app_sys_cd(const process_context_t *context, const char 
 }
 
 static process_result_t app_sys_apps(const process_context_t *context) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t len = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
@@ -1615,7 +1615,7 @@ static process_result_t app_sys_apps(const process_context_t *context) {
 }
 
 static process_result_t app_sys_storage(const process_context_t *context) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
@@ -1649,7 +1649,7 @@ typedef struct {
 } app_auto_library_use_t;
 
 static process_result_t app_sys_libs(const process_context_t *context, const char *args) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t len = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
@@ -2455,7 +2455,7 @@ static process_result_t app_sys_about(const process_context_t *context, const ch
   static uint8_t file_data[APP_FILE_MAX];
   size_t file_len = 0u;
   char resolved[APP_TOKEN_MAX];
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
   sof_parsed_file_t parsed;
   const char *meta_value = 0;
@@ -2672,7 +2672,7 @@ static process_result_t app_script_cmd_releaselib(const process_context_t *conte
 }
 
 static process_result_t app_script_cmd_date(const process_context_t *context, const char *args) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
   hal_time_t t;
   clock_result_t cr;
@@ -2912,8 +2912,8 @@ static process_result_t app_execute_script(const uint8_t *script,
 }
 
 size_t process_list_apps(char *out_buffer, size_t out_buffer_size) {
-  char os_apps[APP_OUTPUT_MAX];
-  char user_apps[APP_OUTPUT_MAX];
+  static char os_apps[APP_OUTPUT_MAX];
+  static char user_apps[APP_OUTPUT_MAX];
   size_t os_len = 0u;
   size_t user_len = 0u;
   size_t cursor = 0u;
