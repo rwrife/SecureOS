@@ -71,14 +71,21 @@ int main(void) {
   }
 
   /* Mark the session as WM-managed so video calls go to virtual framebuffer
-   * and auth prompts route through the event bus */
+   * and auth prompts route through the event bus.
+   * Set VFB size to fit inside the window (screen minus chrome). */
   os_console_write("[win] setting wm_managed\n");
+  {
+    /* Max content area that fits on 320x200 screen with window chrome */
+    unsigned int vfb_w = 320 - WIN_BORDER * 2;       /* 318 */
+    unsigned int vfb_h = 200 - WIN_TITLE_HEIGHT - WIN_BORDER * 2; /* 188 */
+    os_session_set_vfb_size(session_id, vfb_w, vfb_h);
+  }
   os_session_set_wm_managed(session_id, 1);
   os_console_write("[win] wm_managed set\n");
 
-  /* Create initial window */
+  /* Create initial window — positioned at origin to fill the screen */
   os_console_write("[win] creating window\n");
-  initial_win = win_create(10, 10, "Session 1", session_id);
+  initial_win = win_create(0, 0, "Session 1", session_id);
   if (initial_win != 0) {
     win_set_focus(initial_win);
     os_console_write("[win] window created & focused\n");
