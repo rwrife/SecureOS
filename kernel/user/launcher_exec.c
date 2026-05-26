@@ -30,6 +30,7 @@
 
 #include <stdint.h>
 
+#include "../arch/x86/idt.h"
 #include "../cap/cap_table.h"
 #include "../clock/clock_service.h"
 #include "../crypto/cert.h"
@@ -206,7 +207,7 @@ static process_result_t app_validate_codesign(const uint8_t *file_data,
 enum {
   APP_FILE_MAX = 65536,
   APP_LIBRARY_FILE_MAX = 32768,
-  APP_OUTPUT_MAX = 512,
+  APP_OUTPUT_MAX = 4096,
   APP_LINE_MAX = 192,
   APP_TOKEN_MAX = 64,
   APP_ARGS_MAX = 128,
@@ -274,6 +275,18 @@ typedef struct {
                                    int x, int y, unsigned char buttons);
   int (*mouse_enable)(void);
   int (*mouse_disable)(void);
+  /* File I/O */
+  int (*fs_read_file)(const char *path, char *out_buffer, unsigned int out_buffer_size);
+  int (*fs_write_file)(const char *path, const char *content, int append);
+  int (*fs_list_dir)(const char *path, char *out_buffer, unsigned int out_buffer_size);
+  int (*fs_mkdir)(const char *path);
+  /* Environment */
+  int (*env_get)(const char *key, char *out_buffer, unsigned int out_buffer_size);
+  int (*env_set)(const char *key, const char *value);
+  int (*env_list)(char *out_buffer, unsigned int out_buffer_size);
+  /* Process */
+  int (*process_getcwd)(char *out_buffer, unsigned int out_buffer_size);
+  int (*process_chdir)(const char *path);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -292,6 +305,10 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                const uint8_t **out_program,
                                                size_t *out_program_len);
 static int app_require_capability(cap_subject_id_t subject_id, capability_id_t capability_id);
+static void app_resolve_path(const process_context_t *context,
+                             const char *input_path,
+                             char *out_path,
+                             size_t out_path_size);
 static process_result_t app_execute_native_elf(const uint8_t *elf_data,
                                                size_t elf_len,
                                                const process_context_t *context,
@@ -1053,6 +1070,210 @@ static int app_native_video_get_resolution(int *out_width, int *out_height) {
   return 0;
 }
 
+/* ---- File I/O bridge functions ------------------------------------------ */
+
+static int app_native_fs_read_file(const char *path, char *out_buffer,
+                                   unsigned int out_buffer_size) {
+  char resolved[APP_TOKEN_MAX];
+  size_t out_len = 0u;
+
+  if (g_native_context == 0 || path == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  out_buffer[0] = '\0';
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_READ)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("read", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_read_file(resolved, out_buffer, (size_t)out_buffer_size, &out_len) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_fs_write_file(const char *path, const char *content,
+                                    int append) {
+  char resolved[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || path == 0) {
+    return 3;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_WRITE)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io(append ? "append" : "write", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_write_file(resolved, content != 0 ? content : "", append) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_fs_list_dir(const char *path, char *out_buffer,
+                                  unsigned int out_buffer_size) {
+  char resolved[APP_TOKEN_MAX];
+  size_t out_len = 0u;
+
+  if (g_native_context == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  out_buffer[0] = '\0';
+
+  if (path == 0 || path[0] == '\0') {
+    /* List root */
+    if (fs_list_dir("/", out_buffer, (size_t)out_buffer_size, &out_len) != FS_OK) {
+      return 2;
+    }
+    return 0;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_READ)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("ls", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_list_dir(resolved, out_buffer, (size_t)out_buffer_size, &out_len) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_fs_mkdir(const char *path) {
+  char resolved[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || path == 0) {
+    return 3;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_WRITE)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("mkdir", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_mkdir(resolved) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+/* ---- Environment bridge functions --------------------------------------- */
+
+static int app_native_env_get(const char *key, char *out_buffer,
+                              unsigned int out_buffer_size) {
+  if (g_native_context == 0 || key == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+  out_buffer[0] = '\0';
+
+  if (g_native_context->get_env == 0) {
+    return 2;
+  }
+  if (!g_native_context->get_env(key, out_buffer, (size_t)out_buffer_size)) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_env_set(const char *key, const char *value) {
+  if (g_native_context == 0 || key == 0) {
+    return 3;
+  }
+  if (g_native_context->set_env == 0) {
+    return 2;
+  }
+  g_native_context->set_env(key, value != 0 ? value : "");
+  return 0;
+}
+
+static int app_native_env_list(char *out_buffer, unsigned int out_buffer_size) {
+  if (g_native_context == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+  out_buffer[0] = '\0';
+
+  if (g_native_context->list_env == 0) {
+    return 2;
+  }
+  g_native_context->list_env(out_buffer, (size_t)out_buffer_size);
+  return 0;
+}
+
+/* ---- Process bridge functions ------------------------------------------- */
+
+static int app_native_process_getcwd(char *out_buffer, unsigned int out_buffer_size) {
+  char cwd[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  out_buffer[0] = '\0';
+
+  /* Try to get CWD from env */
+  if (g_native_context->get_env != 0 &&
+      g_native_context->get_env("PWD", cwd, sizeof(cwd)) && cwd[0] != '\0') {
+    size_t i = 0u;
+    while (cwd[i] != '\0' && i + 1u < (size_t)out_buffer_size) {
+      out_buffer[i] = cwd[i];
+      ++i;
+    }
+    out_buffer[i] = '\0';
+    return 0;
+  }
+
+  /* Default to root */
+  out_buffer[0] = '/';
+  if (out_buffer_size > 1u) out_buffer[1] = '\0';
+  return 0;
+}
+
+static int app_native_process_chdir(const char *path) {
+  if (g_native_context == 0 || path == 0) {
+    return 3;
+  }
+  if (g_native_context->change_directory == 0) {
+    return 2;
+  }
+  g_native_context->change_directory(path);
+  return 0;
+}
+
 static int app_native_video_blit(int x, int y, int w, int h,
                                  const unsigned char *pixels) {
   unsigned int sid = session_manager_active_id();
@@ -1413,11 +1634,54 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
       bridge->mouse_enable = app_native_mouse_enable;
       bridge->mouse_disable = app_native_mouse_disable;
+      bridge->fs_read_file = app_native_fs_read_file;
+      bridge->fs_write_file = app_native_fs_write_file;
+      bridge->fs_list_dir = app_native_fs_list_dir;
+      bridge->fs_mkdir = app_native_fs_mkdir;
+      bridge->env_get = app_native_env_get;
+      bridge->env_set = app_native_env_set;
+      bridge->env_list = app_native_env_list;
+      bridge->process_getcwd = app_native_process_getcwd;
+      bridge->process_chdir = app_native_process_chdir;
     }
 
     serial_hal_write("[elf] bridge wired, calling entry\n");
     entry = (app_native_entry_fn)(uintptr_t)e_entry;
+
+    /* Arm fault recovery so CPU exceptions in the app don't crash the kernel */
+    {
+      int fault_code = fault_recover_set();
+      if (fault_code != 0) {
+        /* We arrived here via fault recovery — the app crashed */
+        if (vga_gfx_is_active()) {
+          vga_gfx_leave();
+          mouse_hal_set_bounds(80, 25);
+        }
+        if (g_mouse_cursor_enabled) {
+          if (g_mouse_cursor_drawn) {
+            kernel_cursor_erase();
+          }
+          g_mouse_cursor_enabled = 0;
+        }
+        {
+          int ci;
+          for (ci = 0; ci < g_child_session_count; ci++) {
+            session_manager_destroy(g_child_sessions[ci]);
+          }
+          g_child_session_count = 0;
+        }
+        if (!nested) {
+          bridge->magic = 0u;
+          bridge->version = 0u;
+        }
+        g_native_context = saved_context;
+        g_native_raw_args = saved_raw_args;
+        return PROCESS_ERR_CRASH;
+      }
+    }
+
     (void)entry();
+    fault_recover_clear();
 
     /* If app left graphics mode active, restore text mode.
      * Only do this for non-WM-managed sessions — WM-managed sessions use
@@ -1477,6 +1741,15 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_set_virtual_mouse = 0;
       bridge->mouse_enable = 0;
       bridge->mouse_disable = 0;
+      bridge->fs_read_file = 0;
+      bridge->fs_write_file = 0;
+      bridge->fs_list_dir = 0;
+      bridge->fs_mkdir = 0;
+      bridge->env_get = 0;
+      bridge->env_set = 0;
+      bridge->env_list = 0;
+      bridge->process_getcwd = 0;
+      bridge->process_chdir = 0;
 
       /* Disable kernel cursor if app left it active */
       if (g_mouse_cursor_enabled) {
@@ -1647,7 +1920,7 @@ static process_result_t app_sys_print(const process_context_t *context, const ch
 }
 
 static process_result_t app_sys_ls(const process_context_t *context, const char *path) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   char resolved[APP_TOKEN_MAX];
   size_t out_len = 0u;
   process_result_t access = PROCESS_OK;
@@ -1673,7 +1946,7 @@ static process_result_t app_sys_ls(const process_context_t *context, const char 
 }
 
 static process_result_t app_sys_cat(const process_context_t *context, const char *path) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   char resolved[APP_TOKEN_MAX];
   size_t out_len = 0u;
   process_result_t access = PROCESS_OK;
@@ -1895,7 +2168,7 @@ static process_result_t app_sys_cd(const process_context_t *context, const char 
 }
 
 static process_result_t app_sys_apps(const process_context_t *context) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t len = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
@@ -1913,7 +2186,7 @@ static process_result_t app_sys_apps(const process_context_t *context) {
 }
 
 static process_result_t app_sys_storage(const process_context_t *context) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
@@ -1947,7 +2220,7 @@ typedef struct {
 } app_auto_library_use_t;
 
 static process_result_t app_sys_libs(const process_context_t *context, const char *args) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t len = 0u;
 
   if (!app_require_capability(context->subject_id, CAP_CONSOLE_WRITE)) {
@@ -2753,7 +3026,7 @@ static process_result_t app_sys_about(const process_context_t *context, const ch
   static uint8_t file_data[APP_FILE_MAX];
   size_t file_len = 0u;
   char resolved[APP_TOKEN_MAX];
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
   sof_parsed_file_t parsed;
   const char *meta_value = 0;
@@ -2970,7 +3243,7 @@ static process_result_t app_script_cmd_releaselib(const process_context_t *conte
 }
 
 static process_result_t app_script_cmd_date(const process_context_t *context, const char *args) {
-  char output[APP_OUTPUT_MAX];
+  static char output[APP_OUTPUT_MAX];
   size_t cursor = 0u;
   hal_time_t t;
   clock_result_t cr;
@@ -3210,8 +3483,8 @@ static process_result_t app_execute_script(const uint8_t *script,
 }
 
 size_t process_list_apps(char *out_buffer, size_t out_buffer_size) {
-  char os_apps[APP_OUTPUT_MAX];
-  char user_apps[APP_OUTPUT_MAX];
+  static char os_apps[APP_OUTPUT_MAX];
+  static char user_apps[APP_OUTPUT_MAX];
   size_t os_len = 0u;
   size_t user_len = 0u;
   size_t cursor = 0u;

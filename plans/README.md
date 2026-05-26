@@ -53,6 +53,10 @@ back to its design doc should start here.
 - `2026-03-17-netlib-https-bearssl.md`
 - `2026-04-09-zero-trust-network-abi-hardening.md`
 
+### Scripting and automation
+
+- `2026-05-25-scripting-language.md`
+
 ### Console, launcher, capabilities (M2–M4)
 
 - `2026-04-11-console-launcher-capability-slice.md`
