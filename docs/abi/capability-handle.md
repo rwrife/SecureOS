@@ -308,7 +308,7 @@ of which are frozen at v0.
 
 ## Provenance
 
-Last verified against commit: fa1653bb46e6d2c85724312c4cc59b41ebd84744
+Last verified against commit: 609a26216b4abbe8db0f138871b1168b15ce9137
 
 [#115]: https://github.com/rwrife/SecureOS/issues/115
 [#118]: https://github.com/rwrife/SecureOS/issues/118
