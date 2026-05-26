@@ -32,6 +32,10 @@ implementation history and per-CAP-NNN deltas, see
 | 13 | `CAP_IPC_SEND` | `ipc_send` / `ipc_call` send leg (M1 sync IPC) |
 | 14 | `CAP_IPC_RECV` | `ipc_recv` (M1 sync IPC) |
 | 15 | `CAP_SYSCALL` | M1 syscall entry stub (reserved; see [syscalls.md](syscalls.md)). |
+| 16 | `CAP_CLOCK_SET` | `clock_service_set_time` (system clock mutation). |
+| 17 | `CAP_INPUT_MOUSE` | PS/2 mouse byte queue + `mouse_hal_*` consumers (renamed from `CAP_MOUSE`; numeric id unchanged). Enforcement follow-up: #349. |
+| 18 | `CAP_GFX_FRAMEBUFFER` | per-session virtual framebuffer + VGA front-buffer writes (window-manager / `vfb_font` path). Enforcement follow-up: #349. |
+| 19 | `CAP_INPUT_KEYBOARD` | PS/2 keyboard byte queue + keyboard HAL consumers. Enforcement follow-up: #349. |
 
 Rules (all enforced today):
 

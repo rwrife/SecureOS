@@ -35,7 +35,26 @@ typedef enum {
    */
   CAP_SYSCALL = 15,
   CAP_CLOCK_SET = 16,
-  CAP_MOUSE = 17,
+  /*
+   * CAP_INPUT_MOUSE / CAP_INPUT_KEYBOARD / CAP_GFX_FRAMEBUFFER:
+   * zero-trust gate registry entries for the M5/M6 graphics + input
+   * surfaces introduced by the merged window-manager + virtual-graphics
+   * + PS/2 mouse/keyboard stack (PRs #321/#322/#328/#334/#340).
+   *
+   * Tracking: issue #348. The HAL/driver enforcement follow-up is
+   * tracked separately (#349); these ids exist now so the registry,
+   * deny-marker grammar, and manifest schema have stable numeric
+   * anchors before the M6 SDK freeze (BUILD_ROADMAP §5.6 / §7).
+   *
+   * `CAP_INPUT_MOUSE` is the rename of the original `CAP_MOUSE` slot
+   * (#340) into the canonical `input.*` naming. The numeric id is
+   * unchanged at 17 — the append-only contract pins numbers, not
+   * symbolic names. No call site emitted a `CAP:DENY:mouse:` marker
+   * before this rename, so no on-wire string drifts.
+   */
+  CAP_INPUT_MOUSE = 17,
+  CAP_GFX_FRAMEBUFFER = 18,
+  CAP_INPUT_KEYBOARD = 19,
 } capability_id_t;
 
 typedef enum {

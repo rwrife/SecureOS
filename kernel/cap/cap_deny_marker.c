@@ -84,6 +84,10 @@ static const cdm_cap_name_entry_t cdm_cap_names[] = {
     {CAP_IPC_SEND, "ipc_send"},
     {CAP_IPC_RECV, "ipc_recv"},
     {CAP_SYSCALL, "syscall"},
+    {CAP_CLOCK_SET, "clock_set"},
+    {CAP_INPUT_MOUSE, "input_mouse"},
+    {CAP_GFX_FRAMEBUFFER, "gfx_framebuffer"},
+    {CAP_INPUT_KEYBOARD, "input_keyboard"},
 };
 
 const char *cap_deny_marker_name(capability_id_t cap_id) {

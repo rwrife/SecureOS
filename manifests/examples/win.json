@@ -1,0 +1,33 @@
+{
+  "manifest_version": 0,
+  "os_abi_version": 0,
+  "app": {
+    "id": "win",
+    "version": "0.1.0",
+    "subject_id": 3,
+    "binary": "apps/win.bin",
+    "signer_key_id": "secureos-dev-key-1"
+  },
+  "capabilities": {
+    "request": [
+      "CAP_GFX_FRAMEBUFFER",
+      "CAP_INPUT_KEYBOARD",
+      "CAP_INPUT_MOUSE"
+    ],
+    "optional": []
+  },
+  "provides": [],
+  "launcher": {
+    "auto_grant_at_launch": [
+      "CAP_GFX_FRAMEBUFFER",
+      "CAP_INPUT_KEYBOARD",
+      "CAP_INPUT_MOUSE"
+    ],
+    "require_user_confirm": []
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "signer_key_id": "secureos-dev-key-1",
+    "signature_path": "apps/win.bin.sig"
+  }
+}
