@@ -77,13 +77,19 @@ _start:
     mov esp, stack32_top                ; temporary 32-bit stack (in .bss, identity-mapped)
 
     ; ------------------------------------------------------------------
-    ; Build page tables for long mode (identity map 0–4 MB)
+    ; Build page tables for long mode (identity map 0–16 MB)
     ;
     ; Layout (all in .bss, zero-initialised by GRUB):
     ;   pml4  [0]  → pdpt  (P+W)
     ;   pdpt  [0]  → pd    (P+W)
     ;   pd    [0]  → 0x000000  (P+W+PS, 2 MB huge page)
     ;   pd    [1]  → 0x200000  (P+W+PS, 2 MB huge page)
+    ;   pd    [2]  → 0x400000  (P+W+PS, 2 MB huge page)
+    ;   pd    [3]  → 0x600000  (P+W+PS, 2 MB huge page)
+    ;   pd    [4]  → 0x800000  (P+W+PS, 2 MB huge page)
+    ;   pd    [5]  → 0xA00000  (P+W+PS, 2 MB huge page)
+    ;   pd    [6]  → 0xC00000  (P+W+PS, 2 MB huge page)
+    ;   pd    [7]  → 0xE00000  (P+W+PS, 2 MB huge page)
     ; ------------------------------------------------------------------
     ; PML4[0] = &pdpt | Present | Write
     mov eax, boot_pdpt
@@ -97,12 +103,23 @@ _start:
     mov dword [boot_pdpt + 0], eax
     mov dword [boot_pdpt + 4], 0
 
-    ; PD[0] = 0x000000 | Present | Write | PageSize (2 MB)
+    ; PD[0..7] = identity map 0–16 MB with 2 MB huge pages
     mov dword [boot_pd + 0],  0x000083
     mov dword [boot_pd + 4],  0
-    ; PD[1] = 0x200000 | Present | Write | PageSize (2 MB)
     mov dword [boot_pd + 8],  0x200083
     mov dword [boot_pd + 12], 0
+    mov dword [boot_pd + 16], 0x400083
+    mov dword [boot_pd + 20], 0
+    mov dword [boot_pd + 24], 0x600083
+    mov dword [boot_pd + 28], 0
+    mov dword [boot_pd + 32], 0x800083
+    mov dword [boot_pd + 36], 0
+    mov dword [boot_pd + 40], 0xA00083
+    mov dword [boot_pd + 44], 0
+    mov dword [boot_pd + 48], 0xC00083
+    mov dword [boot_pd + 52], 0
+    mov dword [boot_pd + 56], 0xE00083
+    mov dword [boot_pd + 60], 0
 
     ; ------------------------------------------------------------------
     ; Load the 64-bit GDT (32-bit lgdt is fine here; base is physical)
@@ -168,7 +185,7 @@ _start64:
 
 ; -----------------------------------------------------------------------
 ; BSS: page tables, stacks
-; All of these live in the identity-mapped first 4 MB.
+; All of these live in the identity-mapped first 16 MB.
 ; -----------------------------------------------------------------------
 section .bss
 align 4096

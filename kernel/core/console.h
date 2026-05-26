@@ -60,6 +60,7 @@ typedef struct {
 	int history_browse_index;
 	char screen_history[CONSOLE_SCREEN_HISTORY_MAX];
 	size_t screen_history_len;
+	size_t screen_history_read_cursor;
 	uint64_t next_correlation_id;
 	char cwd[64];
 	unsigned int escape_state;
@@ -67,10 +68,23 @@ typedef struct {
 	unsigned int next_loaded_lib_handle;
 	console_loaded_lib_entry_t loaded_libs[CONSOLE_LOADED_LIB_MAX];
 	console_auth_cache_entry_t auth_cache[CONSOLE_AUTH_CACHE_MAX];
+	/* Input injection ring buffer for window manager */
+	char inject_buf[CONSOLE_LINE_MAX];
+	size_t inject_head;
+	size_t inject_tail;
+	/* When set, auth prompts go through event bus instead of inline y/n */
+	int wm_managed;
 } console_context_t;
 
 void console_init(console_context_t *context, cap_subject_id_t subject_id);
 void console_bind_context(console_context_t *context);
 void console_run(void);
+
+/**
+ * Process all pending injected input characters for the currently bound
+ * console context. Called by the window manager's session tick path.
+ * The console context must be bound via console_bind_context first.
+ */
+void console_process_injected(void);
 
 #endif

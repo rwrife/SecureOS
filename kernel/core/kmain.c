@@ -53,6 +53,7 @@
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../ipc/ipc_port.h"
+#include "../mem/kheap.h"
 #include "../sched/scheduler.h"
 #include "../svc/broker_svc.h"
 #include "../svc/console_svc.h"
@@ -65,6 +66,7 @@ static const cap_subject_id_t FILEDEMO_SUBJECT = 1u;
 
 __attribute__((used))
 void kmain(void) {
+  kheap_init();
   (void)pc_com_serial_init_primary();
   (void)ps2_keyboard_init();
   if (!vga_text_init_primary()) {

@@ -19,7 +19,7 @@ build_user_app_inner() {
   EXTRA_OBJECTS=""
   NETLIB_OBJECTS=""
   USER_CFLAGS="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone -I user/include"
-  USER_LDFLAGS="-m elf_x86_64 -nostdlib -e main --image-base=0x350000"
+  USER_LDFLAGS="-m elf_x86_64 -nostdlib -e main --image-base=0x800000"
 
   if [ -d "$APP_DIR/resources" ]; then
     python3 - "$APP_DIR/resources" "artifacts/user/${APP_NAME}_resources_gen.c" <<'PY'
@@ -59,11 +59,21 @@ PY
 
   mkdir -p artifacts/user
   mkdir -p "$APP_OUT_DIR"
-  clang $USER_CFLAGS -c "$APP_DIR/main.c" -o "artifacts/user/$APP_NAME.o"
 
-  # Check for netlib dependency
+  # Compile all .c files in the app directory (multi-file app support)
+  APP_OBJECTS=""
+  for src_file in "$APP_DIR"/*.c; do
+    if [ -f "$src_file" ]; then
+      src_base="$(basename "$src_file" .c)"
+      obj_path="artifacts/user/${APP_NAME}_${src_base}.o"
+      clang $USER_CFLAGS -I "$APP_DIR" -c "$src_file" -o "$obj_path"
+      APP_OBJECTS="$APP_OBJECTS $obj_path"
+    fi
+  done
+
+  # Check for netlib dependency (scan all .c files in the app)
   NETLIB_OBJECTS=""
-  if grep -Eq '^[[:space:]]*#include[[:space:]]+"lib/netlib.h"' "$APP_DIR/main.c"; then
+  if grep -rEq '^[[:space:]]*#include[[:space:]]+"lib/netlib.h"' "$APP_DIR/"*.c 2>/dev/null; then
     NETLIB_CFLAGS="$USER_CFLAGS"
     HAVE_BEARSSL=0
     if compgen -G "artifacts/bearssl/*.o" >/dev/null; then
@@ -119,7 +129,7 @@ EOF
 
   clang $USER_CFLAGS -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
   ld.lld $USER_LDFLAGS \
-      -o "artifacts/user/$APP_NAME.elf" "artifacts/user/$APP_NAME.o" artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
+      -o "artifacts/user/$APP_NAME.elf" $APP_OBJECTS artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
 
   # Build sof_wrap if not already built
   if [ ! -x "tools/sof_wrap/sof_wrap" ]; then
