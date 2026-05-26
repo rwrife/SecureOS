@@ -1329,6 +1329,8 @@ static void console_command_run(const char *app_name, const char *app_args) {
     console_write("app failed: library in use\n");
   } else if (result == PROCESS_ERR_SIGNATURE) {
     console_write("app blocked: code signature validation failed\n");
+  } else if (result == PROCESS_ERR_CRASH) {
+    console_write("app crashed: CPU exception during execution\n");
   } else {
     console_write("app failed\n");
   }

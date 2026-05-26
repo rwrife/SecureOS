@@ -49,6 +49,7 @@
 #include "../hal/mouse_hal.h"
 #include "../hal/serial_hal.h"
 #include "../hal/video_hal.h"
+#include "../arch/x86/idt.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
 #include "../ipc/ipc_port.h"
@@ -73,6 +74,7 @@ void kmain(void) {
   }
   video_hal_clear();
   input_hal_init();
+  idt_init();
   (void)mouse_hal_init(); /* Optional: non-fatal if mouse not present */
   cap_table_init();
   event_bus_reset_for_tests();

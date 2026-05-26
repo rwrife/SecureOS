@@ -30,6 +30,7 @@
 
 #include <stdint.h>
 
+#include "../arch/x86/idt.h"
 #include "../cap/cap_table.h"
 #include "../clock/clock_service.h"
 #include "../crypto/cert.h"
@@ -210,7 +211,7 @@ enum {
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
   APP_NATIVE_BRIDGE_VERSION = 1u,
   APP_NATIVE_BRIDGE_ADDR = 0x003FF000u,
-  APP_NATIVE_LOAD_MIN = 0x00200000u,
+  APP_NATIVE_LOAD_MIN = 0x00350000u,
   APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
 };
 
@@ -1116,8 +1117,53 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->process_chdir = app_native_process_chdir;
 
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
-  (void)entry();
 
+  /* Arm fault recovery so CPU exceptions in the app don't crash the kernel */
+  {
+    int fault_code = fault_recover_set();
+    if (fault_code != 0) {
+      /* We arrived here via fault recovery — the app crashed */
+      if (vga_gfx_is_active()) {
+        vga_gfx_leave();
+        mouse_hal_set_bounds(80, 25);
+      }
+      bridge->magic = 0u;
+      bridge->version = 0u;
+      bridge->console_write = 0;
+      bridge->get_args = 0;
+      bridge->net_device_ready = 0;
+      bridge->net_device_backend = 0;
+      bridge->net_device_get_mac = 0;
+      bridge->net_frame_send = 0;
+      bridge->net_frame_recv = 0;
+      bridge->raw_args = 0;
+      bridge->input_read_char = 0;
+      bridge->mouse_get_state = 0;
+      bridge->video_clear = 0;
+      bridge->video_set_cursor = 0;
+      bridge->video_putchar_at = 0;
+      bridge->video_set_mode = 0;
+      bridge->video_put_pixel = 0;
+      bridge->video_get_pixel = 0;
+      bridge->video_draw_rect = 0;
+      bridge->video_get_resolution = 0;
+      bridge->fs_read_file = 0;
+      bridge->fs_write_file = 0;
+      bridge->fs_list_dir = 0;
+      bridge->fs_mkdir = 0;
+      bridge->env_get = 0;
+      bridge->env_set = 0;
+      bridge->env_list = 0;
+      bridge->process_getcwd = 0;
+      bridge->process_chdir = 0;
+      g_native_context = 0;
+      g_native_raw_args = "";
+      return PROCESS_ERR_CRASH;
+    }
+  }
+
+  (void)entry();
+  fault_recover_clear();
   /* If app left graphics mode active, restore text mode */
   if (vga_gfx_is_active()) {
     vga_gfx_leave();
