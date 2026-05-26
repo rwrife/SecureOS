@@ -133,11 +133,15 @@ void font_draw_char(unsigned char *buffer, int buf_stride,
   glyph = font_data[idx - 0x20];
 
   for (row = 0; row < FONT_CHAR_H; row++) {
-    unsigned char bits = glyph[row];
+    int dy = py + row;
+    unsigned char bits;
+    if (dy < 0 || dy >= 200) continue;
+    bits = glyph[row];
     for (col = 0; col < FONT_CHAR_W; col++) {
       if (bits & (0x10 >> col)) {
-        int offset = (py + row) * buf_stride + (px + col);
-        buffer[offset] = color;
+        int dx = px + col;
+        if (dx < 0 || dx >= buf_stride) continue;
+        buffer[dy * buf_stride + dx] = color;
       }
     }
   }
