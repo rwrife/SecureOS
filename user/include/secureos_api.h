@@ -65,6 +65,20 @@ unsigned int os_get_abi_version(void);
 os_status_t os_input_read_char(char *out_char);
 os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_buttons);
 
+/**
+ * Enable system-managed mouse cursor rendering.
+ * When enabled, the kernel (or WM) renders the cursor automatically.
+ * Apps just call os_mouse_get_state() for position/buttons — no need
+ * to draw their own cursor. Call before entering the event loop.
+ */
+os_status_t os_mouse_enable(void);
+
+/**
+ * Disable system-managed mouse cursor rendering.
+ * Call when the app no longer needs mouse (e.g., before exiting gfx mode).
+ */
+os_status_t os_mouse_disable(void);
+
 /* Video syscalls for direct screen manipulation */
 os_status_t os_video_clear(void);
 os_status_t os_video_set_cursor(int col, int row);

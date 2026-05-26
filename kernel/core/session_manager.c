@@ -49,6 +49,12 @@ enum {
  * so that yielded frames aren't corrupted by the WM's main loop. */
 #define SESSION_TICK_STACK_SIZE 16384
 
+/* ELF memory region save/restore — all user apps share the same load address
+ * (0x800000). When a child app runs inside a tick, it overwrites the parent
+ * app's code. We save/restore around tick boundaries. */
+#define ELF_REGION_START  0x00800000u
+#define ELF_SNAPSHOT_SIZE (128u * 1024u)  /* 128KB — covers all current apps */
+
 typedef struct {
   int in_use;
   unsigned int session_id;
@@ -68,7 +74,13 @@ typedef struct {
   int blocked;                      /* 1 if yielded mid-command */
   ctx_jmp_buf_t blocked_ctx;        /* Saved context at idle_wait point */
   unsigned char *tick_stack;        /* Dedicated stack for tick execution */
+  /* ELF snapshot — saved code/data for child app between yields */
+  unsigned char *elf_snapshot;      /* Allocated when child ELF first runs */
 } session_record_t;
+
+/* Static buffer to save the parent app's ELF region during a tick.
+ * Only one tick runs at a time (cooperative), so one buffer suffices. */
+static unsigned char g_elf_parent_buf[ELF_SNAPSHOT_SIZE];
 
 static session_record_t g_sessions[SESSION_MAX];
 static unsigned int g_active_session_id;
@@ -424,6 +436,18 @@ void session_manager_tick(unsigned int session_id) {
     return;
   }
 
+  /* --- ELF region save: protect parent app's code at 0x800000 ---
+   * All user ELF apps share the same load address. A child app loaded
+   * during this tick would overwrite the parent. Save the parent's code
+   * now; restore it when the tick yields or completes. */
+  {
+    unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
+    unsigned int i;
+    for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+      g_elf_parent_buf[i] = elf_base[i];
+    }
+  }
+
   /* Temporarily switch active session so console_write's VFB hook
    * targets the correct session during tick processing */
   prev_active = g_active_session_id;
@@ -447,8 +471,15 @@ void session_manager_tick(unsigned int session_id) {
   }
 
   if (g_sessions[session_id].blocked) {
-    /* Session was previously yielded (blocked on auth).
-     * Resume into the saved context on the session's tick stack. */
+    /* Session was previously yielded (blocked).
+     * Restore the child app's ELF snapshot before resuming. */
+    if (g_sessions[session_id].elf_snapshot != 0) {
+      unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
+      unsigned int i;
+      for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+        elf_base[i] = g_sessions[session_id].elf_snapshot[i];
+      }
+    }
     g_sessions[session_id].blocked = 0;
     ctx_resume(&g_sessions[session_id].blocked_ctx, 1);
     /* Does not return */
@@ -466,6 +497,32 @@ void session_manager_tick(unsigned int session_id) {
   }
 
 restore:
+  /* --- ELF region restore: save child's code, bring back parent's ---
+   * Save child app's current ELF state (for future resume), then restore
+   * the parent app's code so it can continue executing. */
+  {
+    unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
+    unsigned int i;
+
+    /* Allocate child snapshot on first use */
+    if (g_sessions[session_id].elf_snapshot == 0) {
+      g_sessions[session_id].elf_snapshot =
+          (unsigned char *)kmalloc(ELF_SNAPSHOT_SIZE);
+    }
+
+    /* Save child's ELF state */
+    if (g_sessions[session_id].elf_snapshot != 0) {
+      for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+        g_sessions[session_id].elf_snapshot[i] = elf_base[i];
+      }
+    }
+
+    /* Restore parent's ELF code */
+    for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+      elf_base[i] = g_elf_parent_buf[i];
+    }
+  }
+
   /* Restore previous active session and context */
   g_active_session_id = prev_active;
   g_tick_session_id = SESSION_MAX; /* invalid = not in tick */
@@ -657,6 +714,14 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
     s->vfb_cursor_row++;
   } else if (ch == '\r') {
     s->vfb_cursor_col = 0;
+  } else if (ch == '\b' || ch == 0x7F) {
+    /* Backspace: move cursor back and clear the cell */
+    if (s->vfb_cursor_col > 0) {
+      s->vfb_cursor_col--;
+      px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
+      py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
+      vfb_font_draw_char(vfb, SESSION_VFB_WIDTH, px, py, ' ', VFB_BG_COLOR);
+    }
   } else if (ch == '\t') {
     s->vfb_cursor_col = (s->vfb_cursor_col + 4) & ~3;
   } else {
@@ -689,15 +754,15 @@ void session_manager_vfb_write(unsigned int session_id, const char *text) {
 }
 
 int session_manager_tick_yield(void) {
-  /* Called from console_idle_wait when a WM-managed session needs to yield.
-   * Saves the blocked context and jumps back to session_manager_tick. */
+  /* Called from bridge input/mouse functions when a WM-managed session
+   * needs to yield. Saves the blocked context and jumps back to
+   * session_manager_tick. */
   if (g_tick_session_id >= SESSION_MAX) {
     return 0; /* Not inside a tick — cannot yield */
   }
-  /* Save where we are (the idle_wait loop) */
+  /* Save where we are */
   if (ctx_save(&g_sessions[g_tick_session_id].blocked_ctx) != 0) {
-    /* Resumed! We're back from yield. Return 1 so idle_wait knows
-     * to re-check the condition. */
+    /* Resumed! We're back from yield. */
     return 1;
   }
   /* Jump back to session_manager_tick's ctx_save(g_tick_return_ctx) */

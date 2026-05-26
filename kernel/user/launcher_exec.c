@@ -267,6 +267,8 @@ typedef struct {
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
   int (*session_set_virtual_mouse)(unsigned int session_id,
                                    int x, int y, unsigned char buttons);
+  int (*mouse_enable)(void);
+  int (*mouse_disable)(void);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -665,6 +667,89 @@ static int app_native_net_frame_recv(unsigned char *out_buffer,
 
 /* ---- Input / Video / Mouse bridge functions ----------------------------- */
 
+/* Kernel-managed cursor state for standalone (non-WM) graphics apps.
+ * When mouse_cursor_enabled is set, the cursor is drawn/updated automatically
+ * during mouse_get_state calls. The cursor is a 5-pixel crosshair. */
+#define KCURSOR_SIZE 5
+#define KCURSOR_HALF (KCURSOR_SIZE / 2)
+
+static int g_mouse_cursor_enabled = 0;
+static int g_mouse_cursor_drawn = 0;
+static int g_mouse_cursor_x = -1;
+static int g_mouse_cursor_y = -1;
+static unsigned char g_mouse_cursor_save[KCURSOR_SIZE * KCURSOR_SIZE];
+
+static void kernel_cursor_erase(void) {
+  int i, j, ox, oy;
+  if (!g_mouse_cursor_drawn) return;
+  ox = g_mouse_cursor_x - KCURSOR_HALF;
+  oy = g_mouse_cursor_y - KCURSOR_HALF;
+  for (j = 0; j < KCURSOR_SIZE; j++) {
+    for (i = 0; i < KCURSOR_SIZE; i++) {
+      int px = ox + i;
+      int py = oy + j;
+      if (px >= 0 && px < 320 && py >= 0 && py < 200) {
+        vga_gfx_put_pixel(px, py, g_mouse_cursor_save[j * KCURSOR_SIZE + i]);
+      }
+    }
+  }
+  g_mouse_cursor_drawn = 0;
+}
+
+static void kernel_cursor_draw(int cx, int cy) {
+  int i, j, ox, oy;
+  ox = cx - KCURSOR_HALF;
+  oy = cy - KCURSOR_HALF;
+  /* Save pixels under cursor */
+  for (j = 0; j < KCURSOR_SIZE; j++) {
+    for (i = 0; i < KCURSOR_SIZE; i++) {
+      int px = ox + i;
+      int py = oy + j;
+      if (px >= 0 && px < 320 && py >= 0 && py < 200) {
+        g_mouse_cursor_save[j * KCURSOR_SIZE + i] = vga_gfx_get_pixel(px, py);
+      } else {
+        g_mouse_cursor_save[j * KCURSOR_SIZE + i] = 0;
+      }
+    }
+  }
+  /* Draw crosshair */
+  for (i = -KCURSOR_HALF; i <= KCURSOR_HALF; i++) {
+    int px = cx + i;
+    int py = cy + i;
+    if (px >= 0 && px < 320 && cy >= 0 && cy < 200) {
+      vga_gfx_put_pixel(px, cy, 15); /* white horizontal */
+    }
+    if (cx >= 0 && cx < 320 && py >= 0 && py < 200) {
+      vga_gfx_put_pixel(cx, py, 15); /* white vertical */
+    }
+  }
+  g_mouse_cursor_x = cx;
+  g_mouse_cursor_y = cy;
+  g_mouse_cursor_drawn = 1;
+}
+
+static int app_native_mouse_enable(void) {
+  unsigned int sid = session_manager_active_id();
+  /* WM-managed sessions: cursor is rendered by the WM compositor */
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+  g_mouse_cursor_enabled = 1;
+  return 0;
+}
+
+static int app_native_mouse_disable(void) {
+  unsigned int sid = session_manager_active_id();
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+  if (g_mouse_cursor_drawn) {
+    kernel_cursor_erase();
+  }
+  g_mouse_cursor_enabled = 0;
+  return 0;
+}
+
 static int app_native_input_read_char(char *out_char) {
   unsigned int sid = session_manager_active_id();
 
@@ -717,12 +802,19 @@ static int app_native_mouse_get_state(int *out_x, int *out_y,
     if (out_x != 0) *out_x = state.x;
     if (out_y != 0) *out_y = state.y;
     if (out_buttons != 0) *out_buttons = state.buttons;
+
+    /* Kernel-managed cursor: update on each poll */
+    if (g_mouse_cursor_enabled && vga_gfx_is_active()) {
+      kernel_cursor_erase();
+      kernel_cursor_draw(state.x, state.y);
+    }
   }
   return 0;
 }
 
 static int app_native_video_clear(void) {
-  unsigned int sid = session_manager_active_id();
+  unsigned int sid;
+  sid = session_manager_active_id();
 
   /* WM-managed sessions clear their virtual framebuffer, not real hardware */
   if (session_manager_is_wm_managed(sid)) {
@@ -1255,6 +1347,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
       bridge->session_set_wm_managed = app_native_session_set_wm_managed;
       bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
+      bridge->mouse_enable = app_native_mouse_enable;
+      bridge->mouse_disable = app_native_mouse_disable;
     }
 
     serial_hal_write("[elf] bridge wired, calling entry\n");
@@ -1315,8 +1409,16 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_get_gfx_mode = 0;
       bridge->session_set_wm_managed = 0;
       bridge->session_set_virtual_mouse = 0;
+      bridge->mouse_enable = 0;
+      bridge->mouse_disable = 0;
 
-      g_native_context = 0;
+      /* Disable kernel cursor if app left it active */
+      if (g_mouse_cursor_enabled) {
+        if (g_mouse_cursor_drawn) {
+          kernel_cursor_erase();
+        }
+        g_mouse_cursor_enabled = 0;
+      }
       g_native_raw_args = "";
     }
   }

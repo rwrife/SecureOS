@@ -70,6 +70,8 @@ typedef struct {
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
   int (*session_set_virtual_mouse)(unsigned int session_id,
                                    int x, int y, unsigned char buttons);
+  int (*mouse_enable)(void);
+  int (*mouse_disable)(void);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -409,6 +411,26 @@ os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_button
   if (out_x != 0) *out_x = 0;
   if (out_y != 0) *out_y = 0;
   if (out_buttons != 0) *out_buttons = 0;
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_mouse_enable(void) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->mouse_enable != 0) {
+    return (os_status_t)bridge->mouse_enable();
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_mouse_disable(void) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->mouse_disable != 0) {
+    return (os_status_t)bridge->mouse_disable();
+  }
+
   return OS_STATUS_NOT_FOUND;
 }
 
