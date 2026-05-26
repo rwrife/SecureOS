@@ -203,10 +203,11 @@ static int sosh_app_exec(const char *command, const char *args,
 /* --- Entry point ------------------------------------------------------- */
 
 int main(void) {
-  char args_buf[512];
-  char script_path[256];
-  char script_args[256];
-  char script_content[8192];
+  static char args_buf[512];
+  static char script_path[256];
+  static char script_args[256];
+  static char script_content[8192];
+  static sosh_state_t state;
   int script_len;
   int i, j;
   os_status_t st;
@@ -244,10 +245,7 @@ int main(void) {
   script_len = sosh_app_strlen(script_content);
 
   /* Run the interpreter */
-  {
-    sosh_state_t state;
-    sosh_eval_init(&state, sosh_app_output, sosh_app_exec, (void*)0);
-    return sosh_eval_script(&state, script_content, script_len,
-                            script_path, script_args);
-  }
+  sosh_eval_init(&state, sosh_app_output, sosh_app_exec, (void*)0);
+  return sosh_eval_script(&state, script_content, script_len,
+                          script_path, script_args);
 }

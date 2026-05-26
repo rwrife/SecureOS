@@ -410,16 +410,16 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
                      const char *args) {
   /* We use a simple line-based interpreter with a block stack */
   #define MAX_LINES 512
-  const char *line_starts[MAX_LINES];
-  int line_lens[MAX_LINES];
+  static const char *line_starts[MAX_LINES];
+  static int line_lens[MAX_LINES];
   int num_lines;
   int pc; /* program counter (current line) */
 
-  sosh_block_t blocks[SOSH_NESTING_MAX];
+  static sosh_block_t blocks[SOSH_NESTING_MAX];
   int block_depth = 0;
 
-  char line_buf[SOSH_LINE_MAX];
-  sosh_token_list_t tokens;
+  static char line_buf[SOSH_LINE_MAX];
+  static sosh_token_list_t tokens;
 
   if (state == 0 || script == 0) return -1;
 
