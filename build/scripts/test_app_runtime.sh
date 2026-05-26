@@ -18,6 +18,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/fs/fs_service.c" \
   "$ROOT_DIR/kernel/user/launcher_exec.c" \
   "$ROOT_DIR/kernel/user/native_net_service.c" \
+  "$ROOT_DIR/tests/host_stubs/app_runtime_kernel_stubs.c" \
   "$ROOT_DIR/tests/app_runtime_test.c" \
   -o "$OUT_DIR/app_runtime_test"
 
