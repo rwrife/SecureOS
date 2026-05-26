@@ -99,16 +99,12 @@ build_disk_image_inner() {
 	./build/scripts/build_user_app.sh "sosh"
 	app_mappings+=("artifacts/user/sosh.bin=/apps/sosh.bin")
 
-	# Deploy scripts to /scripts on disk
+	# Deploy sosh scripts to /scripts on disk
 	local -a script_mappings=()
-	if compgen -G "$ROOT_DIR/scripts/*.sh" >/dev/null 2>&1; then
-		for script_path in "$ROOT_DIR"/scripts/*.sh; do
-			local sname
-			sname="$(basename "$script_path")"
-			mkdir -p "$ROOT_DIR/artifacts/scripts"
-			cp "$script_path" "$ROOT_DIR/artifacts/scripts/$sname"
-			script_mappings+=("artifacts/scripts/$sname=/scripts/$sname")
-		done
+	if [ -f "$ROOT_DIR/scripts/demo.sh" ]; then
+		mkdir -p "$ROOT_DIR/artifacts/scripts"
+		cp "$ROOT_DIR/scripts/demo.sh" "$ROOT_DIR/artifacts/scripts/demo.sh"
+		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
 	# Deploy root certificate to /certs for runtime signature validation
