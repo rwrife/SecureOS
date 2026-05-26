@@ -72,12 +72,11 @@ int main(void) {
 
   /* Mark the session as WM-managed so video calls go to virtual framebuffer
    * and auth prompts route through the event bus.
-   * Set VFB size to fit inside the window (screen minus chrome). */
+   * Set VFB size for the default window. */
   os_console_write("[win] setting wm_managed\n");
   {
-    /* Max content area that fits on 320x200 screen with window chrome */
-    unsigned int vfb_w = 320 - WIN_BORDER * 2;       /* 318 */
-    unsigned int vfb_h = 200 - WIN_TITLE_HEIGHT - WIN_BORDER * 2; /* 188 */
+    unsigned int vfb_w = 256;
+    unsigned int vfb_h = 160;
     os_session_set_vfb_size(session_id, vfb_w, vfb_h);
   }
   os_session_set_wm_managed(session_id, 1);
