@@ -99,49 +99,56 @@ int mouse_hal_available(void) {
   return g_mouse_available;
 }
 
-void mouse_hal_update(void) {
-  if (!g_mouse_available) {
-    return;
-  }
+/* Bounded drain limit per mouse_hal_update() call.
+ *
+ * Background (issue #337): ps2_mouse_poll() consumes at most one byte of PS/2
+ * controller data per call (it spans 3 bytes per packet across 3 invocations).
+ * Callers that only invoke mouse_hal_update() once per frame (notably the
+ * window-manager render loop in user/apps/win, where the compositor + per-line
+ * VFB read syscalls drop the achievable frame rate well below the ~100 Hz
+ * PS/2 sample rate) accumulate an ever-growing backlog of unread bytes,
+ * which is observed as severe cursor lag (#337) — while tight-loop callers
+ * such as draw.bin stay responsive simply because they re-poll fast enough.
+ *
+ * Fix: drain the controller's available bytes per call, bounded so we never
+ * monopolise the CPU if a stuck device floods data. The cap is generous
+ * enough to absorb a full frame's worth of packets at typical PS/2 rates
+ * (100 Hz * 3 bytes = 300 bytes/s; even a 5 Hz frame is ~60 bytes per
+ * frame). MOUSE_DRAIN_MAX is set to 64 (≈21 complete packets) — well above
+ * what a frame can realistically accrue, while still preserving a hard
+ * upper bound for determinism.
+ */
+#define MOUSE_DRAIN_MAX 64
 
-  ps2_mouse_event_t raw;
-  if (!ps2_mouse_poll(&raw)) {
-    return;
-  }
-
+static void mouse_apply_packet(const ps2_mouse_event_t *raw) {
   /* Accumulate sub-cell movement and only move when threshold crossed */
-  g_accum_x += raw.dx;
-  g_accum_y += raw.dy;
+  g_accum_x += raw->dx;
+  g_accum_y += raw->dy;
 
   int cell_dx = g_accum_x / g_scale_factor;
   int cell_dy = g_accum_y / g_scale_factor;
 
-  if (cell_dx == 0 && cell_dy == 0) {
-    /* Not enough movement to cross a cell boundary yet.
-     * Still check for button changes below. */
-    goto check_buttons;
+  if (cell_dx != 0 || cell_dy != 0) {
+    /* Consume the accumulated movement that resulted in cell moves */
+    g_accum_x -= cell_dx * g_scale_factor;
+    g_accum_y -= cell_dy * g_scale_factor;
+
+    /* Update position, clamped to screen bounds */
+    g_cursor_x += cell_dx;
+    g_cursor_y += cell_dy;
+
+    if (g_cursor_x < 0) g_cursor_x = 0;
+    if (g_cursor_y < 0) g_cursor_y = 0;
+    if (g_cursor_x >= g_screen_width) g_cursor_x = g_screen_width - 1;
+    if (g_cursor_y >= g_screen_height) g_cursor_y = g_screen_height - 1;
+
+    /* Enqueue move event */
+    mouse_enqueue_event(MOUSE_EVENT_MOVE, g_cursor_x, g_cursor_y, 0);
   }
 
-  /* Consume the accumulated movement that resulted in cell moves */
-  g_accum_x -= cell_dx * g_scale_factor;
-  g_accum_y -= cell_dy * g_scale_factor;
-
-  /* Update position, clamped to screen bounds */
-  g_cursor_x += cell_dx;
-  g_cursor_y += cell_dy;
-
-  if (g_cursor_x < 0) g_cursor_x = 0;
-  if (g_cursor_y < 0) g_cursor_y = 0;
-  if (g_cursor_x >= g_screen_width) g_cursor_x = g_screen_width - 1;
-  if (g_cursor_y >= g_screen_height) g_cursor_y = g_screen_height - 1;
-
-  /* Enqueue move event */
-  mouse_enqueue_event(MOUSE_EVENT_MOVE, g_cursor_x, g_cursor_y, 0);
-
-check_buttons:
   /* Detect button state changes */
   g_prev_buttons = g_buttons;
-  g_buttons = raw.buttons;
+  g_buttons = raw->buttons;
 
   unsigned char changed = g_buttons ^ g_prev_buttons;
   if (changed) {
@@ -157,6 +164,24 @@ check_buttons:
         }
       }
     }
+  }
+}
+
+void mouse_hal_update(void) {
+  if (!g_mouse_available) {
+    return;
+  }
+
+  /* Drain up to MOUSE_DRAIN_MAX bytes of pending PS/2 data per call so that
+   * low-frame-rate callers (e.g. window-manager compositor loop, #337) do
+   * not let the controller queue overflow and stall cursor movement. */
+  int drained;
+  for (drained = 0; drained < MOUSE_DRAIN_MAX; drained++) {
+    ps2_mouse_event_t raw;
+    if (!ps2_mouse_poll(&raw)) {
+      break; /* no complete packet (yet) or no data available */
+    }
+    mouse_apply_packet(&raw);
   }
 }
 
