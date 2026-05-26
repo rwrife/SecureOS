@@ -10,7 +10,7 @@
  *
  *   The window manager allows dragging windows by their title bar, clicking
  *   to give focus (for keyboard input routing), and closing windows via the
- *   [X] button. Pressing ESC exits the window manager and restores text mode.
+ *   [X] button. Clicking the Quit button (top-right) exits the window manager.
  *
  * Interactions:
  *   - secureos_api.h: all kernel syscalls (video, mouse, input, session).
@@ -99,7 +99,7 @@ int main(void) {
     /* Poll for auth prompts — must happen before input so dialog can intercept */
     auth_dialog_poll();
 
-    /* Process input; returns 1 if ESC pressed */
+    /* Process input; returns 1 if quit button clicked */
     if (input_update()) {
       break;
     }

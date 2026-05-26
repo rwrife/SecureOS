@@ -186,6 +186,10 @@ void compositor_render(int mouse_x, int mouse_y) {
   /* Draw auth dialog overlay if active */
   auth_dialog_render(g_backbuffer, SCREEN_W, SCREEN_H);
 
+  /* Draw Quit button in top-right corner */
+  fill_rect(296, 0, 24, 10, COLOR_CLOSE_BTN);
+  font_draw_string(g_backbuffer, SCREEN_W, 298, 2, "Quit", COLOR_TITLE_TEXT);
+
   /* Draw cursor on top */
   draw_cursor(mouse_x, mouse_y);
 

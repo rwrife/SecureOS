@@ -3,7 +3,7 @@
  * @brief Input dispatch implementation for the SecureOS window manager.
  *
  * Purpose:
- *   Handles mouse events (drag, click-to-focus, close) and keyboard input
+ *   Handles mouse events (drag, click-to-focus, close, quit) and keyboard input
  *   routing. Tracks drag state across frames. Sends keyboard characters to
  *   the focused window's session via os_session_write_input.
  *
@@ -20,8 +20,6 @@
 #include "window.h"
 #include "secureos_api.h"
 #include "auth_dialog.h"
-
-#define KEY_ESCAPE 0x1Bu
 
 /* Drag state */
 static int g_dragging;
@@ -58,10 +56,6 @@ int input_update(void) {
 
   /* Poll keyboard */
   if (os_input_read_char(&key) == OS_STATUS_OK && key != '\0') {
-    if (key == KEY_ESCAPE) {
-      return 1; /* signal exit */
-    }
-
     /* Route keyboard to focused window's session */
     win_window_t *focused = win_get_focused();
     if (focused != 0) {
@@ -89,6 +83,9 @@ int input_update(void) {
     /* Auth dialog takes priority over window interaction */
     if (auth_dialog_active() && auth_dialog_click(g_mouse_x, g_mouse_y)) {
       /* Click consumed by dialog */
+    } else if (g_mouse_x >= 296 && g_mouse_x < 320 && g_mouse_y < 10) {
+      /* Quit button in top-right corner */
+      return 1;
     } else {
     win_window_t *hit_win = 0;
     win_hit_zone_t zone = win_hit_test(g_mouse_x, g_mouse_y, &hit_win);
