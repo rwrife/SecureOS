@@ -65,6 +65,20 @@ unsigned int os_get_abi_version(void);
 os_status_t os_input_read_char(char *out_char);
 os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_buttons);
 
+/**
+ * Enable system-managed mouse cursor rendering.
+ * When enabled, the kernel (or WM) renders the cursor automatically.
+ * Apps just call os_mouse_get_state() for position/buttons — no need
+ * to draw their own cursor. Call before entering the event loop.
+ */
+os_status_t os_mouse_enable(void);
+
+/**
+ * Disable system-managed mouse cursor rendering.
+ * Call when the app no longer needs mouse (e.g., before exiting gfx mode).
+ */
+os_status_t os_mouse_disable(void);
+
 /* Video syscalls for direct screen manipulation */
 os_status_t os_video_clear(void);
 os_status_t os_video_set_cursor(int col, int row);
@@ -100,6 +114,11 @@ os_status_t os_session_write_input(unsigned int session_id, const char *input,
                                    unsigned int len);
 os_status_t os_session_tick(unsigned int session_id);
 os_status_t os_session_set_wm_managed(unsigned int session_id, int managed);
+os_status_t os_session_set_vfb_size(unsigned int session_id,
+                                    unsigned int width, unsigned int height);
+os_status_t os_session_get_vfb_size(unsigned int session_id,
+                                    unsigned int *out_width,
+                                    unsigned int *out_height);
 
 /* Auth prompt polling and response (for window manager) */
 #define AUTH_TYPE_DISK_IO       0
@@ -126,6 +145,11 @@ os_status_t os_session_read_framebuffer(unsigned int session_id,
                                         unsigned int x, unsigned int y,
                                         unsigned int w, unsigned int h);
 os_status_t os_session_get_gfx_mode(unsigned int session_id, int *out_mode);
+
+/* Virtual mouse injection (for window manager to provide mouse to windowed apps) */
+os_status_t os_session_set_virtual_mouse(unsigned int session_id,
+                                         int x, int y,
+                                         unsigned char buttons);
 
 #ifdef __cplusplus
 }

@@ -7,8 +7,9 @@
  *   canvas. The user draws by holding the left mouse button and moving the
  *   cursor. Pressing ESC exits the application and restores text mode.
  *
- *   The app manages its own cursor by saving/restoring pixels under the
- *   crosshair. The graphics driver provides raw framebuffer access only.
+ *   The system cursor is rendered by the window manager — the app does not
+ *   manage its own cursor. It receives mouse coordinates relative to its
+ *   content area via os_mouse_get_state.
  *
  * Interactions:
  *   - secureos_api.h: uses os_video_set_mode, os_video_put_pixel,
@@ -45,65 +46,19 @@ static const unsigned char palette[] = {
 };
 #define PALETTE_SIZE 8
 
-/* Cursor shape (5x5 crosshair) */
-#define CURSOR_SIZE 5
-#define CURSOR_HALF (CURSOR_SIZE / 2)
-
-/* Save buffer for pixels under the cursor */
-static unsigned char cursor_save[CURSOR_SIZE * CURSOR_SIZE];
-static int cursor_drawn = 0;
-static int cursor_sx = -1;
-static int cursor_sy = -1;
-
 static unsigned char current_color = COLOR_WHITE;
 static int brush_size = 2;
-
-static void save_under_cursor(int cx, int cy) {
-  int i, j;
-  int ox = cx - CURSOR_HALF;
-  int oy = cy - CURSOR_HALF;
-
-  for (j = 0; j < CURSOR_SIZE; j++) {
-    for (i = 0; i < CURSOR_SIZE; i++) {
-      os_video_get_pixel(ox + i, oy + j, &cursor_save[j * CURSOR_SIZE + i]);
-    }
-  }
-  cursor_sx = cx;
-  cursor_sy = cy;
-}
-
-static void restore_under_cursor(void) {
-  int i, j;
-  int ox = cursor_sx - CURSOR_HALF;
-  int oy = cursor_sy - CURSOR_HALF;
-
-  if (!cursor_drawn) return;
-
-  for (j = 0; j < CURSOR_SIZE; j++) {
-    for (i = 0; i < CURSOR_SIZE; i++) {
-      os_video_put_pixel(ox + i, oy + j, cursor_save[j * CURSOR_SIZE + i]);
-    }
-  }
-  cursor_drawn = 0;
-}
-
-static void draw_cursor(int cx, int cy, unsigned char color) {
-  int i;
-  /* Crosshair: horizontal and vertical lines */
-  for (i = -CURSOR_HALF; i <= CURSOR_HALF; i++) {
-    os_video_put_pixel(cx + i, cy, color);
-    os_video_put_pixel(cx, cy + i, color);
-  }
-  cursor_drawn = 1;
-}
+static int screen_w = 320;
+static int screen_h = 200;
 
 static void draw_palette_bar(void) {
   int i;
-  int bar_y = 190;
-  int swatch_w = OS_GFX_WIDTH / PALETTE_SIZE;
+  int bar_h = 10;
+  int bar_y = screen_h - bar_h;
+  int swatch_w = screen_w / PALETTE_SIZE;
 
   for (i = 0; i < PALETTE_SIZE; i++) {
-    os_video_draw_rect(i * swatch_w, bar_y, swatch_w, 10, palette[i]);
+    os_video_draw_rect(i * swatch_w, bar_y, swatch_w, bar_h, palette[i]);
   }
 }
 
@@ -116,9 +71,15 @@ int main(void) {
     return 1;
   }
 
+  /* Query actual resolution (may differ from 320x200 in WM mode) */
+  os_video_get_resolution(&screen_w, &screen_h);
+
   /* Clear to black and draw palette */
   os_video_clear();
   draw_palette_bar();
+
+  /* Enable system-managed cursor */
+  os_mouse_enable();
 
   while (running) {
     char key = '\0';
@@ -132,7 +93,6 @@ int main(void) {
         break;
       }
       if (key == 'c' || key == 'C') {
-        restore_under_cursor();
         os_video_clear();
         draw_palette_bar();
       }
@@ -149,17 +109,14 @@ int main(void) {
       }
     }
 
-    /* Get mouse state */
+    /* Get mouse state (coordinates relative to content area) */
     os_mouse_get_state(&mx, &my, &buttons);
 
     /* Clamp to canvas (above palette bar) */
-    if (mx >= OS_GFX_WIDTH) mx = OS_GFX_WIDTH - 1;
-    if (my >= 190) my = 189;
+    if (mx >= screen_w) mx = screen_w - 1;
+    if (my >= screen_h - 10) my = screen_h - 11;
     if (mx < 0) mx = 0;
     if (my < 0) my = 0;
-
-    /* Erase old cursor */
-    restore_under_cursor();
 
     /* Draw with left button */
     if (buttons & 0x01u) {
@@ -172,21 +129,18 @@ int main(void) {
       int raw_mx = 0, raw_my = 0;
       unsigned char dummy = 0;
       os_mouse_get_state(&raw_mx, &raw_my, &dummy);
-      if (raw_my >= 190) {
-        int swatch_w = OS_GFX_WIDTH / PALETTE_SIZE;
+      if (raw_my >= screen_h - 10) {
+        int swatch_w = screen_w / PALETTE_SIZE;
         int idx = raw_mx / swatch_w;
         if (idx >= 0 && idx < PALETTE_SIZE) {
           current_color = palette[idx];
         }
       }
     }
-
-    /* Save pixels under new cursor position, then draw cursor */
-    save_under_cursor(mx, my);
-    draw_cursor(mx, my, current_color);
   }
 
-  /* Restore text mode (also done automatically by kernel on exit) */
+  /* Disable cursor and restore text mode */
+  os_mouse_disable();
   os_video_set_mode(OS_VIDEO_MODE_TEXT);
   os_console_write("draw: exited\n");
   return 0;

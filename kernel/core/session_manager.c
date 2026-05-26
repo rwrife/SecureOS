@@ -49,6 +49,12 @@ enum {
  * so that yielded frames aren't corrupted by the WM's main loop. */
 #define SESSION_TICK_STACK_SIZE 16384
 
+/* ELF memory region save/restore — all user apps share the same load address
+ * (0x800000). When a child app runs inside a tick, it overwrites the parent
+ * app's code. We save/restore around tick boundaries. */
+#define ELF_REGION_START  0x00800000u
+#define ELF_SNAPSHOT_SIZE (128u * 1024u)  /* 128KB — covers all current apps */
+
 typedef struct {
   int in_use;
   unsigned int session_id;
@@ -57,14 +63,26 @@ typedef struct {
   /* Virtual framebuffer — always allocated for WM-managed sessions */
   int gfx_mode;                     /* 0 = text, 1 = graphics */
   unsigned char *vfb;               /* Allocated via kmalloc when needed */
+  unsigned int vfb_width;           /* Pixel width (set by WM or default 320) */
+  unsigned int vfb_height;          /* Pixel height (set by WM or default 200) */
   /* Text cursor for kernel-side text rendering into VFB */
   int vfb_cursor_col;
   int vfb_cursor_row;
+  /* Virtual mouse state — injected by WM, read by child apps */
+  int virtual_mouse_x;
+  int virtual_mouse_y;
+  unsigned char virtual_mouse_buttons;
   /* Cooperative yield state for auth spin-wait */
   int blocked;                      /* 1 if yielded mid-command */
   ctx_jmp_buf_t blocked_ctx;        /* Saved context at idle_wait point */
   unsigned char *tick_stack;        /* Dedicated stack for tick execution */
+  /* ELF snapshot — saved code/data for child app between yields */
+  unsigned char *elf_snapshot;      /* Allocated when child ELF first runs */
 } session_record_t;
+
+/* Static buffer to save the parent app's ELF region during a tick.
+ * Only one tick runs at a time (cooperative), so one buffer suffices. */
+static unsigned char g_elf_parent_buf[ELF_SNAPSHOT_SIZE];
 
 static session_record_t g_sessions[SESSION_MAX];
 static unsigned int g_active_session_id;
@@ -246,6 +264,28 @@ int session_manager_create(cap_subject_id_t subject_id, unsigned int *out_sessio
   return 1;
 }
 
+void session_manager_destroy(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  /* Don't destroy the currently active session */
+  if (session_id == g_active_session_id) {
+    return;
+  }
+  g_sessions[session_id].in_use = 0;
+  g_sessions[session_id].gfx_mode = 0;
+  g_sessions[session_id].vfb_cursor_col = 0;
+  g_sessions[session_id].vfb_cursor_row = 0;
+  g_sessions[session_id].vfb_width = 0;
+  g_sessions[session_id].vfb_height = 0;
+  g_sessions[session_id].blocked = 0;
+  g_sessions[session_id].virtual_mouse_x = 0;
+  g_sessions[session_id].virtual_mouse_y = 0;
+  g_sessions[session_id].virtual_mouse_buttons = 0;
+  g_sessions[session_id].console_context.wm_managed = 0;
+  /* Note: vfb, tick_stack, elf_snapshot memory is leaked (no kfree yet) */
+}
+
 int session_manager_switch(unsigned int session_id) {
   if (session_id >= SESSION_MAX) {
     return 0;
@@ -420,6 +460,18 @@ void session_manager_tick(unsigned int session_id) {
     return;
   }
 
+  /* --- ELF region save: protect parent app's code at 0x800000 ---
+   * All user ELF apps share the same load address. A child app loaded
+   * during this tick would overwrite the parent. Save the parent's code
+   * now; restore it when the tick yields or completes. */
+  {
+    unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
+    unsigned int i;
+    for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+      g_elf_parent_buf[i] = elf_base[i];
+    }
+  }
+
   /* Temporarily switch active session so console_write's VFB hook
    * targets the correct session during tick processing */
   prev_active = g_active_session_id;
@@ -443,8 +495,15 @@ void session_manager_tick(unsigned int session_id) {
   }
 
   if (g_sessions[session_id].blocked) {
-    /* Session was previously yielded (blocked on auth).
-     * Resume into the saved context on the session's tick stack. */
+    /* Session was previously yielded (blocked).
+     * Restore the child app's ELF snapshot before resuming. */
+    if (g_sessions[session_id].elf_snapshot != 0) {
+      unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
+      unsigned int i;
+      for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+        elf_base[i] = g_sessions[session_id].elf_snapshot[i];
+      }
+    }
     g_sessions[session_id].blocked = 0;
     ctx_resume(&g_sessions[session_id].blocked_ctx, 1);
     /* Does not return */
@@ -462,6 +521,32 @@ void session_manager_tick(unsigned int session_id) {
   }
 
 restore:
+  /* --- ELF region restore: save child's code, bring back parent's ---
+   * Save child app's current ELF state (for future resume), then restore
+   * the parent app's code so it can continue executing. */
+  {
+    unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
+    unsigned int i;
+
+    /* Allocate child snapshot on first use */
+    if (g_sessions[session_id].elf_snapshot == 0) {
+      g_sessions[session_id].elf_snapshot =
+          (unsigned char *)kmalloc(ELF_SNAPSHOT_SIZE);
+    }
+
+    /* Save child's ELF state */
+    if (g_sessions[session_id].elf_snapshot != 0) {
+      for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+        g_sessions[session_id].elf_snapshot[i] = elf_base[i];
+      }
+    }
+
+    /* Restore parent's ELF code */
+    for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
+      elf_base[i] = g_elf_parent_buf[i];
+    }
+  }
+
   /* Restore previous active session and context */
   g_active_session_id = prev_active;
   g_tick_session_id = SESSION_MAX; /* invalid = not in tick */
@@ -478,15 +563,25 @@ void session_manager_set_wm_managed(unsigned int session_id, int managed) {
 
   /* Eagerly allocate VFB when marking as WM-managed */
   if (managed && g_sessions[session_id].vfb == 0) {
+    unsigned int vw, vh;
+    unsigned int alloc_size;
     serial_hal_write("[wm] allocating VFB for session\n");
+    /* Use per-session dimensions if already set, otherwise defaults */
+    vw = g_sessions[session_id].vfb_width;
+    vh = g_sessions[session_id].vfb_height;
+    if (vw == 0) vw = SESSION_VFB_WIDTH;
+    if (vh == 0) vh = SESSION_VFB_HEIGHT;
+    g_sessions[session_id].vfb_width = vw;
+    g_sessions[session_id].vfb_height = vh;
+    alloc_size = vw * vh;
     g_sessions[session_id].vfb =
-        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+        (unsigned char *)kmalloc((size_t)alloc_size);
     g_sessions[session_id].vfb_cursor_col = 0;
     g_sessions[session_id].vfb_cursor_row = 0;
     if (g_sessions[session_id].vfb != 0) {
       /* Zero the buffer */
       unsigned int bi;
-      for (bi = 0; bi < SESSION_VFB_SIZE; bi++) {
+      for (bi = 0; bi < alloc_size; bi++) {
         g_sessions[session_id].vfb[bi] = 0;
       }
       /* Render an initial prompt so the user sees something */
@@ -519,6 +614,84 @@ void session_manager_set_gfx_mode(unsigned int session_id, int gfx_mode) {
   g_sessions[session_id].gfx_mode = gfx_mode;
 }
 
+void session_manager_set_virtual_mouse(unsigned int session_id,
+                                       int x, int y,
+                                       unsigned char buttons) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  g_sessions[session_id].virtual_mouse_x = x;
+  g_sessions[session_id].virtual_mouse_y = y;
+  g_sessions[session_id].virtual_mouse_buttons = buttons;
+}
+
+void session_manager_get_virtual_mouse(unsigned int session_id,
+                                       int *out_x, int *out_y,
+                                       unsigned char *out_buttons) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    if (out_x) *out_x = 0;
+    if (out_y) *out_y = 0;
+    if (out_buttons) *out_buttons = 0;
+    return;
+  }
+  if (out_x) *out_x = g_sessions[session_id].virtual_mouse_x;
+  if (out_y) *out_y = g_sessions[session_id].virtual_mouse_y;
+  if (out_buttons) *out_buttons = g_sessions[session_id].virtual_mouse_buttons;
+}
+
+void session_manager_clear_vfb(unsigned int session_id) {
+  unsigned char *vfb;
+  unsigned int vfb_size;
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  vfb = session_manager_get_vfb(session_id);
+  if (vfb != 0) {
+    unsigned int i;
+    vfb_size = g_sessions[session_id].vfb_width *
+               g_sessions[session_id].vfb_height;
+    for (i = 0; i < vfb_size; i++) {
+      vfb[i] = 0;
+    }
+  }
+}
+
+void session_manager_set_vfb_size(unsigned int session_id,
+                                  unsigned int width, unsigned int height) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  /* Only allow setting before VFB is allocated (prevents mid-use resize) */
+  if (g_sessions[session_id].vfb != 0) {
+    return;
+  }
+  if (width == 0 || height == 0) {
+    return;
+  }
+  /* Cap at maximum to avoid excessive allocation */
+  if (width > 320) width = 320;
+  if (height > 200) height = 200;
+  g_sessions[session_id].vfb_width = width;
+  g_sessions[session_id].vfb_height = height;
+}
+
+void session_manager_get_vfb_size(unsigned int session_id,
+                                  unsigned int *out_width,
+                                  unsigned int *out_height) {
+  unsigned int w, h;
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    if (out_width) *out_width = SESSION_VFB_WIDTH;
+    if (out_height) *out_height = SESSION_VFB_HEIGHT;
+    return;
+  }
+  w = g_sessions[session_id].vfb_width;
+  h = g_sessions[session_id].vfb_height;
+  if (w == 0) w = SESSION_VFB_WIDTH;
+  if (h == 0) h = SESSION_VFB_HEIGHT;
+  if (out_width) *out_width = w;
+  if (out_height) *out_height = h;
+}
+
 unsigned char *session_manager_get_vfb(unsigned int session_id) {
   if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
     return 0;
@@ -526,8 +699,12 @@ unsigned char *session_manager_get_vfb(unsigned int session_id) {
 
   /* Lazy allocate the VFB on first access */
   if (g_sessions[session_id].vfb == 0) {
+    unsigned int vw = g_sessions[session_id].vfb_width;
+    unsigned int vh = g_sessions[session_id].vfb_height;
+    if (vw == 0) { vw = SESSION_VFB_WIDTH; g_sessions[session_id].vfb_width = vw; }
+    if (vh == 0) { vh = SESSION_VFB_HEIGHT; g_sessions[session_id].vfb_height = vh; }
     g_sessions[session_id].vfb =
-        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+        (unsigned char *)kmalloc((size_t)(vw * vh));
   }
 
   return g_sessions[session_id].vfb;
@@ -540,11 +717,20 @@ size_t session_manager_read_vfb(unsigned int session_id,
   unsigned char *vfb;
   unsigned int row;
   size_t written = 0u;
+  unsigned int vfb_w, vfb_h;
 
   if (out_pixels == 0 || w == 0u || h == 0u) {
     return 0u;
   }
-  if (x >= SESSION_VFB_WIDTH || y >= SESSION_VFB_HEIGHT) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0u;
+  }
+  vfb_w = g_sessions[session_id].vfb_width;
+  vfb_h = g_sessions[session_id].vfb_height;
+  if (vfb_w == 0) vfb_w = SESSION_VFB_WIDTH;
+  if (vfb_h == 0) vfb_h = SESSION_VFB_HEIGHT;
+
+  if (x >= vfb_w || y >= vfb_h) {
     return 0u;
   }
 
@@ -554,16 +740,16 @@ size_t session_manager_read_vfb(unsigned int session_id,
   }
 
   /* Clip to VFB bounds */
-  if (x + w > SESSION_VFB_WIDTH) {
-    w = SESSION_VFB_WIDTH - x;
+  if (x + w > vfb_w) {
+    w = vfb_w - x;
   }
-  if (y + h > SESSION_VFB_HEIGHT) {
-    h = SESSION_VFB_HEIGHT - y;
+  if (y + h > vfb_h) {
+    h = vfb_h - y;
   }
 
   /* Copy row by row */
   for (row = 0u; row < h; ++row) {
-    unsigned int src_offset = (y + row) * SESSION_VFB_WIDTH + x;
+    unsigned int src_offset = (y + row) * vfb_w + x;
     unsigned int col;
     for (col = 0u; col < w; ++col) {
       out_pixels[written++] = vfb[src_offset + col];
@@ -579,10 +765,11 @@ size_t session_manager_read_vfb(unsigned int session_id,
  * Scroll the VFB up by one text line (VFB_FONT_H+1 pixels).
  * Moves all pixel rows up and clears the bottom line.
  */
-static void vfb_scroll_up(unsigned char *vfb) {
+static void vfb_scroll_up(unsigned char *vfb, unsigned int vfb_w,
+                          unsigned int vfb_h) {
   int line_h = VFB_FONT_H + VFB_FONT_SPACING;
-  int shift_bytes = line_h * SESSION_VFB_WIDTH;
-  int total_bytes = SESSION_VFB_SIZE;
+  int shift_bytes = line_h * (int)vfb_w;
+  int total_bytes = (int)(vfb_w * vfb_h);
   int i;
 
   /* Shift pixels up */
@@ -599,6 +786,8 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
   session_record_t *s;
   unsigned char *vfb;
   int px, py;
+  unsigned int vfb_w, vfb_h;
+  int text_cols, text_rows;
 
   if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
     return;
@@ -608,32 +797,46 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
   if (vfb == 0) {
     return;
   }
+  vfb_w = s->vfb_width;
+  vfb_h = s->vfb_height;
+  if (vfb_w == 0) vfb_w = SESSION_VFB_WIDTH;
+  if (vfb_h == 0) vfb_h = SESSION_VFB_HEIGHT;
+  text_cols = (int)(vfb_w / (VFB_FONT_W + VFB_FONT_SPACING));
+  text_rows = (int)(vfb_h / (VFB_FONT_H + VFB_FONT_SPACING));
 
   if (ch == '\n') {
     s->vfb_cursor_col = 0;
     s->vfb_cursor_row++;
   } else if (ch == '\r') {
     s->vfb_cursor_col = 0;
+  } else if (ch == '\b' || ch == 0x7F) {
+    /* Backspace: move cursor back and clear the cell */
+    if (s->vfb_cursor_col > 0) {
+      s->vfb_cursor_col--;
+      px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
+      py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
+      vfb_font_draw_char(vfb, vfb_w, px, py, ' ', VFB_BG_COLOR);
+    }
   } else if (ch == '\t') {
     s->vfb_cursor_col = (s->vfb_cursor_col + 4) & ~3;
   } else {
     /* Render the character glyph at current cursor position */
     px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
     py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
-    vfb_font_draw_char(vfb, SESSION_VFB_WIDTH, px, py, ch, VFB_FG_COLOR);
+    vfb_font_draw_char(vfb, vfb_w, px, py, ch, VFB_FG_COLOR);
     s->vfb_cursor_col++;
   }
 
   /* Wrap at end of line */
-  if (s->vfb_cursor_col >= SESSION_VFB_TEXT_COLS) {
+  if (s->vfb_cursor_col >= text_cols) {
     s->vfb_cursor_col = 0;
     s->vfb_cursor_row++;
   }
 
   /* Scroll if past last row */
-  if (s->vfb_cursor_row >= SESSION_VFB_TEXT_ROWS) {
-    vfb_scroll_up(vfb);
-    s->vfb_cursor_row = SESSION_VFB_TEXT_ROWS - 1;
+  if (s->vfb_cursor_row >= text_rows) {
+    vfb_scroll_up(vfb, vfb_w, vfb_h);
+    s->vfb_cursor_row = text_rows - 1;
   }
 }
 
@@ -646,15 +849,15 @@ void session_manager_vfb_write(unsigned int session_id, const char *text) {
 }
 
 int session_manager_tick_yield(void) {
-  /* Called from console_idle_wait when a WM-managed session needs to yield.
-   * Saves the blocked context and jumps back to session_manager_tick. */
+  /* Called from bridge input/mouse functions when a WM-managed session
+   * needs to yield. Saves the blocked context and jumps back to
+   * session_manager_tick. */
   if (g_tick_session_id >= SESSION_MAX) {
     return 0; /* Not inside a tick — cannot yield */
   }
-  /* Save where we are (the idle_wait loop) */
+  /* Save where we are */
   if (ctx_save(&g_sessions[g_tick_session_id].blocked_ctx) != 0) {
-    /* Resumed! We're back from yield. Return 1 so idle_wait knows
-     * to re-check the condition. */
+    /* Resumed! We're back from yield. */
     return 1;
   }
   /* Jump back to session_manager_tick's ctx_save(g_tick_return_ctx) */

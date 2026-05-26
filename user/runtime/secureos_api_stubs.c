@@ -68,6 +68,15 @@ typedef struct {
                                   unsigned int w, unsigned int h);
   int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
+  int (*session_set_vfb_size)(unsigned int session_id,
+                              unsigned int width, unsigned int height);
+  int (*session_get_vfb_size)(unsigned int session_id,
+                              unsigned int *out_width,
+                              unsigned int *out_height);
+  int (*session_set_virtual_mouse)(unsigned int session_id,
+                                   int x, int y, unsigned char buttons);
+  int (*mouse_enable)(void);
+  int (*mouse_disable)(void);
   /* File I/O */
   int (*fs_read_file)(const char *path, char *out_buffer, unsigned int out_buffer_size);
   int (*fs_write_file)(const char *path, const char *content, int append);
@@ -503,6 +512,26 @@ os_status_t os_mouse_get_state(int *out_x, int *out_y, unsigned char *out_button
   return OS_STATUS_NOT_FOUND;
 }
 
+os_status_t os_mouse_enable(void) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->mouse_enable != 0) {
+    return (os_status_t)bridge->mouse_enable();
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_mouse_disable(void) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->mouse_disable != 0) {
+    return (os_status_t)bridge->mouse_disable();
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
 os_status_t os_video_clear(void) {
   secureos_native_bridge_t *bridge = secureos_native_bridge();
 
@@ -662,6 +691,30 @@ os_status_t os_session_set_wm_managed(unsigned int session_id, int managed) {
   return OS_STATUS_NOT_FOUND;
 }
 
+os_status_t os_session_set_vfb_size(unsigned int session_id,
+                                    unsigned int width, unsigned int height) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_set_vfb_size != 0) {
+    return (os_status_t)bridge->session_set_vfb_size(session_id, width, height);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_get_vfb_size(unsigned int session_id,
+                                    unsigned int *out_width,
+                                    unsigned int *out_height) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_get_vfb_size != 0) {
+    return (os_status_t)bridge->session_get_vfb_size(session_id,
+                                                     out_width, out_height);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
 os_status_t os_auth_poll_prompt(os_auth_prompt_t *out_prompt) {
   secureos_native_bridge_t *bridge = secureos_native_bridge();
 
@@ -709,5 +762,18 @@ os_status_t os_session_get_gfx_mode(unsigned int session_id, int *out_mode) {
   if (out_mode != 0) {
     *out_mode = 0;
   }
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_set_virtual_mouse(unsigned int session_id,
+                                         int x, int y,
+                                         unsigned char buttons) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_set_virtual_mouse != 0) {
+    return (os_status_t)bridge->session_set_virtual_mouse(session_id, x, y,
+                                                          buttons);
+  }
+
   return OS_STATUS_NOT_FOUND;
 }

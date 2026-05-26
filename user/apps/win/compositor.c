@@ -89,7 +89,9 @@ static void draw_window(win_window_t *w) {
   content_h = w->height - WIN_TITLE_HEIGHT - WIN_BORDER;
   fill_rect(content_x, content_y, content_w, content_h, COLOR_CONTENT_BG);
 
-  /* Always read session's VFB pixels — the kernel renders text/graphics there */
+  /* Always read session's VFB pixels — the kernel renders text/graphics there.
+   * VFB dimensions match the window content area (set via set_vfb_size),
+   * so we blit 1:1 without scaling. */
   {
     unsigned char vfb_line[320];
     int vfb_w = content_w;
@@ -183,6 +185,10 @@ void compositor_render(int mouse_x, int mouse_y) {
 
   /* Draw auth dialog overlay if active */
   auth_dialog_render(g_backbuffer, SCREEN_W, SCREEN_H);
+
+  /* Draw Quit button in top-right corner */
+  fill_rect(296, 0, 24, 10, COLOR_CLOSE_BTN);
+  font_draw_string(g_backbuffer, SCREEN_W, 298, 2, "Quit", COLOR_TITLE_TEXT);
 
   /* Draw cursor on top */
   draw_cursor(mouse_x, mouse_y);

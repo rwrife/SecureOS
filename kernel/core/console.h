@@ -87,4 +87,12 @@ void console_run(void);
  */
 void console_process_injected(void);
 
+/**
+ * Try to read a single character from the currently bound console context's
+ * inject buffer. Used by graphics apps in WM-managed sessions to poll for
+ * keyboard input that was routed through the WM.
+ * Returns 1 if a character was read (stored in *out_char), 0 if buffer empty.
+ */
+int console_try_read_injected(char *out_char);
+
 #endif

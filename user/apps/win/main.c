@@ -10,7 +10,7 @@
  *
  *   The window manager allows dragging windows by their title bar, clicking
  *   to give focus (for keyboard input routing), and closing windows via the
- *   [X] button. Pressing ESC exits the window manager and restores text mode.
+ *   [X] button. Clicking the Quit button (top-right) exits the window manager.
  *
  * Interactions:
  *   - secureos_api.h: all kernel syscalls (video, mouse, input, session).
@@ -71,14 +71,20 @@ int main(void) {
   }
 
   /* Mark the session as WM-managed so video calls go to virtual framebuffer
-   * and auth prompts route through the event bus */
+   * and auth prompts route through the event bus.
+   * Set VFB size for the default window. */
   os_console_write("[win] setting wm_managed\n");
+  {
+    unsigned int vfb_w = 256;
+    unsigned int vfb_h = 160;
+    os_session_set_vfb_size(session_id, vfb_w, vfb_h);
+  }
   os_session_set_wm_managed(session_id, 1);
   os_console_write("[win] wm_managed set\n");
 
-  /* Create initial window */
+  /* Create initial window — positioned at origin to fill the screen */
   os_console_write("[win] creating window\n");
-  initial_win = win_create(10, 10, "Session 1", session_id);
+  initial_win = win_create(0, 0, "Session 1", session_id);
   if (initial_win != 0) {
     win_set_focus(initial_win);
     os_console_write("[win] window created & focused\n");
@@ -93,7 +99,7 @@ int main(void) {
     /* Poll for auth prompts — must happen before input so dialog can intercept */
     auth_dialog_poll();
 
-    /* Process input; returns 1 if ESC pressed */
+    /* Process input; returns 1 if quit button clicked */
     if (input_update()) {
       break;
     }

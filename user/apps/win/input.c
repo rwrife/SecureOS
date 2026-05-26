@@ -3,7 +3,7 @@
  * @brief Input dispatch implementation for the SecureOS window manager.
  *
  * Purpose:
- *   Handles mouse events (drag, click-to-focus, close) and keyboard input
+ *   Handles mouse events (drag, click-to-focus, close, quit) and keyboard input
  *   routing. Tracks drag state across frames. Sends keyboard characters to
  *   the focused window's session via os_session_write_input.
  *
@@ -20,8 +20,6 @@
 #include "window.h"
 #include "secureos_api.h"
 #include "auth_dialog.h"
-
-#define KEY_ESCAPE 0x1Bu
 
 /* Drag state */
 static int g_dragging;
@@ -58,10 +56,6 @@ int input_update(void) {
 
   /* Poll keyboard */
   if (os_input_read_char(&key) == OS_STATUS_OK && key != '\0') {
-    if (key == KEY_ESCAPE) {
-      return 1; /* signal exit */
-    }
-
     /* Route keyboard to focused window's session */
     win_window_t *focused = win_get_focused();
     if (focused != 0) {
@@ -89,6 +83,9 @@ int input_update(void) {
     /* Auth dialog takes priority over window interaction */
     if (auth_dialog_active() && auth_dialog_click(g_mouse_x, g_mouse_y)) {
       /* Click consumed by dialog */
+    } else if (g_mouse_x >= 296 && g_mouse_x < 320 && g_mouse_y < 10) {
+      /* Quit button in top-right corner */
+      return 1;
     } else {
     win_window_t *hit_win = 0;
     win_hit_zone_t zone = win_hit_test(g_mouse_x, g_mouse_y, &hit_win);
@@ -123,5 +120,44 @@ int input_update(void) {
   }
 
   g_prev_buttons = buttons;
+
+  /* Inject virtual mouse state into the focused window's session.
+   * Translate physical screen coordinates to coordinates relative to
+   * the window's content area (which maps 1:1 to the session's VFB). */
+  {
+    win_window_t *focused = win_get_focused();
+    if (focused != 0) {
+      int content_x = focused->x + WIN_BORDER;
+      int content_y = focused->y + WIN_TITLE_HEIGHT;
+      int rel_x = g_mouse_x - content_x;
+      int rel_y = g_mouse_y - content_y;
+      unsigned int vfb_w = 0, vfb_h = 0;
+
+      /* Get actual VFB dimensions for clamping */
+      os_session_get_vfb_size(focused->session_id, &vfb_w, &vfb_h);
+      if (vfb_w == 0) vfb_w = 320;
+      if (vfb_h == 0) vfb_h = 200;
+
+      /* Clamp to VFB bounds (no scaling — content area matches VFB) */
+      if (rel_x < 0) rel_x = 0;
+      if (rel_x >= (int)vfb_w) rel_x = (int)vfb_w - 1;
+      if (rel_y < 0) rel_y = 0;
+      if (rel_y >= (int)vfb_h) rel_y = (int)vfb_h - 1;
+
+      /* Only pass buttons through if cursor is over content area */
+      {
+        unsigned char vbuttons = 0;
+        int content_w = focused->width - WIN_BORDER * 2;
+        int content_h = focused->height - WIN_TITLE_HEIGHT - WIN_BORDER;
+        if (g_mouse_x >= content_x && g_mouse_x < content_x + content_w &&
+            g_mouse_y >= content_y && g_mouse_y < content_y + content_h) {
+          vbuttons = buttons;
+        }
+        os_session_set_virtual_mouse(focused->session_id, rel_x, rel_y,
+                                     vbuttons);
+      }
+    }
+  }
+
   return 0;
 }

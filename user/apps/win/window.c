@@ -18,6 +18,7 @@
  */
 
 #include "window.h"
+#include "secureos_api.h"
 
 static win_window_t g_windows[WIN_MAX_WINDOWS];
 
@@ -52,12 +53,19 @@ win_window_t *win_create(int x, int y, const char *title, unsigned int session_i
   for (i = 0; i < WIN_MAX_WINDOWS; i++) {
     if (!g_windows[i].active) {
       int r;
+      unsigned int vfb_w = 0, vfb_h = 0;
+
+      /* Query the session's VFB size to determine window dimensions */
+      os_session_get_vfb_size(session_id, &vfb_w, &vfb_h);
+      if (vfb_w == 0) vfb_w = 320;
+      if (vfb_h == 0) vfb_h = 200;
+
       g_windows[i].active = 1;
       g_windows[i].x = x;
       g_windows[i].y = y;
-      /* content area pixel size + title bar + border */
-      g_windows[i].width = WIN_CONTENT_COLS * 6 + WIN_BORDER * 2;
-      g_windows[i].height = WIN_TITLE_HEIGHT + WIN_CONTENT_ROWS * 8 + WIN_BORDER * 2;
+      /* Window sized to fit the session's VFB + chrome */
+      g_windows[i].width = (int)vfb_w + WIN_BORDER * 2;
+      g_windows[i].height = WIN_TITLE_HEIGHT + (int)vfb_h + WIN_BORDER * 2;
       g_windows[i].session_id = session_id;
       g_windows[i].cursor_col = 0;
       g_windows[i].cursor_row = 0;

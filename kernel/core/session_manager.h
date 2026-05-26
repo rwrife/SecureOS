@@ -7,6 +7,7 @@
 
 void session_manager_start(cap_subject_id_t bootstrap_subject_id);
 int session_manager_create(cap_subject_id_t subject_id, unsigned int *out_session_id);
+void session_manager_destroy(unsigned int session_id);
 int session_manager_switch(unsigned int session_id);
 unsigned int session_manager_active_id(void);
 size_t session_manager_list(char *out_buffer, size_t out_buffer_size);
@@ -60,12 +61,52 @@ int session_manager_get_gfx_mode(unsigned int session_id);
 void session_manager_set_gfx_mode(unsigned int session_id, int gfx_mode);
 
 /**
+ * Clear the session's virtual framebuffer to black (all zeros).
+ * Used when a WM-managed app calls video_clear in graphics mode.
+ */
+void session_manager_clear_vfb(unsigned int session_id);
+
+/**
+ * Set virtual mouse state for a WM-managed session.
+ * Called by the window manager to inject mouse coordinates relative to
+ * the session's virtual framebuffer. Child apps read this instead of
+ * raw hardware mouse state.
+ */
+void session_manager_set_virtual_mouse(unsigned int session_id,
+                                       int x, int y,
+                                       unsigned char buttons);
+
+/**
+ * Get virtual mouse state for a WM-managed session.
+ * Bridge functions call this to provide mouse data to child apps.
+ */
+void session_manager_get_virtual_mouse(unsigned int session_id,
+                                       int *out_x, int *out_y,
+                                       unsigned char *out_buttons);
+
+/**
  * Get a pointer to the session's virtual framebuffer (320x200).
  * Returns NULL if session doesn't exist or has no VFB allocated.
  * Allocates a VFB from the pool if the session is WM-managed and doesn't
  * have one yet.
  */
 unsigned char *session_manager_get_vfb(unsigned int session_id);
+
+/**
+ * Set the VFB pixel dimensions for a session. Must be called BEFORE the
+ * VFB is first allocated (before set_wm_managed or first VFB access).
+ * The WM calls this to match the window content area dimensions.
+ */
+void session_manager_set_vfb_size(unsigned int session_id,
+                                  unsigned int width, unsigned int height);
+
+/**
+ * Get the VFB pixel dimensions for a session.
+ * Returns defaults (320x200) if not explicitly set.
+ */
+void session_manager_get_vfb_size(unsigned int session_id,
+                                  unsigned int *out_width,
+                                  unsigned int *out_height);
 
 /**
  * Read a rectangular region from the session's virtual framebuffer.

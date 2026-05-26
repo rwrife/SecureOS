@@ -47,6 +47,7 @@
 #include "../drivers/video/vga_gfx.h"
 #include "native_net_service.h"
 #include "../core/session_manager.h"
+#include "../core/console.h"
 #include "../event/event_bus.h"
 
 /* ---- Signature verification cache ----------------------------------------
@@ -265,6 +266,15 @@ typedef struct {
                                   unsigned int w, unsigned int h);
   int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
+  int (*session_set_vfb_size)(unsigned int session_id,
+                              unsigned int width, unsigned int height);
+  int (*session_get_vfb_size)(unsigned int session_id,
+                              unsigned int *out_width,
+                              unsigned int *out_height);
+  int (*session_set_virtual_mouse)(unsigned int session_id,
+                                   int x, int y, unsigned char buttons);
+  int (*mouse_enable)(void);
+  int (*mouse_disable)(void);
   /* File I/O */
   int (*fs_read_file)(const char *path, char *out_buffer, unsigned int out_buffer_size);
   int (*fs_write_file)(const char *path, const char *content, int append);
@@ -283,6 +293,12 @@ typedef int (*app_native_entry_fn)(void);
 
 static const process_context_t *g_native_context = 0;
 static const char *g_native_raw_args = "";
+
+/* Track child sessions created by the current app so they can be destroyed
+ * when the app exits (child sessions must not outlive the parent). */
+#define MAX_CHILD_SESSIONS 8
+static unsigned int g_child_sessions[MAX_CHILD_SESSIONS];
+static int g_child_session_count = 0;
 
 static process_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                size_t elf_len,
@@ -679,10 +695,114 @@ static int app_native_net_frame_recv(unsigned char *out_buffer,
 
 /* ---- Input / Video / Mouse bridge functions ----------------------------- */
 
+/* Kernel-managed cursor state for standalone (non-WM) graphics apps.
+ * When mouse_cursor_enabled is set, the cursor is drawn/updated automatically
+ * during mouse_get_state calls. The cursor is a 5-pixel crosshair. */
+#define KCURSOR_SIZE 5
+#define KCURSOR_HALF (KCURSOR_SIZE / 2)
+
+static int g_mouse_cursor_enabled = 0;
+static int g_mouse_cursor_drawn = 0;
+static int g_mouse_cursor_x = -1;
+static int g_mouse_cursor_y = -1;
+static unsigned char g_mouse_cursor_save[KCURSOR_SIZE * KCURSOR_SIZE];
+
+static void kernel_cursor_erase(void) {
+  int i, j, ox, oy;
+  if (!g_mouse_cursor_drawn) return;
+  ox = g_mouse_cursor_x - KCURSOR_HALF;
+  oy = g_mouse_cursor_y - KCURSOR_HALF;
+  for (j = 0; j < KCURSOR_SIZE; j++) {
+    for (i = 0; i < KCURSOR_SIZE; i++) {
+      int px = ox + i;
+      int py = oy + j;
+      if (px >= 0 && px < 320 && py >= 0 && py < 200) {
+        vga_gfx_put_pixel(px, py, g_mouse_cursor_save[j * KCURSOR_SIZE + i]);
+      }
+    }
+  }
+  g_mouse_cursor_drawn = 0;
+}
+
+static void kernel_cursor_draw(int cx, int cy) {
+  int i, j, ox, oy;
+  ox = cx - KCURSOR_HALF;
+  oy = cy - KCURSOR_HALF;
+  /* Save pixels under cursor */
+  for (j = 0; j < KCURSOR_SIZE; j++) {
+    for (i = 0; i < KCURSOR_SIZE; i++) {
+      int px = ox + i;
+      int py = oy + j;
+      if (px >= 0 && px < 320 && py >= 0 && py < 200) {
+        g_mouse_cursor_save[j * KCURSOR_SIZE + i] = vga_gfx_get_pixel(px, py);
+      } else {
+        g_mouse_cursor_save[j * KCURSOR_SIZE + i] = 0;
+      }
+    }
+  }
+  /* Draw crosshair */
+  for (i = -KCURSOR_HALF; i <= KCURSOR_HALF; i++) {
+    int px = cx + i;
+    int py = cy + i;
+    if (px >= 0 && px < 320 && cy >= 0 && cy < 200) {
+      vga_gfx_put_pixel(px, cy, 15); /* white horizontal */
+    }
+    if (cx >= 0 && cx < 320 && py >= 0 && py < 200) {
+      vga_gfx_put_pixel(cx, py, 15); /* white vertical */
+    }
+  }
+  g_mouse_cursor_x = cx;
+  g_mouse_cursor_y = cy;
+  g_mouse_cursor_drawn = 1;
+}
+
+static int app_native_mouse_enable(void) {
+  unsigned int sid = session_manager_active_id();
+  /* WM-managed sessions: cursor is rendered by the WM compositor */
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+  g_mouse_cursor_enabled = 1;
+  return 0;
+}
+
+static int app_native_mouse_disable(void) {
+  unsigned int sid = session_manager_active_id();
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+  if (g_mouse_cursor_drawn) {
+    kernel_cursor_erase();
+  }
+  g_mouse_cursor_enabled = 0;
+  return 0;
+}
+
 static int app_native_input_read_char(char *out_char) {
+  unsigned int sid = session_manager_active_id();
+
   if (out_char == 0) {
     return 3;
   }
+
+  /* WM-managed sessions read from inject buffer, not raw hardware.
+   * The WM routes keyboard input via os_session_write_input which feeds
+   * the inject buffer. If the buffer is empty, yield back to the WM so
+   * it can process a frame (composite, route input) then resume us. */
+  if (session_manager_is_wm_managed(sid)) {
+    if (console_try_read_injected(out_char)) {
+      return 0;
+    }
+    /* No input available — yield to let the WM run a frame.
+     * When resumed, try again in case input was injected. */
+    session_manager_tick_yield();
+    if (console_try_read_injected(out_char)) {
+      return 0;
+    }
+    *out_char = '\0';
+    return 2; /* still no data */
+  }
+
   if (input_hal_try_read_char(out_char)) {
     return 0;
   }
@@ -692,17 +812,53 @@ static int app_native_input_read_char(char *out_char) {
 
 static int app_native_mouse_get_state(int *out_x, int *out_y,
                                       unsigned char *out_buttons) {
-  mouse_state_t state;
-  mouse_hal_update();
-  mouse_hal_get_state(&state);
-  if (out_x != 0) *out_x = state.x;
-  if (out_y != 0) *out_y = state.y;
-  if (out_buttons != 0) *out_buttons = state.buttons;
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions get virtual mouse state injected by the WM.
+   * Yield on each poll so the WM can update mouse state and composite. */
+  if (session_manager_is_wm_managed(sid)) {
+    session_manager_tick_yield();
+    session_manager_get_virtual_mouse(sid, out_x, out_y, out_buttons);
+    return 0;
+  }
+
+  /* Non-WM sessions use real hardware */
+  {
+    mouse_state_t state;
+    mouse_hal_update();
+    mouse_hal_get_state(&state);
+    if (out_x != 0) *out_x = state.x;
+    if (out_y != 0) *out_y = state.y;
+    if (out_buttons != 0) *out_buttons = state.buttons;
+
+    /* Kernel-managed cursor: update on each poll */
+    if (g_mouse_cursor_enabled && vga_gfx_is_active()) {
+      kernel_cursor_erase();
+      kernel_cursor_draw(state.x, state.y);
+    }
+  }
   return 0;
 }
 
 static int app_native_video_clear(void) {
+  unsigned int sid;
+  sid = session_manager_active_id();
+
+  /* WM-managed sessions clear their virtual framebuffer, not real hardware */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      session_manager_clear_vfb(sid);
+    }
+    /* Text mode clear for WM session is a no-op (VFB text is managed by
+     * session_manager_vfb_write) */
+    return 0;
+  }
+
   if (vga_gfx_is_active()) {
+    /* Invalidate cursor save buffer — screen is being cleared */
+    if (g_mouse_cursor_enabled) {
+      g_mouse_cursor_drawn = 0;
+    }
     vga_gfx_clear(0);
   } else {
     video_hal_clear();
@@ -711,12 +867,26 @@ static int app_native_video_clear(void) {
 }
 
 static int app_native_video_set_cursor(int col, int row) {
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions don't touch real VGA text cursor */
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+
   vga_text_set_cursor(col, row);
   return 0;
 }
 
 static int app_native_video_putchar_at(int col, int row, char ch,
                                        unsigned char attr) {
+  unsigned int sid = session_manager_active_id();
+
+  /* WM-managed sessions don't touch real VGA text hardware */
+  if (session_manager_is_wm_managed(sid)) {
+    return 0;
+  }
+
   vga_text_putchar_at(col, row, ch, attr);
   return 0;
 }
@@ -748,11 +918,14 @@ static int app_native_video_set_mode(int mode) {
     return 0;
   } else if (mode == 0) {
     /* Text mode request */
-    if (wm_managed && session_manager_get_gfx_mode(sid) == 1) {
-      session_manager_set_gfx_mode(sid, 0);
+    if (wm_managed) {
+      /* WM-managed: just clear the gfx_mode flag, never touch real VGA */
+      if (session_manager_get_gfx_mode(sid) == 1) {
+        session_manager_set_gfx_mode(sid, 0);
+      }
       return 0;
     }
-    /* Real hardware path */
+    /* Real hardware path (non-WM sessions only) */
     if (vga_gfx_is_active()) {
       vga_gfx_leave();
     }
@@ -765,21 +938,33 @@ static int app_native_video_set_mode(int mode) {
 static int app_native_video_put_pixel(int x, int y, unsigned char color) {
   unsigned int sid = session_manager_active_id();
 
-  /* If session is in virtual gfx mode, write to VFB */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
-      vfb[y * 320 + x] = color;
-      return 0;
+  /* WM-managed sessions always use VFB — never touch real hardware */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (vfb != 0 && x >= 0 && (unsigned int)x < vw &&
+          y >= 0 && (unsigned int)y < vh) {
+        vfb[y * (int)vw + x] = color;
+        return 0;
+      }
     }
-    return 3;
+    return 3; /* not in gfx mode or out of bounds */
   }
 
-  /* Real hardware path */
+  /* Real hardware path (non-WM sessions only) */
   if (!vga_gfx_is_active()) {
     return 3;
   }
+  /* Hide cursor before drawing so save buffer stays correct */
+  if (g_mouse_cursor_enabled && g_mouse_cursor_drawn) {
+    kernel_cursor_erase();
+  }
   vga_gfx_put_pixel(x, y, color);
+  if (g_mouse_cursor_enabled) {
+    kernel_cursor_draw(g_mouse_cursor_x, g_mouse_cursor_y);
+  }
   return 0;
 }
 
@@ -790,13 +975,19 @@ static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
     return 3;
   }
 
-  /* Virtual framebuffer path */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
-      *out_color = vfb[y * 320 + x];
-      return 0;
+  /* WM-managed sessions always use VFB */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (vfb != 0 && x >= 0 && (unsigned int)x < vw &&
+          y >= 0 && (unsigned int)y < vh) {
+        *out_color = vfb[y * (int)vw + x];
+        return 0;
+      }
     }
+    *out_color = 0;
     return 3;
   }
 
@@ -811,21 +1002,25 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
                                       unsigned char color) {
   unsigned int sid = session_manager_active_id();
 
-  /* Virtual framebuffer path */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0) {
-      int row, col;
-      for (row = 0; row < h; row++) {
-        int py = y + row;
-        if (py < 0 || py >= 200) continue;
-        for (col = 0; col < w; col++) {
-          int px = x + col;
-          if (px < 0 || px >= 320) continue;
-          vfb[py * 320 + px] = color;
+  /* WM-managed sessions always use VFB */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (vfb != 0) {
+        int row, col;
+        for (row = 0; row < h; row++) {
+          int py = y + row;
+          if (py < 0 || (unsigned int)py >= vh) continue;
+          for (col = 0; col < w; col++) {
+            int px = x + col;
+            if (px < 0 || (unsigned int)px >= vw) continue;
+            vfb[py * (int)vw + px] = color;
+          }
         }
+        return 0;
       }
-      return 0;
     }
     return 3;
   }
@@ -833,15 +1028,39 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
   if (!vga_gfx_is_active()) {
     return 3;
   }
+  /* Hide cursor before drawing so save buffer stays correct */
+  if (g_mouse_cursor_enabled && g_mouse_cursor_drawn) {
+    kernel_cursor_erase();
+  }
   vga_gfx_draw_rect(x, y, w, h, color);
+  if (g_mouse_cursor_enabled) {
+    kernel_cursor_draw(g_mouse_cursor_x, g_mouse_cursor_y);
+  }
   return 0;
 }
 
 static int app_native_video_get_resolution(int *out_width, int *out_height) {
   unsigned int sid = session_manager_active_id();
 
-  /* Virtual or real gfx mode both report 320x200 */
-  if (session_manager_get_gfx_mode(sid) == 1 || vga_gfx_is_active()) {
+  /* WM-managed sessions: report VFB dimensions when in gfx mode */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (out_width != 0) *out_width = (int)vw;
+      if (out_height != 0) *out_height = (int)vh;
+    } else {
+      /* Text mode: report text grid cols/rows */
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (out_width != 0) *out_width = (int)(vw / 6);
+      if (out_height != 0) *out_height = (int)(vh / 8);
+    }
+    return 0;
+  }
+
+  /* Non-WM sessions use real hardware state */
+  if (vga_gfx_is_active()) {
     if (out_width != 0) *out_width = 320;
     if (out_height != 0) *out_height = 200;
   } else {
@@ -1064,20 +1283,22 @@ static int app_native_video_blit(int x, int y, int w, int h,
     return 3;
   }
 
-  /* Virtual framebuffer path */
-  if (session_manager_get_gfx_mode(sid) == 1) {
-    unsigned char *vfb = session_manager_get_vfb(sid);
-    if (vfb != 0) {
-      for (row = 0; row < h; row++) {
-        int py = y + row;
-        if (py < 0 || py >= 200) continue;
-        for (col = 0; col < w; col++) {
-          int px = x + col;
-          if (px < 0 || px >= 320) continue;
-          vfb[py * 320 + px] = pixels[row * w + col];
+  /* WM-managed sessions always use VFB */
+  if (session_manager_is_wm_managed(sid)) {
+    if (session_manager_get_gfx_mode(sid) == 1) {
+      unsigned char *vfb = session_manager_get_vfb(sid);
+      if (vfb != 0) {
+        for (row = 0; row < h; row++) {
+          int py = y + row;
+          if (py < 0 || py >= 200) continue;
+          for (col = 0; col < w; col++) {
+            int px = x + col;
+            if (px < 0 || px >= 320) continue;
+            vfb[py * 320 + px] = pixels[row * w + col];
+          }
         }
+        return 0;
       }
-      return 0;
     }
     return 3;
   }
@@ -1096,10 +1317,16 @@ static int app_native_video_blit(int x, int y, int w, int h,
 
 static int app_native_session_create(unsigned int *out_session_id) {
   cap_subject_id_t subject_id = 0u;
+  unsigned int new_sid = 0;
   if (g_native_context != 0) {
     subject_id = g_native_context->subject_id;
   }
-  if (session_manager_create(subject_id, out_session_id)) {
+  if (session_manager_create(subject_id, &new_sid)) {
+    if (out_session_id != 0) *out_session_id = new_sid;
+    /* Track as child session for cleanup on parent exit */
+    if (g_child_session_count < MAX_CHILD_SESSIONS) {
+      g_child_sessions[g_child_session_count++] = new_sid;
+    }
     return 0;
   }
   return 3;
@@ -1213,6 +1440,27 @@ static int app_native_session_get_gfx_mode(unsigned int session_id,
 static int app_native_session_set_wm_managed(unsigned int session_id,
                                              int managed) {
   session_manager_set_wm_managed(session_id, managed);
+  return 0;
+}
+
+static int app_native_session_set_vfb_size(unsigned int session_id,
+                                           unsigned int width,
+                                           unsigned int height) {
+  session_manager_set_vfb_size(session_id, width, height);
+  return 0;
+}
+
+static int app_native_session_get_vfb_size(unsigned int session_id,
+                                           unsigned int *out_width,
+                                           unsigned int *out_height) {
+  session_manager_get_vfb_size(session_id, out_width, out_height);
+  return 0;
+}
+
+static int app_native_session_set_virtual_mouse(unsigned int session_id,
+                                               int x, int y,
+                                               unsigned char buttons) {
+  session_manager_set_virtual_mouse(session_id, x, y, buttons);
   return 0;
 }
 
@@ -1332,63 +1580,132 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
     return PROCESS_ERR_DENIED;
   }
 
-  g_native_context = context;
-  g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
-
-  bridge->magic = APP_NATIVE_BRIDGE_MAGIC;
-  bridge->version = APP_NATIVE_BRIDGE_VERSION;
-  bridge->reserved0 = 0u;
-  bridge->reserved1 = 0u;
-  bridge->console_write = app_native_console_write;
-  bridge->get_args = app_native_get_args;
-  bridge->net_device_ready = app_native_net_device_ready;
-  bridge->net_device_backend = app_native_net_device_backend;
-  bridge->net_device_get_mac = app_native_net_device_get_mac;
-  bridge->net_frame_send = app_native_net_frame_send;
-  bridge->net_frame_recv = app_native_net_frame_recv;
-  bridge->raw_args = g_native_raw_args;
-  bridge->input_read_char = app_native_input_read_char;
-  bridge->mouse_get_state = app_native_mouse_get_state;
-  bridge->video_clear = app_native_video_clear;
-  bridge->video_set_cursor = app_native_video_set_cursor;
-  bridge->video_putchar_at = app_native_video_putchar_at;
-  bridge->video_set_mode = app_native_video_set_mode;
-  bridge->video_put_pixel = app_native_video_put_pixel;
-  bridge->video_get_pixel = app_native_video_get_pixel;
-  bridge->video_draw_rect = app_native_video_draw_rect;
-  bridge->video_get_resolution = app_native_video_get_resolution;
-  bridge->video_blit = app_native_video_blit;
-  bridge->session_create = app_native_session_create;
-  bridge->session_read_output = app_native_session_read_output;
-  bridge->session_write_input = app_native_session_write_input;
-  bridge->session_tick = app_native_session_tick;
-  bridge->auth_poll_prompt = app_native_auth_poll_prompt;
-  bridge->auth_respond = app_native_auth_respond;
-  bridge->session_read_framebuffer = app_native_session_read_framebuffer;
-  bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
-  bridge->session_set_wm_managed = app_native_session_set_wm_managed;
-  bridge->fs_read_file = app_native_fs_read_file;
-  bridge->fs_write_file = app_native_fs_write_file;
-  bridge->fs_list_dir = app_native_fs_list_dir;
-  bridge->fs_mkdir = app_native_fs_mkdir;
-  bridge->env_get = app_native_env_get;
-  bridge->env_set = app_native_env_set;
-  bridge->env_list = app_native_env_list;
-  bridge->process_getcwd = app_native_process_getcwd;
-  bridge->process_chdir = app_native_process_chdir;
-
-  serial_hal_write("[elf] bridge wired, calling entry\n");
-  entry = (app_native_entry_fn)(uintptr_t)e_entry;
-
-  /* Arm fault recovery so CPU exceptions in the app don't crash the kernel */
+  /* Detect re-entrant invocation (e.g. draw.bin launched from inside win.bin's
+   * session tick). If the bridge is already wired, save state and skip
+   * re-wiring/teardown — all bridge function pointers are the same kernel
+   * functions regardless of which app is running. */
   {
-    int fault_code = fault_recover_set();
-    if (fault_code != 0) {
-      /* We arrived here via fault recovery — the app crashed */
-      if (vga_gfx_is_active()) {
+    int nested = (bridge->magic == APP_NATIVE_BRIDGE_MAGIC);
+    const process_context_t *saved_context = g_native_context;
+    const char *saved_raw_args = g_native_raw_args;
+
+    /* Set context for the new app */
+    g_native_context = context;
+    g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
+
+    if (nested) {
+      /* Bridge function pointers are identical, just update raw_args in struct */
+      bridge->raw_args = g_native_raw_args;
+    } else {
+      bridge->magic = APP_NATIVE_BRIDGE_MAGIC;
+      bridge->version = APP_NATIVE_BRIDGE_VERSION;
+      bridge->reserved0 = 0u;
+      bridge->reserved1 = 0u;
+      bridge->console_write = app_native_console_write;
+      bridge->get_args = app_native_get_args;
+      bridge->net_device_ready = app_native_net_device_ready;
+      bridge->net_device_backend = app_native_net_device_backend;
+      bridge->net_device_get_mac = app_native_net_device_get_mac;
+      bridge->net_frame_send = app_native_net_frame_send;
+      bridge->net_frame_recv = app_native_net_frame_recv;
+      bridge->raw_args = g_native_raw_args;
+      bridge->input_read_char = app_native_input_read_char;
+      bridge->mouse_get_state = app_native_mouse_get_state;
+      bridge->video_clear = app_native_video_clear;
+      bridge->video_set_cursor = app_native_video_set_cursor;
+      bridge->video_putchar_at = app_native_video_putchar_at;
+      bridge->video_set_mode = app_native_video_set_mode;
+      bridge->video_put_pixel = app_native_video_put_pixel;
+      bridge->video_get_pixel = app_native_video_get_pixel;
+      bridge->video_draw_rect = app_native_video_draw_rect;
+      bridge->video_get_resolution = app_native_video_get_resolution;
+      bridge->video_blit = app_native_video_blit;
+      bridge->session_create = app_native_session_create;
+      bridge->session_read_output = app_native_session_read_output;
+      bridge->session_write_input = app_native_session_write_input;
+      bridge->session_tick = app_native_session_tick;
+      bridge->auth_poll_prompt = app_native_auth_poll_prompt;
+      bridge->auth_respond = app_native_auth_respond;
+      bridge->session_read_framebuffer = app_native_session_read_framebuffer;
+      bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
+      bridge->session_set_wm_managed = app_native_session_set_wm_managed;
+      bridge->session_set_vfb_size = app_native_session_set_vfb_size;
+      bridge->session_get_vfb_size = app_native_session_get_vfb_size;
+      bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
+      bridge->mouse_enable = app_native_mouse_enable;
+      bridge->mouse_disable = app_native_mouse_disable;
+      bridge->fs_read_file = app_native_fs_read_file;
+      bridge->fs_write_file = app_native_fs_write_file;
+      bridge->fs_list_dir = app_native_fs_list_dir;
+      bridge->fs_mkdir = app_native_fs_mkdir;
+      bridge->env_get = app_native_env_get;
+      bridge->env_set = app_native_env_set;
+      bridge->env_list = app_native_env_list;
+      bridge->process_getcwd = app_native_process_getcwd;
+      bridge->process_chdir = app_native_process_chdir;
+    }
+
+    serial_hal_write("[elf] bridge wired, calling entry\n");
+    entry = (app_native_entry_fn)(uintptr_t)e_entry;
+
+    /* Arm fault recovery so CPU exceptions in the app don't crash the kernel */
+    {
+      int fault_code = fault_recover_set();
+      if (fault_code != 0) {
+        /* We arrived here via fault recovery — the app crashed */
+        if (vga_gfx_is_active()) {
+          vga_gfx_leave();
+          mouse_hal_set_bounds(80, 25);
+        }
+        if (g_mouse_cursor_enabled) {
+          if (g_mouse_cursor_drawn) {
+            kernel_cursor_erase();
+          }
+          g_mouse_cursor_enabled = 0;
+        }
+        {
+          int ci;
+          for (ci = 0; ci < g_child_session_count; ci++) {
+            session_manager_destroy(g_child_sessions[ci]);
+          }
+          g_child_session_count = 0;
+        }
+        if (!nested) {
+          bridge->magic = 0u;
+          bridge->version = 0u;
+        }
+        g_native_context = saved_context;
+        g_native_raw_args = saved_raw_args;
+        return PROCESS_ERR_CRASH;
+      }
+    }
+
+    (void)entry();
+    fault_recover_clear();
+
+    /* If app left graphics mode active, restore text mode.
+     * Only do this for non-WM-managed sessions — WM-managed sessions use
+     * virtual framebuffers and should never touch the real VGA hardware. */
+    {
+      unsigned int sid = session_manager_active_id();
+      if (session_manager_is_wm_managed(sid)) {
+        /* Clean up virtual gfx state if the app didn't */
+        if (session_manager_get_gfx_mode(sid) == 1) {
+          session_manager_set_gfx_mode(sid, 0);
+        }
+      } else if (!nested && vga_gfx_is_active()) {
         vga_gfx_leave();
         mouse_hal_set_bounds(80, 25);
       }
+    }
+
+    if (nested) {
+      /* Restore parent app's context — bridge stays wired */
+      g_native_context = saved_context;
+      g_native_raw_args = saved_raw_args;
+      bridge->raw_args = saved_raw_args;
+    } else {
+      /* Top-level exit: tear down the bridge */
       bridge->magic = 0u;
       bridge->version = 0u;
       bridge->console_write = 0;
@@ -1419,6 +1736,11 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_read_framebuffer = 0;
       bridge->session_get_gfx_mode = 0;
       bridge->session_set_wm_managed = 0;
+      bridge->session_set_vfb_size = 0;
+      bridge->session_get_vfb_size = 0;
+      bridge->session_set_virtual_mouse = 0;
+      bridge->mouse_enable = 0;
+      bridge->mouse_disable = 0;
       bridge->fs_read_file = 0;
       bridge->fs_write_file = 0;
       bridge->fs_list_dir = 0;
@@ -1428,62 +1750,29 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->env_list = 0;
       bridge->process_getcwd = 0;
       bridge->process_chdir = 0;
+
+      /* Disable kernel cursor if app left it active */
+      if (g_mouse_cursor_enabled) {
+        if (g_mouse_cursor_drawn) {
+          kernel_cursor_erase();
+        }
+        g_mouse_cursor_enabled = 0;
+      }
+
+      /* Destroy child sessions created by this app */
+      {
+        int ci;
+        for (ci = 0; ci < g_child_session_count; ci++) {
+          session_manager_destroy(g_child_sessions[ci]);
+        }
+        g_child_session_count = 0;
+      }
+
       g_native_context = 0;
       g_native_raw_args = "";
-      return PROCESS_ERR_CRASH;
     }
   }
 
-  (void)entry();
-  fault_recover_clear();
-  /* If app left graphics mode active, restore text mode */
-  if (vga_gfx_is_active()) {
-    vga_gfx_leave();
-    mouse_hal_set_bounds(80, 25);
-  }
-
-  bridge->magic = 0u;
-  bridge->version = 0u;
-  bridge->console_write = 0;
-  bridge->get_args = 0;
-  bridge->net_device_ready = 0;
-  bridge->net_device_backend = 0;
-  bridge->net_device_get_mac = 0;
-  bridge->net_frame_send = 0;
-  bridge->net_frame_recv = 0;
-  bridge->raw_args = 0;
-  bridge->input_read_char = 0;
-  bridge->mouse_get_state = 0;
-  bridge->video_clear = 0;
-  bridge->video_set_cursor = 0;
-  bridge->video_putchar_at = 0;
-  bridge->video_set_mode = 0;
-  bridge->video_put_pixel = 0;
-  bridge->video_get_pixel = 0;
-  bridge->video_draw_rect = 0;
-  bridge->video_get_resolution = 0;
-  bridge->video_blit = 0;
-  bridge->session_create = 0;
-  bridge->session_read_output = 0;
-  bridge->session_write_input = 0;
-  bridge->session_tick = 0;
-  bridge->auth_poll_prompt = 0;
-  bridge->auth_respond = 0;
-  bridge->session_read_framebuffer = 0;
-  bridge->session_get_gfx_mode = 0;
-  bridge->session_set_wm_managed = 0;
-  bridge->fs_read_file = 0;
-  bridge->fs_write_file = 0;
-  bridge->fs_list_dir = 0;
-  bridge->fs_mkdir = 0;
-  bridge->env_get = 0;
-  bridge->env_set = 0;
-  bridge->env_list = 0;
-  bridge->process_getcwd = 0;
-  bridge->process_chdir = 0;
-
-  g_native_context = 0;
-  g_native_raw_args = "";
   return PROCESS_OK;
 }
 
