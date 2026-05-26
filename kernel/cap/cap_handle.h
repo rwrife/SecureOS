@@ -169,6 +169,30 @@ cap_handle_t cap_handle_grant(cap_subject_id_t owner_subject,
                               capability_id_t cap_id);
 
 /*
+ * Grant a child handle linked to `parent_handle` (M5-SUBSTRATE-001,
+ * issue #323). Same semantics as cap_handle_grant but writes
+ * `row.parent_handle = parent_handle` so cap_handle_revoke_subtree's
+ * BFS walker can later sweep the row when the parent's subtree is
+ * cascade-revoked.
+ *
+ * `parent_handle == CAP_HANDLE_NULL` is the legal sentinel meaning
+ * "no parent" — functionally equivalent to cap_handle_grant. The
+ * parent handle is NOT validated against the live table here: caller
+ * (broker_svc / launcher) owns the policy of when to record an edge,
+ * and recording a stale parent merely makes the row unreachable from
+ * any future subtree-revoke (a safe failure mode — the row remains
+ * revocable via cap_handle_revoke / cap_handle_revoke_subject).
+ *
+ * Idempotent: a duplicate grant for the same live (subject, cap) is
+ * returned unchanged (parent_handle on the existing row is NOT
+ * overwritten) so M2/M3/M4 callers that re-grant via the legacy
+ * cap_handle_grant forwarder cannot accidentally rewrite an edge.
+ */
+cap_handle_t cap_handle_grant_child(cap_subject_id_t owner_subject,
+                                    capability_id_t cap_id,
+                                    cap_handle_t parent_handle);
+
+/*
  * Verify a handle resolves to a live row for `expected_cap` and return
  * true; otherwise emit the canonical capability-denied marker to the
  * caller-provided sink and return false.
@@ -230,12 +254,29 @@ uint32_t cap_handle_revoke_subject(cap_subject_id_t owner_subject);
  * against this symbol while the underlying cap_handle layer is still
  * small and easy to reason about (M1-CAPTBL-004, issue #241, plan #197).
  *
- * v0 contract: unconditionally returns CAP_ERR_CAP_INVALID. No table
- * mutation, no audit emission, no side effects whatsoever. Callers MUST
- * NOT depend on subtree-revoke semantics yet — the parent_handle field
- * on cap_handle_row is reserved-and-zero in v0, so there is no graph to
- * walk. The real implementation is owned by #118 and may change error
- * codes and semantics; this stub only reserves the symbol shape.
+ * Real implementation landed in M5-SUBSTRATE-001 (issue #323) per plan
+ * plans/2026-05-25-m5-ownership-on-m1-substrate.md. Walks `g_rows[]`
+ * in deterministic slot order and revokes every live row whose
+ * `parent_handle` chain transitively reaches `root_handle`. The walk
+ * is iterative with a per-call on-stack visited bitmap (no heap; per
+ * docs/CODING_CONVENTIONS.md / #163) and the worst-case cost is
+ * O(CAP_HANDLE_TABLE_MAX^2) = O(64^2) = 4096 row-comparisons, well
+ * inside the M1 scheduler tick budget.
+ *
+ * Contract:
+ *   - CAP_HANDLE_NULL                     -> CAP_ERR_CAP_INVALID (no-op)
+ *   - tag != CAP_HANDLE_TAG_KERNEL        -> CAP_ERR_CAP_INVALID (no-op)
+ *   - slot out of bounds                  -> CAP_ERR_CAP_INVALID (no-op)
+ *   - row not LIVE / stale generation     -> CAP_ERR_MISSING (no-op)
+ *   - root resolves to a live row         -> CAP_OK; every descendant
+ *     in the parent_handle DAG (including the root itself) is
+ *     transitioned LIVE -> REVOKED with generation bumped, so every
+ *     previously-issued handle for those rows now denies via
+ *     cap_gate_check_handle (CAP_ERR_MISSING).
+ *
+ * Rows with `parent_handle == CAP_HANDLE_NULL` are sentinel-rooted
+ * and are NOT swept transitively by an unrelated cascade. The walker
+ * only follows non-null parent edges that match an in-bounds slot.
  */
 cap_result_t cap_handle_revoke_subtree(cap_handle_t root_handle);
 
