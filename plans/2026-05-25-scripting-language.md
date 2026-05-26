@@ -343,8 +343,9 @@ extraction, string length, if/else conditionals, for-in loops, and arithmetic.
 
 - **`.cmd` files**: unchanged. The existing simple interpreter remains for
   backwards compatibility. Eventually `.cmd` can delegate to sosh internally.
-- **File extension**: `.sosh` for new-style scripts. The launcher detects
-  the `#!/sosh` shebang or the `.sosh` extension.
+- **File extension**: `.sh` for sosh scripts (limited to 3 chars by the
+  FAT 8.3 filesystem). The launcher detects the `#!/sosh` shebang or
+  the `.sh` extension.
 - **No kernel changes for phase 1**: sosh is a userspace app + library. The
   kernel only gains startup-script support in phase 2.
 
