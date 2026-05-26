@@ -68,6 +68,11 @@ typedef struct {
                                   unsigned int w, unsigned int h);
   int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
+  int (*session_set_vfb_size)(unsigned int session_id,
+                              unsigned int width, unsigned int height);
+  int (*session_get_vfb_size)(unsigned int session_id,
+                              unsigned int *out_width,
+                              unsigned int *out_height);
   int (*session_set_virtual_mouse)(unsigned int session_id,
                                    int x, int y, unsigned char buttons);
   int (*mouse_enable)(void);
@@ -588,6 +593,30 @@ os_status_t os_session_set_wm_managed(unsigned int session_id, int managed) {
 
   if (bridge != 0 && bridge->session_set_wm_managed != 0) {
     return (os_status_t)bridge->session_set_wm_managed(session_id, managed);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_set_vfb_size(unsigned int session_id,
+                                    unsigned int width, unsigned int height) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_set_vfb_size != 0) {
+    return (os_status_t)bridge->session_set_vfb_size(session_id, width, height);
+  }
+
+  return OS_STATUS_NOT_FOUND;
+}
+
+os_status_t os_session_get_vfb_size(unsigned int session_id,
+                                    unsigned int *out_width,
+                                    unsigned int *out_height) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->session_get_vfb_size != 0) {
+    return (os_status_t)bridge->session_get_vfb_size(session_id,
+                                                     out_width, out_height);
   }
 
   return OS_STATUS_NOT_FOUND;

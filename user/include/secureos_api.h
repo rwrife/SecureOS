@@ -114,6 +114,11 @@ os_status_t os_session_write_input(unsigned int session_id, const char *input,
                                    unsigned int len);
 os_status_t os_session_tick(unsigned int session_id);
 os_status_t os_session_set_wm_managed(unsigned int session_id, int managed);
+os_status_t os_session_set_vfb_size(unsigned int session_id,
+                                    unsigned int width, unsigned int height);
+os_status_t os_session_get_vfb_size(unsigned int session_id,
+                                    unsigned int *out_width,
+                                    unsigned int *out_height);
 
 /* Auth prompt polling and response (for window manager) */
 #define AUTH_TYPE_DISK_IO       0

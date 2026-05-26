@@ -265,6 +265,11 @@ typedef struct {
                                   unsigned int w, unsigned int h);
   int (*session_get_gfx_mode)(unsigned int session_id, int *out_mode);
   int (*session_set_wm_managed)(unsigned int session_id, int managed);
+  int (*session_set_vfb_size)(unsigned int session_id,
+                              unsigned int width, unsigned int height);
+  int (*session_get_vfb_size)(unsigned int session_id,
+                              unsigned int *out_width,
+                              unsigned int *out_height);
   int (*session_set_virtual_mouse)(unsigned int session_id,
                                    int x, int y, unsigned char buttons);
   int (*mouse_enable)(void);
@@ -914,8 +919,11 @@ static int app_native_video_put_pixel(int x, int y, unsigned char color) {
   if (session_manager_is_wm_managed(sid)) {
     if (session_manager_get_gfx_mode(sid) == 1) {
       unsigned char *vfb = session_manager_get_vfb(sid);
-      if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
-        vfb[y * 320 + x] = color;
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (vfb != 0 && x >= 0 && (unsigned int)x < vw &&
+          y >= 0 && (unsigned int)y < vh) {
+        vfb[y * (int)vw + x] = color;
         return 0;
       }
     }
@@ -948,8 +956,11 @@ static int app_native_video_get_pixel(int x, int y, unsigned char *out_color) {
   if (session_manager_is_wm_managed(sid)) {
     if (session_manager_get_gfx_mode(sid) == 1) {
       unsigned char *vfb = session_manager_get_vfb(sid);
-      if (vfb != 0 && x >= 0 && x < 320 && y >= 0 && y < 200) {
-        *out_color = vfb[y * 320 + x];
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (vfb != 0 && x >= 0 && (unsigned int)x < vw &&
+          y >= 0 && (unsigned int)y < vh) {
+        *out_color = vfb[y * (int)vw + x];
         return 0;
       }
     }
@@ -972,15 +983,17 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
   if (session_manager_is_wm_managed(sid)) {
     if (session_manager_get_gfx_mode(sid) == 1) {
       unsigned char *vfb = session_manager_get_vfb(sid);
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
       if (vfb != 0) {
         int row, col;
         for (row = 0; row < h; row++) {
           int py = y + row;
-          if (py < 0 || py >= 200) continue;
+          if (py < 0 || (unsigned int)py >= vh) continue;
           for (col = 0; col < w; col++) {
             int px = x + col;
-            if (px < 0 || px >= 320) continue;
-            vfb[py * 320 + px] = color;
+            if (px < 0 || (unsigned int)px >= vw) continue;
+            vfb[py * (int)vw + px] = color;
           }
         }
         return 0;
@@ -1009,11 +1022,16 @@ static int app_native_video_get_resolution(int *out_width, int *out_height) {
   /* WM-managed sessions: report VFB dimensions when in gfx mode */
   if (session_manager_is_wm_managed(sid)) {
     if (session_manager_get_gfx_mode(sid) == 1) {
-      if (out_width != 0) *out_width = 320;
-      if (out_height != 0) *out_height = 200;
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (out_width != 0) *out_width = (int)vw;
+      if (out_height != 0) *out_height = (int)vh;
     } else {
-      if (out_width != 0) *out_width = 80;
-      if (out_height != 0) *out_height = 25;
+      /* Text mode: report text grid cols/rows */
+      unsigned int vw = 0, vh = 0;
+      session_manager_get_vfb_size(sid, &vw, &vh);
+      if (out_width != 0) *out_width = (int)(vw / 6);
+      if (out_height != 0) *out_height = (int)(vh / 8);
     }
     return 0;
   }
@@ -1192,6 +1210,20 @@ static int app_native_session_set_wm_managed(unsigned int session_id,
   return 0;
 }
 
+static int app_native_session_set_vfb_size(unsigned int session_id,
+                                           unsigned int width,
+                                           unsigned int height) {
+  session_manager_set_vfb_size(session_id, width, height);
+  return 0;
+}
+
+static int app_native_session_get_vfb_size(unsigned int session_id,
+                                           unsigned int *out_width,
+                                           unsigned int *out_height) {
+  session_manager_get_vfb_size(session_id, out_width, out_height);
+  return 0;
+}
+
 static int app_native_session_set_virtual_mouse(unsigned int session_id,
                                                int x, int y,
                                                unsigned char buttons) {
@@ -1364,6 +1396,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_read_framebuffer = app_native_session_read_framebuffer;
       bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
       bridge->session_set_wm_managed = app_native_session_set_wm_managed;
+      bridge->session_set_vfb_size = app_native_session_set_vfb_size;
+      bridge->session_get_vfb_size = app_native_session_get_vfb_size;
       bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
       bridge->mouse_enable = app_native_mouse_enable;
       bridge->mouse_disable = app_native_mouse_disable;
@@ -1426,6 +1460,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->session_read_framebuffer = 0;
       bridge->session_get_gfx_mode = 0;
       bridge->session_set_wm_managed = 0;
+      bridge->session_set_vfb_size = 0;
+      bridge->session_get_vfb_size = 0;
       bridge->session_set_virtual_mouse = 0;
       bridge->mouse_enable = 0;
       bridge->mouse_disable = 0;

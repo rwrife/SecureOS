@@ -48,14 +48,17 @@ static const unsigned char palette[] = {
 
 static unsigned char current_color = COLOR_WHITE;
 static int brush_size = 2;
+static int screen_w = 320;
+static int screen_h = 200;
 
 static void draw_palette_bar(void) {
   int i;
-  int bar_y = 190;
-  int swatch_w = OS_GFX_WIDTH / PALETTE_SIZE;
+  int bar_h = 10;
+  int bar_y = screen_h - bar_h;
+  int swatch_w = screen_w / PALETTE_SIZE;
 
   for (i = 0; i < PALETTE_SIZE; i++) {
-    os_video_draw_rect(i * swatch_w, bar_y, swatch_w, 10, palette[i]);
+    os_video_draw_rect(i * swatch_w, bar_y, swatch_w, bar_h, palette[i]);
   }
 }
 
@@ -67,6 +70,9 @@ int main(void) {
     os_console_write("draw: failed to enter graphics mode\n");
     return 1;
   }
+
+  /* Query actual resolution (may differ from 320x200 in WM mode) */
+  os_video_get_resolution(&screen_w, &screen_h);
 
   /* Clear to black and draw palette */
   os_video_clear();
@@ -107,8 +113,8 @@ int main(void) {
     os_mouse_get_state(&mx, &my, &buttons);
 
     /* Clamp to canvas (above palette bar) */
-    if (mx >= OS_GFX_WIDTH) mx = OS_GFX_WIDTH - 1;
-    if (my >= 190) my = 189;
+    if (mx >= screen_w) mx = screen_w - 1;
+    if (my >= screen_h - 10) my = screen_h - 11;
     if (mx < 0) mx = 0;
     if (my < 0) my = 0;
 
@@ -123,8 +129,8 @@ int main(void) {
       int raw_mx = 0, raw_my = 0;
       unsigned char dummy = 0;
       os_mouse_get_state(&raw_mx, &raw_my, &dummy);
-      if (raw_my >= 190) {
-        int swatch_w = OS_GFX_WIDTH / PALETTE_SIZE;
+      if (raw_my >= screen_h - 10) {
+        int swatch_w = screen_w / PALETTE_SIZE;
         int idx = raw_mx / swatch_w;
         if (idx >= 0 && idx < PALETTE_SIZE) {
           current_color = palette[idx];

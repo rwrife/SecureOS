@@ -90,31 +90,27 @@ static void draw_window(win_window_t *w) {
   fill_rect(content_x, content_y, content_w, content_h, COLOR_CONTENT_BG);
 
   /* Always read session's VFB pixels — the kernel renders text/graphics there.
-   * Scale VFB (320x200) to fit the window content area using nearest-neighbor. */
+   * VFB dimensions match the window content area (set via set_vfb_size),
+   * so we blit 1:1 without scaling. */
   {
     unsigned char vfb_line[320];
-    int src_w = 320;
-    int src_h = 200;
+    int vfb_w = content_w;
+    int vfb_h = content_h;
+    if (vfb_w > 320) vfb_w = 320;
+    if (vfb_h > 200) vfb_h = 200;
 
-    for (row = 0; row < content_h; row++) {
+    for (row = 0; row < vfb_h; row++) {
       int dst_y = content_y + row;
-      int src_row;
       if (dst_y < 0 || dst_y >= SCREEN_H) continue;
-      /* Map destination row back to source VFB row */
-      src_row = row * src_h / content_h;
-      if (src_row >= src_h) src_row = src_h - 1;
       if (os_session_read_framebuffer(w->session_id, vfb_line,
-                                      0, (unsigned int)src_row,
-                                      (unsigned int)src_w, 1) == OS_STATUS_OK) {
+                                      0, (unsigned int)row,
+                                      (unsigned int)vfb_w, 1) == OS_STATUS_OK) {
         int col;
-        for (col = 0; col < content_w; col++) {
+        for (col = 0; col < vfb_w; col++) {
           int dst_x = content_x + col;
-          int src_col;
-          if (dst_x < 0 || dst_x >= SCREEN_W) continue;
-          /* Map destination col back to source VFB col */
-          src_col = col * src_w / content_w;
-          if (src_col >= src_w) src_col = src_w - 1;
-          g_backbuffer[dst_y * SCREEN_W + dst_x] = vfb_line[src_col];
+          if (dst_x >= 0 && dst_x < SCREEN_W) {
+            g_backbuffer[dst_y * SCREEN_W + dst_x] = vfb_line[col];
+          }
         }
       }
     }

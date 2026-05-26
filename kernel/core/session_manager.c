@@ -63,6 +63,8 @@ typedef struct {
   /* Virtual framebuffer — always allocated for WM-managed sessions */
   int gfx_mode;                     /* 0 = text, 1 = graphics */
   unsigned char *vfb;               /* Allocated via kmalloc when needed */
+  unsigned int vfb_width;           /* Pixel width (set by WM or default 320) */
+  unsigned int vfb_height;          /* Pixel height (set by WM or default 200) */
   /* Text cursor for kernel-side text rendering into VFB */
   int vfb_cursor_col;
   int vfb_cursor_row;
@@ -539,15 +541,25 @@ void session_manager_set_wm_managed(unsigned int session_id, int managed) {
 
   /* Eagerly allocate VFB when marking as WM-managed */
   if (managed && g_sessions[session_id].vfb == 0) {
+    unsigned int vw, vh;
+    unsigned int alloc_size;
     serial_hal_write("[wm] allocating VFB for session\n");
+    /* Use per-session dimensions if already set, otherwise defaults */
+    vw = g_sessions[session_id].vfb_width;
+    vh = g_sessions[session_id].vfb_height;
+    if (vw == 0) vw = SESSION_VFB_WIDTH;
+    if (vh == 0) vh = SESSION_VFB_HEIGHT;
+    g_sessions[session_id].vfb_width = vw;
+    g_sessions[session_id].vfb_height = vh;
+    alloc_size = vw * vh;
     g_sessions[session_id].vfb =
-        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+        (unsigned char *)kmalloc((size_t)alloc_size);
     g_sessions[session_id].vfb_cursor_col = 0;
     g_sessions[session_id].vfb_cursor_row = 0;
     if (g_sessions[session_id].vfb != 0) {
       /* Zero the buffer */
       unsigned int bi;
-      for (bi = 0; bi < SESSION_VFB_SIZE; bi++) {
+      for (bi = 0; bi < alloc_size; bi++) {
         g_sessions[session_id].vfb[bi] = 0;
       }
       /* Render an initial prompt so the user sees something */
@@ -607,16 +619,55 @@ void session_manager_get_virtual_mouse(unsigned int session_id,
 
 void session_manager_clear_vfb(unsigned int session_id) {
   unsigned char *vfb;
+  unsigned int vfb_size;
   if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
     return;
   }
   vfb = session_manager_get_vfb(session_id);
   if (vfb != 0) {
     unsigned int i;
-    for (i = 0; i < SESSION_VFB_SIZE; i++) {
+    vfb_size = g_sessions[session_id].vfb_width *
+               g_sessions[session_id].vfb_height;
+    for (i = 0; i < vfb_size; i++) {
       vfb[i] = 0;
     }
   }
+}
+
+void session_manager_set_vfb_size(unsigned int session_id,
+                                  unsigned int width, unsigned int height) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  /* Only allow setting before VFB is allocated (prevents mid-use resize) */
+  if (g_sessions[session_id].vfb != 0) {
+    return;
+  }
+  if (width == 0 || height == 0) {
+    return;
+  }
+  /* Cap at maximum to avoid excessive allocation */
+  if (width > 320) width = 320;
+  if (height > 200) height = 200;
+  g_sessions[session_id].vfb_width = width;
+  g_sessions[session_id].vfb_height = height;
+}
+
+void session_manager_get_vfb_size(unsigned int session_id,
+                                  unsigned int *out_width,
+                                  unsigned int *out_height) {
+  unsigned int w, h;
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    if (out_width) *out_width = SESSION_VFB_WIDTH;
+    if (out_height) *out_height = SESSION_VFB_HEIGHT;
+    return;
+  }
+  w = g_sessions[session_id].vfb_width;
+  h = g_sessions[session_id].vfb_height;
+  if (w == 0) w = SESSION_VFB_WIDTH;
+  if (h == 0) h = SESSION_VFB_HEIGHT;
+  if (out_width) *out_width = w;
+  if (out_height) *out_height = h;
 }
 
 unsigned char *session_manager_get_vfb(unsigned int session_id) {
@@ -626,8 +677,12 @@ unsigned char *session_manager_get_vfb(unsigned int session_id) {
 
   /* Lazy allocate the VFB on first access */
   if (g_sessions[session_id].vfb == 0) {
+    unsigned int vw = g_sessions[session_id].vfb_width;
+    unsigned int vh = g_sessions[session_id].vfb_height;
+    if (vw == 0) { vw = SESSION_VFB_WIDTH; g_sessions[session_id].vfb_width = vw; }
+    if (vh == 0) { vh = SESSION_VFB_HEIGHT; g_sessions[session_id].vfb_height = vh; }
     g_sessions[session_id].vfb =
-        (unsigned char *)kmalloc((size_t)SESSION_VFB_SIZE);
+        (unsigned char *)kmalloc((size_t)(vw * vh));
   }
 
   return g_sessions[session_id].vfb;
@@ -640,11 +695,20 @@ size_t session_manager_read_vfb(unsigned int session_id,
   unsigned char *vfb;
   unsigned int row;
   size_t written = 0u;
+  unsigned int vfb_w, vfb_h;
 
   if (out_pixels == 0 || w == 0u || h == 0u) {
     return 0u;
   }
-  if (x >= SESSION_VFB_WIDTH || y >= SESSION_VFB_HEIGHT) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return 0u;
+  }
+  vfb_w = g_sessions[session_id].vfb_width;
+  vfb_h = g_sessions[session_id].vfb_height;
+  if (vfb_w == 0) vfb_w = SESSION_VFB_WIDTH;
+  if (vfb_h == 0) vfb_h = SESSION_VFB_HEIGHT;
+
+  if (x >= vfb_w || y >= vfb_h) {
     return 0u;
   }
 
@@ -654,16 +718,16 @@ size_t session_manager_read_vfb(unsigned int session_id,
   }
 
   /* Clip to VFB bounds */
-  if (x + w > SESSION_VFB_WIDTH) {
-    w = SESSION_VFB_WIDTH - x;
+  if (x + w > vfb_w) {
+    w = vfb_w - x;
   }
-  if (y + h > SESSION_VFB_HEIGHT) {
-    h = SESSION_VFB_HEIGHT - y;
+  if (y + h > vfb_h) {
+    h = vfb_h - y;
   }
 
   /* Copy row by row */
   for (row = 0u; row < h; ++row) {
-    unsigned int src_offset = (y + row) * SESSION_VFB_WIDTH + x;
+    unsigned int src_offset = (y + row) * vfb_w + x;
     unsigned int col;
     for (col = 0u; col < w; ++col) {
       out_pixels[written++] = vfb[src_offset + col];
@@ -679,10 +743,11 @@ size_t session_manager_read_vfb(unsigned int session_id,
  * Scroll the VFB up by one text line (VFB_FONT_H+1 pixels).
  * Moves all pixel rows up and clears the bottom line.
  */
-static void vfb_scroll_up(unsigned char *vfb) {
+static void vfb_scroll_up(unsigned char *vfb, unsigned int vfb_w,
+                          unsigned int vfb_h) {
   int line_h = VFB_FONT_H + VFB_FONT_SPACING;
-  int shift_bytes = line_h * SESSION_VFB_WIDTH;
-  int total_bytes = SESSION_VFB_SIZE;
+  int shift_bytes = line_h * (int)vfb_w;
+  int total_bytes = (int)(vfb_w * vfb_h);
   int i;
 
   /* Shift pixels up */
@@ -699,6 +764,8 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
   session_record_t *s;
   unsigned char *vfb;
   int px, py;
+  unsigned int vfb_w, vfb_h;
+  int text_cols, text_rows;
 
   if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
     return;
@@ -708,6 +775,12 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
   if (vfb == 0) {
     return;
   }
+  vfb_w = s->vfb_width;
+  vfb_h = s->vfb_height;
+  if (vfb_w == 0) vfb_w = SESSION_VFB_WIDTH;
+  if (vfb_h == 0) vfb_h = SESSION_VFB_HEIGHT;
+  text_cols = (int)(vfb_w / (VFB_FONT_W + VFB_FONT_SPACING));
+  text_rows = (int)(vfb_h / (VFB_FONT_H + VFB_FONT_SPACING));
 
   if (ch == '\n') {
     s->vfb_cursor_col = 0;
@@ -720,7 +793,7 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
       s->vfb_cursor_col--;
       px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
       py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
-      vfb_font_draw_char(vfb, SESSION_VFB_WIDTH, px, py, ' ', VFB_BG_COLOR);
+      vfb_font_draw_char(vfb, vfb_w, px, py, ' ', VFB_BG_COLOR);
     }
   } else if (ch == '\t') {
     s->vfb_cursor_col = (s->vfb_cursor_col + 4) & ~3;
@@ -728,20 +801,20 @@ void session_manager_vfb_putchar(unsigned int session_id, char ch) {
     /* Render the character glyph at current cursor position */
     px = s->vfb_cursor_col * (VFB_FONT_W + VFB_FONT_SPACING);
     py = s->vfb_cursor_row * (VFB_FONT_H + VFB_FONT_SPACING);
-    vfb_font_draw_char(vfb, SESSION_VFB_WIDTH, px, py, ch, VFB_FG_COLOR);
+    vfb_font_draw_char(vfb, vfb_w, px, py, ch, VFB_FG_COLOR);
     s->vfb_cursor_col++;
   }
 
   /* Wrap at end of line */
-  if (s->vfb_cursor_col >= SESSION_VFB_TEXT_COLS) {
+  if (s->vfb_cursor_col >= text_cols) {
     s->vfb_cursor_col = 0;
     s->vfb_cursor_row++;
   }
 
   /* Scroll if past last row */
-  if (s->vfb_cursor_row >= SESSION_VFB_TEXT_ROWS) {
-    vfb_scroll_up(vfb);
-    s->vfb_cursor_row = SESSION_VFB_TEXT_ROWS - 1;
+  if (s->vfb_cursor_row >= text_rows) {
+    vfb_scroll_up(vfb, vfb_w, vfb_h);
+    s->vfb_cursor_row = text_rows - 1;
   }
 }
 

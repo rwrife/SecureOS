@@ -92,6 +92,22 @@ void session_manager_get_virtual_mouse(unsigned int session_id,
 unsigned char *session_manager_get_vfb(unsigned int session_id);
 
 /**
+ * Set the VFB pixel dimensions for a session. Must be called BEFORE the
+ * VFB is first allocated (before set_wm_managed or first VFB access).
+ * The WM calls this to match the window content area dimensions.
+ */
+void session_manager_set_vfb_size(unsigned int session_id,
+                                  unsigned int width, unsigned int height);
+
+/**
+ * Get the VFB pixel dimensions for a session.
+ * Returns defaults (320x200) if not explicitly set.
+ */
+void session_manager_get_vfb_size(unsigned int session_id,
+                                  unsigned int *out_width,
+                                  unsigned int *out_height);
+
+/**
  * Read a rectangular region from the session's virtual framebuffer.
  * Copies pixels row-by-row into out_pixels.
  * Returns number of bytes written, or 0 on failure.
