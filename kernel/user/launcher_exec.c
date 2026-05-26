@@ -1202,94 +1202,123 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   g_native_context = context;
   g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
 
-  bridge->magic = APP_NATIVE_BRIDGE_MAGIC;
-  bridge->version = APP_NATIVE_BRIDGE_VERSION;
-  bridge->reserved0 = 0u;
-  bridge->reserved1 = 0u;
-  bridge->console_write = app_native_console_write;
-  bridge->get_args = app_native_get_args;
-  bridge->net_device_ready = app_native_net_device_ready;
-  bridge->net_device_backend = app_native_net_device_backend;
-  bridge->net_device_get_mac = app_native_net_device_get_mac;
-  bridge->net_frame_send = app_native_net_frame_send;
-  bridge->net_frame_recv = app_native_net_frame_recv;
-  bridge->raw_args = g_native_raw_args;
-  bridge->input_read_char = app_native_input_read_char;
-  bridge->mouse_get_state = app_native_mouse_get_state;
-  bridge->video_clear = app_native_video_clear;
-  bridge->video_set_cursor = app_native_video_set_cursor;
-  bridge->video_putchar_at = app_native_video_putchar_at;
-  bridge->video_set_mode = app_native_video_set_mode;
-  bridge->video_put_pixel = app_native_video_put_pixel;
-  bridge->video_get_pixel = app_native_video_get_pixel;
-  bridge->video_draw_rect = app_native_video_draw_rect;
-  bridge->video_get_resolution = app_native_video_get_resolution;
-  bridge->video_blit = app_native_video_blit;
-  bridge->session_create = app_native_session_create;
-  bridge->session_read_output = app_native_session_read_output;
-  bridge->session_write_input = app_native_session_write_input;
-  bridge->session_tick = app_native_session_tick;
-  bridge->auth_poll_prompt = app_native_auth_poll_prompt;
-  bridge->auth_respond = app_native_auth_respond;
-  bridge->session_read_framebuffer = app_native_session_read_framebuffer;
-  bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
-  bridge->session_set_wm_managed = app_native_session_set_wm_managed;
-  bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
-
-  serial_hal_write("[elf] bridge wired, calling entry\n");
-  entry = (app_native_entry_fn)(uintptr_t)e_entry;
-  (void)entry();
-
-  /* If app left graphics mode active, restore text mode.
-   * Only do this for non-WM-managed sessions — WM-managed sessions use
-   * virtual framebuffers and should never touch the real VGA hardware. */
+  /* Detect re-entrant invocation (e.g. draw.bin launched from inside win.bin's
+   * session tick). If the bridge is already wired, save state and skip
+   * re-wiring/teardown — all bridge function pointers are the same kernel
+   * functions regardless of which app is running. */
   {
-    unsigned int sid = session_manager_active_id();
-    if (session_manager_is_wm_managed(sid)) {
-      /* Clean up virtual gfx state if the app didn't */
-      if (session_manager_get_gfx_mode(sid) == 1) {
-        session_manager_set_gfx_mode(sid, 0);
+    int nested = (bridge->magic == APP_NATIVE_BRIDGE_MAGIC);
+    const process_context_t *saved_context = 0;
+    const char *saved_raw_args = "";
+
+    if (nested) {
+      saved_context = g_native_context;
+      saved_raw_args = g_native_raw_args;
+      /* Update context for the nested app */
+      g_native_context = context;
+      g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
+      /* Bridge function pointers are identical, just update raw_args in struct */
+      bridge->raw_args = g_native_raw_args;
+    } else {
+      bridge->magic = APP_NATIVE_BRIDGE_MAGIC;
+      bridge->version = APP_NATIVE_BRIDGE_VERSION;
+      bridge->reserved0 = 0u;
+      bridge->reserved1 = 0u;
+      bridge->console_write = app_native_console_write;
+      bridge->get_args = app_native_get_args;
+      bridge->net_device_ready = app_native_net_device_ready;
+      bridge->net_device_backend = app_native_net_device_backend;
+      bridge->net_device_get_mac = app_native_net_device_get_mac;
+      bridge->net_frame_send = app_native_net_frame_send;
+      bridge->net_frame_recv = app_native_net_frame_recv;
+      bridge->raw_args = g_native_raw_args;
+      bridge->input_read_char = app_native_input_read_char;
+      bridge->mouse_get_state = app_native_mouse_get_state;
+      bridge->video_clear = app_native_video_clear;
+      bridge->video_set_cursor = app_native_video_set_cursor;
+      bridge->video_putchar_at = app_native_video_putchar_at;
+      bridge->video_set_mode = app_native_video_set_mode;
+      bridge->video_put_pixel = app_native_video_put_pixel;
+      bridge->video_get_pixel = app_native_video_get_pixel;
+      bridge->video_draw_rect = app_native_video_draw_rect;
+      bridge->video_get_resolution = app_native_video_get_resolution;
+      bridge->video_blit = app_native_video_blit;
+      bridge->session_create = app_native_session_create;
+      bridge->session_read_output = app_native_session_read_output;
+      bridge->session_write_input = app_native_session_write_input;
+      bridge->session_tick = app_native_session_tick;
+      bridge->auth_poll_prompt = app_native_auth_poll_prompt;
+      bridge->auth_respond = app_native_auth_respond;
+      bridge->session_read_framebuffer = app_native_session_read_framebuffer;
+      bridge->session_get_gfx_mode = app_native_session_get_gfx_mode;
+      bridge->session_set_wm_managed = app_native_session_set_wm_managed;
+      bridge->session_set_virtual_mouse = app_native_session_set_virtual_mouse;
+    }
+
+    serial_hal_write("[elf] bridge wired, calling entry\n");
+    entry = (app_native_entry_fn)(uintptr_t)e_entry;
+    (void)entry();
+
+    /* If app left graphics mode active, restore text mode.
+     * Only do this for non-WM-managed sessions — WM-managed sessions use
+     * virtual framebuffers and should never touch the real VGA hardware. */
+    {
+      unsigned int sid = session_manager_active_id();
+      if (session_manager_is_wm_managed(sid)) {
+        /* Clean up virtual gfx state if the app didn't */
+        if (session_manager_get_gfx_mode(sid) == 1) {
+          session_manager_set_gfx_mode(sid, 0);
+        }
+      } else if (!nested && vga_gfx_is_active()) {
+        vga_gfx_leave();
+        mouse_hal_set_bounds(80, 25);
       }
-    } else if (vga_gfx_is_active()) {
-      vga_gfx_leave();
-      mouse_hal_set_bounds(80, 25);
+    }
+
+    if (nested) {
+      /* Restore parent app's context — bridge stays wired */
+      g_native_context = saved_context;
+      g_native_raw_args = saved_raw_args;
+      bridge->raw_args = saved_raw_args;
+    } else {
+      /* Top-level exit: tear down the bridge */
+      bridge->magic = 0u;
+      bridge->version = 0u;
+      bridge->console_write = 0;
+      bridge->get_args = 0;
+      bridge->net_device_ready = 0;
+      bridge->net_device_backend = 0;
+      bridge->net_device_get_mac = 0;
+      bridge->net_frame_send = 0;
+      bridge->net_frame_recv = 0;
+      bridge->raw_args = 0;
+      bridge->input_read_char = 0;
+      bridge->mouse_get_state = 0;
+      bridge->video_clear = 0;
+      bridge->video_set_cursor = 0;
+      bridge->video_putchar_at = 0;
+      bridge->video_set_mode = 0;
+      bridge->video_put_pixel = 0;
+      bridge->video_get_pixel = 0;
+      bridge->video_draw_rect = 0;
+      bridge->video_get_resolution = 0;
+      bridge->video_blit = 0;
+      bridge->session_create = 0;
+      bridge->session_read_output = 0;
+      bridge->session_write_input = 0;
+      bridge->session_tick = 0;
+      bridge->auth_poll_prompt = 0;
+      bridge->auth_respond = 0;
+      bridge->session_read_framebuffer = 0;
+      bridge->session_get_gfx_mode = 0;
+      bridge->session_set_wm_managed = 0;
+      bridge->session_set_virtual_mouse = 0;
+
+      g_native_context = 0;
+      g_native_raw_args = "";
     }
   }
 
-  bridge->magic = 0u;
-  bridge->version = 0u;
-  bridge->console_write = 0;
-  bridge->get_args = 0;
-  bridge->net_device_ready = 0;
-  bridge->net_device_backend = 0;
-  bridge->net_device_get_mac = 0;
-  bridge->net_frame_send = 0;
-  bridge->net_frame_recv = 0;
-  bridge->raw_args = 0;
-  bridge->input_read_char = 0;
-  bridge->mouse_get_state = 0;
-  bridge->video_clear = 0;
-  bridge->video_set_cursor = 0;
-  bridge->video_putchar_at = 0;
-  bridge->video_set_mode = 0;
-  bridge->video_put_pixel = 0;
-  bridge->video_get_pixel = 0;
-  bridge->video_draw_rect = 0;
-  bridge->video_get_resolution = 0;
-  bridge->video_blit = 0;
-  bridge->session_create = 0;
-  bridge->session_read_output = 0;
-  bridge->session_write_input = 0;
-  bridge->session_tick = 0;
-  bridge->auth_poll_prompt = 0;
-  bridge->auth_respond = 0;
-  bridge->session_read_framebuffer = 0;
-  bridge->session_get_gfx_mode = 0;
-  bridge->session_set_wm_managed = 0;
-  bridge->session_set_virtual_mouse = 0;
-
-  g_native_context = 0;
-  g_native_raw_args = "";
   return PROCESS_OK;
 }
 
