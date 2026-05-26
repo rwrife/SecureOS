@@ -674,16 +674,20 @@ static int app_native_input_read_char(char *out_char) {
 
   /* WM-managed sessions read from inject buffer, not raw hardware.
    * The WM routes keyboard input via os_session_write_input which feeds
-   * the inject buffer. For graphics apps that poll input_read_char,
-   * we drain from the same inject buffer. */
+   * the inject buffer. If the buffer is empty, yield back to the WM so
+   * it can process a frame (composite, route input) then resume us. */
   if (session_manager_is_wm_managed(sid)) {
-    /* console_try_read_injected reads one char from the session's inject
-     * ring buffer. If empty, return "no data". */
+    if (console_try_read_injected(out_char)) {
+      return 0;
+    }
+    /* No input available — yield to let the WM run a frame.
+     * When resumed, try again in case input was injected. */
+    session_manager_tick_yield();
     if (console_try_read_injected(out_char)) {
       return 0;
     }
     *out_char = '\0';
-    return 2; /* no data available */
+    return 2; /* still no data */
   }
 
   if (input_hal_try_read_char(out_char)) {
@@ -697,8 +701,10 @@ static int app_native_mouse_get_state(int *out_x, int *out_y,
                                       unsigned char *out_buttons) {
   unsigned int sid = session_manager_active_id();
 
-  /* WM-managed sessions get virtual mouse state injected by the WM */
+  /* WM-managed sessions get virtual mouse state injected by the WM.
+   * Yield on each poll so the WM can update mouse state and composite. */
   if (session_manager_is_wm_managed(sid)) {
+    session_manager_tick_yield();
     session_manager_get_virtual_mouse(sid, out_x, out_y, out_buttons);
     return 0;
   }
@@ -1199,24 +1205,20 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
     return PROCESS_ERR_DENIED;
   }
 
-  g_native_context = context;
-  g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
-
   /* Detect re-entrant invocation (e.g. draw.bin launched from inside win.bin's
    * session tick). If the bridge is already wired, save state and skip
    * re-wiring/teardown — all bridge function pointers are the same kernel
    * functions regardless of which app is running. */
   {
     int nested = (bridge->magic == APP_NATIVE_BRIDGE_MAGIC);
-    const process_context_t *saved_context = 0;
-    const char *saved_raw_args = "";
+    const process_context_t *saved_context = g_native_context;
+    const char *saved_raw_args = g_native_raw_args;
+
+    /* Set context for the new app */
+    g_native_context = context;
+    g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
 
     if (nested) {
-      saved_context = g_native_context;
-      saved_raw_args = g_native_raw_args;
-      /* Update context for the nested app */
-      g_native_context = context;
-      g_native_raw_args = args->raw_args == 0 ? "" : args->raw_args;
       /* Bridge function pointers are identical, just update raw_args in struct */
       bridge->raw_args = g_native_raw_args;
     } else {
