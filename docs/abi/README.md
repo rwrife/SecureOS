@@ -28,6 +28,11 @@ changes are deliberate and reviewable rather than emergent.
   implementation tracked by the M1 sync-IPC plan (#180 / #185).
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
+- [sosh-capability-contract.md](sosh-capability-contract.md) — capability
+  surface + sandbox contract for the `sosh` scripting language: which
+  builtins are side-effecting, which existing `CAP_*` gates them, how a
+  script declares its requested caps, and the canonical deny marker.
+  First slice of [#351](https://github.com/rwrife/SecureOS/issues/351).
 - [capability-registry.md](capability-registry.md) — machine-readable index
   ([capability-registry.json](capability-registry.json)) of every `CAP_*`:
   numeric id, subject kinds, `CAP:DENY:` marker shape, allow/deny test
