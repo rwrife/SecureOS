@@ -89,6 +89,7 @@ typedef enum {
   PROCESS_ERR_LIBRARY = 7,
   PROCESS_ERR_IN_USE = 8,
   PROCESS_ERR_SIGNATURE = 9,
+  PROCESS_ERR_CRASH = 10,
 } process_result_t;
 
 enum {

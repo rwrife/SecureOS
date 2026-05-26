@@ -18,13 +18,13 @@ FS_DIR_ENTRY_SIZE = 32
 FS_DIR_ENTRIES = FS_BLOCK_SIZE // FS_DIR_ENTRY_SIZE
 FS_RESERVED_SECTORS = 1
 FS_FAT_COUNT = 1
-FS_FAT_SIZE_SECTORS = 32
+FS_FAT_SIZE_SECTORS = 64
 FS_ROOT_CLUSTER = 2
 FS_FIRST_DATA_SECTOR = FS_RESERVED_SECTORS + (FS_FAT_COUNT * FS_FAT_SIZE_SECTORS)
 FS_FAT_ENTRY_FREE = 0x00000000
 FS_FAT_ENTRY_EOC = 0x0FFFFFFF
 FS_CLUSTER_MIN_ALLOC = 3
-FS_CLUSTER_MAX_ALLOC = 4095
+FS_CLUSTER_MAX_ALLOC = 8191
 FS_ATTR_DIRECTORY = 0x10
 FS_ATTR_ARCHIVE = 0x20
 
@@ -362,6 +362,7 @@ def main() -> int:
     image.mkdir('/os')
     image.mkdir('/apps')
     image.mkdir('/lib')
+    image.mkdir('/scripts')
     image.write_file('/readme.txt', b'SecureOS filesystem')
 
     extra_args = sys.argv[3:]
