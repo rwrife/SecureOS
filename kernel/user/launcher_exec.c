@@ -281,6 +281,12 @@ typedef int (*app_native_entry_fn)(void);
 static const process_context_t *g_native_context = 0;
 static const char *g_native_raw_args = "";
 
+/* Track child sessions created by the current app so they can be destroyed
+ * when the app exits (child sessions must not outlive the parent). */
+#define MAX_CHILD_SESSIONS 8
+static unsigned int g_child_sessions[MAX_CHILD_SESSIONS];
+static int g_child_session_count = 0;
+
 static process_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                size_t elf_len,
                                                const uint8_t **out_program,
@@ -1090,10 +1096,16 @@ static int app_native_video_blit(int x, int y, int w, int h,
 
 static int app_native_session_create(unsigned int *out_session_id) {
   cap_subject_id_t subject_id = 0u;
+  unsigned int new_sid = 0;
   if (g_native_context != 0) {
     subject_id = g_native_context->subject_id;
   }
-  if (session_manager_create(subject_id, out_session_id)) {
+  if (session_manager_create(subject_id, &new_sid)) {
+    if (out_session_id != 0) *out_session_id = new_sid;
+    /* Track as child session for cleanup on parent exit */
+    if (g_child_session_count < MAX_CHILD_SESSIONS) {
+      g_child_sessions[g_child_session_count++] = new_sid;
+    }
     return 0;
   }
   return 3;
@@ -1473,6 +1485,17 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
         }
         g_mouse_cursor_enabled = 0;
       }
+
+      /* Destroy child sessions created by this app */
+      {
+        int ci;
+        for (ci = 0; ci < g_child_session_count; ci++) {
+          session_manager_destroy(g_child_sessions[ci]);
+        }
+        g_child_session_count = 0;
+      }
+
+      g_native_context = 0;
       g_native_raw_args = "";
     }
   }

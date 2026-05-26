@@ -264,6 +264,28 @@ int session_manager_create(cap_subject_id_t subject_id, unsigned int *out_sessio
   return 1;
 }
 
+void session_manager_destroy(unsigned int session_id) {
+  if (session_id >= SESSION_MAX || !g_sessions[session_id].in_use) {
+    return;
+  }
+  /* Don't destroy the currently active session */
+  if (session_id == g_active_session_id) {
+    return;
+  }
+  g_sessions[session_id].in_use = 0;
+  g_sessions[session_id].gfx_mode = 0;
+  g_sessions[session_id].vfb_cursor_col = 0;
+  g_sessions[session_id].vfb_cursor_row = 0;
+  g_sessions[session_id].vfb_width = 0;
+  g_sessions[session_id].vfb_height = 0;
+  g_sessions[session_id].blocked = 0;
+  g_sessions[session_id].virtual_mouse_x = 0;
+  g_sessions[session_id].virtual_mouse_y = 0;
+  g_sessions[session_id].virtual_mouse_buttons = 0;
+  g_sessions[session_id].console_context.wm_managed = 0;
+  /* Note: vfb, tick_stack, elf_snapshot memory is leaked (no kfree yet) */
+}
+
 int session_manager_switch(unsigned int session_id) {
   if (session_id >= SESSION_MAX) {
     return 0;
