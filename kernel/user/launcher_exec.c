@@ -827,6 +827,10 @@ static int app_native_video_clear(void) {
   }
 
   if (vga_gfx_is_active()) {
+    /* Invalidate cursor save buffer — screen is being cleared */
+    if (g_mouse_cursor_enabled) {
+      g_mouse_cursor_drawn = 0;
+    }
     vga_gfx_clear(0);
   } else {
     video_hal_clear();
@@ -922,7 +926,14 @@ static int app_native_video_put_pixel(int x, int y, unsigned char color) {
   if (!vga_gfx_is_active()) {
     return 3;
   }
+  /* Hide cursor before drawing so save buffer stays correct */
+  if (g_mouse_cursor_enabled && g_mouse_cursor_drawn) {
+    kernel_cursor_erase();
+  }
   vga_gfx_put_pixel(x, y, color);
+  if (g_mouse_cursor_enabled) {
+    kernel_cursor_draw(g_mouse_cursor_x, g_mouse_cursor_y);
+  }
   return 0;
 }
 
@@ -981,7 +992,14 @@ static int app_native_video_draw_rect(int x, int y, int w, int h,
   if (!vga_gfx_is_active()) {
     return 3;
   }
+  /* Hide cursor before drawing so save buffer stays correct */
+  if (g_mouse_cursor_enabled && g_mouse_cursor_drawn) {
+    kernel_cursor_erase();
+  }
   vga_gfx_draw_rect(x, y, w, h, color);
+  if (g_mouse_cursor_enabled) {
+    kernel_cursor_draw(g_mouse_cursor_x, g_mouse_cursor_y);
+  }
   return 0;
 }
 
