@@ -9,7 +9,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DISK_DIR="$ROOT_DIR/artifacts/disk"
 DISK_PATH="$DISK_DIR/secureos-disk.img"
-DISK_BLOCKS="${SECUREOS_DISK_BLOCKS:-8192}"
+DISK_BLOCKS="${SECUREOS_DISK_BLOCKS:-16384}"
 
 # Issue #226: gate the disk-image build on manifest validity, not just
 # schema validity (follow-up to #219). Validate every manifest the
@@ -97,7 +97,10 @@ build_disk_image_inner() {
 	app_mappings+=("artifacts/user/filedemo.bin=/apps/filedemo.bin")
 
 	./build/scripts/build_user_app.sh "sosh"
-	app_mappings+=("artifacts/user/sosh.bin=/apps/sosh.bin")
+	# Deploy sosh as an OS-level command (native ELF, not .cmd wrapper)
+	if [ -f "artifacts/user/sosh.bin" ]; then
+		cp "artifacts/user/sosh.bin" "artifacts/os/sosh.bin"
+	fi
 
 	# Deploy sosh scripts to /scripts on disk
 	local -a script_mappings=()

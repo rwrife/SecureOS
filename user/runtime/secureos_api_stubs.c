@@ -53,6 +53,18 @@ typedef struct {
   int (*video_get_pixel)(int x, int y, unsigned char *out_color);
   int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
   int (*video_get_resolution)(int *out_width, int *out_height);
+  /* File I/O */
+  int (*fs_read_file)(const char *path, char *out_buffer, unsigned int out_buffer_size);
+  int (*fs_write_file)(const char *path, const char *content, int append);
+  int (*fs_list_dir)(const char *path, char *out_buffer, unsigned int out_buffer_size);
+  int (*fs_mkdir)(const char *path);
+  /* Environment */
+  int (*env_get)(const char *key, char *out_buffer, unsigned int out_buffer_size);
+  int (*env_set)(const char *key, const char *value);
+  int (*env_list)(char *out_buffer, unsigned int out_buffer_size);
+  /* Process */
+  int (*process_getcwd)(char *out_buffer, unsigned int out_buffer_size);
+  int (*process_chdir)(const char *path);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -89,6 +101,15 @@ os_status_t os_console_write(const char *message) {
 }
 
 os_status_t os_fs_list_root(char *out_buffer, unsigned int out_buffer_size) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->fs_list_dir != 0) {
+    int rc = bridge->fs_list_dir("/", out_buffer, out_buffer_size);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_NOT_FOUND;
+  }
+
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
   }
@@ -96,6 +117,15 @@ os_status_t os_fs_list_root(char *out_buffer, unsigned int out_buffer_size) {
 }
 
 os_status_t os_fs_list_dir(const char *path, char *out_buffer, unsigned int out_buffer_size) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->fs_list_dir != 0) {
+    int rc = bridge->fs_list_dir(path, out_buffer, out_buffer_size);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_NOT_FOUND;
+  }
+
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
   }
@@ -104,14 +134,19 @@ os_status_t os_fs_list_dir(const char *path, char *out_buffer, unsigned int out_
     return OS_STATUS_ERROR;
   }
 
-  if (path[0] == '/' && path[1] == '\0') {
-    return os_fs_list_root(out_buffer, out_buffer_size);
-  }
-
   return OS_STATUS_NOT_FOUND;
 }
 
 os_status_t os_fs_read_file(const char *path, char *out_buffer, unsigned int out_buffer_size) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->fs_read_file != 0) {
+    int rc = bridge->fs_read_file(path, out_buffer, out_buffer_size);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_NOT_FOUND;
+  }
+
   (void)path;
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
@@ -120,6 +155,15 @@ os_status_t os_fs_read_file(const char *path, char *out_buffer, unsigned int out
 }
 
 os_status_t os_fs_write_file(const char *path, const char *content, int append) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->fs_write_file != 0) {
+    int rc = bridge->fs_write_file(path, content, append);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_ERROR;
+  }
+
   (void)path;
   (void)content;
   (void)append;
@@ -127,16 +171,41 @@ os_status_t os_fs_write_file(const char *path, const char *content, int append) 
 }
 
 os_status_t os_fs_mkdir(const char *path) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->fs_mkdir != 0) {
+    int rc = bridge->fs_mkdir(path);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_ERROR;
+  }
+
   (void)path;
   return OS_STATUS_OK;
 }
 
 os_status_t os_process_chdir(const char *path) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->process_chdir != 0) {
+    int rc = bridge->process_chdir(path);
+    if (rc == 0) return OS_STATUS_OK;
+    return OS_STATUS_ERROR;
+  }
+
   (void)path;
   return OS_STATUS_OK;
 }
 
 os_status_t os_process_getcwd(char *out_buffer, unsigned int out_buffer_size) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->process_getcwd != 0) {
+    int rc = bridge->process_getcwd(out_buffer, out_buffer_size);
+    if (rc == 0) return OS_STATUS_OK;
+    return OS_STATUS_ERROR;
+  }
+
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '/';
     if (out_buffer_size > 1u) {
@@ -147,6 +216,14 @@ os_status_t os_process_getcwd(char *out_buffer, unsigned int out_buffer_size) {
 }
 
 os_status_t os_env_get(const char *key, char *out_buffer, unsigned int out_buffer_size) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->env_get != 0) {
+    int rc = bridge->env_get(key, out_buffer, out_buffer_size);
+    if (rc == 0) return OS_STATUS_OK;
+    return OS_STATUS_NOT_FOUND;
+  }
+
   (void)key;
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
@@ -155,12 +232,28 @@ os_status_t os_env_get(const char *key, char *out_buffer, unsigned int out_buffe
 }
 
 os_status_t os_env_set(const char *key, const char *value) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->env_set != 0) {
+    int rc = bridge->env_set(key, value);
+    if (rc == 0) return OS_STATUS_OK;
+    return OS_STATUS_ERROR;
+  }
+
   (void)key;
   (void)value;
   return OS_STATUS_OK;
 }
 
 os_status_t os_env_list(char *out_buffer, unsigned int out_buffer_size) {
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->env_list != 0) {
+    int rc = bridge->env_list(out_buffer, out_buffer_size);
+    if (rc == 0) return OS_STATUS_OK;
+    return OS_STATUS_ERROR;
+  }
+
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
   }

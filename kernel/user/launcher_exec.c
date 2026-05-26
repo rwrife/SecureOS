@@ -246,6 +246,18 @@ typedef struct {
   int (*video_get_pixel)(int x, int y, unsigned char *out_color);
   int (*video_draw_rect)(int x, int y, int w, int h, unsigned char color);
   int (*video_get_resolution)(int *out_width, int *out_height);
+  /* File I/O */
+  int (*fs_read_file)(const char *path, char *out_buffer, unsigned int out_buffer_size);
+  int (*fs_write_file)(const char *path, const char *content, int append);
+  int (*fs_list_dir)(const char *path, char *out_buffer, unsigned int out_buffer_size);
+  int (*fs_mkdir)(const char *path);
+  /* Environment */
+  int (*env_get)(const char *key, char *out_buffer, unsigned int out_buffer_size);
+  int (*env_set)(const char *key, const char *value);
+  int (*env_list)(char *out_buffer, unsigned int out_buffer_size);
+  /* Process */
+  int (*process_getcwd)(char *out_buffer, unsigned int out_buffer_size);
+  int (*process_chdir)(const char *path);
 } app_native_bridge_t;
 
 typedef int (*app_native_entry_fn)(void);
@@ -258,6 +270,10 @@ static process_result_t app_parse_elf_program(const uint8_t *elf_data,
                                                const uint8_t **out_program,
                                                size_t *out_program_len);
 static int app_require_capability(cap_subject_id_t subject_id, capability_id_t capability_id);
+static void app_resolve_path(const process_context_t *context,
+                             const char *input_path,
+                             char *out_path,
+                             size_t out_path_size);
 static process_result_t app_execute_native_elf(const uint8_t *elf_data,
                                                size_t elf_len,
                                                const process_context_t *context,
@@ -746,6 +762,210 @@ static int app_native_video_get_resolution(int *out_width, int *out_height) {
   return 0;
 }
 
+/* ---- File I/O bridge functions ------------------------------------------ */
+
+static int app_native_fs_read_file(const char *path, char *out_buffer,
+                                   unsigned int out_buffer_size) {
+  char resolved[APP_TOKEN_MAX];
+  size_t out_len = 0u;
+
+  if (g_native_context == 0 || path == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  out_buffer[0] = '\0';
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_READ)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("read", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_read_file(resolved, out_buffer, (size_t)out_buffer_size, &out_len) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_fs_write_file(const char *path, const char *content,
+                                    int append) {
+  char resolved[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || path == 0) {
+    return 3;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_WRITE)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io(append ? "append" : "write", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_write_file(resolved, content != 0 ? content : "", append) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_fs_list_dir(const char *path, char *out_buffer,
+                                  unsigned int out_buffer_size) {
+  char resolved[APP_TOKEN_MAX];
+  size_t out_len = 0u;
+
+  if (g_native_context == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  out_buffer[0] = '\0';
+
+  if (path == 0 || path[0] == '\0') {
+    /* List root */
+    if (fs_list_dir("/", out_buffer, (size_t)out_buffer_size, &out_len) != FS_OK) {
+      return 2;
+    }
+    return 0;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_READ)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("ls", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_list_dir(resolved, out_buffer, (size_t)out_buffer_size, &out_len) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_fs_mkdir(const char *path) {
+  char resolved[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || path == 0) {
+    return 3;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_WRITE)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("mkdir", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_mkdir(resolved) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
+/* ---- Environment bridge functions --------------------------------------- */
+
+static int app_native_env_get(const char *key, char *out_buffer,
+                              unsigned int out_buffer_size) {
+  if (g_native_context == 0 || key == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+  out_buffer[0] = '\0';
+
+  if (g_native_context->get_env == 0) {
+    return 2;
+  }
+  if (!g_native_context->get_env(key, out_buffer, (size_t)out_buffer_size)) {
+    return 2;
+  }
+  return 0;
+}
+
+static int app_native_env_set(const char *key, const char *value) {
+  if (g_native_context == 0 || key == 0) {
+    return 3;
+  }
+  if (g_native_context->set_env == 0) {
+    return 2;
+  }
+  g_native_context->set_env(key, value != 0 ? value : "");
+  return 0;
+}
+
+static int app_native_env_list(char *out_buffer, unsigned int out_buffer_size) {
+  if (g_native_context == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+  out_buffer[0] = '\0';
+
+  if (g_native_context->list_env == 0) {
+    return 2;
+  }
+  g_native_context->list_env(out_buffer, (size_t)out_buffer_size);
+  return 0;
+}
+
+/* ---- Process bridge functions ------------------------------------------- */
+
+static int app_native_process_getcwd(char *out_buffer, unsigned int out_buffer_size) {
+  char cwd[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || out_buffer == 0 || out_buffer_size == 0u) {
+    return 3;
+  }
+
+  out_buffer[0] = '\0';
+
+  /* Try to get CWD from env */
+  if (g_native_context->get_env != 0 &&
+      g_native_context->get_env("PWD", cwd, sizeof(cwd)) && cwd[0] != '\0') {
+    size_t i = 0u;
+    while (cwd[i] != '\0' && i + 1u < (size_t)out_buffer_size) {
+      out_buffer[i] = cwd[i];
+      ++i;
+    }
+    out_buffer[i] = '\0';
+    return 0;
+  }
+
+  /* Default to root */
+  out_buffer[0] = '/';
+  if (out_buffer_size > 1u) out_buffer[1] = '\0';
+  return 0;
+}
+
+static int app_native_process_chdir(const char *path) {
+  if (g_native_context == 0 || path == 0) {
+    return 3;
+  }
+  if (g_native_context->change_directory == 0) {
+    return 2;
+  }
+  g_native_context->change_directory(path);
+  return 0;
+}
+
 static int app_payload_looks_like_script(const uint8_t *program, size_t program_len) {
   size_t i = 0u;
   size_t sample_len = program_len;
@@ -885,6 +1105,15 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->video_get_pixel = app_native_video_get_pixel;
   bridge->video_draw_rect = app_native_video_draw_rect;
   bridge->video_get_resolution = app_native_video_get_resolution;
+  bridge->fs_read_file = app_native_fs_read_file;
+  bridge->fs_write_file = app_native_fs_write_file;
+  bridge->fs_list_dir = app_native_fs_list_dir;
+  bridge->fs_mkdir = app_native_fs_mkdir;
+  bridge->env_get = app_native_env_get;
+  bridge->env_set = app_native_env_set;
+  bridge->env_list = app_native_env_list;
+  bridge->process_getcwd = app_native_process_getcwd;
+  bridge->process_chdir = app_native_process_chdir;
 
   entry = (app_native_entry_fn)(uintptr_t)e_entry;
   (void)entry();
@@ -915,6 +1144,15 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
   bridge->video_get_pixel = 0;
   bridge->video_draw_rect = 0;
   bridge->video_get_resolution = 0;
+  bridge->fs_read_file = 0;
+  bridge->fs_write_file = 0;
+  bridge->fs_list_dir = 0;
+  bridge->fs_mkdir = 0;
+  bridge->env_get = 0;
+  bridge->env_set = 0;
+  bridge->env_list = 0;
+  bridge->process_getcwd = 0;
+  bridge->process_chdir = 0;
 
   g_native_context = 0;
   g_native_raw_args = "";
