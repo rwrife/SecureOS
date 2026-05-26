@@ -101,8 +101,8 @@ build_disk_image_inner() {
 
 	# Deploy scripts to /scripts on disk
 	local -a script_mappings=()
-	if compgen -G "$ROOT_DIR/scripts/*.sosh" >/dev/null 2>&1; then
-		for script_path in "$ROOT_DIR"/scripts/*.sosh; do
+	if compgen -G "$ROOT_DIR/scripts/*.sh" >/dev/null 2>&1; then
+		for script_path in "$ROOT_DIR"/scripts/*.sh; do
 			local sname
 			sname="$(basename "$script_path")"
 			mkdir -p "$ROOT_DIR/artifacts/scripts"
