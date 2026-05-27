@@ -289,13 +289,23 @@ int cap_broker_delete_owner_check(cap_subject_id_t actor_subject_id,
  *   3. `cap_handle_revoke_subtree(owner_broker_handle)` — the
  *      load-bearing call that cascades through every recipient row
  *      minted via `broker_svc_approve`.
+ *   3.5. WM session teardown (M5-SUBSTRATE-005b, issue #350) — drain
+ *      every window-manager session owned by `owner_subject_id` via
+ *      `session_manager_first_session_for_subject` +
+ *      `session_manager_destroy`. Audit emission SKIP today (gated
+ *      on #98, additive `child_kind=SESSION` value per plan
+ *      `plans/2026-05-26-m5-wm-cascade-on-substrate.md`). Each
+ *      destroyed session adds one to `*out_n`. Ordering: AFTER
+ *      step 3 (so torn-down sessions cannot mint fresh shares),
+ *      BEFORE step 4 (so per-session console context unbinds before
+ *      its PCB goes away).
  *   4. `process_destroy(owner_pid)` if `owner_pid != PID_INVALID`.
  *      No-op when the caller doesn't yet have a PCB wired (the
  *      side-table cascade is the binding effect in that case).
  *   5. Emit summary `cap.cascade.done {owner, n_children}` audit
  *      event (SKIP today).
- *   6. Write the count of side-table entries swept into `*out_n`
- *      and return BROKER_SVC_OK.
+ *   6. Write the cascade total (side-table entries swept + WM
+ *      sessions destroyed) into `*out_n` and return BROKER_SVC_OK.
  *
  * `out_n` may be NULL; in that case the count is discarded.
  */

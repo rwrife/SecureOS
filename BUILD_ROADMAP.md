@@ -427,6 +427,37 @@ M1 substrate) and the canonical M5 plan #118, with the allow-tier
 revoke walker landed by #327 (closes #323). The M5-SUBSTRATE-005
 GFX/WM session-teardown leg (plan #355, slices 005a/005b/005c) is
 tracked by #350 and stacks additively on top of these markers.
+- HAL call-site enforcement (issue #349, follow-up to #357): the
+  subject-scoped wrappers in `kernel/hal/hal_cap_entry.c`
+  (`video_hal_write_as`, `input_hal_try_read_char_as`,
+  `mouse_hal_poll_event_as`) MUST invoke
+  `cap_gfx_framebuffer_gate` / `cap_input_keyboard_gate` /
+  `cap_input_mouse_gate` before delegating to the underlying
+  backend-neutral primitive. The deny path short-circuits the backend
+  and emits the canonical `CAP:DENY:<sid>:<cap>:-\n` marker per
+  `docs/abi/capability-deny-contract.md` §4.3. Anchored by
+  `build/scripts/test_win_gfx_callsite.sh` (`win_gfx_callsite` target),
+  which proves both that the backend is invoked exactly once on allow
+  and not at all on deny.
+
+Manifest schema ownership-role declaration:
+
+- The manifest schema (`manifests/schema/v0.json`, docs/abi/manifest.md
+  §5.5) carries an optional `capabilities.ownership_role` enum
+  (`"owner"` | `"delegate"` | `"none"`, default `"none"`) so a
+  module/app can declare what role it plays in the M5 ownership
+  graph above. The default `"none"` preserves today's behavior
+  exactly — no ownership edge is registered — so the field is
+  additive and does **not** bump `OS_ABI_VERSION`. Positive
+  examples live at `manifests/examples/helloapp.ownership_owner.json`
+  and `manifests/examples/helloapp.ownership_delegate.json`;
+  positive + negative coverage of the enum (and the backward-compat
+  case where the field is omitted) is pinned by
+  `TEST:PASS:manifest_ownership_role_enum` (run via
+  `build/scripts/test.sh manifest_ownership_role_enum`, mirror of the
+  §5.3 `manifest_persistence_enum` and §5.4 `manifest_broker_role_enum`
+  markers). Schema-only at v0; the launcher / broker_svc runtime
+  wiring lands in later M5-SUBSTRATE slices.
 
 ## 5.6 M6: Public SDK + external app template
 

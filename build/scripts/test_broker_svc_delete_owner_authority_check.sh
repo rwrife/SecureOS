@@ -32,6 +32,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/proc/process.c" \
   "$ROOT_DIR/kernel/svc/broker_svc.c" \
   "$ROOT_DIR/tests/harness/svc_subjects.c" \
+  "$ROOT_DIR/tests/harness/session_manager_stub.c" \
   "$ROOT_DIR/tests/broker_svc_delete_owner_authority_check_test.c" \
   -o "$OUT_DIR/broker_svc_delete_owner_authority_check_test"
 
