@@ -178,4 +178,4 @@ fixture or fail this test loudly with a per-line diff. Updating the
 fixture is allowed only under an explicit audit-ABI bump per
 BUILD_ROADMAP §7.
 
-Last verified against commit: e11df9e1ac
+Last verified against commit: ee4426283a858573fac6004df2e65aa067e13b56
