@@ -16,6 +16,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/cap/capability.c" \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
   "$ROOT_DIR/kernel/cap/cap_gate.c" \
+  "$ROOT_DIR/kernel/cap/cap_deny_marker.c" \
   "$ROOT_DIR/tests/capability_audit_fixture_test.c" \
   -o "$OUT_DIR/capability_audit_fixture_test"
 
