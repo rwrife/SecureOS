@@ -242,15 +242,26 @@ This document is the first done-when bullet of #351. The remaining
 bullets are tracked as follow-up slices and reference this contract as
 their normative source:
 
-- **Slice 2:** `user/libs/soshlib/sosh_builtins.c` (and the
-  `state->exec` dispatcher in `sosh_eval.c` / `user/apps/sosh/main.c`)
-  invokes `cap_gate_check_handle` against the cap listed in §4 before
-  executing each side-effecting builtin.
-- **Slice 3:** `tests/sosh_cap_allow_test.c` +
-  `tests/sosh_cap_deny_test.c` covering a single side-effecting
-  builtin end-to-end (recommend `CAP_FS_READ` via `cat /scripts/x.sosh`),
-  same `_qemu` peer convention as `helloapp_allow_test` /
-  `helloapp_deny_test`.
+- **Slice 2 (in progress):** `user/libs/soshlib/sosh_eval.c` consults
+  an embedder-supplied `sosh_cap_check_fn` (see
+  `user/libs/soshlib/sosh_builtins.h`) before executing each
+  side-effecting builtin. **`echo` → `SOSH_CAP_CONSOLE_WRITE` is
+  wired today**; `cat` / `source` / `ls` / `>` / external-exec gates
+  are follow-ups (one builtin per PR, same callback contract).
+  soshlib stays kernel-cap-agnostic: the embedder (kernel host, test
+  fixture, or future per-script launcher) owns the mapping from the
+  abstract `SOSH_CAP_*` tag to the matching `CAP_*` and is
+  responsible for emitting the canonical `CAP:DENY:` marker + audit
+  record per §6.
+- **Slice 3 (partially shipped):** `tests/sosh_cap_allow_test.c` +
+  `tests/sosh_cap_deny_test.c` cover the `echo` → console_write
+  surface end-to-end against the soshlib enforcement contract:
+  allow emits + sets `$? = 0`; deny short-circuits, leaks no text,
+  propagates the deny rc into `$?`, and does NOT abort the script
+  (per §6 bullets 1–3). Wired into `build/scripts/test.sh` as
+  `sosh_cap_allow` / `sosh_cap_deny`. The `_qemu` peers (driving a
+  real launched sosh subject through `cap_console_write_gate`) are
+  the follow-up once the kernel-side embedder shim lands.
 - **Slice 4 (optional, v0.1):** per-script subject mode wiring (§5.2)
   + manifest-validator support, coordinating with #312 / #285.
 
@@ -259,4 +270,4 @@ their normative source:
 "or an explicit ADR explaining why sosh reuses existing caps" branch
 of #351's last done-when bullet is satisfied by §3.
 
-Last verified against commit: 323c36ec7201bda119bccf01ef685c8ede16660b
+Last verified against commit: 0a3940996446fa233e0c68412b970d7ad6528f00 (sosh_cap_allow/deny wired via test.sh dispatcher)
