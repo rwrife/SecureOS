@@ -874,3 +874,42 @@ int session_manager_is_blocked(unsigned int session_id) {
   }
   return g_sessions[session_id].blocked;
 }
+
+/*
+ * M5-SUBSTRATE-005a (issue #350, plan
+ * plans/2026-05-26-m5-wm-cascade-on-substrate.md).
+ *
+ * Deterministic slot-order scan. Returns 0 + the lowest matching
+ * session id on hit, -1 on miss. See header doc-block for the full
+ * contract (bounds, idempotence, cascade loop usage).
+ *
+ * Implementation notes:
+ *   - The scan walks every slot in g_sessions[] in index order; we
+ *     match the first one whose in_use bit is set and whose subject_id
+ *     equals the requested owner. This makes the predicate stable
+ *     under concurrent destroy-and-rescan from broker_svc's cascade
+ *     loop (destroy clears in_use, so the next call advances past the
+ *     freed slot deterministically).
+ *   - We do NOT touch *out_session_id on a miss so callers can keep
+ *     a sentinel value (e.g. SESSION_MAX) across the cascade loop
+ *     without an extra reset.
+ */
+int session_manager_first_session_for_subject(cap_subject_id_t subject,
+                                              unsigned int *out_session_id) {
+  size_t i = 0u;
+
+  for (i = 0u; i < SESSION_MAX; ++i) {
+    if (!g_sessions[i].in_use) {
+      continue;
+    }
+    if (g_sessions[i].subject_id != subject) {
+      continue;
+    }
+    if (out_session_id != 0) {
+      *out_session_id = (unsigned int)i;
+    }
+    return 0;
+  }
+
+  return -1;
+}

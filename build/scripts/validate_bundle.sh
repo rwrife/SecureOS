@@ -49,6 +49,7 @@ TEST_TARGETS=(
     proc_sched
     m1_ipc_demo
     validate_abi_stamps
+    validate_sosh_capability_contract
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /

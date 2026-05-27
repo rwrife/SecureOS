@@ -144,4 +144,35 @@ int session_manager_tick_yield(void);
  */
 int session_manager_is_blocked(unsigned int session_id);
 
+/**
+ * M5-SUBSTRATE-005a (issue #350, plan
+ * plans/2026-05-26-m5-wm-cascade-on-substrate.md):
+ *
+ * Deterministic slot-order enumerator predicate that returns the
+ * lowest-indexed in-use session owned by `subject`. The cascade
+ * orchestrator in `broker_svc_delete_owner` (step 3.5) will call this
+ * in a bounded loop, destroying each match, until the predicate misses
+ * -- mirroring the M5 cap_handle bulk-revoke discipline.
+ *
+ * Returns:
+ *   0  on hit; writes the session id into *out_session_id when non-NULL.
+ *  -1  on miss (no in-use session has subject_id == subject); the out
+ *      param is left untouched.
+ *
+ * Bounds:
+ *   - Pure read of g_sessions[]. No allocation, no recursion, no IPC.
+ *   - O(SESSION_MAX) per call; the cascade drives at most one destroy
+ *     per call, so the outer loop is O(SESSION_MAX^2) in the worst case,
+ *     which is fine for the v0 SESSION_MAX = 8.
+ *
+ * Idempotence:
+ *   After destroying a returned session id, re-calling this with the
+ *   same subject immediately advances to the next live slot (the freed
+ *   slot's in_use bit is cleared, so the scan skips it). When no more
+ *   sessions are owned by `subject`, the predicate returns -1 and the
+ *   cascade loop exits cleanly.
+ */
+int session_manager_first_session_for_subject(cap_subject_id_t subject,
+                                              unsigned int *out_session_id);
+
 #endif

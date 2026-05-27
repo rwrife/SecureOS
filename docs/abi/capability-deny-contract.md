@@ -117,9 +117,9 @@ that mode.
 | `os_net_http_get` / `os_net_https_get` | `CAP_NETWORK` | sync | Wrapper returns `OS_STATUS_DENIED`; scheme gate (#79) is the trigger. |
 | broker `share` / `revoke` | `CAP_CAPABILITY_ADMIN` | sync | Returns `OS_STATUS_DENIED`; no grant/revoke side effect.          |
 | `os_event_*`         | `CAP_EVENT_*`      | async (fallback) | Subscription denial drops events silently for the subject; one `CAP:DENY:` is emitted at subscribe time, not per dropped event. |
-| virtual-graphics framebuffer write | `CAP_GFX_FRAMEBUFFER` | sync (reserved) | Registered at v0 by #348; HAL gate enforcement lands in #349. Until enforcement ships, no `CAP:DENY:gfx_framebuffer:` line is emitted. |
-| PS/2 keyboard byte queue | `CAP_INPUT_KEYBOARD` | sync (reserved) | Registered at v0 by #348; driver gate enforcement lands in #349. |
-| PS/2 mouse byte queue | `CAP_INPUT_MOUSE` | sync (reserved) | Numeric id 17 — renamed from `CAP_MOUSE` by #348 with id preserved (append-only). Driver gate enforcement lands in #349. |
+| virtual-graphics framebuffer write | `CAP_GFX_FRAMEBUFFER` | sync | Gate primitive `cap_gfx_framebuffer_gate` lands in #349; emits `CAP:DENY:<sid>:gfx_framebuffer:-\n` on deny. HAL/driver call-site wiring + `_qemu` peers tracked as follow-ups in #349. |
+| PS/2 keyboard byte queue | `CAP_INPUT_KEYBOARD` | sync | Gate primitive `cap_input_keyboard_gate` lands in #349; emits `CAP:DENY:<sid>:input_keyboard:-\n` on deny. Driver call-site wiring tracked as a follow-up in #349. |
+| PS/2 mouse byte queue | `CAP_INPUT_MOUSE` | sync | Numeric id 17 — renamed from `CAP_MOUSE` by #348 with id preserved (append-only). Gate primitive `cap_input_mouse_gate` lands in #349; emits `CAP:DENY:<sid>:input_mouse:-\n` on deny. |
 
 Default for new services: **sync**. Async fallback is reserved for
 push-style services where blocking the caller would be incorrect; adding
