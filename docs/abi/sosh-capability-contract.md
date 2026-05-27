@@ -259,4 +259,4 @@ their normative source:
 "or an explicit ADR explaining why sosh reuses existing caps" branch
 of #351's last done-when bullet is satisfied by §3.
 
-Last verified against commit: 54ddac9512fb9fbb121da268226c58e73c01b121
+Last verified against commit: 323c36ec7201bda119bccf01ef685c8ede16660b
