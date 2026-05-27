@@ -246,9 +246,10 @@ their normative source:
   an embedder-supplied `sosh_cap_check_fn` (see
   `user/libs/soshlib/sosh_builtins.h`) before executing each
   side-effecting builtin. **`echo` → `SOSH_CAP_CONSOLE_WRITE`,
-  `source <path>` → `SOSH_CAP_FS_READ`, and external-command dispatch
+  `source <path>` → `SOSH_CAP_FS_READ`,
+  `exists <path>` → `SOSH_CAP_FS_READ`, and external-command dispatch
   (`apps/foo.bin ...`) → `SOSH_CAP_APP_EXEC` are wired today**;
-  `cat` / `ls` / `exists` / `>` (fs-write) gates are follow-ups
+  `cat` / `ls` / `>` (fs-write) gates are follow-ups
   (one builtin per PR, same callback contract).
   soshlib stays kernel-cap-agnostic: the embedder (kernel host, test
   fixture, or future per-script launcher) owns the mapping from the
