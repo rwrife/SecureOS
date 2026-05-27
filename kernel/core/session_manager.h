@@ -175,4 +175,30 @@ int session_manager_is_blocked(unsigned int session_id);
 int session_manager_first_session_for_subject(cap_subject_id_t subject,
                                               unsigned int *out_session_id);
 
+/**
+ * Issue #375 (HAL call-site migration follow-up to #349 / PR #365):
+ *
+ * Deterministic accessor that resolves a session id to its owning
+ * cap_subject_id_t. The launcher / console HAL call-site migration
+ * needs this to thread the calling subject into the new subject-scoped
+ * HAL wrappers (`video_hal_write_as`, `input_hal_try_read_char_as`,
+ * `mouse_hal_poll_event_as` from `kernel/hal/hal_cap_entry.h`).
+ *
+ * Returns:
+ *   0  on hit; writes the subject id into *out_subject when non-NULL.
+ *  -1  on miss (session_id out of range OR the slot is not in use);
+ *      the out param is left untouched so callers can keep a sentinel.
+ *
+ * Bounds:
+ *   - Pure read of g_sessions[]. No allocation, no recursion, no IPC.
+ *   - O(1).
+ *
+ * Pairs with `session_manager_first_session_for_subject` (the inverse
+ * lookup added in #350) so the launcher can go both directions across
+ * the session<->subject relation without poking session_record_t
+ * internals.
+ */
+int session_manager_subject_for_session(unsigned int session_id,
+                                        cap_subject_id_t *out_subject);
+
 #endif
