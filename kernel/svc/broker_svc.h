@@ -63,9 +63,13 @@
 #define SECUREOS_KERNEL_SVC_BROKER_SVC_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
+#include "../cap/cap_broker.h"
+#include "../cap/cap_handle.h"
 #include "../cap/capability.h"
 #include "../ipc/ipc_port.h"
+#include "../proc/process.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -82,6 +86,13 @@ typedef enum {
   BROKER_SVC_OK = 0,
   BROKER_SVC_ERR_PORT_ALLOC = 1,
   BROKER_SVC_ERR_ALREADY_INIT = 2,
+  /*
+   * Authority check inside `broker_svc_delete_owner` rejected the
+   * actor (M5-SUBSTRATE-002, issue #324). The canonical CAP:DENY
+   * marker has already been emitted by `cap_broker_delete_owner_check`
+   * when this code is returned.
+   */
+  BROKER_SVC_ERR_DELETE_DENIED = 3,
 } broker_svc_result_t;
 
 /*
@@ -167,12 +178,132 @@ bool broker_svc_is_initialised(void);
  * are stable for v0 — do not renumber without an ABI bump.
  */
 typedef enum {
-  BROKER_OP_INVALID = 0,
-  BROKER_OP_REQUEST = 1,
-  BROKER_OP_APPROVE = 2,
-  BROKER_OP_DENY    = 3,
-  BROKER_OP_REVOKE  = 4,
+  BROKER_OP_INVALID      = 0,
+  BROKER_OP_REQUEST      = 1,
+  BROKER_OP_APPROVE      = 2,
+  BROKER_OP_DENY         = 3,
+  BROKER_OP_REVOKE       = 4,
+  /*
+   * BROKER_OP_DELETE_OWNER (M5-SUBSTRATE-002, issue #324). Owner →
+   * broker request to cascade-delete an owner subject. Payload:
+   *   offset  size  field
+   *        0     4  owner_subject_id  (cap_subject_id_t)
+   *        4    60  reserved (MBZ)
+   * The broker runs the six-step cascade documented at
+   * `broker_svc_delete_owner()`; the reply tag echoes
+   * BROKER_OP_DELETE_OWNER with status + cascade count.
+   */
+  BROKER_OP_DELETE_OWNER = 5,
 } broker_op_t;
+
+/* ----------------------------------------------------------------
+ * M5-SUBSTRATE-002 (issue #324): cascade-deletion entry points.
+ *
+ * The broker module owns a small `share_id -> cap_handle_t`
+ * side-table (bounded at `CAP_BROKER_MAX_SHARES`, mirroring
+ * `kernel/cap/cap_broker.c`'s share table) so it can later walk
+ * every minted-child handle that descends from a given owner's
+ * broker-port handle and feed the root into
+ * `cap_handle_revoke_subtree` (M5-SUBSTRATE-001, #323).
+ *
+ * No `OS_ABI_VERSION` bump: this surface is in-kernel only and
+ * `BROKER_OP_DELETE_OWNER` is a private dispatch tag in the
+ * `ipc_msg_v0::tag` namespace already documented as caller-defined.
+ * ---------------------------------------------------------------- */
+
+/*
+ * Approve a previously-requested share AND mint a recipient-side
+ * capability handle linked to the owner's broker-port handle
+ * (`owner_broker_handle`) via `cap_handle_grant_child`, so the
+ * minted row becomes reachable from the slice-001 subtree walker.
+ *
+ * Semantics:
+ *   1. Calls `cap_broker_approve(approver, share_id)` (state
+ *      transition + recipient cap_table grant + audit emission).
+ *   2. On CAP_BROKER_OK, mints
+ *      `cap_handle_grant_child(recipient_subject, capability_id,
+ *                              owner_broker_handle)`. The caller
+ *      supplies (recipient, cap) explicitly because cap_broker's
+ *      share table is private to that module — the test driver /
+ *      future in-kernel dispatcher already parses these fields from
+ *      the on-wire BROKER_OP_APPROVE envelope per the slice-3 schema
+ *      documented above.
+ *   3. Records `(share_id, approver, recipient, child_handle)` in
+ *      the broker_svc side-table for the cascade walker.
+ *
+ *   `owner_broker_handle == CAP_HANDLE_NULL` is legal — the row is
+ *   then sentinel-parented (same semantics as the legacy
+ *   `cap_handle_grant` forwarder) and will not be swept by an
+ *   unrelated cascade. `out_recipient_handle` may be NULL.
+ *
+ * Returns CAP_BROKER_OK on success; otherwise the failure code from
+ * `cap_broker_approve` (or CAP_BROKER_ERR_INVALID_CAPABILITY if the
+ * cap-handle layer refused to mint a child row, e.g. table full).
+ */
+cap_broker_result_t broker_svc_approve_h(cap_subject_id_t approver_subject_id,
+                                         cap_share_id_t   share_id,
+                                         cap_subject_id_t recipient_subject_id,
+                                         capability_id_t  capability_id,
+                                         cap_handle_t     owner_broker_handle,
+                                         cap_handle_t    *out_recipient_handle);
+
+/*
+ * Authority predicate for `BROKER_OP_DELETE_OWNER`. Returns 1 when
+ * `actor` is allowed to cascade-delete `owner`, 0 otherwise.
+ *
+ * Policy (M5 v0):
+ *   - actor == owner            -> ALLOW (self-delete).
+ *   - actor == SUBJECT_M5_ADMIN -> ALLOW (admin override, currently a
+ *                                 SKIP-shape stub — see plan §"Admin
+ *                                 gate"; will be folded into a real
+ *                                 CAP-013 check when that capability
+ *                                 lands).
+ *   - everything else           -> DENY. The function emits exactly
+ *                                  one canonical CAP:DENY:<actor>:
+ *                                  capability_admin:delete_owner_<id>
+ *                                  marker line through
+ *                                  cap_deny_marker_format (#221/#244
+ *                                  conformance grammar). The
+ *                                  capability_id field reuses
+ *                                  CAP_CAPABILITY_ADMIN because no
+ *                                  `cap_broker_delete_owner` enum
+ *                                  value exists and the issue
+ *                                  forbids an ABI bump; the resource
+ *                                  field encodes the intent. Same
+ *                                  marker-reuse pattern as
+ *                                  kernel/proc/process.c's
+ *                                  `proc_table_full` deny.
+ */
+int cap_broker_delete_owner_check(cap_subject_id_t actor_subject_id,
+                                  cap_subject_id_t owner_subject_id);
+
+/*
+ * Run the six-step `BROKER_OP_DELETE_OWNER` cascade for `owner`:
+ *
+ *   1. `cap_broker_delete_owner_check(actor, owner)` — authority gate.
+ *      On deny: return BROKER_SVC_ERR_DELETE_DENIED (the predicate
+ *      already emitted the CAP:DENY marker).
+ *   2. Walk the broker_svc side-table; for every recorded share
+ *      whose owner subject matches, log a `cap.revoked.cascade`
+ *      audit event (SKIP today — gated on #98).
+ *   3. `cap_handle_revoke_subtree(owner_broker_handle)` — the
+ *      load-bearing call that cascades through every recipient row
+ *      minted via `broker_svc_approve`.
+ *   4. `process_destroy(owner_pid)` if `owner_pid != PID_INVALID`.
+ *      No-op when the caller doesn't yet have a PCB wired (the
+ *      side-table cascade is the binding effect in that case).
+ *   5. Emit summary `cap.cascade.done {owner, n_children}` audit
+ *      event (SKIP today).
+ *   6. Write the count of side-table entries swept into `*out_n`
+ *      and return BROKER_SVC_OK.
+ *
+ * `out_n` may be NULL; in that case the count is discarded.
+ */
+broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
+                                            cap_subject_id_t owner_subject_id,
+                                            cap_handle_t owner_broker_handle,
+                                            process_id_t owner_pid,
+                                            uint32_t *out_n);
 
 #ifdef __cplusplus
 }
