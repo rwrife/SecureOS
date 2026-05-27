@@ -69,6 +69,7 @@ back to its design doc should start here.
 - `2026-05-24-m3-fs-on-m1-substrate.md`
 - `2026-05-25-m4-broker-on-m1-substrate.md`
 - `2026-05-25-m5-ownership-on-m1-substrate.md`
+- `2026-05-26-m5-wm-cascade-on-substrate.md`
 
 ## Adding a new plan
 
