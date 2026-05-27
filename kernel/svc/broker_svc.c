@@ -32,6 +32,23 @@
 
 #include <stdint.h>
 
+/* For step 3.5 (M5-SUBSTRATE-005b, issue #350): cascade also tears down
+ * any window-manager session(s) owned by the deleted subject. The
+ * predicate session_manager_first_session_for_subject is provided by
+ * #350 slice 005a and returns the lowest in-use session id whose
+ * subject_id equals the owner; the bounded loop below issues one
+ * session_manager_destroy per hit until the predicate misses, with
+ * a defence-in-depth outer bound. */
+#include "../core/session_manager.h"
+
+/* Local outer-bound constant for the step-3.5 cascade loop. The inner
+ * `break` on enumerator miss is the normal termination path; this
+ * cap exists so a misbehaving enumerator can never spin forever.
+ * Mirrors the v0 session-table size with comfortable headroom; kept
+ * in sync via the unit test in
+ * tests/broker_svc_step3_5_session_teardown_test.c. */
+#define BROKER_SVC_CASCADE_SESSION_BOUND 16u
+
 /* broker_svc.c is compiled into the freestanding kernel
  * (see build/scripts/build_kernel_entry.sh, --target=x86_64-unknown-none-elf
  * -ffreestanding). <stdio.h> is only available in hosted host-test builds;
@@ -306,6 +323,40 @@ broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
    * handle and every recipient-side handle that was minted as a
    * child of it via broker_svc_approve_h. */
   (void)cap_handle_revoke_subtree(owner_broker_handle);
+
+  /* Step 3.5 (M5-SUBSTRATE-005b, issue #350): WM session teardown.
+   * Drain every window-manager session owned by this subject via the
+   * deterministic enumerator. The predicate clears in_use inside the
+   * destroy, so a re-scan after each destroy walks past the freed
+   * slot — i.e. no recursion, no heap, monotonic progress. The outer
+   * loop is bounded by BROKER_SVC_CASCADE_SESSION_BOUND as a
+   * defence-in-depth cap; the inner `break` on miss is the normal
+   * termination path.
+   *
+   * Ordering invariant: AFTER step 3 (subtree revoke) so a session
+   * about to be torn down can no longer mint fresh broker shares,
+   * BEFORE step 4 (process_destroy) so the session's per-tick
+   * console context is unbound before its PCB goes away.
+   *
+   * Audit emission is SKIP today, gated on #98 (cap.revoked.cascade
+   * event class, child_kind=SESSION value documented by plan
+   * plans/2026-05-26-m5-wm-cascade-on-substrate.md §"Audit events").
+   *
+   * The session count is folded into `n_children` so the single
+   * cascade total reported via *out_n surfaces both the cap leg and
+   * the session leg to the caller. The existing M5-SUBSTRATE-003 /
+   * 004 `_qemu` peers assert `n_children > 0` without pinning a
+   * specific value, so this additive count is regression-safe. */
+  for (unsigned i = 0u; i < BROKER_SVC_CASCADE_SESSION_BOUND; ++i) {
+    unsigned int sid = 0u;
+    if (session_manager_first_session_for_subject(owner_subject_id, &sid) != 0) {
+      break;
+    }
+    /* TODO(#98): emit cap.revoked.cascade {owner, child_kind=SESSION,
+     * child=sid, reason="owner_deleted"}. */
+    session_manager_destroy(sid);
+    n_children = (uint32_t)(n_children + 1u);
+  }
 
   /* Step 4: tear down the owner PCB if one was supplied.
    * process_destroy already bulk-revokes every cap handle owned by

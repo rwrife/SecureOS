@@ -54,6 +54,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/user/launcher.c" \
   "$ROOT_DIR/kernel/user/helloapp.c" \
   "$ROOT_DIR/tests/harness/svc_subjects.c" \
+  "$ROOT_DIR/tests/harness/session_manager_stub.c" \
   "$ROOT_DIR/tests/m5_owner_delete_cascade_allow_qemu_test.c" \
   -o "$OUT_DIR/m5_owner_delete_cascade_allow_qemu_test"
 
