@@ -79,6 +79,12 @@
           "type": "string",
           "enum": ["provider", "consumer", "none"],
           "default": "none"
+        },
+        "ownership_role": {
+          "description": "M5 ownership-graph role this app participates in (BUILD_ROADMAP §5.5, issue #368). 'owner' registers the module as an owner node in the M5 graph whose handles cascade-revoke on BROKER_OP_DELETE_OWNER; 'delegate' marks a module that receives delegated handles from a parent owner and whose handles are invalidated when the parent is deleted (§5.5); 'none' (default) preserves today's behavior — no ownership edge is registered. Schema-only / additive at v0 — runtime wiring lands in later M5-SUBSTRATE slices; this field does not bump OS_ABI_VERSION (same precedent as 'persistence' in #285 and 'broker_role' in #312).",
+          "type": "string",
+          "enum": ["owner", "delegate", "none"],
+          "default": "none"
         }
       }
     },
