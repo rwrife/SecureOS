@@ -390,6 +390,18 @@ Validate:
 
 - deleting Launcher removes owned app modules/resources
 - delegated caps derived from deleted owner become invalid
+- HAL call-site enforcement (issue #349, follow-up to #357): the
+  subject-scoped wrappers in `kernel/hal/hal_cap_entry.c`
+  (`video_hal_write_as`, `input_hal_try_read_char_as`,
+  `mouse_hal_poll_event_as`) MUST invoke
+  `cap_gfx_framebuffer_gate` / `cap_input_keyboard_gate` /
+  `cap_input_mouse_gate` before delegating to the underlying
+  backend-neutral primitive. The deny path short-circuits the backend
+  and emits the canonical `CAP:DENY:<sid>:<cap>:-\n` marker per
+  `docs/abi/capability-deny-contract.md` §4.3. Anchored by
+  `build/scripts/test_win_gfx_callsite.sh` (`win_gfx_callsite` target),
+  which proves both that the backend is invoked exactly once on allow
+  and not at all on deny.
 
 ## 5.6 M6: Public SDK + external app template
 
