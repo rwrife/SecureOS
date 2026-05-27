@@ -66,6 +66,7 @@ TEST_TARGETS=(
     # (`m5_owner_delete_cascade_deny_qemu`, #326 / PR #362) lands
     # alongside its source PR.
     m5_owner_delete_cascade_allow_qemu
+    validate_sosh_capability_contract
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
