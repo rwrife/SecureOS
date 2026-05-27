@@ -33,8 +33,10 @@
 enum {
   SESSION_MAX = 8,
   SESSION_VFB_WIDTH = 320,
-  SESSION_VFB_HEIGHT = 200,
-  SESSION_VFB_SIZE = 64000, /* 320 * 200 */
+  SESSION_VFB_HEIGHT = 240,
+  SESSION_VFB_SIZE = 76800, /* 320 * 240 */
+  SESSION_VFB_WIDTH_MAX = 320,
+  SESSION_VFB_HEIGHT_MAX = 240,
   /* Text grid dimensions for VFB text rendering.
    * Must match the window content area so scrolling triggers at the right time.
    * Window content: 216px wide (36*6), 128px tall (16*8). */
@@ -64,7 +66,7 @@ typedef struct {
   int gfx_mode;                     /* 0 = text, 1 = graphics */
   unsigned char *vfb;               /* Allocated via kmalloc when needed */
   unsigned int vfb_width;           /* Pixel width (set by WM or default 320) */
-  unsigned int vfb_height;          /* Pixel height (set by WM or default 200) */
+  unsigned int vfb_height;          /* Pixel height (set by WM or default 240) */
   /* Text cursor for kernel-side text rendering into VFB */
   int vfb_cursor_col;
   int vfb_cursor_row;
@@ -669,8 +671,8 @@ void session_manager_set_vfb_size(unsigned int session_id,
     return;
   }
   /* Cap at maximum to avoid excessive allocation */
-  if (width > 320) width = 320;
-  if (height > 200) height = 200;
+  if (width > SESSION_VFB_WIDTH_MAX) width = SESSION_VFB_WIDTH_MAX;
+  if (height > SESSION_VFB_HEIGHT_MAX) height = SESSION_VFB_HEIGHT_MAX;
   g_sessions[session_id].vfb_width = width;
   g_sessions[session_id].vfb_height = height;
 }
