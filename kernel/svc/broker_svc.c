@@ -31,7 +31,18 @@
 #include "broker_svc.h"
 
 #include <stdint.h>
+
+/* broker_svc.c is compiled into the freestanding kernel
+ * (see build/scripts/build_kernel_entry.sh, --target=x86_64-unknown-none-elf
+ * -ffreestanding). <stdio.h> is only available in hosted host-test builds;
+ * gate it (and the stdout fwrite path) accordingly. Sibling deny-marker
+ * emitters (kernel/proc/process.c, kernel/ipc/ipc_ops.c) avoid this trap
+ * by being host-only — broker_svc.c is not, so the marker emit path is
+ * a host-only courtesy here. The marker is still asserted by host fixtures
+ * which exercise this code via the same translation unit. */
+#if __STDC_HOSTED__
 #include <stdio.h>
+#endif
 
 #include "../../tests/harness/svc_subjects.h"
 #include "../cap/cap_broker.h"
@@ -196,23 +207,48 @@ int cap_broker_delete_owner_check(cap_subject_id_t actor_subject_id,
    * Mirrors the marker-reuse rationale documented in
    * kernel/proc/process.c for the proc_table_full deny. */
   char resource[CAP_DENY_RESOURCE_MAX];
-  int rlen = snprintf(resource, sizeof(resource),
-                      "delete_owner_%u", (unsigned)owner_subject_id);
-  if (rlen <= 0 || (size_t)rlen >= sizeof(resource)) {
-    /* Should be unreachable for any sane subject id, but stay
-     * defensive: still emit a constant resource so the marker
-     * shape is intact. */
-    snprintf(resource, sizeof(resource), "delete_owner_unknown");
+  /* Freestanding-safe "delete_owner_<u32>" formatter — broker_svc.c is
+   * compiled into the kernel without libc, so no snprintf/itoa here. */
+  static const char k_prefix[] = "delete_owner_";
+  size_t pi = 0u;
+  for (; pi < sizeof(k_prefix) - 1u && pi < sizeof(resource) - 1u; ++pi) {
+    resource[pi] = k_prefix[pi];
   }
+  /* Render the subject id as decimal into a small scratch then copy in. */
+  char digits[11];  /* uint32_t max = 4294967295 → 10 chars + NUL */
+  size_t di = 0u;
+  unsigned v = (unsigned)owner_subject_id;
+  if (v == 0u) {
+    digits[di++] = '0';
+  } else {
+    char rev[11];
+    size_t ri = 0u;
+    while (v > 0u && ri < sizeof(rev)) {
+      rev[ri++] = (char)('0' + (v % 10u));
+      v /= 10u;
+    }
+    while (ri > 0u && di < sizeof(digits)) {
+      digits[di++] = rev[--ri];
+    }
+  }
+  for (size_t i = 0u; i < di && pi < sizeof(resource) - 1u; ++i, ++pi) {
+    resource[pi] = digits[i];
+  }
+  resource[pi] = '\0';
 
   char buf[CAP_DENY_MARKER_MAX];
   int n = cap_deny_marker_format(actor_subject_id,
                                  CAP_CAPABILITY_ADMIN,
                                  resource,
                                  buf, sizeof(buf));
+#if __STDC_HOSTED__
   if (n > 0) {
     (void)fwrite(buf, 1u, (size_t)n, stdout);
   }
+#else
+  (void)n;
+  (void)buf;
+#endif
   return 0;
 }
 
