@@ -63,9 +63,11 @@ TEST_TARGETS=(
     # M5 ownership-graph cascade (umbrella #313, plan
     # plans/2026-05-25-m5-ownership-on-m1-substrate.md): allow-side
     # `_qemu` peer (slice 003). The deny-side peer
-    # (`m5_owner_delete_cascade_deny_qemu`, #326 / PR #362) lands
-    # alongside its source PR.
+    # (`m5_owner_delete_cascade_deny_qemu`, #326 / PR #362) is now wired
+    # in below alongside its allow counterpart so both legs of the
+    # cascade gate the bundle.
     m5_owner_delete_cascade_allow_qemu
+    m5_owner_delete_cascade_deny_qemu
     validate_sosh_capability_contract
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
