@@ -388,8 +388,45 @@ Deliver:
 
 Validate:
 
-- deleting Launcher removes owned app modules/resources
-- delegated caps derived from deleted owner become invalid
+- deleting Launcher removes owned app modules/resources — satisfied
+  end-to-end by the substrate-tier marker
+  `TEST:PASS:m5_owner_delete_cascade_allow_qemu` plus sub-checks
+  `:subtree_revoked_before_destroy_qemu` and `:delegated_caps_invalid`
+  (see `tests/m5_owner_delete_cascade_allow_qemu_test.c`, run via
+  `build/scripts/test.sh m5_owner_delete_cascade_allow_qemu` /
+  `build/scripts/test_m5_owner_delete_cascade_allow_qemu.sh`). The
+  load-bearing cap-handle subtree revoke under cascade is
+  separately pinned host-side by
+  `TEST:PASS:broker_svc_cascade_revokes_minted_handle` plus its six
+  pre/post gate + count sub-checks
+  (`tests/broker_svc_cascade_revokes_minted_handle_test.c`, run via
+  `build/scripts/test.sh broker_svc_cascade_revokes_minted_handle`).
+  The audit-side `audit_cascade_recorded` /
+  `audit_cascade_done_recorded` sub-checks emit explicit
+  `TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded`
+  and
+  `TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded`
+  markers gated on the cascade-audit wiring follow-up #98
+  (`cap.revoked.cascade` + `cap.cascade.done` event classes), so the
+  validator distinguishes "not asserted" from "asserted and passed"
+  — same SKIP discipline §5.4 uses for `audit_*_recorded_qemu`.
+- delegated caps derived from deleted owner become invalid — covered
+  by the `:delegated_caps_invalid` sub-check above, which asserts
+  that an `ipc_send_h` on the recipient's delegated handle returns
+  `IPC_ERR_CAP_DENIED` after the cascade. The deny-side substrate
+  peer `m5_owner_delete_cascade_deny_qemu` (BUILD_ROADMAP §5.5
+  fourth-marker peer per the M2/M3/M4 substrate-plan precedent) is
+  tracked by #326 and is in flight; this section will grow a
+  matching `TEST:PASS:m5_owner_delete_cascade_deny_qemu` reference
+  when that PR merges.
+
+These markers are anchored by the M5 substrate plan #313
+(M5 ownership graph + cascading deletion re-platformed onto merged
+M1 substrate) and the canonical M5 plan #118, with the allow-tier
+`_qemu` peer landed by #344 and the underlying cap-handle subtree
+revoke walker landed by #327 (closes #323). The M5-SUBSTRATE-005
+GFX/WM session-teardown leg (plan #355, slices 005a/005b/005c) is
+tracked by #350 and stacks additively on top of these markers.
 - HAL call-site enforcement (issue #349, follow-up to #357): the
   subject-scoped wrappers in `kernel/hal/hal_cap_entry.c`
   (`video_hal_write_as`, `input_hal_try_read_char_as`,
