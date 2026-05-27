@@ -33,10 +33,8 @@
 enum {
   SESSION_MAX = 8,
   SESSION_VFB_WIDTH = 320,
-  SESSION_VFB_HEIGHT = 240,
-  SESSION_VFB_SIZE = 76800, /* 320 * 240 */
-  SESSION_VFB_WIDTH_MAX = 320,
-  SESSION_VFB_HEIGHT_MAX = 240,
+  SESSION_VFB_HEIGHT = 200,
+  SESSION_VFB_SIZE = 64000, /* 320 * 200 */
   /* Text grid dimensions for VFB text rendering.
    * Must match the window content area so scrolling triggers at the right time.
    * Window content: 216px wide (36*6), 128px tall (16*8). */
@@ -66,7 +64,7 @@ typedef struct {
   int gfx_mode;                     /* 0 = text, 1 = graphics */
   unsigned char *vfb;               /* Allocated via kmalloc when needed */
   unsigned int vfb_width;           /* Pixel width (set by WM or default 320) */
-  unsigned int vfb_height;          /* Pixel height (set by WM or default 240) */
+  unsigned int vfb_height;          /* Pixel height (set by WM or default 200) */
   /* Text cursor for kernel-side text rendering into VFB */
   int vfb_cursor_col;
   int vfb_cursor_row;
@@ -671,8 +669,8 @@ void session_manager_set_vfb_size(unsigned int session_id,
     return;
   }
   /* Cap at maximum to avoid excessive allocation */
-  if (width > SESSION_VFB_WIDTH_MAX) width = SESSION_VFB_WIDTH_MAX;
-  if (height > SESSION_VFB_HEIGHT_MAX) height = SESSION_VFB_HEIGHT_MAX;
+  if (width > 320) width = 320;
+  if (height > 200) height = 200;
   g_sessions[session_id].vfb_width = width;
   g_sessions[session_id].vfb_height = height;
 }
@@ -873,4 +871,43 @@ int session_manager_is_blocked(unsigned int session_id) {
     return 0;
   }
   return g_sessions[session_id].blocked;
+}
+
+/*
+ * M5-SUBSTRATE-005a (issue #350, plan
+ * plans/2026-05-26-m5-wm-cascade-on-substrate.md).
+ *
+ * Deterministic slot-order scan. Returns 0 + the lowest matching
+ * session id on hit, -1 on miss. See header doc-block for the full
+ * contract (bounds, idempotence, cascade loop usage).
+ *
+ * Implementation notes:
+ *   - The scan walks every slot in g_sessions[] in index order; we
+ *     match the first one whose in_use bit is set and whose subject_id
+ *     equals the requested owner. This makes the predicate stable
+ *     under concurrent destroy-and-rescan from broker_svc's cascade
+ *     loop (destroy clears in_use, so the next call advances past the
+ *     freed slot deterministically).
+ *   - We do NOT touch *out_session_id on a miss so callers can keep
+ *     a sentinel value (e.g. SESSION_MAX) across the cascade loop
+ *     without an extra reset.
+ */
+int session_manager_first_session_for_subject(cap_subject_id_t subject,
+                                              unsigned int *out_session_id) {
+  size_t i = 0u;
+
+  for (i = 0u; i < SESSION_MAX; ++i) {
+    if (!g_sessions[i].in_use) {
+      continue;
+    }
+    if (g_sessions[i].subject_id != subject) {
+      continue;
+    }
+    if (out_session_id != 0) {
+      *out_session_id = (unsigned int)i;
+    }
+    return 0;
+  }
+
+  return -1;
 }
