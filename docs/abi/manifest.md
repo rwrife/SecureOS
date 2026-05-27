@@ -138,6 +138,27 @@ Field semantics we are committing to at v0:
   declared, and `"none"` exactly preserves the current spawn path,
   adding it is additive and does **not** bump `OS_ABI_VERSION`
   (same precedent as `capabilities.persistence` in #285/#286).
+- `capabilities.ownership_role` is an optional enum
+  (`"owner"` | `"delegate"` | `"none"`) that declares what role this
+  app plays in the M5 ownership graph named in BUILD_ROADMAP §5.5
+  (see issue #368 and plan #313). The default is `"none"`, which
+  preserves today's behavior exactly: the launcher registers no
+  ownership edge for the subject and `BROKER_OP_DELETE_OWNER` will
+  not cascade through it. `"owner"` marks an app that is registered
+  as an owner node — its minted handles cascade-revoke when the
+  owner is deleted (see `tests/broker_svc_cascade_revokes_minted_handle_test.c`
+  and the substrate-tier `m5_owner_delete_cascade_allow_qemu` peer).
+  `"delegate"` marks an app that receives delegated handles from a
+  parent owner; deleting the parent invalidates these per §5.5
+  (`:delegated_caps_invalid` sub-check). Like `persistence` and
+  `broker_role`, this field is schema-only at v0 — the launcher and
+  broker_svc runtime wiring lands in later M5-SUBSTRATE slices.
+  Because the field is **optional**, has a non-`"none"` value only
+  when explicitly declared, and `"none"` exactly preserves the
+  current spawn / ownership-edge path, adding it is additive and
+  does **not** bump `OS_ABI_VERSION` (same precedent as
+  `capabilities.persistence` in #285/#286 and
+  `capabilities.broker_role` in #312).
 - `provides[]` lists IPC endpoints the app exposes (see
   [`ipc-wire.md`](./ipc-wire.md)). Endpoint names use a narrow
   reverse-DNS-ish pattern.
@@ -194,6 +215,27 @@ spawn) — the field's runtime meaning is wired up in a later slice
 `broker_role` and so continue to behave as `broker_role: "none"`,
 proving that the addition is backward-compatible.
 
+Two additional fixtures exercise the optional
+`capabilities.ownership_role` enum added in #368:
+
+- **Ownership owner** —
+  [`helloapp.ownership_owner.json`](../../manifests/examples/helloapp.ownership_owner.json):
+  same as `helloapp.json` but with `capabilities.ownership_role:
+  "owner"`. Demonstrates an M5 owner-node declaration.
+- **Ownership delegate** —
+  [`helloapp.ownership_delegate.json`](../../manifests/examples/helloapp.ownership_delegate.json):
+  same as `helloapp.json` but with `capabilities.ownership_role:
+  "delegate"`. Demonstrates a delegated-handle declaration.
+
+These fixtures are schema-only at v0: the launcher still registers
+no ownership edge for the subject at spawn (today's behavior) —
+the field's runtime meaning is wired up in later M5-SUBSTRATE
+slices. The pre-existing `helloapp.json` / `helloapp.deny.json` /
+`helloapp.persistent.json` / `helloapp.broker_*.json` examples omit
+`ownership_role` and so continue to behave as
+`ownership_role: "none"`, proving that the addition is backward-
+compatible.
+
 ## Compatibility policy
 
 `manifest_version` and `os_abi_version` are two intentionally separate
@@ -227,4 +269,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: c21242acde8c3cc30e584463eddba25b00214159
+Last verified against commit: HEAD
