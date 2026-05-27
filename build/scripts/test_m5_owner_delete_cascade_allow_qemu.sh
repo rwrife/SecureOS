@@ -26,8 +26,8 @@
 # build/scripts/test.sh and validate_bundle.sh):
 #   TEST:PASS:m5_owner_delete_cascade_allow_qemu:subtree_revoked_before_destroy_qemu
 #   TEST:PASS:m5_owner_delete_cascade_allow_qemu:delegated_caps_invalid
-#   TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded
-#   TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded
+#   TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded
+#   TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded
 #   TEST:PASS:m5_owner_delete_cascade_allow_qemu
 
 set -euo pipefail
@@ -63,7 +63,7 @@ LOG_PATH="$OUT_DIR/m5_owner_delete_cascade_allow_qemu_test.log"
 
 grep -q "TEST:PASS:m5_owner_delete_cascade_allow_qemu:subtree_revoked_before_destroy_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m5_owner_delete_cascade_allow_qemu:delegated_caps_invalid" "$LOG_PATH"
-grep -q "TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded" "$LOG_PATH"
-grep -q "TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded" "$LOG_PATH"
+grep -q "TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded" "$LOG_PATH"
+grep -q "TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded" "$LOG_PATH"
 grep -q "TEST:PASS:m5_owner_delete_cascade_allow_qemu$" "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"

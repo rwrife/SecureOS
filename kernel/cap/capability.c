@@ -294,6 +294,10 @@ cap_audit_outcome_t cap_audit_event_outcome(const cap_audit_event_t *event) {
     case CAP_AUDIT_OP_REVOKE:
       return (event->result == CAP_OK) ? CAP_AUDIT_OUTCOME_REVOKED
                                        : CAP_AUDIT_OUTCOME_REVOKE_DENIED;
+    case CAP_AUDIT_OP_CASCADE_REVOKE:
+      return CAP_AUDIT_OUTCOME_CASCADE_REVOKED;
+    case CAP_AUDIT_OP_CASCADE_DONE:
+      return CAP_AUDIT_OUTCOME_CASCADE_DONE;
   }
 
   return CAP_AUDIT_OUTCOME_DENY;
@@ -304,6 +308,8 @@ static const char *cap_audit_op_name(cap_audit_op_t op) {
     case CAP_AUDIT_OP_CHECK:  return "CHECK";
     case CAP_AUDIT_OP_GRANT:  return "GRANT";
     case CAP_AUDIT_OP_REVOKE: return "REVOKE";
+    case CAP_AUDIT_OP_CASCADE_REVOKE: return "CASCADE_REVOKE";
+    case CAP_AUDIT_OP_CASCADE_DONE:   return "CASCADE_DONE";
   }
   return "UNKNOWN";
 }
@@ -326,6 +332,8 @@ static const char *cap_audit_outcome_name(cap_audit_outcome_t outcome) {
     case CAP_AUDIT_OUTCOME_GRANT_DENIED:   return "GRANT_DENIED";
     case CAP_AUDIT_OUTCOME_REVOKED:        return "REVOKED";
     case CAP_AUDIT_OUTCOME_REVOKE_DENIED:  return "REVOKE_DENIED";
+    case CAP_AUDIT_OUTCOME_CASCADE_REVOKED: return "CASCADE_REVOKED";
+    case CAP_AUDIT_OUTCOME_CASCADE_DONE:    return "CASCADE_DONE";
   }
   return "UNKNOWN";
 }
