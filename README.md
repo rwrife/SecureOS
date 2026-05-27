@@ -89,6 +89,11 @@ For graphics mode with the VGA display:
     launcher manifest schema, and the `OS_ABI_VERSION` policy. See
     [`docs/abi/README.md`](docs/abi/README.md) for the full index.
 - `plans/` — Planning documents for future work
+- `sdk/` — Public SDK scaffold (M6, BUILD_ROADMAP §5.6): `sdk/include/os/abi.h`
+  re-exports `OS_ABI_VERSION_*` from `user/include/secureos_abi.h`,
+  `sdk/VERSION` pins `MAJOR.MINOR.PATCH`. Slice 1 only; `libos.a` and
+  the `os-cc` / `os-pack` / `os-run` wrappers arrive in later slices.
+  See [`sdk/README.md`](sdk/README.md).
 
 ## Design Principles
 
