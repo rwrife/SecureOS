@@ -49,6 +49,23 @@ TEST_TARGETS=(
     proc_sched
     m1_ipc_demo
     validate_abi_stamps
+    # M4 capability-broker substrate (umbrella #299, plan
+    # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
+    # checks + the three `_qemu` peers (slices 003/004) are all green on
+    # main but had not been wired into the bundle gate. Adding them so a
+    # future M4 substrate regression flips the bundle to FAIL.
+    broker_svc_port_alloc
+    broker_svc_delete_owner_authority_check
+    broker_svc_cascade_revokes_minted_handle
+    m4_broker_share_allow_qemu
+    m4_broker_share_deny_qemu
+    m4_broker_share_revoke_qemu
+    # M5 ownership-graph cascade (umbrella #313, plan
+    # plans/2026-05-25-m5-ownership-on-m1-substrate.md): allow-side
+    # `_qemu` peer (slice 003). The deny-side peer
+    # (`m5_owner_delete_cascade_deny_qemu`, #326 / PR #362) lands
+    # alongside its source PR.
+    m5_owner_delete_cascade_allow_qemu
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
