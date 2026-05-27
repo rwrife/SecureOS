@@ -128,7 +128,23 @@ bool broker_svc_is_initialised(void) {
 
 /* ----------------------------------------------------------------
  * M5-SUBSTRATE-002 (#324): broker_svc_approve + delete-owner cascade.
+ *
+ * Gated on __STDC_HOSTED__: these functions reference cap_broker_*,
+ * cap_handle_*, cap_deny_marker_format and process_destroy, which are
+ * NOT in build/scripts/build_kernel_entry.sh's freestanding kernel
+ * link list (only host-side test_*.sh scripts pull those .c files
+ * into the link). Including them in the freestanding compile would
+ * break the kernel-entry build with undefined-symbol errors at
+ * link time. Host fixtures continue to exercise this code via the
+ * same translation unit.
+ *
+ * Lifting the gate is a separate follow-up that adds the supporting
+ * .c files (cap_broker.c, cap_handle.c, cap_deny_marker.c,
+ * proc/process.c) to the kernel link list — see issue #324
+ * "Kernel integration" follow-up notes.
  * ---------------------------------------------------------------- */
+
+#if __STDC_HOSTED__
 
 static broker_svc_share_row_t *broker_svc_find_free_row(void) {
   for (size_t i = 0u; i < CAP_BROKER_MAX_SHARES; ++i) {
@@ -310,3 +326,5 @@ broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
   }
   return BROKER_SVC_OK;
 }
+
+#endif  /* __STDC_HOSTED__ */
