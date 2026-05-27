@@ -34,12 +34,19 @@ extern "C" {
 #define SOSH_SOURCE_MAX     4
 
 typedef struct {
-  sosh_var_table_t vars;
-  sosh_output_fn   output;
-  sosh_exec_fn     exec;
-  void            *user_ctx;
-  int              exit_requested;
-  int              exit_code;
+  sosh_var_table_t  vars;
+  sosh_output_fn    output;
+  sosh_exec_fn      exec;
+  void             *user_ctx;
+  int               exit_requested;
+  int               exit_code;
+  /* Optional capability check; see sosh_builtins.h. NULL = legacy
+   * host-process mode (no per-builtin gate). First enforcement slice
+   * of #351 only consults this for `echo` → SOSH_CAP_CONSOLE_WRITE;
+   * additional surfaces (fs_read, fs_write, app_exec) land in follow-ups
+   * per docs/abi/sosh-capability-contract.md §7. */
+  sosh_cap_check_fn cap_check;
+  void             *cap_ctx;
 } sosh_state_t;
 
 /**
@@ -47,6 +54,14 @@ typedef struct {
  */
 void sosh_eval_init(sosh_state_t *state, sosh_output_fn output,
                     sosh_exec_fn exec, void *user_ctx);
+
+/**
+ * Install an optional capability-check callback. May be NULL to clear.
+ * cap_ctx is passed back to the callback verbatim.
+ */
+void sosh_eval_set_cap_check(sosh_state_t *state,
+                             sosh_cap_check_fn cap_check,
+                             void *cap_ctx);
 
 /**
  * Execute a script from a text buffer.

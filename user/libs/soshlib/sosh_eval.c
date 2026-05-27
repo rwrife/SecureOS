@@ -353,6 +353,16 @@ void sosh_eval_init(sosh_state_t *state, sosh_output_fn output,
   state->user_ctx = user_ctx;
   state->exit_requested = 0;
   state->exit_code = 0;
+  state->cap_check = 0;
+  state->cap_ctx = 0;
+}
+
+void sosh_eval_set_cap_check(sosh_state_t *state,
+                             sosh_cap_check_fn cap_check,
+                             void *cap_ctx) {
+  if (state == 0) return;
+  state->cap_check = cap_check;
+  state->cap_ctx = cap_ctx;
 }
 
 /**
@@ -672,12 +682,24 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
     }
 
     if (tokens.tokens[0].type == SOSH_TOK_WORD && sosh_streq(cmd_val, "echo")) {
-      /* echo expr... */
+      /* echo expr...  — gated by SOSH_CAP_CONSOLE_WRITE per
+       * docs/abi/sosh-capability-contract.md §4. Deny short-circuits the
+       * builtin so no output is leaked (§6 bullet 3) and the script's
+       * $? observes the embedder-supplied non-zero exit code. */
       char output[SOSH_VAR_VALUE_MAX];
+      if (state->cap_check != 0) {
+        int rc = state->cap_check(SOSH_CAP_CONSOLE_WRITE, (const char *)0,
+                                  state->cap_ctx);
+        if (rc != 0) {
+          sosh_vars_set_exit_code(&state->vars, rc);
+          continue;
+        }
+      }
       pos = 1;
       eval_expr(&tokens, &pos, state, output, sizeof(output));
       sosh_strcat(output, "\n", sizeof(output));
       if (state->output) state->output(output, state->user_ctx);
+      sosh_vars_set_exit_code(&state->vars, 0);
       continue;
     }
 

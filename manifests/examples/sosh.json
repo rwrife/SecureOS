@@ -1,0 +1,39 @@
+{
+  "manifest_version": 0,
+  "os_abi_version": 0,
+  "app": {
+    "id": "sosh",
+    "version": "0.1.0",
+    "subject_id": 5,
+    "binary": "apps/sosh.bin",
+    "signer_key_id": "secureos-dev-key-1"
+  },
+  "capabilities": {
+    "request": [
+      "CAP_CONSOLE_WRITE",
+      "CAP_FS_READ",
+      "CAP_FS_WRITE",
+      "CAP_APP_EXEC"
+    ],
+    "optional": [
+      "CAP_FS_WRITE",
+      "CAP_APP_EXEC"
+    ]
+  },
+  "provides": [],
+  "launcher": {
+    "auto_grant_at_launch": [
+      "CAP_CONSOLE_WRITE",
+      "CAP_FS_READ"
+    ],
+    "require_user_confirm": [
+      "CAP_FS_WRITE",
+      "CAP_APP_EXEC"
+    ]
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "signer_key_id": "secureos-dev-key-1",
+    "signature_path": "apps/sosh.bin.sig"
+  }
+}

@@ -53,7 +53,7 @@ run_script() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|validate_sosh_capability_contract|sosh_contract_registry_drift|parity|harness_defense|canary_must_fail]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|session_manager_first_for_subject|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|app_runtime|helloapp_allow|helloapp_deny|sosh_cap_allow|sosh_cap_deny|win_gfx_gates|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|validate_sosh_capability_contract|sosh_contract_registry_drift|parity|harness_defense|canary_must_fail]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -95,6 +95,14 @@ case "$TEST_NAME" in
     ;;
   cap_handle_revoke_subtree)
     run_script "$ROOT_DIR/build/scripts/test_cap_handle_revoke_subtree.sh"
+    ;;
+  session_manager_first_for_subject)
+    # Issue #350 / plan plans/2026-05-26-m5-wm-cascade-on-substrate.md
+    # (M5-SUBSTRATE-005a). Host-side unit tests for the
+    # session_manager_first_session_for_subject enumerator predicate
+    # the cascade orchestrator will drive in step 3.5 of
+    # broker_svc_delete_owner.
+    run_script "$ROOT_DIR/build/scripts/test_session_manager_first_for_subject.sh"
     ;;
   process_table)
     run_script "$ROOT_DIR/build/scripts/test_process_table.sh"
@@ -250,6 +258,9 @@ case "$TEST_NAME" in
   m4_broker_share_revoke_qemu)
     run_script "$ROOT_DIR/build/scripts/test_m4_broker_share_revoke_qemu.sh"
     ;;
+  m5_owner_delete_cascade_allow_qemu)
+    run_script "$ROOT_DIR/build/scripts/test_m5_owner_delete_cascade_allow_qemu.sh"
+    ;;
   app_runtime)
     run_script "$ROOT_DIR/build/scripts/test_app_runtime.sh"
     ;;
@@ -258,6 +269,15 @@ case "$TEST_NAME" in
     ;;
   helloapp_deny)
     run_script "$ROOT_DIR/build/scripts/test_helloapp_deny.sh"
+    ;;
+  win_gfx_gates)
+    run_script "$ROOT_DIR/build/scripts/test_win_gfx_gates.sh"
+    ;;
+  sosh_cap_allow)
+    run_script "$ROOT_DIR/build/scripts/test_sosh_cap_allow.sh"
+    ;;
+  sosh_cap_deny)
+    run_script "$ROOT_DIR/build/scripts/test_sosh_cap_deny.sh"
     ;;
   m2_helloapp_allow_qemu)
     run_script "$ROOT_DIR/build/scripts/test_m2_helloapp_allow_qemu.sh"
