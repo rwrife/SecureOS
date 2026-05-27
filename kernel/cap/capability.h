@@ -80,6 +80,24 @@ typedef enum {
   CAP_AUDIT_OP_CHECK = 0,
   CAP_AUDIT_OP_GRANT = 1,
   CAP_AUDIT_OP_REVOKE = 2,
+  /*
+   * Issue #370: per-child cascade revoke emitted by
+   * broker_svc_delete_owner. Schema-compatible with the existing
+   * cap_audit_event_t tuple (#98) — `actor_subject_id` is the
+   * caller of broker_svc_delete_owner, `subject_id` is the affected
+   * recipient / session-owner subject, `capability_id` is the
+   * underlying CAP_* the share carried (or 0 for non-cap edges such
+   * as the step-3.5 session teardown).
+   */
+  CAP_AUDIT_OP_CASCADE_REVOKE = 3,
+  /*
+   * Issue #370: terminal cap.cascade.done event emitted exactly once
+   * per broker_svc_delete_owner ALLOW invocation. `subject_id` is
+   * the owner whose tree was torn down; `capability_id` carries the
+   * `n_children` cascade count (overloaded — fits in v0 because
+   * capability_id is u32 and the bound is BROKER_SVC_CASCADE_*).
+   */
+  CAP_AUDIT_OP_CASCADE_DONE = 4,
 } cap_audit_op_t;
 
 typedef struct {
@@ -106,6 +124,9 @@ typedef enum {
   CAP_AUDIT_OUTCOME_GRANT_DENIED = 3,
   CAP_AUDIT_OUTCOME_REVOKED = 4,
   CAP_AUDIT_OUTCOME_REVOKE_DENIED = 5,
+  /* Issue #370: outcomes for the cascade ops above. */
+  CAP_AUDIT_OUTCOME_CASCADE_REVOKED = 6,
+  CAP_AUDIT_OUTCOME_CASCADE_DONE    = 7,
 } cap_audit_outcome_t;
 
 /*

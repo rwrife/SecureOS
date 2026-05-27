@@ -334,6 +334,46 @@ int main(void) {
   printf("TEST:PASS:m5_owner_delete_cascade_deny_qemu:"
          "bystander_cannot_delete_owner\n");
 
+  /* Issue #370 audit assertion (bystander path):
+   *   - exactly one cap.deny event recorded against the bystander
+   *     for {actor=bystander, subject=owner, cap=CAP_CAPABILITY_ADMIN}
+   *   - zero cap.cascade.* events emitted on the deny path (no
+   *     false-positive cascade audit). */
+  {
+    size_t total = cap_audit_count_for_tests();
+    int deny_count       = 0;
+    int cascade_seen     = 0;
+    int cascade_done_seen = 0;
+    for (size_t i = 0u; i < total; ++i) {
+      cap_audit_event_t ev;
+      if (cap_audit_get_for_tests(i, &ev) != CAP_OK) continue;
+      if (ev.operation == CAP_AUDIT_OP_CHECK &&
+          ev.actor_subject_id == bystander &&
+          ev.subject_id == owner &&
+          ev.capability_id == CAP_CAPABILITY_ADMIN &&
+          ev.result == CAP_ERR_MISSING) {
+        deny_count++;
+      }
+      if (ev.operation == CAP_AUDIT_OP_CASCADE_REVOKE) {
+        cascade_seen = 1;
+      }
+      if (ev.operation == CAP_AUDIT_OP_CASCADE_DONE) {
+        cascade_done_seen = 1;
+      }
+    }
+    if (deny_count != 1) {
+      fprintf(stderr, "bystander deny audit count = %d (want 1)\n", deny_count);
+      fail("bystander_deny_audit_not_recorded");
+      goto out;
+    }
+    if (cascade_seen || cascade_done_seen) {
+      fail("bystander_deny_leaked_cascade_audit");
+      goto out;
+    }
+  }
+  printf("TEST:PASS:m5_owner_delete_cascade_deny_qemu:"
+         "audit_deny_recorded_no_cascade_qemu\n");
+
   /* ------------------------------------------------------------------
    * Sub-check 2: double_delete_is_idempotent
    *
