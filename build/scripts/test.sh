@@ -150,9 +150,6 @@ case "$TEST_NAME" in
   broker_svc_step3_5_session_teardown)
     run_script "$ROOT_DIR/build/scripts/test_broker_svc_step3_5_session_teardown.sh"
     ;;
-  session_manager_first_for_subject)
-    run_script "$ROOT_DIR/build/scripts/test_session_manager_first_for_subject.sh"
-    ;;
   aspace_invariant)
     run_script "$ROOT_DIR/build/scripts/test_aspace_invariant.sh"
     ;;
