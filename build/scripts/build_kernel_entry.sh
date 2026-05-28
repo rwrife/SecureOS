@@ -33,6 +33,10 @@ clang $CFLAGS -c kernel/arch/x86/debug_exit.c -o artifacts/kernel/debug_exit.o
 clang $CFLAGS -c kernel/arch/x86/serial.c -o artifacts/kernel/serial.o
 clang $CFLAGS -c kernel/arch/x86/vga.c -o artifacts/kernel/vga.o
 clang $CFLAGS -c kernel/cap/cap_table.c -o artifacts/kernel/cap_table.o
+clang $CFLAGS -c kernel/lib/kmem.c -o artifacts/kernel/kmem.o
+clang $CFLAGS -c kernel/cap/capability.c -o artifacts/kernel/capability.o
+clang $CFLAGS -c kernel/cap/cap_deny_marker.c -o artifacts/kernel/cap_deny_marker.o
+clang $CFLAGS -c kernel/cap/cap_gate.c -o artifacts/kernel/cap_gate.o
 clang $CFLAGS -c kernel/event/event_bus.c -o artifacts/kernel/event_bus.o
 clang $CFLAGS -c kernel/hal/network_hal.c -o artifacts/kernel/network_hal.o
 clang $CFLAGS -c kernel/hal/serial_hal.c -o artifacts/kernel/serial_hal.o
@@ -40,6 +44,7 @@ clang $CFLAGS -c kernel/hal/input_hal.c -o artifacts/kernel/input_hal.o
 clang $CFLAGS -c kernel/hal/mouse_hal.c -o artifacts/kernel/mouse_hal.o
 clang $CFLAGS -c kernel/hal/storage_hal.c -o artifacts/kernel/storage_hal.o
 clang $CFLAGS -c kernel/hal/video_hal.c -o artifacts/kernel/video_hal.o
+clang $CFLAGS -c kernel/hal/hal_cap_entry.c -o artifacts/kernel/hal_cap_entry.o
 clang $CFLAGS -c kernel/drivers/disk/ramdisk.c -o artifacts/kernel/ramdisk.o
 clang $CFLAGS -c kernel/drivers/network/virtio_net.c -o artifacts/kernel/virtio_net.o
 clang $CFLAGS -c kernel/drivers/serial/pc_com.c -o artifacts/kernel/pc_com.o
@@ -69,7 +74,7 @@ clang $CFLAGS -c kernel/gfx/vfb_font.c -o artifacts/kernel/vfb_font.o
 ld.lld -m elf_x86_64 -T kernel/arch/x86/boot/linker.ld \
   -Map=artifacts/kernel/kernel.map \
   -o artifacts/kernel/kernel.elf \
-  artifacts/kernel/entry.o artifacts/kernel/idt_stubs.o artifacts/kernel/idt.o artifacts/kernel/ctx_switch.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/boot_banner.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/event_bus.o artifacts/kernel/network_hal.o artifacts/kernel/serial_hal.o artifacts/kernel/input_hal.o artifacts/kernel/mouse_hal.o artifacts/kernel/storage_hal.o artifacts/kernel/video_hal.o artifacts/kernel/ramdisk.o artifacts/kernel/virtio_net.o artifacts/kernel/pc_com.o artifacts/kernel/ps2_keyboard.o artifacts/kernel/ps2_mouse.o artifacts/kernel/vga_text.o artifacts/kernel/vga_gfx.o artifacts/kernel/framebuffer_text_stub.o artifacts/kernel/gpio_text_stub.o artifacts/kernel/sha512.o artifacts/kernel/ed25519.o artifacts/kernel/cert.o artifacts/kernel/sof.o artifacts/kernel/fs_service.o artifacts/kernel/native_net_service.o artifacts/kernel/launcher_exec.o artifacts/kernel/ipc_port.o artifacts/kernel/console_svc.o artifacts/kernel/fs_svc.o artifacts/kernel/broker_svc.o artifacts/kernel/cmos_rtc.o artifacts/kernel/clock_service.o artifacts/kernel/clock_hal.o artifacts/kernel/kheap.o artifacts/kernel/vfb_font.o
+  artifacts/kernel/entry.o artifacts/kernel/idt_stubs.o artifacts/kernel/idt.o artifacts/kernel/ctx_switch.o artifacts/kernel/kmain.o artifacts/kernel/console.o artifacts/kernel/session_manager.o artifacts/kernel/boot_banner.o artifacts/kernel/scheduler.o artifacts/kernel/ata_pio.o artifacts/kernel/debug_exit.o artifacts/kernel/serial.o artifacts/kernel/vga.o artifacts/kernel/cap_table.o artifacts/kernel/kmem.o artifacts/kernel/capability.o artifacts/kernel/cap_deny_marker.o artifacts/kernel/cap_gate.o artifacts/kernel/event_bus.o artifacts/kernel/network_hal.o artifacts/kernel/serial_hal.o artifacts/kernel/input_hal.o artifacts/kernel/mouse_hal.o artifacts/kernel/storage_hal.o artifacts/kernel/video_hal.o artifacts/kernel/hal_cap_entry.o artifacts/kernel/ramdisk.o artifacts/kernel/virtio_net.o artifacts/kernel/pc_com.o artifacts/kernel/ps2_keyboard.o artifacts/kernel/ps2_mouse.o artifacts/kernel/vga_text.o artifacts/kernel/vga_gfx.o artifacts/kernel/framebuffer_text_stub.o artifacts/kernel/gpio_text_stub.o artifacts/kernel/sha512.o artifacts/kernel/ed25519.o artifacts/kernel/cert.o artifacts/kernel/sof.o artifacts/kernel/fs_service.o artifacts/kernel/native_net_service.o artifacts/kernel/launcher_exec.o artifacts/kernel/ipc_port.o artifacts/kernel/console_svc.o artifacts/kernel/fs_svc.o artifacts/kernel/broker_svc.o artifacts/kernel/cmos_rtc.o artifacts/kernel/clock_service.o artifacts/kernel/clock_hal.o artifacts/kernel/kheap.o artifacts/kernel/vfb_font.o
 
 if command -v llvm-objdump >/dev/null 2>&1; then
   llvm-objdump -h artifacts/kernel/kernel.elf > artifacts/kernel/kernel.sections.txt

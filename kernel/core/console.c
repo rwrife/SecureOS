@@ -36,6 +36,7 @@
 #include "../cap/cap_table.h"
 #include "../event/event_bus.h"
 #include "../fs/fs_service.h"
+#include "../hal/hal_cap_entry.h"
 #include "../hal/input_hal.h"
 #include "../hal/mouse_hal.h"
 #include "../hal/serial_hal.h"
@@ -956,7 +957,11 @@ static void console_write(const char *message) {
   }
 
   serial_hal_write(message);
-  video_hal_write(message);
+  /* #375: route the framebuffer write through the subject-scoped wrapper
+   * so the console's HAL call site is gated by CAP_GFX_FRAMEBUFFER.
+   * On deny, video_hal_write_as is a no-op — matches the existing
+   * CAP_CONSOLE_WRITE deny posture above (drop the frame silently). */
+  (void)video_hal_write_as(console_subject_id, message, 0, 0u);
 }
 
 static void console_clear_hardware(void) {
@@ -1097,8 +1102,12 @@ static void console_history_recall_down(void) {
 static char console_wait_for_yes_no(void) {
   for (;;) {
     char input = '\0';
+    int got = 0;
     mouse_hal_update();
-    if (!input_hal_try_read_char(&input)) {
+    /* #375: subject-scoped gate on CAP_INPUT_KEYBOARD; deny is treated
+     * the same as "no data available" (idle and retry). */
+    if (input_hal_try_read_char_as(console_subject_id, &input, &got, 0, 0u)
+            != CAP_OK || !got) {
       console_idle_wait();
       continue;
     }
@@ -1798,9 +1807,15 @@ void console_run(void) {
     if (g_console_ctx->inject_tail != g_console_ctx->inject_head) {
       input = g_console_ctx->inject_buf[g_console_ctx->inject_tail];
       g_console_ctx->inject_tail = (g_console_ctx->inject_tail + 1u) % CONSOLE_LINE_MAX;
-    } else if (!input_hal_try_read_char(&input)) {
-      console_idle_wait();
-      continue;
+    } else {
+      int got = 0;
+      /* #375: subject-scoped gate on CAP_INPUT_KEYBOARD; deny is
+       * treated as "no data available" (idle + retry). */
+      if (input_hal_try_read_char_as(console_subject_id, &input, &got, 0,
+                                     0u) != CAP_OK || !got) {
+        console_idle_wait();
+        continue;
+      }
     }
 
     if (g_console_ctx->escape_state == 0u && input == 0x1Bu) {

@@ -124,6 +124,12 @@ void kmain(void) {
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_IPC_SEND);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_IPC_RECV);
   (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_CLOCK_SET);
+  /* Subject-scoped HAL wrappers (#349 / #375): the kernel bootstrap
+   * console drives the framebuffer + PS/2 keyboard via
+   * video_hal_write_as / input_hal_try_read_char_as. Grant the gates
+   * up front so the call sites do not deny-by-default during boot. */
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_GFX_FRAMEBUFFER);
+  (void)cap_table_grant(KERNEL_BOOTSTRAP_SUBJECT, CAP_INPUT_KEYBOARD);
 
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_CONSOLE_WRITE);
   (void)cap_table_grant(FILEDEMO_SUBJECT, CAP_DISK_IO_REQUEST);
