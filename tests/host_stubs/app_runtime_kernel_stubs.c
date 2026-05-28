@@ -192,6 +192,32 @@ int input_hal_try_read_char(char *out_char) {
   return 0;
 }
 
+/* Subject-scoped wrapper from kernel/hal/hal_cap_entry.c. Host-side stub:
+ * always returns CAP_OK and reports no data available. CAP_OK is 0. */
+int input_hal_try_read_char_as(unsigned int subject_id,
+                               char *out_char,
+                               int *bytes_available_out,
+                               char *deny_marker_buf,
+                               size_t deny_marker_size) {
+  (void)subject_id;
+  (void)out_char;
+  (void)deny_marker_buf;
+  (void)deny_marker_size;
+  if (bytes_available_out) {
+    *bytes_available_out = 0;
+  }
+  return 0;
+}
+
+int session_manager_subject_for_session(unsigned int session_id,
+                                        unsigned int *out_subject_id) {
+  (void)session_id;
+  if (out_subject_id) {
+    *out_subject_id = 0u;
+  }
+  return -1;
+}
+
 /* ------------------------------------------------------------------ */
 /* drivers/video/vga_gfx.c (extended)                                 */
 /* ------------------------------------------------------------------ */
