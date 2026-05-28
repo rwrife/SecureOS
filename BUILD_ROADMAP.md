@@ -432,7 +432,16 @@ M1 substrate) and the canonical M5 plan #118, with the allow-tier
 `_qemu` peer landed by #344 and the underlying cap-handle subtree
 revoke walker landed by #327 (closes #323). The M5-SUBSTRATE-005
 GFX/WM session-teardown leg (plan #355, slices 005a/005b/005c) is
-tracked by #350 and stacks additively on top of these markers.
+tracked by #350; the slice-005c substrate peer
+`m5_owner_delete_cascade_window_qemu` is now green on `main` and
+pinned by `TEST:PASS:m5_owner_delete_cascade_window_qemu` plus its
+sub-checks `:owned_sessions_destroyed`,
+`:bystander_session_preserved`, `:delegated_gfx_caps_invalid`,
+`:session_slot_recyclable`, `:double_delete_idempotent_session_leg`,
+`:audit_wm_cascade_recorded`, and `:audit_wm_cascade_done_recorded`
+(see `tests/m5_owner_delete_cascade_window_qemu_test.c`, run via
+`build/scripts/test.sh m5_owner_delete_cascade_window_qemu` —
+landed by #387 and gated by `validate_bundle.sh`).
 - HAL call-site enforcement (issue #349, follow-up to #357): the
   subject-scoped wrappers in `kernel/hal/hal_cap_entry.c`
   (`video_hal_write_as`, `input_hal_try_read_char_as`,

@@ -68,6 +68,14 @@ TEST_TARGETS=(
     # cascade gate the bundle.
     m5_owner_delete_cascade_allow_qemu
     m5_owner_delete_cascade_deny_qemu
+    # M5 ownership-graph WM/session-leg cascade (slice 005c, #387 /
+    # plan plans/2026-05-26-m5-wm-cascade-on-substrate.md). Pairs the
+    # cap-leg allow/deny peers above with the session-leg peer that
+    # asserts step 3.5 of broker_svc_delete_owner (PR #363) drains
+    # owner-scoped sessions, preserves bystander sessions, recycles
+    # the freed slot, double-delete is a no-op, and the audit ring
+    # records the WM cascade events.
+    m5_owner_delete_cascade_window_qemu
     # HAL call-site gates (issue #349 / PR #365): allow + deny `_qemu`
     # peers (issue #376) ride on the M2 substrate launcher path and
     # prove video_hal_write_as / input_hal_try_read_char_as /
