@@ -235,6 +235,10 @@ int main(void) {
     die("extcmd_deny_script_aborted");
   }
 
+  /* Audit-integration SKIP per contract §6.1 (issue #389). */
+  printf("TEST:SKIP:sosh_cap_source_exec:audit_deny_recorded:"
+         "sosh_audit_unwired_pending_issue_389\n");
+
   printf("TEST:PASS:sosh_cap_source_exec\n");
   return 0;
 }

@@ -215,6 +215,10 @@ int main(void) {
   }
   printf("TEST:PASS:sosh_cap_exists:legacy_null_cap_check_no_op\n");
 
+  /* Audit-integration SKIP per contract §6.1 (issue #389). */
+  printf("TEST:SKIP:sosh_cap_exists:audit_deny_recorded:"
+         "sosh_audit_unwired_pending_issue_389\n");
+
   printf("TEST:PASS:sosh_cap_exists\n");
   return 0;
 }

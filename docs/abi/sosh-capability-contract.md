@@ -245,6 +245,53 @@ When a sosh builtin's gate check fails:
    §5 — same shape as the M2/M3/M4 deny paths, no sosh-specific schema
    extension.
 
+### 6.1 Audit integration (embedder follow-up)
+
+The `cap_check` deny path in soshlib is currently a *script-side* gate
+only: it short-circuits the builtin and propagates the deny rc into
+`$?`, but it does NOT itself append to the kernel capability-audit
+ring. That wiring is intentionally left to the **embedder** (the
+in-tree sosh host, future per-script launcher, or test fixture), to
+keep `user/libs/soshlib/` kernel-cap-agnostic per §5.1. This mirrors
+the M4 broker→audit split that was closed by issue [#311](https://github.com/rwrife/SecureOS/issues/311)
+(which flipped `audit_*_recorded` SKIPs to PASS once a broker embedder
+started feeding `cap_audit_record_deny`).
+
+**Embedder contract (normative):**
+
+- An embedder that owns a sosh subject id MAY wire its
+  `sosh_cap_check_fn` deny path into
+  `cap_audit_record_deny(subject_id, cap_id, "-")` (or the
+  resource-bearing equivalent, when the gated builtin carries one).
+- The canonical audit-ring line shape is
+  `CAP:DENY:<sid>:<sosh-cap>:-\n` per
+  [`docs/abi/capability-deny-contract.md`](capability-deny-contract.md)
+  §4.3. The `<sosh-cap>` token is the contract §4 spelling (e.g.
+  `console_write`, `fs_read`, `fs_write`, `app_exec`, `env_write`).
+  No sosh-specific marker grammar is introduced.
+- No new `SOSH_CAP_*` ids and no `OS_ABI_VERSION` bump are required to
+  wire this — `cap_audit_record_deny(...)` is already in tree (used by
+  the M4 broker after #311) and the soshlib API surface is unchanged.
+
+**SKIP discipline until an in-tree embedder lands:** every sosh
+host-side deny test (see §7 "Implementation tracking" for the list)
+emits the marker
+
+```
+TEST:SKIP:<test>:audit_deny_recorded:sosh_audit_unwired_pending_issue_389
+```
+
+exactly once on the deny path. The `<test>` token matches the test's
+existing `TEST:START:` / `TEST:PASS:` family root (e.g.
+`sosh_cap_deny`, `sosh_cap_cat_ls`, `sosh_cap_write_append`,
+`sosh_cap_export`, `sosh_cap_exists`, `sosh_cap_source_exec`). The
+marker is purely informational — `build/scripts/test_sosh_cap_*.sh`
+still `grep -q` the existing required PASS lines, and no validator
+asserts the SKIP shape today. Once an in-tree sosh embedder begins
+feeding deny events to the audit ring, the marker flips to a
+`TEST:PASS:<test>:audit_deny_recorded` assertion driven against the
+ring contents, mirroring the M4 #311 transition.
+
 ## 7. Implementation tracking
 
 This document is the first done-when bullet of #351. The remaining
