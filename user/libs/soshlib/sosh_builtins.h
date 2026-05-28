@@ -58,6 +58,7 @@ typedef int (*sosh_cap_check_fn)(int sosh_cap_id, const char *resource,
 #define SOSH_CAP_FS_READ       2
 #define SOSH_CAP_FS_WRITE      3
 #define SOSH_CAP_APP_EXEC      4
+#define SOSH_CAP_ENV_WRITE     5
 
 /**
  * Check if a command name is a built-in.

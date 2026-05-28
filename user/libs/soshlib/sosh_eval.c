@@ -676,7 +676,21 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
     }
 
     if (tokens.tokens[0].type == SOSH_TOK_WORD && sosh_streq(cmd_val, "export")) {
-      /* export VAR = expr — same as set, but also calls exec to export */
+      /* export VAR = expr — `set`-equivalent in-process update of the
+       * script variable table, plus a side-effecting env-service write
+       * via state->exec("env", "VAR=value", ...).
+       *
+       * Per docs/abi/sosh-capability-contract.md §4 the env-service
+       * write is gated on SOSH_CAP_ENV_WRITE with `resource = <var>`.
+       * The §3 ADR routes this through the existing cap_check callback
+       * (no CAP_SOSH_* namespace); the embedder maps SOSH_CAP_ENV_WRITE
+       * to its native CAP_* (or treats `export` as host-only no-op per
+       * §6 option b if no env-write capability exists yet) and is
+       * responsible for emitting the canonical CAP:DENY marker on
+       * denial. On deny we keep the in-process `sosh_vars_set` of the
+       * script var (matching `set` semantics — no kernel surface and
+       * no leak), skip the exec call, set $? to the embedder rc, and
+       * continue the script (§6 bullets 2-3). */
       if (tokens.count >= 4 && tokens.tokens[2].type == SOSH_TOK_OP_ASSIGN) {
         char var_name[SOSH_VAR_NAME_MAX];
         char value[SOSH_VAR_VALUE_MAX];
@@ -684,13 +698,22 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
         pos = 3;
         eval_expr(&tokens, &pos, state, value, sizeof(value));
         sosh_vars_set(&state->vars, var_name, value);
-        /* Call env set via exec callback */
+        /* Call env set via exec callback, gated on SOSH_CAP_ENV_WRITE. */
         if (state->exec) {
+          if (state->cap_check != 0) {
+            int rc = state->cap_check(SOSH_CAP_ENV_WRITE, var_name,
+                                      state->cap_ctx);
+            if (rc != 0) {
+              sosh_vars_set_exit_code(&state->vars, rc);
+              continue;
+            }
+          }
           char env_arg[SOSH_VAR_VALUE_MAX + SOSH_VAR_NAME_MAX + 2];
           sosh_strcpy(env_arg, var_name, sizeof(env_arg));
           sosh_strcat(env_arg, "=", sizeof(env_arg));
           sosh_strcat(env_arg, value, sizeof(env_arg));
           state->exec("env", env_arg, (char*)0, 0, state->user_ctx);
+          sosh_vars_set_exit_code(&state->vars, 0);
         }
       }
       continue;

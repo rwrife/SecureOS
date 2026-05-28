@@ -99,6 +99,7 @@ TEST_TARGETS=(
     sosh_cap_exists
     sosh_cap_cat_ls
     sosh_cap_write_append
+    sosh_cap_export
     # sosh contract ↔ capability-registry drift guard (PR #361). Pure
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
