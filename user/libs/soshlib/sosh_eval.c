@@ -278,13 +278,28 @@ static int eval_condition(const sosh_token_list_t *tokens, int *pos,
     return !eval_condition(tokens, pos, state);
   }
 
-  /* Check for "exists" */
+  /* Check for "exists" — gated by SOSH_CAP_FS_READ per
+   * docs/abi/sosh-capability-contract.md §4 (row `exists <path>`).
+   * The underlying syscall is os_fs_list_dir / os_fs_read_file, so this
+   * reuses the same abstract id as `cat` / `ls` / `source`. Deny
+   * short-circuits the exec callback so no filesystem probe is issued;
+   * the condition evaluates to false (same shape as a non-existent
+   * path), $? carries the embedder rc, and the script does NOT abort
+   * (§6). When `state->cap_check == NULL` the gate is a no-op,
+   * preserving the legacy host-process mode (§5.1). */
   if (tokens->tokens[*pos].type == SOSH_TOK_WORD &&
       sosh_streq(tokens->tokens[*pos].value, "exists")) {
     (*pos)++;
     if (*pos < tokens->count) {
       resolve_token(&tokens->tokens[*pos], state, left, sizeof(left));
       (*pos)++;
+      if (state->cap_check != 0) {
+        int crc = state->cap_check(SOSH_CAP_FS_READ, left, state->cap_ctx);
+        if (crc != 0) {
+          sosh_vars_set_exit_code(&state->vars, crc);
+          return 0;
+        }
+      }
       /* Use exec callback to check existence via ls */
       if (state->exec) {
         char result[64];

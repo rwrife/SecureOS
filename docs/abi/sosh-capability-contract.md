@@ -246,11 +246,12 @@ their normative source:
   an embedder-supplied `sosh_cap_check_fn` (see
   `user/libs/soshlib/sosh_builtins.h`) before executing each
   side-effecting builtin. **`echo` → `SOSH_CAP_CONSOLE_WRITE`,
-  `source <path>` → `SOSH_CAP_FS_READ`, external-command dispatch
+  `source <path>` → `SOSH_CAP_FS_READ`,
+  `exists <path>` → `SOSH_CAP_FS_READ`, external-command dispatch
   (`apps/foo.bin ...`) → `SOSH_CAP_APP_EXEC`, and the FS-read
   external-command surfaces `cat <path>` / `ls <path>` →
   `SOSH_CAP_FS_READ` (with `resource = <path>`) are wired today**;
-  `exists` / `>` (fs-write) gates are follow-ups
+  `>` (fs-write) gate is the remaining follow-up
   (one builtin per PR, same callback contract). The `cat` / `ls`
   routing is keyed on `cmd =="cat"` / `cmd =="ls"` at the
   external-command dispatch site — sosh keeps no separate built-in
