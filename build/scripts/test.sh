@@ -53,7 +53,7 @@ run_script() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|broker_svc_step3_5_session_teardown|session_manager_first_for_subject|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|m5_owner_delete_cascade_deny_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|manifest_ownership_role_enum|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|parity|harness_defense|canary_must_fail|sosh_cap_allow|sosh_cap_deny|sosh_cap_source_exec|win_gfx_gates|win_gfx_callsite|validate_sosh_capability_contract|sosh_contract_registry_drift]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|broker_svc_step3_5_session_teardown|session_manager_first_for_subject|session_manager_subject_for_session|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|m5_owner_delete_cascade_deny_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|sdk_abi_pin|validate_sdk_no_kernel_includes|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|manifest_ownership_role_enum|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|parity|harness_defense|canary_must_fail|sosh_cap_allow|sosh_cap_deny|sosh_cap_source_exec|sosh_cap_exists|win_gfx_gates|win_gfx_callsite|win_gfx_hal_allow_qemu|win_gfx_hal_deny_qemu|validate_sosh_capability_contract|sosh_contract_registry_drift]
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -103,6 +103,14 @@ case "$TEST_NAME" in
     # the cascade orchestrator will drive in step 3.5 of
     # broker_svc_delete_owner.
     run_script "$ROOT_DIR/build/scripts/test_session_manager_first_for_subject.sh"
+    ;;
+  session_manager_subject_for_session)
+    # Issue #375 (HAL call-site migration follow-up to #349 / PR #365).
+    # Host-side unit tests for the session_manager_subject_for_session
+    # accessor used by the launcher/console HAL call-site migration to
+    # thread the calling subject into the new _as wrappers in
+    # kernel/hal/hal_cap_entry.h.
+    run_script "$ROOT_DIR/build/scripts/test_session_manager_subject_for_session.sh"
     ;;
   process_table)
     run_script "$ROOT_DIR/build/scripts/test_process_table.sh"
@@ -288,8 +296,17 @@ case "$TEST_NAME" in
   sosh_cap_source_exec)
     run_script "$ROOT_DIR/build/scripts/test_sosh_cap_source_exec.sh"
     ;;
+  sosh_cap_exists)
+    run_script "$ROOT_DIR/build/scripts/test_sosh_cap_exists.sh"
+    ;;
   win_gfx_callsite)
     run_script "$ROOT_DIR/build/scripts/test_win_gfx_callsite.sh"
+    ;;
+  win_gfx_hal_allow_qemu)
+    run_script "$ROOT_DIR/build/scripts/test_win_gfx_hal_allow_qemu.sh"
+    ;;
+  win_gfx_hal_deny_qemu)
+    run_script "$ROOT_DIR/build/scripts/test_win_gfx_hal_deny_qemu.sh"
     ;;
   m2_helloapp_allow_qemu)
     run_script "$ROOT_DIR/build/scripts/test_m2_helloapp_allow_qemu.sh"
@@ -323,6 +340,20 @@ case "$TEST_NAME" in
     ;;
   abi_version)
     run_script "$ROOT_DIR/build/scripts/test_abi_version.sh"
+    ;;
+  sdk_abi_pin)
+    # Issue #369 (M6-SDK-001): SDK header `sdk/include/os/abi.h`
+    # re-exports the in-tree `OS_ABI_VERSION_*` macros and `sdk/VERSION`
+    # matches them. Guards against the SDK silently drifting from the
+    # kernel ABI surface.
+    run_script "$ROOT_DIR/build/scripts/test_sdk_abi_pin.sh"
+    ;;
+  validate_sdk_no_kernel_includes)
+    # Issue #369 (M6-SDK-001): forbid `#include "kernel/..."` from any
+    # source under `sdk/`. The SDK is the only surface external apps
+    # may depend on; pulling kernel headers would silently leak
+    # internal-only types into the public contract.
+    run_script "$ROOT_DIR/build/scripts/validate_sdk_no_kernel_includes.sh"
     ;;
   validate_manifests_abi_major)
     # Issue #227: cross-check that --require-abi-major{,-from-header}

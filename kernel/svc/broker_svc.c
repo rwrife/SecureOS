@@ -297,6 +297,17 @@ broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
   /* Step 1: authority check. The predicate emits the canonical
    * CAP:DENY marker on rejection. */
   if (cap_broker_delete_owner_check(actor_subject_id, owner_subject_id) == 0) {
+    /* Issue #370: record one cap.deny audit event for the bystander
+     * (or otherwise unauthorised) caller. Mirrors the marker shape:
+     * actor = would-be deleter, subject = the owner being targeted,
+     * cap_id = CAP_CAPABILITY_ADMIN (same id the deny marker uses),
+     * result = CAP_ERR_MISSING. CASCADE_REVOKE / CASCADE_DONE are
+     * NOT emitted on this path — there is no cascade. */
+    cap_audit_emit(CAP_AUDIT_OP_CHECK,
+                   actor_subject_id,
+                   owner_subject_id,
+                   CAP_CAPABILITY_ADMIN,
+                   CAP_ERR_MISSING);
     return BROKER_SVC_ERR_DELETE_DENIED;
   }
 
@@ -309,8 +320,19 @@ broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
   for (size_t i = 0u; i < CAP_BROKER_MAX_SHARES; ++i) {
     if (g_broker_shares[i].child_handle != CAP_HANDLE_NULL &&
         g_broker_shares[i].owner_subject == owner_subject_id) {
-      /* TODO(#98): emit cap.revoked.cascade {owner, recipient,
-       * share_id} structured audit event here. */
+      /* Issue #370: per-child cap.revoked.cascade audit event.
+       * actor   = caller of broker_svc_delete_owner
+       * subject = recipient that loses the delegated handle
+       * cap_id  = 0 here (the v0 side-table row does not carry the
+       *           underlying CAP_*; child_handle is the load-bearing
+       *           handle revoked by step 3's subtree walk). The
+       *           per-row event still uniquely identifies the
+       *           (owner, recipient) edge being torn down. */
+      cap_audit_emit(CAP_AUDIT_OP_CASCADE_REVOKE,
+                     actor_subject_id,
+                     g_broker_shares[i].recipient_subject,
+                     (capability_id_t)0,
+                     CAP_OK);
       n_children = (uint32_t)(n_children + 1u);
       g_broker_shares[i].share_id          = CAP_SHARE_ID_INVALID;
       g_broker_shares[i].owner_subject     = 0u;
@@ -352,8 +374,16 @@ broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
     if (session_manager_first_session_for_subject(owner_subject_id, &sid) != 0) {
       break;
     }
-    /* TODO(#98): emit cap.revoked.cascade {owner, child_kind=SESSION,
-     * child=sid, reason="owner_deleted"}. */
+    /* Issue #370: cap.revoked.cascade for the SESSION leg. The
+     * session id is folded into subject_id position so the audit
+     * record uniquely names which session was torn down; cap_id=0
+     * marks this as a non-cap edge (window-manager session, per
+     * plan plans/2026-05-26-m5-wm-cascade-on-substrate.md). */
+    cap_audit_emit(CAP_AUDIT_OP_CASCADE_REVOKE,
+                   actor_subject_id,
+                   (cap_subject_id_t)sid,
+                   (capability_id_t)0,
+                   CAP_OK);
     session_manager_destroy(sid);
     n_children = (uint32_t)(n_children + 1u);
   }
@@ -368,8 +398,16 @@ broker_svc_result_t broker_svc_delete_owner(cap_subject_id_t actor_subject_id,
     (void)process_destroy(owner_pid);
   }
 
-  /* Step 5: summary audit (SKIP — gated on #98). */
-  /* TODO(#98): emit cap.cascade.done {owner, n_children}. */
+  /* Step 5: summary audit. Issue #370 — emit terminal
+   * cap.cascade.done exactly once per ALLOW invocation. The
+   * cascade count is encoded into the capability_id field of the
+   * audit tuple (overload documented in capability.h alongside
+   * CAP_AUDIT_OP_CASCADE_DONE). */
+  cap_audit_emit(CAP_AUDIT_OP_CASCADE_DONE,
+                 actor_subject_id,
+                 owner_subject_id,
+                 (capability_id_t)n_children,
+                 CAP_OK);
 
   /* Step 6: surface the cascade count. */
   if (out_n != NULL) {

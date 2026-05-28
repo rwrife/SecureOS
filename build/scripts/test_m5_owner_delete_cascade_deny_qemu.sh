@@ -24,6 +24,7 @@
 #
 # Emits:
 #   TEST:PASS:m5_owner_delete_cascade_deny_qemu:bystander_cannot_delete_owner
+#   TEST:PASS:m5_owner_delete_cascade_deny_qemu:audit_deny_recorded_no_cascade_qemu
 #   TEST:PASS:m5_owner_delete_cascade_deny_qemu:double_delete_is_idempotent
 #   TEST:PASS:m5_owner_delete_cascade_deny_qemu:process_destroy_recycle_revokes_qemu
 #   TEST:PASS:m5_owner_delete_cascade_deny_qemu
@@ -67,6 +68,7 @@ LOG_PATH="$OUT_DIR/m5_owner_delete_cascade_deny_qemu_test.log"
 grep -q "^CAP:DENY:7:capability_admin:delete_owner_3$" "$LOG_PATH"
 
 grep -q "TEST:PASS:m5_owner_delete_cascade_deny_qemu:bystander_cannot_delete_owner" "$LOG_PATH"
+grep -q "TEST:PASS:m5_owner_delete_cascade_deny_qemu:audit_deny_recorded_no_cascade_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m5_owner_delete_cascade_deny_qemu:double_delete_is_idempotent" "$LOG_PATH"
 grep -q "TEST:PASS:m5_owner_delete_cascade_deny_qemu:process_destroy_recycle_revokes_qemu" "$LOG_PATH"
 grep -q "TEST:PASS:m5_owner_delete_cascade_deny_qemu$" "$LOG_PATH"

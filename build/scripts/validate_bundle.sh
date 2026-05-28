@@ -68,6 +68,14 @@ TEST_TARGETS=(
     # cascade gate the bundle.
     m5_owner_delete_cascade_allow_qemu
     m5_owner_delete_cascade_deny_qemu
+    # HAL call-site gates (issue #349 / PR #365): allow + deny `_qemu`
+    # peers (issue #376) ride on the M2 substrate launcher path and
+    # prove video_hal_write_as / input_hal_try_read_char_as /
+    # mouse_hal_poll_event_as fire (or short-circuit) correctly against
+    # a real launched PCB. Gate them once green so any future HAL
+    # call-site regression flips the bundle to FAIL.
+    win_gfx_hal_allow_qemu
+    win_gfx_hal_deny_qemu
     validate_sosh_capability_contract
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally

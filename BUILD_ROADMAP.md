@@ -438,7 +438,12 @@ tracked by #350 and stacks additively on top of these markers.
   `docs/abi/capability-deny-contract.md` §4.3. Anchored by
   `build/scripts/test_win_gfx_callsite.sh` (`win_gfx_callsite` target),
   which proves both that the backend is invoked exactly once on allow
-  and not at all on deny.
+  and not at all on deny. Allow + deny `_qemu` substrate peers
+  (issue #376) ride on the M2 launcher spawn path and emit
+  `TEST:PASS:win_gfx_hal_allow_qemu` /
+  `TEST:PASS:win_gfx_hal_deny_qemu` plus per-cap sub-markers
+  (backend-called-once / backend-not-called / deny-marker-conformant /
+  audit-check-recorded); both targets are gated by `validate_bundle.sh`.
 
 Manifest schema ownership-role declaration:
 
@@ -463,14 +468,20 @@ Manifest schema ownership-role declaration:
 
 Deliver:
 
-- headers + userland library
-- tool wrappers (`os-cc`, `os-pack`, `os-run`)
-- manifest schema and ABI versioning guide
+- headers + userland library — scaffold tracked by **M6-SDK-001**
+  (issue #369): `sdk/` tree + `OS_ABI_VERSION` pin (`sdk/include/os/abi.h`
+  re-exports `user/include/secureos_abi.h`; `sdk/VERSION` matches it,
+  enforced by `tests/sdk_abi_pin_test.c`). Userland `libos.a` + `crt0.c`
+  follow in slice `M6-SDK-002`.
+- tool wrappers (`os-cc`, `os-pack`, `os-run`) — slice `M6-SDK-002`.
+- manifest schema and ABI versioning guide — slice `M6-SDK-003`
+  (`abi.version`, `capabilities.required/optional` additions).
 
 Validate:
 
-- third-party sample app builds and runs in QEMU
-- manifest capability declarations enforced by launcher/broker
+- third-party sample app builds and runs in QEMU — slice `M6-SDK-004`
+  (`samples/hello-from-sdk/`).
+- manifest capability declarations enforced by launcher/broker.
 
 ## 6) CI/CD and Test Matrix Strategy
 
