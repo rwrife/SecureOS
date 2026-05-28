@@ -236,6 +236,39 @@ slices. The pre-existing `helloapp.json` / `helloapp.deny.json` /
 `ownership_role: "none"`, proving that the addition is backward-
 compatible.
 
+Negative-path coverage matching the §5.3 (`manifest_persistence_enum`)
+and §5.4 (`manifest_broker_role_enum`) precedents lands a checked-in
+bad fixture and an in-test synthesized variant:
+
+- **Out-of-enum (rejected)** —
+  [`invalid/helloapp.ownership_invalid.json`](../../manifests/examples/invalid/helloapp.ownership_invalid.json):
+  same as `helloapp.json` but with `capabilities.ownership_role:
+  "supervisor"` (not in the v0 enum). The validator wrapper rejects
+  it with a deterministic `MANIFEST_VALIDATE:(ERROR|FAIL)` marker
+  surfacing the `ownership_role` field name. The bundled regression
+  test `build/scripts/test_manifest_ownership_role_enum.sh` emits the
+  `TEST:PASS:manifest_ownership_role_enum:negative_rejected` sub-marker
+  on success (parity with `manifest_persistence_enum:negative_rejected`
+  / `manifest_broker_role_enum:negative_rejected`).
+- **Default when omitted** — the same regression test emits
+  `TEST:PASS:manifest_ownership_role_enum:default_when_omitted` after
+  asserting that `helloapp.json` (which omits `ownership_role` entirely)
+  still validates, locking in the additive / back-compat contract
+  (parity with the matching §5.3 / §5.4 sub-marker spellings).
+
+The `invalid/` subdirectory is deliberately outside the
+`manifests/examples/*.json` glob walked by `validate_manifests.sh`, so
+the checked-in bad fixture does not show up in the bulk-validator pass
+list while still being a stable target for the regression test.
+
+### §5.5 ownership_role enforcement status
+
+| Sub-marker | Status |
+| --- | --- |
+| `manifest_ownership_role_enum` (positive) | enforced (PR #372) |
+| `manifest_ownership_role_enum:negative_rejected` | enforced (PR for #390) |
+| `manifest_ownership_role_enum:default_when_omitted` | enforced (PR for #390) |
+
 ## Compatibility policy
 
 `manifest_version` and `os_abi_version` are two intentionally separate
