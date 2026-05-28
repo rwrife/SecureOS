@@ -110,6 +110,13 @@ int main(void) {
   if (strstr(ctx.out, "recovered") == NULL) die("recovery_did_not_emit");
   printf("TEST:PASS:sosh_cap_deny:script_continues\n");
 
+  /* Audit-integration SKIP per contract §6.1 (issue #389): soshlib's
+   * cap_check deny is script-side only; the kernel audit ring is fed
+   * by the embedder, which is not yet in-tree. Flip to PASS once a
+   * sosh embedder wires cap_audit_record_deny (mirrors M4 #311). */
+  printf("TEST:SKIP:sosh_cap_deny:audit_deny_recorded:"
+         "sosh_audit_unwired_pending_issue_389\n");
+
   printf("TEST:PASS:sosh_cap_deny\n");
   return 0;
 }

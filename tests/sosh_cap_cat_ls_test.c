@@ -269,6 +269,10 @@ int main(void) {
   if (strcmp(ctx.last_exec_cmd, "cat") != 0) die("legacy_wrong_exec_cmd");
   printf("TEST:PASS:sosh_cap_cat_ls:legacy_null_cap_check_noop\n");
 
+  /* Audit-integration SKIP per contract §6.1 (issue #389). */
+  printf("TEST:SKIP:sosh_cap_cat_ls:audit_deny_recorded:"
+         "sosh_audit_unwired_pending_issue_389\n");
+
   printf("TEST:PASS:sosh_cap_cat_ls\n");
   return 0;
 }

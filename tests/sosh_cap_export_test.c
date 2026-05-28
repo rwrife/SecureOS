@@ -238,6 +238,10 @@ int main(void) {
   if (strcmp(ctx.last_exec_args, "X=y") != 0) die("legacy_wrong_exec_args");
   printf("TEST:PASS:sosh_cap_export:legacy_null_cap_check_noop\n");
 
+  /* Audit-integration SKIP per contract §6.1 (issue #389). */
+  printf("TEST:SKIP:sosh_cap_export:audit_deny_recorded:"
+         "sosh_audit_unwired_pending_issue_389\n");
+
   printf("TEST:PASS:sosh_cap_export\n");
   return 0;
 }
