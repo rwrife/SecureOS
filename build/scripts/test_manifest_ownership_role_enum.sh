@@ -12,16 +12,22 @@
 #      manifests/examples/helloapp.ownership_delegate.json) validate
 #      against the schema and are reported as MANIFEST_VALIDATE:PASS
 #      by the standard validator wrapper.
-#   2. A synthesized manifest that sets `capabilities.ownership_role`
-#      to a value outside the enum (e.g. "everyone") is REJECTED by
-#      the validator wrapper, with a deterministic
-#      MANIFEST_VALIDATE:(ERROR|FAIL) marker on stderr, and the
-#      offending field name surfaces in the error text. This is the
-#      regression that keeps a typo'd / drifted enum from silently
-#      leaking back in.
+#   2. A checked-in negative fixture
+#      (manifests/examples/invalid/helloapp.ownership_invalid.json)
+#      and a synthesized in-test variant that set
+#      `capabilities.ownership_role` to a value outside the enum
+#      (e.g. "supervisor", "everyone") are REJECTED by the validator
+#      wrapper, with a deterministic MANIFEST_VALIDATE:(ERROR|FAIL)
+#      marker on stderr, and the offending field name surfaces in
+#      the error text. This is the regression that keeps a typo'd /
+#      drifted enum from silently leaking back in. This path also
+#      emits the `:negative_rejected` sub-marker (parity with
+#      §5.3 manifest_persistence_enum and §5.4 manifest_broker_role_enum).
 #   3. The pre-existing `helloapp.json` (which omits `ownership_role`
 #      entirely) still validates, proving the field is additive and
-#      backward-compatible (default = "none", today's behavior).
+#      backward-compatible (default = "none", today's behavior). This
+#      path also emits the `:default_when_omitted` sub-marker (parity
+#      with §5.3 / §5.4).
 #
 # Exit codes:
 #   0  - all checks passed
@@ -38,12 +44,13 @@ WRAPPER="$ROOT_DIR/build/scripts/validate_manifests.sh"
 POS_OWNER="$ROOT_DIR/manifests/examples/helloapp.ownership_owner.json"
 POS_DELEGATE="$ROOT_DIR/manifests/examples/helloapp.ownership_delegate.json"
 POS_OMITTED="$ROOT_DIR/manifests/examples/helloapp.json"
+NEG_FIXTURE="$ROOT_DIR/manifests/examples/invalid/helloapp.ownership_invalid.json"
 
 if [[ ! -r "$WRAPPER" ]]; then
   echo "TEST:FAIL:harness_missing_script:$WRAPPER" >&2
   exit 78
 fi
-for f in "$POS_OWNER" "$POS_DELEGATE" "$POS_OMITTED"; do
+for f in "$POS_OWNER" "$POS_DELEGATE" "$POS_OMITTED" "$NEG_FIXTURE"; do
   if [[ ! -r "$f" ]]; then
     echo "TEST:FAIL:harness_missing_positive_example:$f" >&2
     exit 78
@@ -88,7 +95,36 @@ check_positive "owner_example" "$POS_OWNER"
 check_positive "delegate_example" "$POS_DELEGATE"
 check_positive "omitted_field_backcompat" "$POS_OMITTED"
 
-# --- Negative: synthesize an out-of-enum value and assert rejection. ---
+# --- Default-when-omitted sub-marker (parity with §5.3/§5.4). ---
+# The omitted-field case above already passed; explicitly emit the
+# spelled-out sub-marker so consumers / dashboards can match the same
+# token as manifest_persistence_enum / manifest_broker_role_enum.
+echo "TEST:PASS:manifest_ownership_role_enum:default_when_omitted"
+
+# --- Negative (checked-in fixture): assert rejection. ---
+NEG_FIX_OUT="$TMP/neg_fixture.log"
+set +e
+bash "$WRAPPER" "$NEG_FIXTURE" >"$NEG_FIX_OUT" 2>&1
+NEG_FIX_RC=$?
+set -e
+
+if [[ "$NEG_FIX_RC" -eq 0 ]]; then
+  echo "TEST:FAIL:manifest_ownership_role_enum:negative_fixture_accepted" >&2
+  sed 's/^/  | /' "$NEG_FIX_OUT" >&2
+  exit 1
+fi
+if ! grep -Eq "MANIFEST_VALIDATE:(ERROR|FAIL)" "$NEG_FIX_OUT"; then
+  echo "TEST:FAIL:manifest_ownership_role_enum:negative_fixture_missing_deterministic_marker" >&2
+  sed 's/^/  | /' "$NEG_FIX_OUT" >&2
+  exit 1
+fi
+if ! grep -q "ownership_role" "$NEG_FIX_OUT"; then
+  echo "TEST:FAIL:manifest_ownership_role_enum:negative_fixture_field_name_not_in_error" >&2
+  sed 's/^/  | /' "$NEG_FIX_OUT" >&2
+  exit 1
+fi
+
+# --- Negative (synthesized in-test): assert rejection. ---
 TAMPERED="$TMP/ownership_role_bad.json"
 cat >"$TAMPERED" <<'EOF'
 {
@@ -140,5 +176,8 @@ if ! grep -q "ownership_role" "$NEG_OUT"; then
   sed 's/^/  | /' "$NEG_OUT" >&2
   exit 1
 fi
+
+# Negative-path sub-marker (parity with §5.3/§5.4).
+echo "TEST:PASS:manifest_ownership_role_enum:negative_rejected"
 
 echo "TEST:PASS:manifest_ownership_role_enum"
