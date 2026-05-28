@@ -364,12 +364,46 @@ int main(void) {
   printf("TEST:PASS:m5_owner_delete_cascade_allow_qemu:"
          "delegated_caps_invalid\n");
 
-  /* Audit SKIPs — gated on #98 (cap.revoked.cascade + cap.cascade.done
-   * event classes). Mirror the #304 audit_deny_recorded_qemu shape. */
-  printf("TEST:SKIP:m5_owner_delete_cascade_allow_qemu:"
-         "audit_cascade_recorded\n");
-  printf("TEST:SKIP:m5_owner_delete_cascade_allow_qemu:"
-         "audit_cascade_done_recorded\n");
+  /* Audit assertions — issue #370. Confirm the cascade emitted at
+   * least one cap.revoked.cascade event for the recipient AND a
+   * terminal cap.cascade.done with n_children > 0 attributed to the
+   * owner. We scan the audit ring rather than pinning a slot index
+   * so the test is robust to other audit traffic (e.g. broker
+   * grant/revoke records from cap_broker_*) interleaving. */
+  {
+    size_t total = cap_audit_count_for_tests();
+    int saw_cascade  = 0;
+    int saw_done     = 0;
+    for (size_t i = 0u; i < total; ++i) {
+      cap_audit_event_t ev;
+      if (cap_audit_get_for_tests(i, &ev) != CAP_OK) continue;
+      if (ev.operation == CAP_AUDIT_OP_CASCADE_REVOKE &&
+          ev.actor_subject_id == owner &&
+          ev.subject_id == recipient &&
+          ev.result == CAP_OK) {
+        saw_cascade = 1;
+      }
+      if (ev.operation == CAP_AUDIT_OP_CASCADE_DONE &&
+          ev.actor_subject_id == owner &&
+          ev.subject_id == owner &&
+          ev.capability_id == (capability_id_t)n_children &&
+          ev.result == CAP_OK) {
+        saw_done = 1;
+      }
+    }
+    if (!saw_cascade) {
+      fail("audit_cascade_recorded");
+      goto out;
+    }
+    printf("TEST:PASS:m5_owner_delete_cascade_allow_qemu:"
+           "audit_cascade_recorded\n");
+    if (!saw_done) {
+      fail("audit_cascade_done_recorded");
+      goto out;
+    }
+    printf("TEST:PASS:m5_owner_delete_cascade_allow_qemu:"
+           "audit_cascade_done_recorded\n");
+  }
 
   /* Cleanup. Owner PCB is still live because we passed PID_INVALID
    * above; tear it down through the launcher so the spawn-table

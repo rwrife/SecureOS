@@ -445,18 +445,43 @@ tracked by #350 and stacks additively on top of these markers.
   (backend-called-once / backend-not-called / deny-marker-conformant /
   audit-check-recorded); both targets are gated by `validate_bundle.sh`.
 
+Manifest schema ownership-role declaration:
+
+- The manifest schema (`manifests/schema/v0.json`, docs/abi/manifest.md
+  §5.5) carries an optional `capabilities.ownership_role` enum
+  (`"owner"` | `"delegate"` | `"none"`, default `"none"`) so a
+  module/app can declare what role it plays in the M5 ownership
+  graph above. The default `"none"` preserves today's behavior
+  exactly — no ownership edge is registered — so the field is
+  additive and does **not** bump `OS_ABI_VERSION`. Positive
+  examples live at `manifests/examples/helloapp.ownership_owner.json`
+  and `manifests/examples/helloapp.ownership_delegate.json`;
+  positive + negative coverage of the enum (and the backward-compat
+  case where the field is omitted) is pinned by
+  `TEST:PASS:manifest_ownership_role_enum` (run via
+  `build/scripts/test.sh manifest_ownership_role_enum`, mirror of the
+  §5.3 `manifest_persistence_enum` and §5.4 `manifest_broker_role_enum`
+  markers). Schema-only at v0; the launcher / broker_svc runtime
+  wiring lands in later M5-SUBSTRATE slices.
+
 ## 5.6 M6: Public SDK + external app template
 
 Deliver:
 
-- headers + userland library
-- tool wrappers (`os-cc`, `os-pack`, `os-run`)
-- manifest schema and ABI versioning guide
+- headers + userland library — scaffold tracked by **M6-SDK-001**
+  (issue #369): `sdk/` tree + `OS_ABI_VERSION` pin (`sdk/include/os/abi.h`
+  re-exports `user/include/secureos_abi.h`; `sdk/VERSION` matches it,
+  enforced by `tests/sdk_abi_pin_test.c`). Userland `libos.a` + `crt0.c`
+  follow in slice `M6-SDK-002`.
+- tool wrappers (`os-cc`, `os-pack`, `os-run`) — slice `M6-SDK-002`.
+- manifest schema and ABI versioning guide — slice `M6-SDK-003`
+  (`abi.version`, `capabilities.required/optional` additions).
 
 Validate:
 
-- third-party sample app builds and runs in QEMU
-- manifest capability declarations enforced by launcher/broker
+- third-party sample app builds and runs in QEMU — slice `M6-SDK-004`
+  (`samples/hello-from-sdk/`).
+- manifest capability declarations enforced by launcher/broker.
 
 ## 6) CI/CD and Test Matrix Strategy
 

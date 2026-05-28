@@ -911,3 +911,30 @@ int session_manager_first_session_for_subject(cap_subject_id_t subject,
 
   return -1;
 }
+
+/**
+ * Issue #375: Resolve a session id to its owning cap_subject_id_t.
+ *
+ * Pure O(1) read of g_sessions[]. Used by the HAL call-site migration
+ * (launcher / console) to thread the calling subject into the new
+ * subject-scoped HAL wrappers (`video_hal_write_as`,
+ * `input_hal_try_read_char_as`, `mouse_hal_poll_event_as`).
+ *
+ * Returns 0 on hit (and writes *out_subject when non-NULL), -1 on miss
+ * (out-of-range session_id OR slot not in use). On miss we deliberately
+ * leave *out_subject untouched so callers can keep a sentinel value
+ * across negative lookups.
+ */
+int session_manager_subject_for_session(unsigned int session_id,
+                                        cap_subject_id_t *out_subject) {
+  if (session_id >= SESSION_MAX) {
+    return -1;
+  }
+  if (!g_sessions[session_id].in_use) {
+    return -1;
+  }
+  if (out_subject != 0) {
+    *out_subject = g_sessions[session_id].subject_id;
+  }
+  return 0;
+}

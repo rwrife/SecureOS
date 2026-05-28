@@ -716,13 +716,24 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
     }
 
     if (tokens.tokens[0].type == SOSH_TOK_WORD && sosh_streq(cmd_val, "source")) {
-      /* source filename — read file and eval it */
+      /* source filename — read file and eval it.
+       * Gated by SOSH_CAP_FS_READ per docs/abi/sosh-capability-contract.md
+       * §4 (row `source <path>`). Deny short-circuits the read so no file
+       * content is leaked into the interpreter, $? observes the embedder
+       * non-zero rc, and the script does NOT abort (§6). */
       if (tokens.count >= 2 && state->exec) {
         char path[SOSH_VAR_VALUE_MAX];
         char file_content[4096]; /* limited source file size */
         int rc;
         pos = 1;
         resolve_token(&tokens.tokens[pos], state, path, sizeof(path));
+        if (state->cap_check != 0) {
+          int crc = state->cap_check(SOSH_CAP_FS_READ, path, state->cap_ctx);
+          if (crc != 0) {
+            sosh_vars_set_exit_code(&state->vars, crc);
+            continue;
+          }
+        }
         rc = state->exec("__cat_raw", path, file_content, sizeof(file_content),
                          state->user_ctx);
         if (rc == 0 && file_content[0] != '\0') {
@@ -755,6 +766,19 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
       }
 
       if (state->exec) {
+        /* External command dispatch — gated by SOSH_CAP_APP_EXEC per
+         * docs/abi/sosh-capability-contract.md §4 (row
+         * `external command (apps/foo.bin args...)`). Deny short-circuits
+         * the exec callback so no child process is spawned and no output
+         * is emitted; the embedder-supplied non-zero rc surfaces in $?
+         * and the script continues (§6). */
+        if (state->cap_check != 0) {
+          int crc = state->cap_check(SOSH_CAP_APP_EXEC, cmd, state->cap_ctx);
+          if (crc != 0) {
+            sosh_vars_set_exit_code(&state->vars, crc);
+            continue;
+          }
+        }
         rc = state->exec(cmd, cmd_args, out_buf, sizeof(out_buf), state->user_ctx);
         sosh_vars_set_exit_code(&state->vars, rc);
         /* Print output if any */
