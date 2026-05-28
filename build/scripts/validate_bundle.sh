@@ -76,7 +76,33 @@ TEST_TARGETS=(
     # call-site regression flips the bundle to FAIL.
     win_gfx_hal_allow_qemu
     win_gfx_hal_deny_qemu
+    # HAL gate primitives + subject-scoped wrapper call-site coverage
+    # (umbrella #349 / PR #357 + PR #365). Host-side, no `_qemu` dep —
+    # cheap to run on every CI lap and pins the gate contract +
+    # wrapper behavior so a future HAL refactor that bypasses the
+    # gate flips the bundle to FAIL.
+    win_gfx_gates
+    win_gfx_callsite
     validate_sosh_capability_contract
+    # sosh scripting capability surface (umbrella #351, contract
+    # `docs/abi/sosh-capability-contract.md` §4). All five enforcement
+    # slices have merged via PRs #358 / #367 / #379 / #381 / #382 and
+    # the host fixtures below are green on `main`, but none of them
+    # were gating `validate_bundle.sh` — same shape of orphan #129
+    # caught for `scheduler` / `tls` / `https` and #366 caught for
+    # the M4/M5 substrate peers. Wire them in so any regression to
+    # the `cap_check` callback contract (echo, source/external-cmd,
+    # exists, cat/ls, write/append) flips the bundle to FAIL.
+    sosh_cap_allow
+    sosh_cap_deny
+    sosh_cap_source_exec
+    sosh_cap_exists
+    sosh_cap_cat_ls
+    sosh_cap_write_append
+    # sosh contract ↔ capability-registry drift guard (PR #361). Pure
+    # static check that every `CAP_*` cited in the contract still
+    # exists in `docs/abi/capability-registry.json`.
+    sosh_contract_registry_drift
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
