@@ -487,8 +487,16 @@ Deliver:
   (issue #369): `sdk/` tree + `OS_ABI_VERSION` pin (`sdk/include/os/abi.h`
   re-exports `user/include/secureos_abi.h`; `sdk/VERSION` matches it,
   enforced by `tests/sdk_abi_pin_test.c`). Userland `libos.a` + `crt0.c`
-  follow in slice `M6-SDK-002`.
-- tool wrappers (`os-cc`, `os-pack`, `os-run`) — slice `M6-SDK-002`.
+  landed in slice **M6-SDK-002** (issue #388): `sdk/lib/crt0.c` provides
+  the `_start` entry shim and `sdk/lib/libos/version.c` anchors the
+  ABI re-export surface; `artifacts/sdk/libos.a` is produced by
+  `build/scripts/build_sdk_libos.sh` (composing `crt0.o`, `version.o`,
+  and the existing `user/runtime/secureos_api_stubs.o` — strict
+  re-export, no new ABI opcodes) and the host link smoke test
+  `tests/sdk_libos_link_test.c` (`build/scripts/test.sh
+  sdk_libos_link`) pins that `libos.a` defines `_start` and
+  references `os_get_abi_version`.
+- tool wrappers (`os-cc`, `os-pack`, `os-run`) — slice `M6-SDK-003`.
 - manifest schema and ABI versioning guide — slice `M6-SDK-003`
   (`abi.version`, `capabilities.required/optional` additions).
 

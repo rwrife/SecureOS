@@ -56,6 +56,13 @@ build_disk() {
   "$ROOT_DIR/build/scripts/build_disk_image.sh"
 }
 
+# M6-SDK-002 (#388): assemble the userland `libos.a` published under
+# `artifacts/sdk/`. Kept as a discrete step so the SDK surface can be
+# (re)built without touching the kernel/disk layers.
+build_sdk() {
+  "$ROOT_DIR/build/scripts/build_sdk_libos.sh"
+}
+
 case "$TARGET" in
   kernel)
     build_keys
@@ -65,6 +72,10 @@ case "$TARGET" in
   disk)
     build_keys
     build_disk
+    ;;
+  sdk)
+    # M6-SDK-002 (#388): build only the userland SDK archive.
+    build_sdk
     ;;
   app)
     APP_NAME="${2:-}"
@@ -86,6 +97,7 @@ case "$TARGET" in
     build_kernel
     build_libs
     build_apps
+    build_sdk
     build_iso
     build_disk
     "$ROOT_DIR/build/scripts/update_manifest.sh"
@@ -132,6 +144,16 @@ case "$TARGET" in
       build_apps
     fi
 
+    # M6-SDK-002 (#388): SDK archive piggy-backs on the libs/apps
+    # layers since it shares the same freestanding toolchain flags.
+    # detect_changes.sh has not been taught the `sdk` token yet (the
+    # plan tracks that follow-up); rebuild opportunistically whenever
+    # libs or apps were stale so external SDK consumers stay in sync.
+    if [[ "$STALE" == *libs* || "$STALE" == *apps* ]]; then
+      echo "[build] Rebuilding: sdk (piggybacks on libs/apps)"
+      build_sdk
+    fi
+
     if [[ "$STALE" == *disk* ]]; then
       echo "[build] Rebuilding: disk"
       build_disk
@@ -150,6 +172,7 @@ Targets:
   kernel       Compile kernel and create ISO
   disk         Build disk image with OS binaries
   app <name>   Rebuild a single app and repack disk image
+  sdk          Build artifacts/sdk/libos.a (M6-SDK-002, issue #388)
   force        Rebuild everything regardless of changes
 
 The 'all' target uses a build manifest to track source file hashes and
@@ -160,7 +183,7 @@ EOF
     ;;
   *)
     echo "Unknown target: $TARGET"
-    echo "Usage: build.sh [all|kernel|disk|app <name>|force|--help]"
+    echo "Usage: build.sh [all|kernel|disk|sdk|app <name>|force|--help]"
     exit 1
     ;;
 esac

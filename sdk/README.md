@@ -1,9 +1,10 @@
 # SecureOS Public SDK (scaffold)
 
-Status: **scaffolding only** — slice 1 of plan
+Status: **scaffolding in progress** — slices 1 and 2 of plan
 [`plans/2026-05-15-public-sdk-external-app-template.md`](../plans/2026-05-15-public-sdk-external-app-template.md)
-(M6 in `BUILD_ROADMAP.md` §5.6, tracked by execute issue
-[M6-SDK-001](https://github.com/rwrife/SecureOS/issues/369)).
+(M6 in `BUILD_ROADMAP.md` §5.6, tracked by execute issues
+[M6-SDK-001](https://github.com/rwrife/SecureOS/issues/369) and
+[M6-SDK-002](https://github.com/rwrife/SecureOS/issues/388)).
 
 This directory is the **only** surface external apps may depend on. Anything
 under `kernel/` or in-tree-only paths under `user/` is **not** part of the
@@ -19,20 +20,33 @@ SDK contract.
   `OS_ABI_VERSION_{MAJOR,MINOR,PATCH}` from the in-tree source of truth
   at `user/include/secureos_abi.h`. The SDK does **not** mint a second
   ABI version constant; it forwards the one the kernel ships.
-- `lib/` — placeholder for the userland library (`libos.a`); arrives in
-  slice 2 (`M6-SDK-002`).
+- `lib/crt0.c` — SDK-owned C runtime entry shim (slice `M6-SDK-002`).
+  Provides the `_start` symbol external apps link as their loader
+  entry point; marshals `os_get_args()` into the standard
+  `int main(int argc, char **argv)` signature.
+- `lib/libos/version.c` — SDK-owned ABI re-export anchor (slice
+  `M6-SDK-002`). The actual `os_get_abi_version()` definition is
+  contributed to `libos.a` by `user/runtime/secureos_api_stubs.c`;
+  this file exists to keep the SDK header (`os/abi.h`) and the
+  in-tree source of truth (`secureos_abi.h`) in lockstep at
+  build time.
+- `lib/` — archive target. `artifacts/sdk/libos.a` is produced by
+  `build/scripts/build_sdk_libos.sh` (composing the slice-2 sources
+  with the existing `user/runtime/secureos_api_stubs.c` — strict
+  re-export, no new ABI opcodes).
 - `tools/` — placeholder for `os-cc`, `os-pack`, `os-run`; arrives in
-  slice 2.
+  slice `M6-SDK-003`.
 
 ## What this slice does NOT ship
 
 Deferred to the explicit follow-up slices enumerated in the plan:
 
-- `os-cc` / `os-pack` / `os-run` wrappers (slice `M6-SDK-002`).
+- `os-cc` / `os-pack` / `os-run` wrappers (slice `M6-SDK-003`).
 - Manifest schema additions (`abi.version`,
   `capabilities.required/optional`) — slice `M6-SDK-003`.
 - `samples/hello-from-sdk/` external app — slice `M6-SDK-004`.
-- `libos.a` userland library + `crt0.c` — slice `M6-SDK-002`.
+- A real kernel-side user-exit syscall to back `crt0.c`'s `_os_exit()`
+  helper — currently a `hlt`-loop placeholder (slice `M6-SDK-003`).
 
 ## Determinism / containment rules (enforced by CI)
 
@@ -53,6 +67,9 @@ sdk/
   README.md               # this file
   include/os/
     abi.h                 # re-exports OS_ABI_VERSION_{MAJOR,MINOR,PATCH}
-  lib/                    # slice M6-SDK-002 — libos.a + crt0.c
-  tools/                  # slice M6-SDK-002 — os-cc / os-pack / os-run
+  lib/
+    crt0.c                # `_start` entry shim (slice M6-SDK-002)
+    libos/
+      version.c           # SDK ABI re-export anchor (slice M6-SDK-002)
+  tools/                  # slice M6-SDK-003 — os-cc / os-pack / os-run
 ```
