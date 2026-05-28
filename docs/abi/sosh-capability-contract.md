@@ -246,10 +246,21 @@ their normative source:
   an embedder-supplied `sosh_cap_check_fn` (see
   `user/libs/soshlib/sosh_builtins.h`) before executing each
   side-effecting builtin. **`echo` → `SOSH_CAP_CONSOLE_WRITE`,
-  `source <path>` → `SOSH_CAP_FS_READ`, and external-command dispatch
-  (`apps/foo.bin ...`) → `SOSH_CAP_APP_EXEC` are wired today**;
-  `cat` / `ls` / `exists` / `>` (fs-write) gates are follow-ups
-  (one builtin per PR, same callback contract).
+  `source <path>` → `SOSH_CAP_FS_READ`,
+  `exists <path>` → `SOSH_CAP_FS_READ`, external-command dispatch
+  (`apps/foo.bin ...`) → `SOSH_CAP_APP_EXEC`, the FS-read
+  external-command surfaces `cat <path>` / `ls <path>` →
+  `SOSH_CAP_FS_READ`, and the FS-write external-command surfaces
+  `write <path> <content>` / `append <path> <content>` →
+  `SOSH_CAP_FS_WRITE` (each with `resource = <path>`) are wired
+  today**; remaining follow-ups per the §4 contract are tracked as
+  separate slices (one builtin per PR, same callback contract). The
+  `cat` / `ls` / `write` / `append` routing is keyed on the `cmd`
+  token at the external-command dispatch site — sosh keeps no
+  separate built-in table for them — so the gate matches the §4
+  contract's *underlying syscall* axis (`os_fs_read_file` /
+  `os_fs_list_dir` / `os_fs_write_file`) rather than the dispatch
+  axis (same precedent the `source` slice established).
   soshlib stays kernel-cap-agnostic: the embedder (kernel host, test
   fixture, or future per-script launcher) owns the mapping from the
   abstract `SOSH_CAP_*` tag to the matching `CAP_*` and is
@@ -272,4 +283,4 @@ their normative source:
 "or an explicit ADR explaining why sosh reuses existing caps" branch
 of #351's last done-when bullet is satisfied by §3.
 
-Last verified against commit: 0a3940996446fa233e0c68412b970d7ad6528f00 (sosh_cap_allow/deny wired via test.sh dispatcher)
+Last verified against commit: 0a3940996446fa233e0c68412b970d7ad6528f00 (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in this slice (sosh_cap_write_append).

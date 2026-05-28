@@ -438,7 +438,12 @@ tracked by #350 and stacks additively on top of these markers.
   `docs/abi/capability-deny-contract.md` §4.3. Anchored by
   `build/scripts/test_win_gfx_callsite.sh` (`win_gfx_callsite` target),
   which proves both that the backend is invoked exactly once on allow
-  and not at all on deny.
+  and not at all on deny. Allow + deny `_qemu` substrate peers
+  (issue #376) ride on the M2 launcher spawn path and emit
+  `TEST:PASS:win_gfx_hal_allow_qemu` /
+  `TEST:PASS:win_gfx_hal_deny_qemu` plus per-cap sub-markers
+  (backend-called-once / backend-not-called / deny-marker-conformant /
+  audit-check-recorded); both targets are gated by `validate_bundle.sh`.
 
 Manifest schema ownership-role declaration:
 
