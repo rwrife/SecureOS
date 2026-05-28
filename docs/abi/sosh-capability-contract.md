@@ -127,6 +127,15 @@ capability.
 >   slice MUST either (a) add a `CAP_ENV_WRITE` registry entry first
 >   (separate cap-registry PR), or (b) make `export` a host-only no-op
 >   for sandboxed scripts and document that here in the next revision.
+>   The soshlib-level enforcement now routes the env-service write
+>   through the abstract `SOSH_CAP_ENV_WRITE` tag (see §7 `export`
+>   slice), leaving the embedder free to take path (b) by returning a
+>   non-zero deny rc so `export` becomes a host-only no-op for
+>   sandboxed scripts — the in-process `set`-equivalent variable
+>   update still happens (it is not side-effecting and has no kernel
+>   surface). Path (a) remains the long-term option once an
+>   env-service capability exists; until then the registry stays
+>   untouched (consistent with the §3 ADR).
 
 ## 5. How a script declares its requested capabilities
 
@@ -250,11 +259,13 @@ their normative source:
   `exists <path>` → `SOSH_CAP_FS_READ`, external-command dispatch
   (`apps/foo.bin ...`) → `SOSH_CAP_APP_EXEC`, the FS-read
   external-command surfaces `cat <path>` / `ls <path>` →
-  `SOSH_CAP_FS_READ`, and the FS-write external-command surfaces
+  `SOSH_CAP_FS_READ`, the FS-write external-command surfaces
   `write <path> <content>` / `append <path> <content>` →
-  `SOSH_CAP_FS_WRITE` (each with `resource = <path>`) are wired
-  today**; remaining follow-ups per the §4 contract are tracked as
-  separate slices (one builtin per PR, same callback contract). The
+  `SOSH_CAP_FS_WRITE` (each with `resource = <path>`), and the
+  `export VAR=value` builtin's env-service write →
+  `SOSH_CAP_ENV_WRITE` with `resource = <var>` are wired
+  today**; this closes the §4 enumeration — every side-effecting
+  row in the contract now has a soshlib-level gate. The
   `cat` / `ls` / `write` / `append` routing is keyed on the `cmd`
   token at the external-command dispatch site — sosh keeps no
   separate built-in table for them — so the gate matches the §4
@@ -283,4 +294,4 @@ their normative source:
 "or an explicit ADR explaining why sosh reuses existing caps" branch
 of #351's last done-when bullet is satisfied by §3.
 
-Last verified against commit: 0a3940996446fa233e0c68412b970d7ad6528f00 (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in this slice (sosh_cap_write_append).
+Last verified against commit: 0a3940996446fa233e0c68412b970d7ad6528f00 (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in sosh_cap_write_append; `export` ENV_WRITE gate landed in this slice (sosh_cap_export).
