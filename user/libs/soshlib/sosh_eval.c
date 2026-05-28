@@ -781,14 +781,32 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
       }
 
       if (state->exec) {
-        /* External command dispatch — gated by SOSH_CAP_APP_EXEC per
-         * docs/abi/sosh-capability-contract.md §4 (row
-         * `external command (apps/foo.bin args...)`). Deny short-circuits
-         * the exec callback so no child process is spawned and no output
-         * is emitted; the embedder-supplied non-zero rc surfaces in $?
-         * and the script continues (§6). */
+        /* Dispatch — gated per docs/abi/sosh-capability-contract.md §4.
+         *
+         * The §4 contract distinguishes the underlying syscall, not the
+         * fact-of-dispatch: `cat <path>` and `ls <path>` reach
+         * `os_fs_read_file` / `os_fs_list_dir` and therefore require
+         * SOSH_CAP_FS_READ with `resource = <path>`. Every other external
+         * command goes through `process_create` via launcher and requires
+         * SOSH_CAP_APP_EXEC with `resource = <binary>`. soshlib stays
+         * kernel-cap-agnostic — the embedder maps each abstract
+         * SOSH_CAP_* to its native CAP_* and emits the canonical
+         * CAP:DENY:<sid>:<cap_name>:<resource> marker per §6.
+         *
+         * Deny short-circuits the exec callback so no syscall runs and
+         * no output is emitted; the embedder-supplied non-zero rc
+         * surfaces in $? and the script continues (§6). */
         if (state->cap_check != 0) {
-          int crc = state->cap_check(SOSH_CAP_APP_EXEC, cmd, state->cap_ctx);
+          int cap_id;
+          const char *cap_resource;
+          if (sosh_streq(cmd, "cat") || sosh_streq(cmd, "ls")) {
+            cap_id = SOSH_CAP_FS_READ;
+            cap_resource = cmd_args;
+          } else {
+            cap_id = SOSH_CAP_APP_EXEC;
+            cap_resource = cmd;
+          }
+          int crc = state->cap_check(cap_id, cap_resource, state->cap_ctx);
           if (crc != 0) {
             sosh_vars_set_exit_code(&state->vars, crc);
             continue;
