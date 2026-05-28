@@ -402,23 +402,29 @@ Validate:
   (`tests/broker_svc_cascade_revokes_minted_handle_test.c`, run via
   `build/scripts/test.sh broker_svc_cascade_revokes_minted_handle`).
   The audit-side `audit_cascade_recorded` /
-  `audit_cascade_done_recorded` sub-checks emit explicit
-  `TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded`
+  `audit_cascade_done_recorded` sub-checks now emit
+  `TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded`
   and
-  `TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded`
-  markers gated on the cascade-audit wiring follow-up #98
-  (`cap.revoked.cascade` + `cap.cascade.done` event classes), so the
-  validator distinguishes "not asserted" from "asserted and passed"
-  — same SKIP discipline §5.4 uses for `audit_*_recorded_qemu`.
+  `TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded`
+  on `main` — the cascade-audit wiring follow-up #370 landed the
+  `cap.revoked.cascade` + `cap.cascade.done` event classes and
+  flipped both SKIPs to PASS (see PR #374). The SKIP-discipline
+  parity §5.4 still describes is retained for any future audit-class
+  introductions that have not yet wired through.
 - delegated caps derived from deleted owner become invalid — covered
   by the `:delegated_caps_invalid` sub-check above, which asserts
   that an `ipc_send_h` on the recipient's delegated handle returns
   `IPC_ERR_CAP_DENIED` after the cascade. The deny-side substrate
   peer `m5_owner_delete_cascade_deny_qemu` (BUILD_ROADMAP §5.5
   fourth-marker peer per the M2/M3/M4 substrate-plan precedent) is
-  tracked by #326 and is in flight; this section will grow a
-  matching `TEST:PASS:m5_owner_delete_cascade_deny_qemu` reference
-  when that PR merges.
+  now green on `main` and pinned by
+  `TEST:PASS:m5_owner_delete_cascade_deny_qemu` plus its sub-checks
+  `:bystander_cannot_delete_owner`, `:double_delete_is_idempotent`,
+  and `:process_destroy_recycle_revokes_qemu` (see
+  `tests/m5_owner_delete_cascade_deny_qemu_test.c`, run via
+  `build/scripts/test.sh m5_owner_delete_cascade_deny_qemu` —
+  landed by #326 → PR #362 and gated by `validate_bundle.sh` via
+  PR #380).
 
 These markers are anchored by the M5 substrate plan #313
 (M5 ownership graph + cascading deletion re-platformed onto merged

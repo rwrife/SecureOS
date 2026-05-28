@@ -48,13 +48,14 @@
  *
  *   TEST:PASS:m5_owner_delete_cascade_allow_qemu:subtree_revoked_before_destroy_qemu
  *   TEST:PASS:m5_owner_delete_cascade_allow_qemu:delegated_caps_invalid
- *   TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded
- *   TEST:SKIP:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded
+ *   TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_recorded
+ *   TEST:PASS:m5_owner_delete_cascade_allow_qemu:audit_cascade_done_recorded
  *   TEST:PASS:m5_owner_delete_cascade_allow_qemu
  *
- * The two SKIP markers are intentional — gated on #98 (the cascade
- * audit-event class). They follow the same shape #304 used for the
- * `audit_deny_recorded_qemu` SKIP.
+ * The two audit sub-checks were originally emitted as SKIP gated on
+ * the cascade audit-event class follow-up; #370 (PR #374) landed the
+ * `cap.revoked.cascade` + `cap.cascade.done` event classes and the
+ * assertions below now PASS on `main`.
  *
  * Issue: #325. Plan: plans/2026-05-25-m5-ownership-on-m1-substrate.md
  * slice 3.
