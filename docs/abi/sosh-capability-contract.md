@@ -6,7 +6,7 @@
 | Status        | DRAFT (spec-only — first slice of issue [#351](https://github.com/rwrife/SecureOS/issues/351); enforcement + tests tracked as follow-ups, see §7) |
 | Applies to    | `OS_ABI_VERSION = 0`                                           |
 | Tracking issue| [#351](https://github.com/rwrife/SecureOS/issues/351) (gap from merged PR [#336](https://github.com/rwrife/SecureOS/pull/336)) |
-| Last reviewed | 2026-05-26                                                     |
+| Last reviewed | 2026-05-28                                                     |
 
 ## 1. Why this exists
 
@@ -341,4 +341,26 @@ their normative source:
 "or an explicit ADR explaining why sosh reuses existing caps" branch
 of #351's last done-when bullet is satisfied by §3.
 
-Last verified against commit: 0a3940996446fa233e0c68412b970d7ad6528f00 (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in sosh_cap_write_append; `export` ENV_WRITE gate landed in this slice (sosh_cap_export).
+### 7.1 §4 enforcement-status matrix
+
+The enforcement status of each §4 row at this revision is:
+
+| §4 row                                       | Enforcement status                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `echo` (`SOSH_CAP_CONSOLE_WRITE`)            | enforced — `sosh_cap_allow` / `sosh_cap_deny` (slice 2/3 of #351, PR #358)         |
+| `cat <path>` / `ls <path>` (`SOSH_CAP_FS_READ`) | enforced — `sosh_cap_cat_ls`                                                    |
+| `source <path>` (`SOSH_CAP_FS_READ`)         | enforced — `sosh_cap_source_exec` (slice 3/3 of #351, refs #371)                   |
+| `exists <path>` (`SOSH_CAP_FS_READ`)         | enforced — `sosh_cap_exists`                                                       |
+| `write <path>` / `append <path>` (`SOSH_CAP_FS_WRITE`) | enforced — `sosh_cap_write_append`                                       |
+| external command (`SOSH_CAP_APP_EXEC`)       | enforced — `sosh_cap_source_exec` (slice 3/3 of #351, refs #371)                   |
+| `export VAR=...` (`SOSH_CAP_ENV_WRITE`)      | enforced (host-only no-op deny path per §3.b) — `sosh_cap_export`                  |
+
+All §4 rows now route through `sosh_state_t.cap_check` before the
+underlying `state->exec(...)` (or in-process equivalent) dispatch,
+completing the §4 enumeration at `OS_ABI_VERSION = 0`. Embedder-side
+wiring of `cap_check` to native `CAP_*` is tracked separately, as is
+the `cap.deny` audit-ring follow-up (#389) covered by the
+`audit_deny_recorded:sosh_audit_unwired_pending_issue_389` SKIP marker
+on every sosh deny test.
+
+Last verified against commit: 02514ac (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in sosh_cap_write_append; `export` ENV_WRITE gate landed in sosh_cap_export; `source` FS_READ + external-command APP_EXEC gates pinned by sosh_cap_source_exec (slice 3/3 of #351, refs #371) — §4 enforcement matrix is now complete at `OS_ABI_VERSION = 0`.
