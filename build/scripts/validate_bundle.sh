@@ -63,9 +63,11 @@ TEST_TARGETS=(
     # M5 ownership-graph cascade (umbrella #313, plan
     # plans/2026-05-25-m5-ownership-on-m1-substrate.md): allow-side
     # `_qemu` peer (slice 003). The deny-side peer
-    # (`m5_owner_delete_cascade_deny_qemu`, #326 / PR #362) lands
-    # alongside its source PR.
+    # (`m5_owner_delete_cascade_deny_qemu`, #326 / PR #362) is now wired
+    # in below alongside its allow counterpart so both legs of the
+    # cascade gate the bundle.
     m5_owner_delete_cascade_allow_qemu
+    m5_owner_delete_cascade_deny_qemu
     # HAL call-site gates (issue #349 / PR #365): allow + deny `_qemu`
     # peers (issue #376) ride on the M2 substrate launcher path and
     # prove video_hal_write_as / input_hal_try_read_char_as /
