@@ -786,25 +786,40 @@ int sosh_eval_script(sosh_state_t *state, const char *script,
          * The §4 contract distinguishes the underlying syscall, not the
          * fact-of-dispatch: `cat <path>` and `ls <path>` reach
          * `os_fs_read_file` / `os_fs_list_dir` and therefore require
-         * SOSH_CAP_FS_READ with `resource = <path>`. Every other external
-         * command goes through `process_create` via launcher and requires
-         * SOSH_CAP_APP_EXEC with `resource = <binary>`. soshlib stays
-         * kernel-cap-agnostic — the embedder maps each abstract
-         * SOSH_CAP_* to its native CAP_* and emits the canonical
-         * CAP:DENY:<sid>:<cap_name>:<resource> marker per §6.
+         * SOSH_CAP_FS_READ with `resource = <path>`; `write <path>` and
+         * `append <path>` reach `os_fs_write_file` and therefore require
+         * SOSH_CAP_FS_WRITE with `resource = <path>`. Every other
+         * external command goes through `process_create` via launcher
+         * and requires SOSH_CAP_APP_EXEC with `resource = <binary>`.
+         * soshlib stays kernel-cap-agnostic — the embedder maps each
+         * abstract SOSH_CAP_* to its native CAP_* and emits the
+         * canonical CAP:DENY:<sid>:<cap_name>:<resource> marker per §6.
          *
          * Deny short-circuits the exec callback so no syscall runs and
          * no output is emitted; the embedder-supplied non-zero rc
          * surfaces in $? and the script continues (§6). */
         if (state->cap_check != 0) {
-          int cap_id;
-          const char *cap_resource;
+          int cap_id = SOSH_CAP_APP_EXEC;
+          const char *cap_resource = cmd;
+          char cap_path[SOSH_VAR_VALUE_MAX];
           if (sosh_streq(cmd, "cat") || sosh_streq(cmd, "ls")) {
             cap_id = SOSH_CAP_FS_READ;
             cap_resource = cmd_args;
-          } else {
-            cap_id = SOSH_CAP_APP_EXEC;
-            cap_resource = cmd;
+          } else if (sosh_streq(cmd, "write") || sosh_streq(cmd, "append")) {
+            /* `write <path> <content>` / `append <path> <content>`:
+             * extract the first whitespace-separated token of
+             * cmd_args as the path (matches the parsing in
+             * user/apps/sosh/main.c). Empty args → empty path; the
+             * embedder may map that to its own deny shape. */
+            int i = 0;
+            while (cmd_args[i] != '\0' && cmd_args[i] != ' ' &&
+                   i < (int)sizeof(cap_path) - 1) {
+              cap_path[i] = cmd_args[i];
+              i++;
+            }
+            cap_path[i] = '\0';
+            cap_id = SOSH_CAP_FS_WRITE;
+            cap_resource = cap_path;
           }
           int crc = state->cap_check(cap_id, cap_resource, state->cap_ctx);
           if (crc != 0) {
