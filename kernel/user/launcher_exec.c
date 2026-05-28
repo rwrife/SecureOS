@@ -38,6 +38,7 @@
 #include "../crypto/sha512.h"
 #include "../format/sof.h"
 #include "../fs/fs_service.h"
+#include "../hal/hal_cap_entry.h"
 #include "../hal/input_hal.h"
 #include "../hal/mouse_hal.h"
 #include "../hal/serial_hal.h"
@@ -803,8 +804,22 @@ static int app_native_input_read_char(char *out_char) {
     return 2; /* still no data */
   }
 
-  if (input_hal_try_read_char(out_char)) {
-    return 0;
+  /* #375: subject-scoped gate on CAP_INPUT_KEYBOARD for the bare-metal
+   * fallback path. Resolve the calling subject from the active session
+   * (kernel-driven console path arrives here with a real session id).
+   * On deny or missing subject, behave like the queue was empty so the
+   * caller's existing "no data" path is preserved. */
+  {
+    cap_subject_id_t subject = 0;
+    if (session_manager_subject_for_session(sid, &subject) != 0) {
+      *out_char = '\0';
+      return 2;
+    }
+    int got = 0;
+    if (input_hal_try_read_char_as(subject, out_char, &got, 0, 0u) == CAP_OK
+        && got) {
+      return 0;
+    }
   }
   *out_char = '\0';
   return 2; /* no data available */
