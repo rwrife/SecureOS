@@ -159,6 +159,11 @@ TEST_TARGETS=(
     manifest_ownership_role_enum
     manifest_owner_kind_enum
     validate_manifests_abi_major
+    # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
+    # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
+    # into the bundle so a regression to the libc nucleus trips here before
+    # TinyCC (P4) starts depending on the same symbols.
+    clib_string
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
