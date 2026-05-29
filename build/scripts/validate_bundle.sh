@@ -142,6 +142,12 @@ TEST_TARGETS=(
     # `user/libs/clib`) — pure host-side check, no env deps. The matching
     # `os_mem_brk` kernel-side wiring lands as the M7-TOOLCHAIN-001 follow-up.
     clib_malloc
+    # M7 in-OS toolchain freestanding libc slice 2 (issue #407, parallel
+    # to the str/mem slice in PR #416). `clib_ctype` pins the ctype family
+    # (isdigit / isalpha / isspace / toupper / tolower / ...) that TinyCC's
+    # preprocessor + lexer call. Pure host-side check, no env deps, no
+    # syscalls. Drift on any shipped symbol flips the bundle to FAIL.
+    clib_ctype
     # Manifest schema v0 validator + additive-enum gates (umbrella #285 /
     # #312 / #368 / #396 / #150). These six targets were intentionally
     # dropped from PR #401 (commit 667e932) because the
