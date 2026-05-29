@@ -241,6 +241,9 @@ unsigned char vga_gfx_get_pixel(int x, int y) {
 void vga_gfx_draw_rect(int x, int y, int w, int h, unsigned char color) {
   (void)x; (void)y; (void)w; (void)h; (void)color;
 }
+void vga_gfx_blit(int x, int y, int w, int h, const unsigned char *pixels) {
+  (void)x; (void)y; (void)w; (void)h; (void)pixels;
+}
 
 /* ------------------------------------------------------------------ */
 /* drivers/video/vga_text.c                                           */
