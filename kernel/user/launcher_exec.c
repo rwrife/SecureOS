@@ -29,7 +29,17 @@
 #include "launcher_exec.h"
 
 #include <stdint.h>
+
+/* launcher_exec.c is compiled into the freestanding kernel image
+ * (see build/scripts/build_kernel_entry.sh, --target=x86_64-unknown-none-elf
+ * -ffreestanding). <stdio.h> is only available in hosted host-test builds;
+ * gate it (and the stdout fwrite path) accordingly. Sibling deny-marker
+ * emitters (kernel/proc/process.c, kernel/ipc/ipc_ops.c) avoid this trap
+ * by being host-only — launcher_exec.c is not. The marker shape itself
+ * is still exercised by host fixtures via the same translation unit. */
+#if __STDC_HOSTED__
 #include <stdio.h>
+#endif
 
 #include "../arch/x86/idt.h"
 #include "../cap/cap_table.h"
@@ -1420,9 +1430,14 @@ static int app_native_process_spawn(const char *path,
     {
       int n = cap_deny_marker_format(subject_id, CAP_APP_EXEC,
                                      resource, marker, sizeof(marker));
+#if __STDC_HOSTED__
       if (n > 0) {
         (void)fwrite(marker, 1u, (size_t)n, stdout);
       }
+#else
+      (void)n;
+      (void)marker;
+#endif
     }
     return 1;
   }
