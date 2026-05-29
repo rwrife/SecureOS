@@ -29,9 +29,11 @@
 #include "launcher_exec.h"
 
 #include <stdint.h>
+#include <stdio.h>
 
 #include "../arch/x86/idt.h"
 #include "../cap/cap_table.h"
+#include "../cap/cap_deny_marker.h"
 #include "../clock/clock_service.h"
 #include "../crypto/cert.h"
 #include "../crypto/ed25519.h"
@@ -214,7 +216,7 @@ enum {
   APP_ARGS_MAX = 128,
   APP_ARGV_MAX = 8,
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
-  APP_NATIVE_BRIDGE_VERSION = 2u,
+  APP_NATIVE_BRIDGE_VERSION = 3u,
   APP_NATIVE_BRIDGE_ADDR = 0x009FF000u,
   APP_NATIVE_LOAD_MIN = 0x00800000u,
   APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
@@ -294,6 +296,24 @@ typedef struct {
    * APP_NATIVE_EXIT_RECOVER_VALUE (see below) so the launcher can
    * distinguish a clean exit from a hardware fault. */
   void (*process_exit)(int status);
+  /* M7-TOOLCHAIN-003 slice 2 (#422): synchronous spawn of a staged
+   * SOF binary through the existing launcher / capability gate.
+   * `path` is forwarded verbatim to `process_run`; `raw_args` is
+   * the space-joined argv tail produced by the userland wrapper.
+   * `flags` is reserved (must be 0). On a clean run returns 0 and
+   * writes the child's captured exit status into `*out_exit_status`
+   * when the pointer is non-NULL. Bridge version 3+ only.
+   *
+   * Return codes (mirror the userland wrapper enum):
+   *   0  -> success
+   *   1  -> capability denied (audit emitted; binary did not run)
+   *   2  -> target binary not found
+   *   3+ -> any other failure (bad args, bad ELF, crash, etc.)
+   */
+  int (*process_spawn)(const char *path,
+                       const char *raw_args,
+                       unsigned int flags,
+                       int *out_exit_status);
 } app_native_bridge_t;
 
 /*
@@ -1322,6 +1342,129 @@ static void app_native_process_exit(int status) {
   }
 }
 
+/*
+ * M7-TOOLCHAIN-003 slice 2 (#422). Synchronous spawn of a staged SOF
+ * binary from inside a running app.
+ *
+ * Routes through the existing launcher (`process_run`) so there is
+ * zero new trust path: codesign, capability gating, and ELF format
+ * checks are all performed by the same code the console dispatch
+ * already exercises. The only additional check this thunk does is
+ * the `CAP_APP_EXEC` pre-check, which lets us emit a canonical
+ * `CAP:DENY:<subject>:app_exec:<resource>` audit line before
+ * `process_run` ever touches the filesystem (so a deny is visible
+ * in the audit ring even for non-existent binaries, matching the
+ * `launch.denied` invariant in plan #403 P4 and the precedent set
+ * by `proc_emit_table_full_deny_marker` in kernel/proc/process.c).
+ *
+ * Return code mapping (bridge contract, mirrored by the userland
+ * `os_process_spawn` wrapper):
+ *   0  PROCESS_OK
+ *   1  PROCESS_ERR_CAPABILITY                       (audited)
+ *   2  PROCESS_ERR_NOT_FOUND
+ *   3  any other process_result_t                   (bad-arg / fmt /
+ *                                                   crash / storage)
+ *
+ * The child's `os_process_exit` status (captured by the launcher's
+ * fault-recovery slot into `g_native_exit_status`) is written into
+ * `*out_exit_status` when the pointer is non-NULL and the call
+ * returned 0. Env marshalling is deferred (see #422 "Out of scope").
+ */
+static int app_native_process_spawn(const char *path,
+                                    const char *raw_args,
+                                    unsigned int flags,
+                                    int *out_exit_status) {
+  process_result_t result;
+  const process_context_t *saved_context;
+  const char *saved_raw_args;
+  int saved_exit_status;
+  cap_subject_id_t subject_id;
+
+  if (g_native_context == 0 || path == 0 || path[0] == '\0') {
+    return 3;
+  }
+  /* Reserved flag bits — refuse rather than silently ignore so a
+   * future flag's meaning is never grandfathered. Mirrors the
+   * userland wrapper. */
+  if (flags != 0u) {
+    return 3;
+  }
+
+  subject_id = g_native_context->subject_id;
+
+  /* CAP_APP_EXEC pre-check + canonical deny marker. Emitting the
+   * marker here (rather than relying on `process_run` to fail later)
+   * mirrors the `proc_emit_table_full_deny_marker` shape and gives
+   * the audit-ring scanner a stable `app_exec:<resource>` line for
+   * the `launch.denied` invariant (plan #403 P4). */
+  if (!app_require_capability(subject_id, CAP_APP_EXEC)) {
+    char marker[CAP_DENY_MARKER_MAX];
+    char resource[CAP_DENY_RESOURCE_MAX + 1u];
+    size_t i;
+    /* Sanitize: cap_deny_marker_format rejects ':' / newline / non-
+     * printable bytes in the resource field. Truncate at the
+     * resource cap and replace any forbidden byte with '_' so a
+     * pathological path can still produce a parseable marker. */
+    for (i = 0u; i < CAP_DENY_RESOURCE_MAX && path[i] != '\0'; ++i) {
+      unsigned char c = (unsigned char)path[i];
+      if (c == ':' || c == '\n' || c < 0x20u || c > 0x7Eu) {
+        resource[i] = '_';
+      } else {
+        resource[i] = (char)c;
+      }
+    }
+    if (i == 0u) {
+      resource[i++] = '_';
+    }
+    resource[i] = '\0';
+    {
+      int n = cap_deny_marker_format(subject_id, CAP_APP_EXEC,
+                                     resource, marker, sizeof(marker));
+      if (n > 0) {
+        (void)fwrite(marker, 1u, (size_t)n, stdout);
+      }
+    }
+    return 1;
+  }
+
+  /* Re-entrant process_run: save the bridge-global context + the
+   * captured exit-status slot so the child can populate them fresh
+   * and we can restore the parent's view on return. `process_run`
+   * (via app_execute_native_elf) already handles the nested-bridge
+   * case for the `g_native_context` and `bridge->raw_args` fields;
+   * this just defends against the captured exit status leaking. */
+  saved_context = g_native_context;
+  saved_raw_args = g_native_raw_args;
+  saved_exit_status = g_native_exit_status;
+  g_native_exit_status = 0;
+
+  result = process_run(path, raw_args == 0 ? "" : raw_args, saved_context);
+
+  /* `app_execute_native_elf` restores g_native_context / raw_args
+   * itself on both the clean and crash paths, but be defensive in
+   * case process_run took a non-native branch (script / builtin)
+   * that did not. */
+  g_native_context = saved_context;
+  g_native_raw_args = saved_raw_args;
+
+  if (result == PROCESS_OK) {
+    if (out_exit_status != 0) {
+      *out_exit_status = g_native_exit_status;
+    }
+    g_native_exit_status = saved_exit_status;
+    return 0;
+  }
+  g_native_exit_status = saved_exit_status;
+
+  if (result == PROCESS_ERR_CAPABILITY) {
+    return 1;
+  }
+  if (result == PROCESS_ERR_NOT_FOUND) {
+    return 2;
+  }
+  return 3;
+}
+
 static int app_native_video_blit(int x, int y, int w, int h,
                                  const unsigned char *pixels) {
   unsigned int sid = session_manager_active_id();
@@ -1692,6 +1835,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->process_getcwd = app_native_process_getcwd;
       bridge->process_chdir = app_native_process_chdir;
       bridge->process_exit = app_native_process_exit;
+      bridge->process_spawn = app_native_process_spawn;
     }
 
     serial_hal_write("[elf] bridge wired, calling entry\n");
@@ -1728,6 +1872,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
           bridge->magic = 0u;
           bridge->version = 0u;
           bridge->process_exit = 0;
+          bridge->process_spawn = 0;
         }
         g_native_context = saved_context;
         g_native_raw_args = saved_raw_args;
@@ -1833,6 +1978,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->process_getcwd = 0;
       bridge->process_chdir = 0;
       bridge->process_exit = 0;
+      bridge->process_spawn = 0;
 
       /* Disable kernel cursor if app left it active */
       if (g_mouse_cursor_enabled) {

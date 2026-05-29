@@ -11,6 +11,7 @@ cc -std=c11 -Wall -Wextra -Werror \
   "$ROOT_DIR/kernel/crypto/ed25519.c" \
   "$ROOT_DIR/kernel/crypto/cert.c" \
   "$ROOT_DIR/kernel/cap/cap_table.c" \
+  "$ROOT_DIR/kernel/cap/cap_deny_marker.c" \
   "$ROOT_DIR/kernel/format/sof.c" \
   "$ROOT_DIR/kernel/hal/storage_hal.c" \
   "$ROOT_DIR/kernel/hal/network_hal.c" \

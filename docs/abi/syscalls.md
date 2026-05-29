@@ -60,6 +60,7 @@ unspecified in that case.
 | `os_process_chdir(path)` | (none — bound to caller) | |
 | `os_process_getcwd(out, len)` | (none) | |
 | `os_process_exit(status)` | (none — bound to caller) | M7-TOOLCHAIN-003 (#406). Terminates the calling process. Does not return when a real bridge is attached. The host-build wrapper reaches through the fixed bridge address (`SECUREOS_NATIVE_BRIDGE_ADDR`) like every other bridge-mediated call, so it is not safe to invoke on bare host without a mapped bridge — host validation is link-time only (`tests/process_exit_wrapper_test.c`). The `status` value is currently advisory (richer exit-code surface is a follow-up). |
+| `os_process_spawn(path, argv, flags, *out_exit_status)` | `CAP_APP_EXEC` | M7-TOOLCHAIN-003 slice 2 (#422). Synchronous spawn of a staged SOF binary through the existing launcher (`process_run`) — no new trust path, same codesign + capability gate the console uses. Argv marshalling: `argv` is a NULL-terminated array of NUL-terminated strings (POSIX `execv` shape); the wrapper space-joins `argv[1..]` into the single `raw_args` string consumed by the launcher (no length-prefixed wire format on this slice). `flags` is reserved and MUST be 0; non-zero returns `OS_STATUS_ERROR`. On `OS_STATUS_OK` the child's `os_process_exit` status (captured by the launcher's fault-recovery slot into `g_native_exit_status`) is written into `*out_exit_status` when the pointer is non-NULL. Deny path (missing `CAP_APP_EXEC`) returns `OS_STATUS_DENIED` and emits a canonical `CAP:DENY:<subject>:app_exec:<resource>` audit marker before the filesystem is touched (parity with `proc_emit_table_full_deny_marker` in `kernel/proc/process.c`). Bridge version bump 2 → 3 only; no `OS_ABI_VERSION` bump. Env marshalling is deferred to a follow-up slice. Host validation is link-time only (`tests/process_spawn_wrapper_test.c`). |
 | `os_env_get/set/list(...)` | (none) | Per-process env. |
 
 ### Libraries
@@ -140,5 +141,5 @@ unused"). The reservation is purely an ABI-shape anchor.
 4. Add an allow-path and a deny-path test under `build/scripts/test_*.sh`.
 5. Update this table and bump the verification line below.
 
-Last verified against commit: a2177df704eca78f65169194fe7d15d6451d7ca1
+Last verified against commit: 2e234b20f0c0a608d58288b982bcd5358f6b3f86
 

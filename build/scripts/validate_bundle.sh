@@ -164,6 +164,13 @@ TEST_TARGETS=(
     # into the bundle so a regression to the libc nucleus trips here before
     # TinyCC (P4) starts depending on the same symbols.
     clib_string
+    # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
+    # `os_process_spawn` user-runtime wrapper. Pairs with
+    # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
+    # in the spawn wrapper's exported symbol, signature, or
+    # reserved-flag / bad-arg early-reject contract flips the
+    # bundle to FAIL.
+    process_spawn_wrapper
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
