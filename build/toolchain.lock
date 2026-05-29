@@ -17,6 +17,7 @@
     "ninja",
     "cmake",
     "python3",
+    "python3-jsonschema",
     "qemu-system-x86_64",
     "xorriso",
     "grub-mkrescue",
