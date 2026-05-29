@@ -136,6 +136,12 @@ TEST_TARGETS=(
     # image and round-trip byte-identically. Guards the disk-staging wiring so
     # a regression that drops /apps/dev flips the bundle to FAIL.
     in_os_toolchain_dev_dir
+    # M7 in-OS toolchain (umbrella #403, plan
+    # `plans/2026-05-28-in-os-toolchain-self-hosting.md` P1). `clib_malloc`
+    # is the freestanding userland heap allocator (issue #404,
+    # `user/libs/clib`) — pure host-side check, no env deps. The matching
+    # `os_mem_brk` kernel-side wiring lands as the M7-TOOLCHAIN-001 follow-up.
+    clib_malloc
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
