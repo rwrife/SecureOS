@@ -2,7 +2,7 @@
 
 > **Owner:** launcher / user-runtime
 > **Status:** draft `v0` — on-disk schema not yet load-bearing
-> **Last reviewed:** 2026-05-22
+> **Last reviewed:** 2026-05-29
 > **Applies to:** `OS_ABI_VERSION = 0`
 > **Tracking issues:** [#82](https://github.com/rwrife/SecureOS/issues/82), [#83](https://github.com/rwrife/SecureOS/issues/83)
 
@@ -183,7 +183,34 @@ Field semantics we are committing to at v0:
   does **not** bump `OS_ABI_VERSION` (same precedent as
   `capabilities.persistence` in #285/#286,
   `capabilities.broker_role` in #312, and
-  `capabilities.ownership_role` in #368).
+  `capabilities.ownership_role` in #368, and `owner.kind` in #396).
+- `runtime.arena_bytes` is an optional integer field that declares a
+  per-app userland arena ceiling in bytes (BUILD_ROADMAP §5.7 and
+  plan `plans/2026-05-28-in-os-toolchain-self-hosting.md` §P1,
+  issue #424). The accepted range at v0 is
+  `[PROC_ARENA_BYTES_DEFAULT = 65536, PROC_ARENA_BYTES_MAX = 16777216]`
+  (64 KiB … 16 MiB). Numbers chosen: the default is a small, safe
+  bootstrap-app footprint that costs no extra physical pages over
+  today's behavior; the cap is sized to fit the in-OS TinyCC
+  compile-with-linker working set (plan §P1) while staying well below
+  the M1 process address-space envelope, so a per-app value cannot
+  silently consume the whole arena window. Default behavior when the
+  `runtime` object (or `runtime.arena_bytes`) is omitted is
+  **unchanged**: the launcher applies the kernel default arena size,
+  exactly matching the pre-#424 spawn path. A declared value that
+  exceeds the cap is a deny-by-default launch failure with a
+  documented audit reason — the launcher emits a capability-audit
+  deny event and the spawn fails; the kernel does **not** panic. Like
+  `persistence`, `broker_role`, `ownership_role`, and `owner.kind`,
+  this field is schema-only at v0 — the kernel `os_mem_brk` syscall
+  and the launcher clamp/audit wiring land in the M7-TOOLCHAIN-001
+  follow-up slice (#421). Because the field is **optional**, has a
+  non-default value only when explicitly declared, and the omitted
+  case exactly preserves the current spawn / arena-sizing path,
+  adding it is additive and does **not** bump `OS_ABI_VERSION`
+  (same precedent as `capabilities.persistence` in #285/#286,
+  `capabilities.broker_role` in #312,
+  `capabilities.ownership_role` in #368, and `owner.kind` in #396).
 - `launcher.auto_grant_at_launch` is the subset the launcher grants
   unconditionally at startup. It MUST be disjoint from
   `launcher.require_user_confirm`; both MUST be subsets of
@@ -334,6 +361,51 @@ list while still being a stable target for the regression test.
 | `manifest_owner_kind_enum` (positive) | enforced (PR for #396 schema sub-slice) |
 | `manifest_owner_kind_enum:negative_rejected` | enforced (PR for #396 schema sub-slice) |
 | `manifest_owner_kind_enum:default_when_omitted` | enforced (PR for #396 schema sub-slice) |
+
+### §5.7 runtime.arena_bytes enforcement status (M7-TOOLCHAIN-001 schema sub-slice)
+
+`runtime.arena_bytes` additive integer field added in #424 (M7
+per-app userland arena ceiling, refs #404 / #421):
+
+- **Runtime arena example** —
+  [`helloapp.runtime_arena.json`](../../manifests/examples/helloapp.runtime_arena.json):
+  same as `helloapp.json` but with `runtime.arena_bytes: 1048576`
+  (1 MiB, a representative mid-range value).
+- **Runtime omitted (back-compat)** — the bundled `helloapp.json`,
+  `helloapp.deny.json`, `helloapp.persistent.json`,
+  `helloapp.broker_*.json`, `helloapp.ownership_*.json`, and
+  `helloapp.owner_*.json` examples all omit the `runtime` object
+  entirely and so continue to behave as the kernel-default arena
+  size, proving that the addition is backward-compatible.
+- **Negative regression** —
+  [`invalid/helloapp.runtime_arena_invalid.json`](../../manifests/examples/invalid/helloapp.runtime_arena_invalid.json):
+  same as `helloapp.json` but with `runtime.arena_bytes: 33554432`
+  (32 MiB, above the v0 cap of 16 MiB). The validator wrapper
+  rejects it with a deterministic `MANIFEST_VALIDATE:FAIL` marker
+  surfacing the `arena_bytes` field name. The bundled regression
+  test `build/scripts/test_manifest_arena_bytes_range.sh` also
+  exercises in-test synthesized negatives (below-min, negative
+  integer, wrong type) and emits the
+  `TEST:PASS:manifest_arena_bytes_range:negative_rejected` sub-marker
+  on its success path (parity with the matching `:negative_rejected`
+  sub-markers in `manifest_persistence_enum`,
+  `manifest_broker_role_enum`, `manifest_ownership_role_enum`, and
+  `manifest_owner_kind_enum`), and emits
+  `TEST:PASS:manifest_arena_bytes_range:default_when_omitted` after
+  asserting that `helloapp.json` (which omits the `runtime` object
+  entirely) still validates, locking in the additive / back-compat
+  contract.
+
+| Sub-marker | Status |
+| --- | --- |
+| `manifest_arena_bytes_range` (positive) | enforced (PR for #424 schema sub-slice) |
+| `manifest_arena_bytes_range:negative_rejected` | enforced (PR for #424 schema sub-slice) |
+| `manifest_arena_bytes_range:default_when_omitted` | enforced (PR for #424 schema sub-slice) |
+
+Runtime semantics (kernel `os_mem_brk` and the launcher clamp /
+spawn-time audit / deny-by-default path for out-of-range values)
+land in the M7-TOOLCHAIN-001 kernel slice tracked by #421. This
+sub-slice intentionally introduces no runtime behavior change.
 
 Runtime semantics (launcher trust/policy treatment of
 `owner.kind: "external"` modules, plus the

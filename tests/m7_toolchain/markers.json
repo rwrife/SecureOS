@@ -1,0 +1,45 @@
+{
+  "_comment": "Source of truth for the M7-TOOLCHAIN acceptance suite scaffolding (issue #423). Each entry pairs an acceptance marker from plans/2026-05-28-in-os-toolchain-self-hosting.md with the gating execute issue whose landing flips its SKIP to PASS. Consumed by build/scripts/validate_bundle.sh to emit the m7_toolchain section of the bundle JSON report.",
+  "schemaVersion": 1,
+  "umbrella": 403,
+  "plan": "plans/2026-05-28-in-os-toolchain-self-hosting.md",
+  "scaffoldIssue": 423,
+  "markers": [
+    {
+      "name": "toolchain_compiles_hello_in_os",
+      "gatingIssue": 409,
+      "reason": "awaiting_409",
+      "description": "cc driver app produces a SOF-wrapped ELF on-target."
+    },
+    {
+      "name": "toolchain_runs_compiled_binary",
+      "gatingIssue": 422,
+      "reason": "awaiting_422",
+      "description": "os_process_spawn syscall + CAP_APP_EXEC gating let the launcher execute the cc output."
+    },
+    {
+      "name": "toolchain_unsigned_prompt_enforced",
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "description": "Unsigned-run wiring through the launcher auth flow (Tier 1 trust, AUTH_TYPE_UNSIGNED_BIN)."
+    },
+    {
+      "name": "toolchain_large_output_persisted",
+      "gatingIssue": 409,
+      "reason": "awaiting_409",
+      "description": "cc emits a >1 KB binary; FS path (M7-TOOLCHAIN-002, closed #405) stays byte-identical."
+    },
+    {
+      "name": "toolchain_compile_error_reported",
+      "gatingIssue": 409,
+      "reason": "awaiting_409",
+      "description": "cc exits non-zero on syntax error, prints a diagnostic, and writes no output file."
+    },
+    {
+      "name": "toolchain_heap_isolation",
+      "gatingIssue": 421,
+      "reason": "awaiting_421",
+      "description": "Kernel os_mem_brk syscall + per-process arena reset on teardown."
+    }
+  ]
+}

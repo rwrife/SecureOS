@@ -1494,13 +1494,39 @@ static int app_native_video_blit(int x, int y, int w, int h,
     if (session_manager_get_gfx_mode(sid) == 1) {
       unsigned char *vfb = session_manager_get_vfb(sid);
       if (vfb != 0) {
-        for (row = 0; row < h; row++) {
-          int py = y + row;
-          if (py < 0 || py >= 200) continue;
-          for (col = 0; col < w; col++) {
-            int px = x + col;
-            if (px < 0 || px >= 320) continue;
-            vfb[py * 320 + px] = pixels[row * w + col];
+        /* Bulk row-copy fast path. The previous per-pixel double loop
+         * was extremely slow at -O0 because every pixel was an iteration
+         * with four bounds checks, dominating frame time for compositor-
+         * style full-rectangle blits inside WM-hosted apps. */
+        unsigned int vw = 0, vh = 0;
+        int dst_w, dst_h;
+        int src_x_off = 0;
+        int src_y_off = 0;
+        int src_stride = w;
+        int clipped_w;
+        int clipped_h;
+
+        session_manager_get_vfb_size(sid, &vw, &vh);
+        dst_w = (vw == 0) ? 320 : (int)vw;
+        dst_h = (vh == 0) ? 200 : (int)vh;
+
+        if (x < 0) { src_x_off = -x; w += x; x = 0; }
+        if (y < 0) { src_y_off = -y; h += y; y = 0; }
+        if (x >= dst_w || y >= dst_h || w <= 0 || h <= 0) {
+          return 0;
+        }
+        clipped_w = (x + w > dst_w) ? (dst_w - x) : w;
+        clipped_h = (y + h > dst_h) ? (dst_h - y) : h;
+        if (clipped_w <= 0 || clipped_h <= 0) {
+          return 0;
+        }
+
+        for (row = 0; row < clipped_h; row++) {
+          unsigned char *dst_row = vfb + (y + row) * dst_w + x;
+          const unsigned char *src_row =
+              pixels + (src_y_off + row) * src_stride + src_x_off;
+          for (col = 0; col < clipped_w; col++) {
+            dst_row[col] = src_row[col];
           }
         }
         return 0;
@@ -1509,15 +1535,13 @@ static int app_native_video_blit(int x, int y, int w, int h,
     return 3;
   }
 
-  /* Real hardware path */
+  /* Real hardware path — delegate to the driver's bulk-row blit so we don't
+   * pay one function call per pixel (was ~64K calls per full backbuffer
+   * flush from the window manager, see plans/2026-05-29-wm-render-speedup.md). */
   if (!vga_gfx_is_active()) {
     return 3;
   }
-  for (row = 0; row < h; row++) {
-    for (col = 0; col < w; col++) {
-      vga_gfx_put_pixel(x + col, y + row, pixels[row * w + col]);
-    }
-  }
+  vga_gfx_blit(x, y, w, h, pixels);
   return 0;
 }
 
