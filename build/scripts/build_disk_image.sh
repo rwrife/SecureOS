@@ -70,6 +70,13 @@ build_disk_image_inner() {
 		for lib_path in user/libs/*; do
 			if [[ -d "$lib_path" ]]; then
 				lib_name="$(basename "$lib_path")"
+				# Skip libs that aren't structured as a SOF user-lib (no main.c).
+				# Header/src-only libs like `clib` (issue #404 — "not on-image
+				# yet") are linked into apps via the SDK path, not packed as a
+				# standalone .lib in the disk image.
+				if [[ ! -f "$lib_path/main.c" ]]; then
+					continue
+				fi
 				./build/scripts/build_user_lib.sh "$lib_name"
 			fi
 		done

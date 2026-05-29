@@ -725,27 +725,31 @@ static fs_result_t fs_ensure_initialized(void) {
   return FS_OK;
 }
 
+static fs_result_t fs_free_cluster_chain(uint32_t first_cluster, uint8_t fat[FS_FAT_BUFFER_SIZE]);
+
 static fs_result_t fs_write_entry_content(uint32_t first_cluster,
                                           const uint8_t *content,
                                           size_t content_len,
                                           int append,
                                           uint32_t *out_size,
                                           uint8_t fat[FS_FAT_BUFFER_SIZE]) {
+  /* Streaming N-cluster write across the FAT chain (issue #405).
+   *
+   * Overwrite (append==0): truncate the file by freeing any clusters
+   * beyond first_cluster, then write content starting at offset 0.
+   * Append (append==1): start writing at offset *out_size, walking /
+   * extending the chain as needed. CAP_FS_WRITE / CAP_FS_READ gates are
+   * unchanged — this is a size lift, not a new authority. */
   uint8_t data[FS_BLOCK_SIZE];
-  size_t start = 0u;
+  uint32_t start = 0u;
+  size_t remaining = content_len;
+  size_t src_pos = 0u;
+  uint32_t current_cluster = first_cluster;
+  size_t cluster_offset = 0u;
   size_t i = 0u;
 
   if (first_cluster < FS_CLUSTER_MIN_ALLOC || first_cluster > FS_CLUSTER_MAX_ALLOC) {
     return FS_ERR_INVALID_ARG;
-  }
-
-  /* Support up to 2 clusters (FS_BLOCK_SIZE * 2 = 1024 bytes) */
-  if (content_len > (FS_BLOCK_SIZE * 2u)) {
-    return FS_ERR_NO_SPACE;
-  }
-
-  if (fs_read_cluster(first_cluster, data) != FS_OK) {
-    return FS_ERR_STORAGE;
   }
 
   if (append && out_size != 0) {
@@ -753,51 +757,88 @@ static fs_result_t fs_write_entry_content(uint32_t first_cluster,
   }
 
   if (!append) {
-    fs_zero_bytes(data, sizeof(data));
+    /* Truncate: free any chained successor clusters; first_cluster
+     * keeps its identity (the directory entry already points at it). */
+    uint32_t next = fs_fat_get_entry(fat, first_cluster);
+    if (next >= FS_CLUSTER_MIN_ALLOC && next <= FS_CLUSTER_MAX_ALLOC) {
+      if (fs_free_cluster_chain(next, fat) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+    }
+    fs_fat_set_entry(fat, first_cluster, FS_FAT_ENTRY_EOC);
     start = 0u;
   }
 
-  /* Write data that fits in the first cluster */
-  {
-    size_t first_chunk = content_len;
-    if (start + first_chunk > FS_BLOCK_SIZE) {
-      first_chunk = (start < FS_BLOCK_SIZE) ? (FS_BLOCK_SIZE - start) : 0u;
+  /* Walk (extending if needed) to the cluster that holds byte `start`. */
+  cluster_offset = (size_t)start;
+  while (cluster_offset >= FS_BLOCK_SIZE) {
+    uint32_t next = fs_fat_get_entry(fat, current_cluster);
+    if (next == FS_FAT_ENTRY_EOC || next == FS_FAT_ENTRY_FREE) {
+      uint32_t new_cluster = 0u;
+      if (fs_find_free_cluster(fat, &new_cluster) != FS_OK) {
+        return FS_ERR_NO_SPACE;
+      }
+      fs_fat_set_entry(fat, current_cluster, new_cluster);
+      fs_fat_set_entry(fat, new_cluster, FS_FAT_ENTRY_EOC);
+      next = new_cluster;
+      fs_zero_bytes(data, sizeof(data));
+      if (fs_write_cluster(next, data) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+    }
+    if (next < FS_CLUSTER_MIN_ALLOC || next > FS_CLUSTER_MAX_ALLOC) {
+      return FS_ERR_STORAGE;
+    }
+    current_cluster = next;
+    cluster_offset -= FS_BLOCK_SIZE;
+  }
+
+  /* Stream content across as many clusters as needed. */
+  while (remaining > 0u) {
+    size_t avail = FS_BLOCK_SIZE - cluster_offset;
+    size_t chunk = (remaining < avail) ? remaining : avail;
+
+    if (cluster_offset != 0u) {
+      /* Preserve existing bytes ahead of the write point in this cluster. */
+      if (fs_read_cluster(current_cluster, data) != FS_OK) {
+        return FS_ERR_STORAGE;
+      }
+    } else {
+      fs_zero_bytes(data, sizeof(data));
     }
 
-    for (i = 0u; i < first_chunk; ++i) {
-      data[start + i] = content[i];
+    for (i = 0u; i < chunk; ++i) {
+      data[cluster_offset + i] = content[src_pos + i];
     }
 
-    if (fs_write_cluster(first_cluster, data) != FS_OK) {
+    if (fs_write_cluster(current_cluster, data) != FS_OK) {
       return FS_ERR_STORAGE;
     }
 
-    /* If there's overflow into a second cluster, chain via FAT */
-    if (start + content_len > FS_BLOCK_SIZE) {
-      uint8_t data2[FS_BLOCK_SIZE];
-      uint32_t second_cluster = 0u;
-      size_t second_offset = first_chunk;
-      size_t second_len = content_len - first_chunk;
+    src_pos += chunk;
+    remaining -= chunk;
+    cluster_offset = 0u;
 
-      /* Check if a second cluster is already chained */
-      second_cluster = fs_fat_get_entry(fat, first_cluster);
-      if (second_cluster == FS_FAT_ENTRY_EOC || second_cluster == FS_FAT_ENTRY_FREE) {
-        /* Allocate a new cluster */
-        if (fs_find_free_cluster(fat, &second_cluster) != FS_OK) {
+    if (remaining == 0u) {
+      break;
+    }
+
+    /* Advance / extend the FAT chain for the next chunk. */
+    {
+      uint32_t next = fs_fat_get_entry(fat, current_cluster);
+      if (next == FS_FAT_ENTRY_EOC || next == FS_FAT_ENTRY_FREE) {
+        uint32_t new_cluster = 0u;
+        if (fs_find_free_cluster(fat, &new_cluster) != FS_OK) {
           return FS_ERR_NO_SPACE;
         }
-        fs_fat_set_entry(fat, first_cluster, second_cluster);
-        fs_fat_set_entry(fat, second_cluster, FS_FAT_ENTRY_EOC);
+        fs_fat_set_entry(fat, current_cluster, new_cluster);
+        fs_fat_set_entry(fat, new_cluster, FS_FAT_ENTRY_EOC);
+        next = new_cluster;
       }
-
-      fs_zero_bytes(data2, sizeof(data2));
-      for (i = 0u; i < second_len; ++i) {
-        data2[i] = content[second_offset + i];
-      }
-
-      if (fs_write_cluster(second_cluster, data2) != FS_OK) {
+      if (next < FS_CLUSTER_MIN_ALLOC || next > FS_CLUSTER_MAX_ALLOC) {
         return FS_ERR_STORAGE;
       }
+      current_cluster = next;
     }
   }
 
@@ -990,6 +1031,7 @@ static fs_result_t fs_build_sof_binary(const char *script,
   params.version = "1.0.0";
   params.date = "2026-03-16";
   params.icon = 0;
+  params.syscall_id = 0;
   params.elf_payload = elf_buf;
   params.elf_payload_size = elf_len;
 
