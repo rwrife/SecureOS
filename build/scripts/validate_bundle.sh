@@ -112,6 +112,41 @@ TEST_TARGETS=(
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
     sosh_contract_registry_drift
+    # Manifest schema v0 validator + additive-enum gates (umbrella
+    # #285 / #312 / #368 / #396, schema at `manifests/schema/v0.json`).
+    # All targets are host-only, green on `main`, and were previously
+    # orphaned from TEST_TARGETS in the same shape #129 / #366 / #384
+    # caught — `manifest_ownership_role_enum` (PR #372, refs #368),
+    # `manifest_owner_kind_enum` (PR #398, refs #396 slice 3a), the
+    # pre-existing `manifest_required_fields` / `manifest_persistence_enum`
+    # / `manifest_broker_role_enum` shape checks, and the
+    # `validate_manifests_abi_major` ABI-major pin (#150) that every
+    # additive-field PR has been re-running by hand. Wire them in so
+    # any regression to the manifest schema flips the bundle to FAIL.
+    manifest_required_fields
+    manifest_persistence_enum
+    manifest_broker_role_enum
+    manifest_ownership_role_enum
+    manifest_owner_kind_enum
+    validate_manifests_abi_major
+    # ABI / SDK public-surface gates (umbrella #136 / plan
+    # `plans/2026-05-15-public-sdk-external-app-template.md`):
+    # `abi_version` pins `OS_ABI_VERSION = 0` (#150 / #228),
+    # `sdk_abi_pin` keeps `sdk/VERSION` ↔ `sdk/include/os/abi.h`
+    # consistent, `sdk_libos_link` proves a freestanding link against
+    # `sdk/lib/libos.a`, and `validate_sdk_no_kernel_includes` keeps
+    # the SDK surface free of `kernel/` includes (the containment
+    # guarantee #396 slice 3 wrappers depend on). Same orphan-from-
+    # TEST_TARGETS shape — wire so a regression flips the bundle.
+    abi_version
+    sdk_abi_pin
+    sdk_libos_link
+    validate_sdk_no_kernel_includes
+    # `docs/abi/` Last-verified-stamp freshness guard (PR #298 / #297).
+    # Pure static check that every `Last verified against commit:` line
+    # in `docs/abi/*.md` does not predate the file's last content
+    # commit. Cheap to run, no env deps.
+    abi_stamps_drift
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
