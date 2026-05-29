@@ -156,5 +156,87 @@ int main(void) {
   }
   printf("TEST:PASS:fs_service_nested_paths\n");
 
+  /*
+   * Issue #405 (M7-TOOLCHAIN-002): arbitrary-size filesystem writes.
+   * Round-trip a > 2-cluster file (FS_BLOCK_SIZE = 512 → write 3 KB,
+   * spanning 6 clusters) byte-identically. This is the
+   * `toolchain_large_output_persisted` acceptance case from the plan.
+   */
+  {
+    static uint8_t large_in[3072];
+    static uint8_t large_out[3072];
+    size_t large_len = 0u;
+    size_t k = 0u;
+
+    for (k = 0u; k < sizeof(large_in); ++k) {
+      large_in[k] = (uint8_t)((k * 31u + 7u) & 0xFFu);
+    }
+
+    if (fs_write_file_bytes("big.bin", large_in, sizeof(large_in), 0) != FS_OK) {
+      fail("large_write_failed");
+    }
+    {
+      size_t got = 0u;
+      if (fs_read_file_bytes("big.bin", large_out, sizeof(large_out), &got) != FS_OK) {
+        fail("large_read_failed");
+      }
+      large_len = got;
+    }
+    if (large_len != sizeof(large_in)) {
+      fail("large_read_len_mismatch");
+    }
+    for (k = 0u; k < sizeof(large_in); ++k) {
+      if (large_out[k] != large_in[k]) {
+        fail("large_read_content_mismatch");
+      }
+    }
+    printf("TEST:PASS:fs_service_large_file_round_trip\n");
+
+    /* Overwrite the same path with a smaller blob to confirm chain
+     * truncation: the trailing clusters must be released so the file
+     * shrinks to the new size. */
+    if (fs_write_file_bytes("big.bin", large_in, 100u, 0) != FS_OK) {
+      fail("large_overwrite_failed");
+    }
+    {
+      size_t got = 0u;
+      if (fs_read_file_bytes("big.bin", large_out, sizeof(large_out), &got) != FS_OK) {
+        fail("large_overwrite_read_failed");
+      }
+      if (got != 100u) {
+        fail("large_overwrite_len");
+      }
+      for (k = 0u; k < 100u; ++k) {
+        if (large_out[k] != large_in[k]) {
+          fail("large_overwrite_content");
+        }
+      }
+    }
+    printf("TEST:PASS:fs_service_large_file_truncate_overwrite\n");
+
+    /* Append across cluster boundary from a small base. */
+    if (fs_write_file_bytes("appendy.bin", large_in, 300u, 0) != FS_OK) {
+      fail("append_base_failed");
+    }
+    if (fs_write_file_bytes("appendy.bin", large_in + 300u, 2000u, 1) != FS_OK) {
+      fail("append_extend_failed");
+    }
+    {
+      size_t got = 0u;
+      if (fs_read_file_bytes("appendy.bin", large_out, sizeof(large_out), &got) != FS_OK) {
+        fail("append_extend_read_failed");
+      }
+      if (got != 2300u) {
+        fail("append_extend_len");
+      }
+      for (k = 0u; k < 2300u; ++k) {
+        if (large_out[k] != large_in[k]) {
+          fail("append_extend_content");
+        }
+      }
+    }
+    printf("TEST:PASS:fs_service_large_file_append_extend\n");
+  }
+
   return 0;
 }
