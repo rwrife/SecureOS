@@ -142,6 +142,23 @@ TEST_TARGETS=(
     # `user/libs/clib`) — pure host-side check, no env deps. The matching
     # `os_mem_brk` kernel-side wiring lands as the M7-TOOLCHAIN-001 follow-up.
     clib_malloc
+    # Manifest schema v0 validator + additive-enum gates (umbrella #285 /
+    # #312 / #368 / #396 / #150). These six targets were intentionally
+    # dropped from PR #401 (commit 667e932) because the
+    # secureos/toolchain container did not ship python3-jsonschema, so
+    # every wrapper short-circuited with TEST:FAIL:harness_missing_jsonschema
+    # (rc=78). PR for #414 added python3-jsonschema to
+    # build/docker/Dockerfile.toolchain (kept the container-internal
+    # invariant post-#332) and wires the targets here so a regression to
+    # any manifest enum / required-field / abi-major check flips the
+    # bundle to FAIL — same orphan-from-TEST_TARGETS shape #129 / #366 /
+    # #384 / #401 caught for prior host-only targets.
+    manifest_required_fields
+    manifest_persistence_enum
+    manifest_broker_role_enum
+    manifest_ownership_role_enum
+    manifest_owner_kind_enum
+    validate_manifests_abi_major
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
