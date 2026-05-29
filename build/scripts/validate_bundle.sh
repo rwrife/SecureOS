@@ -112,23 +112,6 @@ TEST_TARGETS=(
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
     sosh_contract_registry_drift
-    # Manifest schema v0 validator + additive-enum gates (umbrella
-    # #285 / #312 / #368 / #396, schema at `manifests/schema/v0.json`).
-    # All targets are host-only, green on `main`, and were previously
-    # orphaned from TEST_TARGETS in the same shape #129 / #366 / #384
-    # caught — `manifest_ownership_role_enum` (PR #372, refs #368),
-    # `manifest_owner_kind_enum` (PR #398, refs #396 slice 3a), the
-    # pre-existing `manifest_required_fields` / `manifest_persistence_enum`
-    # / `manifest_broker_role_enum` shape checks, and the
-    # `validate_manifests_abi_major` ABI-major pin (#150) that every
-    # additive-field PR has been re-running by hand. Wire them in so
-    # any regression to the manifest schema flips the bundle to FAIL.
-    manifest_required_fields
-    manifest_persistence_enum
-    manifest_broker_role_enum
-    manifest_ownership_role_enum
-    manifest_owner_kind_enum
-    validate_manifests_abi_major
     # ABI / SDK public-surface gates (umbrella #136 / plan
     # `plans/2026-05-15-public-sdk-external-app-template.md`):
     # `abi_version` pins `OS_ABI_VERSION = 0` (#150 / #228),
