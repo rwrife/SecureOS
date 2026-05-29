@@ -1,7 +1,7 @@
 # user/libs/clib — freestanding userland libc nucleus
 
 > **Owner:** in-OS toolchain (M7) / SDK runtime
-> **Status:** slice 1 (allocator only) — issue [#404](https://github.com/rwrife/SecureOS/issues/404)
+> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)) and slice 2 (ctype family, issue [#407](https://github.com/rwrife/SecureOS/issues/407)) landed; `str*`/`mem*` (also #407) in flight via PR #416; `stdio` / `setjmp` follow on later slices.
 > **Plan:** [`plans/2026-05-28-in-os-toolchain-self-hosting.md`](../../../plans/2026-05-28-in-os-toolchain-self-hosting.md) (P1)
 
 ## What this is
@@ -73,3 +73,48 @@ TEST:PASS:clib_malloc
 
 The `toolchain_heap_isolation` marker is the same one called out in the
 M7 plan acceptance for this slice.
+
+## Slice 2 — ctype family (issue #407)
+
+TinyCC's preprocessor and tokenizer (`tccpp.c`) need the classic ctype
+predicates. They have no syscall dependency, so this slice lands in
+parallel with the `str*`/`mem*` slice (PR #416) — different header,
+different source file, different `symbol_set_pinned` sub-marker.
+
+**Shipped symbols (15):**
+
+- Classification: `isascii`, `isdigit`, `isxdigit`, `isalpha`,
+  `isalnum`, `isspace`, `isblank`, `isupper`, `islower`, `iscntrl`,
+  `isprint`, `isgraph`, `ispunct`
+- Conversion: `toupper`, `tolower`
+
+Canonical libc names; ASCII only, no locale, no `_l` variants.
+Compiled with `-fno-builtin` in the host test so the assertions
+exercise our implementations rather than `__builtin_isdigit` etc.
+
+```
+$ bash build/scripts/test.sh clib_ctype
+TEST:PASS:clib_ctype:isascii_full_range
+TEST:PASS:clib_ctype:isdigit_full_range
+TEST:PASS:clib_ctype:isxdigit_full_range
+TEST:PASS:clib_ctype:isalpha_full_range
+TEST:PASS:clib_ctype:isalnum_full_range
+TEST:PASS:clib_ctype:isspace_full_range
+TEST:PASS:clib_ctype:isblank_full_range
+TEST:PASS:clib_ctype:isupper_full_range
+TEST:PASS:clib_ctype:islower_full_range
+TEST:PASS:clib_ctype:iscntrl_full_range
+TEST:PASS:clib_ctype:isprint_full_range
+TEST:PASS:clib_ctype:isgraph_full_range
+TEST:PASS:clib_ctype:ispunct_full_range
+TEST:PASS:clib_ctype:toupper_full_range
+TEST:PASS:clib_ctype:tolower_full_range
+TEST:PASS:clib_ctype:eof_safe
+TEST:PASS:clib_ctype:symbol_set_pinned
+TEST:PASS:clib_ctype
+```
+
+`symbol_set_pinned` is the drift marker required by the #407
+acceptance: every shipped symbol must remain reachable through a
+function pointer, so a TinyCC drop or unrelated PR cannot silently
+remove a family member.
