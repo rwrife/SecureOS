@@ -113,6 +113,18 @@ build_disk_image_inner() {
 		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
+	# Deploy in-OS developer tools to /apps/dev (sample + on-device guide).
+	# Source of truth is the repo-level dev/ directory; the in-OS compiler
+	# itself is staged here in a later phase (see
+	# plans/2026-05-28-in-os-toolchain-self-hosting.md).
+	local -a dev_mappings=()
+	if [ -f "$ROOT_DIR/dev/hello.c" ]; then
+		dev_mappings+=("dev/hello.c=/apps/dev/hello.c")
+	fi
+	if [ -f "$ROOT_DIR/dev/building.txt" ]; then
+		dev_mappings+=("dev/building.txt=/apps/dev/building.txt")
+	fi
+
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""
 	if [ -d "$ROOT_DIR/artifacts/keys" ] && [ -f "$ROOT_DIR/artifacts/keys/root.pub" ]; then
@@ -126,7 +138,8 @@ build_disk_image_inner() {
 		--lib-dir artifacts/lib \
 		$CERTS_ARGS \
 		"${app_mappings[@]}" \
-		"${script_mappings[@]}"
+		"${script_mappings[@]}" \
+		"${dev_mappings[@]}"
 	echo "Built $DISK_PATH"
 }
 

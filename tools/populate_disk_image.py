@@ -261,9 +261,23 @@ class DiskImage:
         parent_dir[offset:offset + FS_DIR_ENTRY_SIZE] = entry
         self._write_cluster(write_cluster, parent_dir)
 
+    def makedirs(self, path: str) -> None:
+        """Create a directory and any missing parents (like `mkdir -p`)."""
+        normalized = path.replace('\\', '/').strip('/')
+        if not normalized:
+            return
+        accumulated = ''
+        for component in normalized.split('/'):
+            accumulated = f'{accumulated}/{component}'
+            self.mkdir(accumulated)
+
     def write_file(self, path: str, content: bytes) -> None:
         normalized = path.replace('\\', '/').strip('/')
         parent_path, _, leaf = normalized.rpartition('/')
+        # Auto-create the parent directory chain so nested staging targets
+        # (e.g. /apps/dev/hello.c) do not require a separate mkdir step.
+        if parent_path:
+            self.makedirs('/' + parent_path)
         parent_cluster = self._resolve_dir_cluster('/' + parent_path) if parent_path else FS_ROOT_CLUSTER
         name83 = self._parse_83_name(leaf)
         parent_dir, offset, found, write_cluster = self._find_entry(parent_cluster, name83)
@@ -363,6 +377,7 @@ def main() -> int:
     image.mkdir('/apps')
     image.mkdir('/lib')
     image.mkdir('/scripts')
+    image.makedirs('/apps/dev')  # in-OS developer tools (see dev/ in repo)
     image.write_file('/readme.txt', b'SecureOS filesystem')
 
     extra_args = sys.argv[3:]

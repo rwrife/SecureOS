@@ -1,0 +1,64 @@
+# Makefile.secureos — TinyCC source file list for the SecureOS freestanding
+# in-OS compiler.
+#
+# STATUS: SCAFFOLD (Phase 1). This file enumerates the libtcc sources needed
+# for an x86_64 ELF-emitting compiler and records the porting notes. It is
+# NOT yet wired into a working build — that is Phases 3-4 of
+# plans/2026-05-28-in-os-toolchain-self-hosting.md. Listing the files now
+# keeps the vendor surface auditable and gives the execute issue a concrete
+# starting point (mirrors vendor/bearssl/Makefile.secureos).
+#
+# Target: x86_64, ELF output, hosted-on-SecureOS (compiler runs in-OS).
+
+# --- libtcc core (compiler API, preprocessor, codegen front, ELF/link) ---
+# These are target-independent and always required.
+TCC_CORE_SRCS = \
+  libtcc.c \
+  tccpp.c \
+  tccgen.c \
+  tccelf.c \
+  tccasm.c \
+  tccdbg.c
+
+# --- x86_64 backend (codegen + relocations + the shared x86 assembler) ---
+TCC_TARGET_SRCS = \
+  x86_64-gen.c \
+  x86_64-link.c \
+  i386-asm.c
+
+# --- All sources for the in-OS libtcc ---
+# tccrun.c (-run / JIT), tcctools.c (ar/makedef), tcc.c (CLI main),
+# tccpe.c / tccmacho.c / tcccoff.c (non-ELF object formats), and every
+# non-x86_64 backend are intentionally EXCLUDED: the in-OS compiler only
+# needs file-output ELF for the host arch. The SecureOS `cc` driver under
+# user/apps/cc/ provides its own main() and calls the libtcc API directly.
+TCC_ALL_SRCS = \
+  $(TCC_CORE_SRCS) \
+  $(TCC_TARGET_SRCS)
+
+# ---------------------------------------------------------------------------
+# Porting notes (the actual Phase 3 work)
+# ---------------------------------------------------------------------------
+#
+# TinyCC assumes a hosted environment. To build it freestanding against the
+# SecureOS userland C library (user/libs/clib, Phase 2) the execute issue must:
+#
+#  1. Provide a config: define TCC_TARGET_X86_64 and TCC_TARGET_ELF; undefine
+#     CONFIG_TCC_BACKTRACE, CONFIG_TCC_BCHECK, and the -run/JIT path so
+#     tccrun.c is not pulled in. Set ONE_SOURCE=0 (compile units separately).
+#
+#  2. Satisfy libtcc's libc dependencies from user/libs/clib: malloc/free/
+#     realloc, qsort, setjmp/longjmp, the str*/mem* family, and stdio over
+#     os_fs_* (fopen/fread/fwrite/fclose/fprintf). TinyCC's error path uses
+#     setjmp/longjmp, so that pair must be real, not stubs.
+#
+#  3. Replace TinyCC's filesystem and "find include/library" logic with the
+#     SecureOS VFS paths (sysincludes default to /apps/dev/include).
+#
+#  4. Pin the produced ELF to the SecureOS user image base / entry convention
+#     so the SOF packer (user/libs/sofpack) can wrap it and the launcher can
+#     load it. The output is then handed to sofpack, not written as raw ELF.
+#
+#  5. Measure peak compile-time memory for the sample translation units and
+#     record the per-app arena size the `cc` manifest must request (Phase 1
+#     made the arena size a free knob; this step picks the value).
