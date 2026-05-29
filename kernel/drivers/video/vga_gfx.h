@@ -61,4 +61,14 @@ void vga_gfx_draw_rect(int x, int y, int w, int h, unsigned char color);
  */
 unsigned char vga_gfx_get_pixel(int x, int y);
 
+/**
+ * Bulk-copy a rectangle of pixels from `pixels` into the framebuffer at
+ * (x, y). `pixels` is a tightly packed w x h byte buffer in row-major order.
+ * The destination rectangle is clipped to screen bounds; the corresponding
+ * region of `pixels` is skipped accordingly. This is the fast path for the
+ * window manager compositor, which would otherwise pay one cross-TU
+ * function call per pixel (~64K per frame for a full backbuffer flush).
+ */
+void vga_gfx_blit(int x, int y, int w, int h, const unsigned char *pixels);
+
 #endif
