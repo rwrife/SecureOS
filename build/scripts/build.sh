@@ -38,6 +38,12 @@ build_libs() {
       if [[ -d "$lib_path" ]]; then
         local lib_name
         lib_name="$(basename "$lib_path")"
+        # Skip libs that aren't structured as a SOF user-lib (no main.c).
+        # Header/src-only libs like `clib` (issue #404) are linked into
+        # apps via the SDK path, not packed as a standalone .lib.
+        if [[ ! -f "$lib_path/main.c" ]]; then
+          continue
+        fi
         "$ROOT_DIR/build/scripts/build_user_lib.sh" "$lib_name"
       fi
     done
