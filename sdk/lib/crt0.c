@@ -30,12 +30,12 @@
  *     scope for this slice and would be a separate ABI proposal.
  *
  *   Exit handling:
- *     After `main` returns, slice 2 traps the process in a tight
- *     `hlt`/loop fallback. The kernel-side user-exit syscall is not
- *     yet wired (tracked alongside the SDK tool work in
- *     `M6-SDK-003`); when it lands, this file's `_os_exit()` helper
- *     will become a one-line forward to it without changing the
- *     public crt0 contract.
+ *     After `main` returns, `_os_exit` forwards the status to the
+ *     user-exit syscall surface (`os_process_exit`, M7-TOOLCHAIN-003
+ *     / issue #406). A `hlt` belt-and-braces loop remains as a
+ *     safety net for the no-bridge / unimplemented case so the
+ *     process cannot run off the end of memory if the syscall
+ *     returns.
  *
  * Containment:
  *   Freestanding (`-ffreestanding -nostdlib`), no libc, no `kernel/`
@@ -84,21 +84,23 @@ extern int main(int argc, char **argv);
 #endif
 
 /*
- * Surrender control to the OS after `main` returns. The user-exit
- * syscall is tracked for a later slice; until it lands we trap the
- * process in `hlt` so it does not run off the end of memory. The
- * symbol is `static` to avoid leaking a new ABI name from the SDK
- * surface.
+ * Surrender control to the OS after `main` returns. M7-TOOLCHAIN-003
+ * (#406) wired `os_process_exit()` end-to-end; we forward to it here
+ * and fall back to the `hlt`-trap belt-and-braces in case the bridge
+ * is absent or implausibly returns. Keeping the symbol `static`
+ * preserves the slice-2 SDK surface (no new ABI name leaks).
  */
 static void _os_exit(int status) {
-  (void)status; /* reserved for the future os_process_exit() syscall */
+  /* Forward to the user-exit syscall surface. On a real kernel this
+   * does not return; the call is wired in #406. */
+  (void)os_process_exit(status);
+
   for (;;) {
     /*
-     * `hlt` requires CPL 0 on x86; in CPL 3 it faults and the kernel
-     * will tear the process down — which is exactly the behaviour we
-     * want as a safety net for a returned-from-main app today. The
-     * compiler-fence form keeps the loop from being optimised away
-     * and remains valid on a freestanding toolchain.
+     * Belt-and-braces fallback if os_process_exit() returned (no
+     * bridge attached / unimplemented). `hlt` requires CPL 0 on x86;
+     * in CPL 3 it faults and the kernel tears the process down —
+     * still the right behaviour as a safety net.
      */
     __asm__ __volatile__("hlt" : : : "memory");
   }

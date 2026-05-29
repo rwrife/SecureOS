@@ -214,7 +214,7 @@ enum {
   APP_ARGS_MAX = 128,
   APP_ARGV_MAX = 8,
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
-  APP_NATIVE_BRIDGE_VERSION = 1u,
+  APP_NATIVE_BRIDGE_VERSION = 2u,
   APP_NATIVE_BRIDGE_ADDR = 0x009FF000u,
   APP_NATIVE_LOAD_MIN = 0x00800000u,
   APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
@@ -288,7 +288,23 @@ typedef struct {
   /* Process */
   int (*process_getcwd)(char *out_buffer, unsigned int out_buffer_size);
   int (*process_chdir)(const char *path);
+  /* M7-TOOLCHAIN-003 (#406): no-return clean exit hook.
+   * The kernel implementation longjmps out of the running entry()
+   * call via the fault-recovery slot with the sentinel return value
+   * APP_NATIVE_EXIT_RECOVER_VALUE (see below) so the launcher can
+   * distinguish a clean exit from a hardware fault. */
+  void (*process_exit)(int status);
 } app_native_bridge_t;
+
+/*
+ * Sentinel value returned by fault_recover_set() when the app called
+ * the bridge's process_exit hook (rather than crashing). The fault
+ * path passes vector+1 in the range [1..32]; this sentinel is
+ * deliberately outside that range so the two cases are unambiguous.
+ */
+#define APP_NATIVE_EXIT_RECOVER_VALUE 256
+
+static int g_native_exit_status = 0;
 
 typedef int (*app_native_entry_fn)(void);
 
@@ -1289,6 +1305,23 @@ static int app_native_process_chdir(const char *path) {
   return 0;
 }
 
+/*
+ * M7-TOOLCHAIN-003 (#406). No-return process-exit thunk. Captures the
+ * exit status in `g_native_exit_status` and longjmps out of the
+ * running entry() invocation via fault_recover_jump() with the
+ * sentinel value `APP_NATIVE_EXIT_RECOVER_VALUE`, which is outside
+ * the [1..32] range used by the CPU-fault path so the launcher post-
+ * call dispatch can distinguish the two.
+ */
+static void app_native_process_exit(int status) {
+  extern void fault_recover_jump(int return_value);
+  g_native_exit_status = status;
+  fault_recover_jump(APP_NATIVE_EXIT_RECOVER_VALUE);
+  /* unreachable */
+  for (;;) {
+  }
+}
+
 static int app_native_video_blit(int x, int y, int w, int h,
                                  const unsigned char *pixels) {
   unsigned int sid = session_manager_active_id();
@@ -1658,6 +1691,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->env_list = app_native_env_list;
       bridge->process_getcwd = app_native_process_getcwd;
       bridge->process_chdir = app_native_process_chdir;
+      bridge->process_exit = app_native_process_exit;
     }
 
     serial_hal_write("[elf] bridge wired, calling entry\n");
@@ -1666,6 +1700,39 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
     /* Arm fault recovery so CPU exceptions in the app don't crash the kernel */
     {
       int fault_code = fault_recover_set();
+      if (fault_code == APP_NATIVE_EXIT_RECOVER_VALUE) {
+        /* M7-TOOLCHAIN-003 (#406): app called os_process_exit().
+         * Treat as a clean termination — restore VGA/cursor like the
+         * crash path, but return PROCESS_OK rather than CRASH. The
+         * captured status lives in g_native_exit_status and is
+         * currently advisory (a richer exit-code surface is a
+         * follow-up; see issue #406 done-when list). */
+        if (vga_gfx_is_active()) {
+          vga_gfx_leave();
+          mouse_hal_set_bounds(80, 25);
+        }
+        if (g_mouse_cursor_enabled) {
+          if (g_mouse_cursor_drawn) {
+            kernel_cursor_erase();
+          }
+          g_mouse_cursor_enabled = 0;
+        }
+        {
+          int ci;
+          for (ci = 0; ci < g_child_session_count; ci++) {
+            session_manager_destroy(g_child_sessions[ci]);
+          }
+          g_child_session_count = 0;
+        }
+        if (!nested) {
+          bridge->magic = 0u;
+          bridge->version = 0u;
+          bridge->process_exit = 0;
+        }
+        g_native_context = saved_context;
+        g_native_raw_args = saved_raw_args;
+        return PROCESS_OK;
+      }
       if (fault_code != 0) {
         /* We arrived here via fault recovery — the app crashed */
         if (vga_gfx_is_active()) {
@@ -1765,6 +1832,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->env_list = 0;
       bridge->process_getcwd = 0;
       bridge->process_chdir = 0;
+      bridge->process_exit = 0;
 
       /* Disable kernel cursor if app left it active */
       if (g_mouse_cursor_enabled) {
