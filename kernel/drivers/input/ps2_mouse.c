@@ -132,12 +132,14 @@ int ps2_mouse_init(void) {
     return 0;
   }
 
-  /* Set sample rate to 100 samples/sec for reasonable responsiveness */
+  /* Set sample rate to 200 samples/sec for responsive cursor tracking.
+   * Most PS/2-compatible mice (including QEMU's emulated device) support
+   * 200 Hz, which doubles the motion data available per poll cycle. */
   ps2_send_mouse_command(MOUSE_CMD_SET_RATE);
   if (!ps2_read_ack()) {
     return 0;
   }
-  ps2_send_mouse_command(100);
+  ps2_send_mouse_command(200);
   if (!ps2_read_ack()) {
     return 0;
   }
