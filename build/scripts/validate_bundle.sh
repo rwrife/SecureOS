@@ -142,6 +142,23 @@ TEST_TARGETS=(
     # `user/libs/clib`) — pure host-side check, no env deps. The matching
     # `os_mem_brk` kernel-side wiring lands as the M7-TOOLCHAIN-001 follow-up.
     clib_malloc
+    # Manifest schema + ABI gates (follow-up to PR #401, issue #414).
+    # These six targets shell out to `jsonschema` (the canonical JSON
+    # Schema validator) against `docs/manifest/manifest.schema.json` and
+    # were dropped from TEST_TARGETS in PR #401 (commit 667e932) because
+    # `validate_bundle.sh` runs inside the `secureos/toolchain` container
+    # (`build/docker/Dockerfile.toolchain`) which lacked
+    # `python3-jsonschema`. With that package now installed in the
+    # toolchain image, wire them back in so any regression to the
+    # manifest schema, persistence enum (#285), broker-role enum (#312),
+    # ownership-role enum (#368), owner-kind enum (#396 slice 3a), or
+    # `os_abi_major` pin (#150) flips the bundle to FAIL.
+    manifest_required_fields
+    manifest_persistence_enum
+    manifest_broker_role_enum
+    manifest_ownership_role_enum
+    manifest_owner_kind_enum
+    validate_manifests_abi_major
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
