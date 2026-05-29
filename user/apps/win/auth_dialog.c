@@ -34,14 +34,22 @@
 #define BTN_ALWAYS_X (DIALOG_X + 70)
 #define BTN_DENY_X   (DIALOG_X + DIALOG_W - BTN_W - 10)
 
-/* Colors */
-#define COLOR_DLG_BG     8   /* dark grey */
-#define COLOR_DLG_BORDER 7   /* light grey */
-#define COLOR_DLG_TEXT   15  /* white */
-#define COLOR_BTN_ALLOW  2   /* green */
-#define COLOR_BTN_ALWAYS 3   /* cyan */
-#define COLOR_BTN_DENY   4   /* red */
-#define COLOR_BTN_TEXT   15  /* white */
+/* Colors.
+ *
+ * Button text/background pairs are chosen for high contrast against the VGA
+ * 16-color palette (see kernel/drivers/video/vga_gfx.c). The Allow/Always
+ * backgrounds are bright (light green/light cyan), so they pair with black
+ * text; the Deny background is a dark, saturated red that pairs with white
+ * text. This avoids the washed-out look of light text on a light fill. */
+#define COLOR_DLG_BG          8   /* dark grey */
+#define COLOR_DLG_BORDER      7   /* light grey */
+#define COLOR_DLG_TEXT        15  /* white */
+#define COLOR_BTN_ALLOW       10  /* light green */
+#define COLOR_BTN_ALLOW_TEXT  0   /* black */
+#define COLOR_BTN_ALWAYS      11  /* light cyan */
+#define COLOR_BTN_ALWAYS_TEXT 0   /* black */
+#define COLOR_BTN_DENY        4   /* red */
+#define COLOR_BTN_DENY_TEXT   15  /* white */
 
 static int g_dialog_active;
 static os_auth_prompt_t g_prompt;
@@ -175,17 +183,17 @@ void auth_dialog_render(unsigned char *backbuffer, int screen_w, int screen_h) {
   dialog_fill_rect(backbuffer, screen_w,
                    BTN_ALLOW_X, BTN_Y, BTN_W, BTN_H, COLOR_BTN_ALLOW);
   font_draw_string(backbuffer, screen_w,
-                   BTN_ALLOW_X + 4, BTN_Y + 3, "Allow", COLOR_BTN_TEXT);
+                   BTN_ALLOW_X + 4, BTN_Y + 3, "Allow", COLOR_BTN_ALLOW_TEXT);
 
   /* Always button */
   dialog_fill_rect(backbuffer, screen_w,
                    BTN_ALWAYS_X, BTN_Y, BTN_W, BTN_H, COLOR_BTN_ALWAYS);
   font_draw_string(backbuffer, screen_w,
-                   BTN_ALWAYS_X + 4, BTN_Y + 3, "Always", COLOR_BTN_TEXT);
+                   BTN_ALWAYS_X + 4, BTN_Y + 3, "Always", COLOR_BTN_ALWAYS_TEXT);
 
   /* Deny button */
   dialog_fill_rect(backbuffer, screen_w,
                    BTN_DENY_X, BTN_Y, BTN_W, BTN_H, COLOR_BTN_DENY);
   font_draw_string(backbuffer, screen_w,
-                   BTN_DENY_X + 8, BTN_Y + 3, "Deny", COLOR_BTN_TEXT);
+                   BTN_DENY_X + 8, BTN_Y + 3, "Deny", COLOR_BTN_DENY_TEXT);
 }
