@@ -109,6 +109,19 @@
         }
       }
     },
+    "owner": {
+      "description": "M6 SDK ownership-origin marker (BUILD_ROADMAP §5.6, plan plans/2026-05-15-public-sdk-external-app-template.md §'Manifest Schema (additions)', issue #396). 'internal' (default) preserves today's behavior — the module is shipped in-tree and the launcher applies its existing trust/policy path unchanged. 'external' marks a module produced via the public SDK toolchain (os-cc / os-pack) by a third-party author; downstream slices may use this marker to apply stricter signing or cap-grant policy. Schema-only / additive at v0 — runtime wiring (M6-SDK-003 wrappers, M6-SDK-004 launch path) lands in later M6 slices and is gated on the A/B design decision tracked in #396. This field does NOT bump OS_ABI_VERSION (same precedent as 'persistence' in #285, 'broker_role' in #312, 'ownership_role' in #368).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "Origin of the module. 'internal' = in-tree build, today's default; 'external' = SDK-produced module per plan §'Manifest Schema (additions)'.",
+          "type": "string",
+          "enum": ["internal", "external"],
+          "default": "internal"
+        }
+      }
+    },
     "launcher": {
       "type": "object",
       "additionalProperties": false,

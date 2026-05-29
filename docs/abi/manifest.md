@@ -162,6 +162,28 @@ Field semantics we are committing to at v0:
 - `provides[]` lists IPC endpoints the app exposes (see
   [`ipc-wire.md`](./ipc-wire.md)). Endpoint names use a narrow
   reverse-DNS-ish pattern.
+- `owner.kind` is an optional enum (`"internal"` | `"external"`)
+  that marks the origin of the module (BUILD_ROADMAP §5.6, plan
+  `plans/2026-05-15-public-sdk-external-app-template.md`
+  §"Manifest Schema (additions)", issue #396). The default is
+  `"internal"`, which preserves today's behavior exactly: the
+  module is shipped in-tree and the launcher applies its existing
+  trust/policy path unchanged. `"external"` marks a module produced
+  via the public SDK toolchain (`os-cc` / `os-pack`) by a
+  third-party author; downstream M6 slices may use this marker
+  to apply stricter signing or cap-grant policy. Like
+  `capabilities.persistence`, `capabilities.broker_role`, and
+  `capabilities.ownership_role`, this field is schema-only at v0 —
+  the runtime wiring (M6-SDK-003 wrappers and the
+  `sdk_external_build_isolation` acceptance test) lands in later
+  M6-SDK slices and is gated on the A/B design decision tracked
+  in #396. Because the field is **optional**, has a non-default
+  value only when explicitly declared, and `"internal"` exactly
+  preserves the current launcher path, adding it is additive and
+  does **not** bump `OS_ABI_VERSION` (same precedent as
+  `capabilities.persistence` in #285/#286,
+  `capabilities.broker_role` in #312, and
+  `capabilities.ownership_role` in #368).
 - `launcher.auto_grant_at_launch` is the subset the launcher grants
   unconditionally at startup. It MUST be disjoint from
   `launcher.require_user_confirm`; both MUST be subsets of
@@ -268,6 +290,57 @@ list while still being a stable target for the regression test.
 | `manifest_ownership_role_enum` (positive) | enforced (PR #372) |
 | `manifest_ownership_role_enum:negative_rejected` | enforced (PR for #390) |
 | `manifest_ownership_role_enum:default_when_omitted` | enforced (PR for #390) |
+
+### §5.6 owner.kind enforcement status (M6-SDK-003 schema sub-slice)
+
+`owner.kind` enum added in #396 (M6 SDK external-app marker):
+
+- **Owner external** —
+  [`helloapp.owner_external.json`](../../manifests/examples/helloapp.owner_external.json):
+  same as `helloapp.json` but with `owner.kind: "external"`.
+  Demonstrates an SDK-produced (third-party) module declaration.
+- **Owner internal** —
+  [`helloapp.owner_internal.json`](../../manifests/examples/helloapp.owner_internal.json):
+  same as `helloapp.json` but with `owner.kind: "internal"`
+  (explicit form of today's default; behaves identically to
+  omitting the field).
+- **Owner omitted (back-compat)** — the bundled
+  `helloapp.json`, `helloapp.deny.json`, `helloapp.persistent.json`,
+  `helloapp.broker_provider.json`, `helloapp.broker_consumer.json`,
+  `helloapp.ownership_owner.json`, and
+  `helloapp.ownership_delegate.json` examples all omit the
+  `owner` object entirely and so continue to behave as
+  `owner.kind: "internal"`, proving that the addition is
+  backward-compatible.
+- **Negative regression** —
+  [`invalid/helloapp.owner_kind_invalid.json`](../../manifests/examples/invalid/helloapp.owner_kind_invalid.json):
+  same as `helloapp.json` but with `owner.kind: "vendor"`, which
+  is rejected by `tools/validate_manifests.py` with a
+  deterministic `MANIFEST_VALIDATE:FAIL` marker surfacing the
+  `/owner/kind` field path. The bundled regression test
+  `build/scripts/test_manifest_owner_kind_enum.sh` emits the
+  `TEST:PASS:manifest_owner_kind_enum:negative_rejected` sub-marker
+  on its success path (parity with the matching
+  `:negative_rejected` sub-markers in
+  `manifest_persistence_enum`, `manifest_broker_role_enum`, and
+  `manifest_ownership_role_enum`), and emits
+  `TEST:PASS:manifest_owner_kind_enum:default_when_omitted` after
+  asserting that `helloapp.json` (which omits the `owner` object
+  entirely) still validates, locking in the additive / back-compat
+  contract.
+
+| Sub-marker | Status |
+| --- | --- |
+| `manifest_owner_kind_enum` (positive) | enforced (PR for #396 schema sub-slice) |
+| `manifest_owner_kind_enum:negative_rejected` | enforced (PR for #396 schema sub-slice) |
+| `manifest_owner_kind_enum:default_when_omitted` | enforced (PR for #396 schema sub-slice) |
+
+Runtime semantics (launcher trust/policy treatment of
+`owner.kind: "external"` modules, plus the
+`sdk_external_build_isolation` acceptance test) land in later
+M6-SDK-003 sub-slices once the A/B design question in #396 is
+resolved. This sub-slice intentionally introduces no runtime
+behavior change.
 
 ## Compatibility policy
 

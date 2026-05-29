@@ -1,0 +1,28 @@
+{
+  "manifest_version": 0,
+  "os_abi_version": 0,
+  "app": {
+    "id": "helloapp",
+    "version": "0.1.0",
+    "subject_id": 2,
+    "binary": "apps/helloapp.bin",
+    "signer_key_id": "secureos-dev-key-1"
+  },
+  "capabilities": {
+    "request": ["CAP_CONSOLE_WRITE"],
+    "optional": []
+  },
+  "owner": {
+    "kind": "internal"
+  },
+  "provides": [],
+  "launcher": {
+    "auto_grant_at_launch": ["CAP_CONSOLE_WRITE"],
+    "require_user_confirm": []
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "signer_key_id": "secureos-dev-key-1",
+    "signature_path": "apps/helloapp.bin.sig"
+  }
+}
