@@ -60,6 +60,7 @@ unspecified in that case.
 | `os_process_chdir(path)` | (none — bound to caller) | |
 | `os_process_getcwd(out, len)` | (none) | |
 | `os_process_exit(status)` | (none — bound to caller) | M7-TOOLCHAIN-003 (#406). Terminates the calling process. Does not return when a real bridge is attached. The host-build wrapper reaches through the fixed bridge address (`SECUREOS_NATIVE_BRIDGE_ADDR`) like every other bridge-mediated call, so it is not safe to invoke on bare host without a mapped bridge — host validation is link-time only (`tests/process_exit_wrapper_test.c`). The `status` value is currently advisory (richer exit-code surface is a follow-up). |
+| `os_mem_brk(delta, out_prev_break)` | (none — bound to caller) | M7-TOOLCHAIN-001 slice 2 (#421). POSIX `sbrk(2)`-shape heap extension for the calling process. On success writes the *previous* break (the address of the first freshly-committed byte on positive `delta`) through `out_prev_break` and returns `OS_STATUS_OK`. Out-of-arena growth returns `OS_STATUS_DENIED` and does NOT move the break or panic the kernel — the deny-clean contract that lets the freestanding `user/libs/clib` allocator fail the originating `malloc`/`realloc` call without crashing. `out_prev_break == NULL` returns `OS_STATUS_ERROR` without touching the bridge (the host fall-through the link-pin test exercises). Bridge slot `mem_brk` (bridge version 3+). Per-process pool resets when the launcher tears down the top-level bridge so a fresh app starts at break=0. Host validation: `tests/mem_brk_wrapper_test.c` (signature + symbol + NULL-out guard); end-to-end QEMU growth round-trip is a deliberate follow-up slice once the `clib_brk_fn` forwarder is wired in. |
 | `os_env_get/set/list(...)` | (none) | Per-process env. |
 
 ### Libraries
@@ -140,5 +141,5 @@ unused"). The reservation is purely an ABI-shape anchor.
 4. Add an allow-path and a deny-path test under `build/scripts/test_*.sh`.
 5. Update this table and bump the verification line below.
 
-Last verified against commit: a2177df704eca78f65169194fe7d15d6451d7ca1
+Last verified against commit: 11e1d73
 

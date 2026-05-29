@@ -24,7 +24,7 @@
 
 enum {
   SECUREOS_NATIVE_BRIDGE_MAGIC = 0x53524247u,
-  SECUREOS_NATIVE_BRIDGE_VERSION = 2u,
+  SECUREOS_NATIVE_BRIDGE_VERSION = 3u,
   SECUREOS_NATIVE_BRIDGE_ADDR = 0x009FF000u,
 };
 
@@ -94,6 +94,12 @@ typedef struct {
    * kernel side longjmps out of the launcher via the fault-recovery
    * path. Bridge version 2+ only. */
   void (*process_exit)(int status);
+  /* M7-TOOLCHAIN-001 slice 2 (#421): sbrk-shape heap extension.
+   * Return value mirrors a kernel-side os_status_t cast to int
+   * (0 = OK, 1 = DENIED for out-of-arena growth, 3 = ERROR for bad
+   * args). On success the previous break is written to *out_prev_break.
+   * Bridge version 3+ only. */
+  int (*mem_brk)(int delta, void **out_prev_break);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -107,6 +113,27 @@ static secureos_native_bridge_t *secureos_native_bridge(void) {
     return 0;
   }
   return bridge;
+}
+
+os_status_t os_mem_brk(int delta, void **out_prev_break) {
+  secureos_native_bridge_t *bridge;
+
+  if (out_prev_break == 0) {
+    return OS_STATUS_ERROR;
+  }
+
+  bridge = secureos_native_bridge();
+  if (bridge != 0 && bridge->mem_brk != 0) {
+    int rc = bridge->mem_brk(delta, out_prev_break);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_ERROR;
+  }
+
+  /* No bridge (host or pre-v3 runtime): no heap to extend. */
+  *out_prev_break = 0;
+  (void)delta;
+  return OS_STATUS_ERROR;
 }
 
 unsigned int os_get_abi_version(void) {

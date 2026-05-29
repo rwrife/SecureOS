@@ -214,7 +214,7 @@ enum {
   APP_ARGS_MAX = 128,
   APP_ARGV_MAX = 8,
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
-  APP_NATIVE_BRIDGE_VERSION = 2u,
+  APP_NATIVE_BRIDGE_VERSION = 3u,
   APP_NATIVE_BRIDGE_ADDR = 0x009FF000u,
   APP_NATIVE_LOAD_MIN = 0x00800000u,
   APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
@@ -294,6 +294,10 @@ typedef struct {
    * APP_NATIVE_EXIT_RECOVER_VALUE (see below) so the launcher can
    * distinguish a clean exit from a hardware fault. */
   void (*process_exit)(int status);
+  /* M7-TOOLCHAIN-001 slice 2 (#421): sbrk-shape heap extension.
+   * See user/runtime/secureos_api_stubs.c bridge slot comment for
+   * semantics. Bridge version 3+ only. */
+  int (*mem_brk)(int delta, void **out_prev_break);
 } app_native_bridge_t;
 
 /*
@@ -305,6 +309,27 @@ typedef struct {
 #define APP_NATIVE_EXIT_RECOVER_VALUE 256
 
 static int g_native_exit_status = 0;
+
+/*
+ * M7-TOOLCHAIN-001 slice 2 (#421). Per-process heap pool exposed to
+ * userland via the `mem_brk` bridge slot. A single fixed BSS pool is
+ * good enough for the current single-app-at-a-time launcher; when M2+
+ * lands real process-private address spaces this becomes a per-process
+ * arena (and the deny-on-overflow contract stays unchanged).
+ *
+ * Sized to the upper end of the M7 plan's recommended in-OS-toolchain
+ * arena window (~16 MiB) so the freestanding TinyCC port can compile a
+ * non-trivial translation unit; the cost is BSS, not committed RAM, so
+ * apps that never call `os_mem_brk` pay nothing at runtime.
+ */
+#define APP_NATIVE_HEAP_BYTES (16u * 1024u * 1024u)
+static uint8_t g_native_heap_pool[APP_NATIVE_HEAP_BYTES] __attribute__((aligned(16)));
+static size_t  g_native_heap_break = 0; /* current break offset within pool */
+
+static void app_native_heap_reset(void) {
+  g_native_heap_break = 0;
+}
+
 
 typedef int (*app_native_entry_fn)(void);
 
@@ -1322,6 +1347,55 @@ static void app_native_process_exit(int status) {
   }
 }
 
+/*
+ * M7-TOOLCHAIN-001 slice 2 (#421). sbrk-shape heap extension. Returns
+ * a kernel-side os_status_t cast to int (0 = OK, 1 = DENIED, 3 =
+ * ERROR). Never panics on out-of-arena growth — the contract is a
+ * clean deny so userland allocators (clib_malloc) can fail the
+ * originating malloc/realloc cleanly.
+ */
+static int app_native_mem_brk(int delta, void **out_prev_break) {
+  size_t prev;
+  size_t new_break;
+
+  if (out_prev_break == 0) {
+    return 3; /* OS_STATUS_ERROR */
+  }
+
+  prev = g_native_heap_break;
+
+  if (delta == 0) {
+    *out_prev_break = (void *)&g_native_heap_pool[prev];
+    return 0;
+  }
+
+  if (delta > 0) {
+    size_t udelta = (size_t)delta;
+    /* Overflow guard: prev + udelta must stay representable AND inside
+     * the pool window. The first comparison catches arithmetic wrap
+     * before it confuses the bounds check. */
+    if (udelta > APP_NATIVE_HEAP_BYTES - prev) {
+      *out_prev_break = (void *)&g_native_heap_pool[prev];
+      return 1; /* OS_STATUS_DENIED — out-of-arena */
+    }
+    new_break = prev + udelta;
+  } else {
+    size_t udelta = (size_t)(-(long)delta);
+    if (udelta > prev) {
+      /* Cannot shrink below the pool base — deny cleanly. */
+      *out_prev_break = (void *)&g_native_heap_pool[prev];
+      return 1;
+    }
+    new_break = prev - udelta;
+  }
+
+  g_native_heap_break = new_break;
+  /* Per sbrk(2): on success, return the *previous* break (i.e. the
+   * address of the first freshly-committed byte on positive delta). */
+  *out_prev_break = (void *)&g_native_heap_pool[prev];
+  return 0;
+}
+
 static int app_native_video_blit(int x, int y, int w, int h,
                                  const unsigned char *pixels) {
   unsigned int sid = session_manager_active_id();
@@ -1692,6 +1766,13 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->process_getcwd = app_native_process_getcwd;
       bridge->process_chdir = app_native_process_chdir;
       bridge->process_exit = app_native_process_exit;
+      bridge->mem_brk = app_native_mem_brk;
+      /* Reset per-process heap when wiring a fresh top-level bridge
+       * (the !nested case in the launcher entry path). Nested
+       * spawns intentionally share the parent's heap state. */
+      if (!nested) {
+        app_native_heap_reset();
+      }
     }
 
     serial_hal_write("[elf] bridge wired, calling entry\n");
@@ -1728,6 +1809,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
           bridge->magic = 0u;
           bridge->version = 0u;
           bridge->process_exit = 0;
+          bridge->mem_brk = 0;
+          app_native_heap_reset();
         }
         g_native_context = saved_context;
         g_native_raw_args = saved_raw_args;
@@ -1755,6 +1838,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
         if (!nested) {
           bridge->magic = 0u;
           bridge->version = 0u;
+          app_native_heap_reset();
         }
         g_native_context = saved_context;
         g_native_raw_args = saved_raw_args;
@@ -1833,8 +1917,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->process_getcwd = 0;
       bridge->process_chdir = 0;
       bridge->process_exit = 0;
-
-      /* Disable kernel cursor if app left it active */
+      bridge->mem_brk = 0;
+      app_native_heap_reset();
       if (g_mouse_cursor_enabled) {
         if (g_mouse_cursor_drawn) {
           kernel_cursor_erase();
