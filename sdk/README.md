@@ -44,7 +44,11 @@ Deferred to the explicit follow-up slices enumerated in the plan:
 - `os-cc` / `os-pack` / `os-run` wrappers (slice `M6-SDK-003`).
 - Manifest schema additions (`abi.version`,
   `capabilities.required/optional`) — slice `M6-SDK-003`.
-- `samples/hello-from-sdk/` external app — slice `M6-SDK-004`.
+- `samples/hello-from-sdk/` external app — skeleton landed via #396
+  partial; it is **not** built by default CI and is consumed only by the
+  future `sdk_external_build_isolation` test driver (gated on the M6-SDK-003
+  wrapper slice). The end-to-end `_qemu` runner peer lives in slice
+  `M6-SDK-004`.
 - A real kernel-side user-exit syscall to back `crt0.c`'s `_os_exit()`
   helper — currently a `hlt`-loop placeholder (slice `M6-SDK-003`).
 
