@@ -89,27 +89,29 @@ static void draw_window(win_window_t *w) {
   content_h = w->height - WIN_TITLE_HEIGHT - WIN_BORDER;
   fill_rect(content_x, content_y, content_w, content_h, COLOR_CONTENT_BG);
 
-  /* Always read session's VFB pixels — the kernel renders text/graphics there.
-   * VFB dimensions match the window content area (set via set_vfb_size),
-   * so we blit 1:1 without scaling. */
+  /* Read the entire session VFB in a single bulk call instead of row-by-row.
+   * This reduces ~160 bridge/syscall round-trips per window per frame down to
+   * one, dramatically improving frame rate and therefore mouse responsiveness
+   * (see plans/2026-05-28-wm-mouse-performance.md). */
   {
-    unsigned char vfb_line[320];
+    static unsigned char vfb_bulk[320 * 200];
     int vfb_w = content_w;
     int vfb_h = content_h;
     if (vfb_w > 320) vfb_w = 320;
     if (vfb_h > 200) vfb_h = 200;
 
-    for (row = 0; row < vfb_h; row++) {
-      int dst_y = content_y + row;
-      if (dst_y < 0 || dst_y >= SCREEN_H) continue;
-      if (os_session_read_framebuffer(w->session_id, vfb_line,
-                                      0, (unsigned int)row,
-                                      (unsigned int)vfb_w, 1) == OS_STATUS_OK) {
+    if (os_session_read_framebuffer(w->session_id, vfb_bulk,
+                                    0, 0,
+                                    (unsigned int)vfb_w,
+                                    (unsigned int)vfb_h) == OS_STATUS_OK) {
+      for (row = 0; row < vfb_h; row++) {
+        int dst_y = content_y + row;
         int col;
+        if (dst_y < 0 || dst_y >= SCREEN_H) continue;
         for (col = 0; col < vfb_w; col++) {
           int dst_x = content_x + col;
           if (dst_x >= 0 && dst_x < SCREEN_W) {
-            g_backbuffer[dst_y * SCREEN_W + dst_x] = vfb_line[col];
+            g_backbuffer[dst_y * SCREEN_W + dst_x] = vfb_bulk[row * vfb_w + col];
           }
         }
       }

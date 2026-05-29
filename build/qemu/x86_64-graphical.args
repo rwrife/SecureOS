@@ -9,6 +9,9 @@ none
 -no-reboot
 -rtc
 base=utc,clock=host
+-usb
+-device
+usb-tablet
 -netdev
 user,id=net0
 -device
