@@ -230,6 +230,16 @@ TEST_TARGETS=(
     # (same orphan-from-TEST_TARGETS shape #129 / #366 / #384 /
     # #401 / #414 catch).
     clib_bsearch
+    # M7-TOOLCHAIN-004 slice 8 (issue #407): freestanding `<limits.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 requires `<limits.h>` even on
+    # a freestanding implementation, and TinyCC (#408) plus the stdlib
+    # slice (PR #428) both consume it. Same parity shape as the str/mem,
+    # ctype, and qsort slices — userland-only, no syscall dependency,
+    # drift-pinned via a `symbol_set_pinned` sub-marker on the helper TU
+    # so a future TinyCC drop or unrelated PR cannot silently change a
+    # macro value. Cheap host-side check; wire so a regression flips the
+    # bundle.
+    clib_limits
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate

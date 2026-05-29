@@ -1,7 +1,7 @@
 # user/libs/clib — freestanding userland libc nucleus
 
 > **Owner:** in-OS toolchain (M7) / SDK runtime
-> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)), the `str*`/`mem*` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), and the ctype slice of [#407](https://github.com/rwrife/SecureOS/issues/407) have landed; `stdio` / `setjmp` / `qsort` follow on later slices.
+> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)), the `str*`/`mem*` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), the ctype slice of [#407](https://github.com/rwrife/SecureOS/issues/407), and the `<limits.h>` slice of [#407](https://github.com/rwrife/SecureOS/issues/407) have landed; `stdio` / `setjmp` / `qsort` follow on later slices.
 > **Plan:** [`plans/2026-05-28-in-os-toolchain-self-hosting.md`](../../../plans/2026-05-28-in-os-toolchain-self-hosting.md) (P1 + P3)
 
 ## What this is
@@ -19,8 +19,15 @@ against. Today it ships:
   of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
   Slice 12 of #407 extends the same header with the freestanding
   tokenize / span family (`strspn`, `strcspn`, `strpbrk`, `strtok`,
-  `strtok_r`) TinyCC's argv + include-path parsers link against.
-  of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
+  `strtok_r`) TinyCC's argv + include-path parsers link against, and
+- the freestanding `<limits.h>` nucleus — `CHAR_BIT`, `SCHAR_MIN`/
+  `SCHAR_MAX`/`UCHAR_MAX`, `SHRT_MIN`/`SHRT_MAX`/`USHRT_MAX`, `INT_MIN`/
+  `INT_MAX`/`UINT_MAX`, `LONG_MIN`/`LONG_MAX`/`ULONG_MAX`, `LLONG_MIN`/
+  `LLONG_MAX`/`ULLONG_MAX`, `CHAR_MIN`/`CHAR_MAX` under
+  `include/clib/limits.h` — slice 8 of M7-TOOLCHAIN-004
+  ([#407](https://github.com/rwrife/SecureOS/issues/407)); required for
+  freestanding by C11 §4¶6, pinned at the x86_64 SysV values TinyCC
+  (#408) targets, drift-anchored through a helper TU in `src/limits.c`.
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
 `fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`,
