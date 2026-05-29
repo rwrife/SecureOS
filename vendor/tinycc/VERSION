@@ -1,0 +1,20 @@
+TinyCC upstream pin
+===================
+
+Source:    https://github.com/TinyCC/tinycc
+Submodule: vendor/tinycc/tinycc
+Branch:    mob
+Commit:    3b1fe97a596a7c69e693e962f4fe9b35128b68fd
+License:   LGPL-2.1 (see vendor/tinycc/tinycc/COPYING; partial MIT
+           relicensing consent recorded in vendor/tinycc/tinycc/RELICENSING)
+
+The exact commit pinned above is the only revision SecureOS builds, audits,
+and tests against. Bumping this pin requires a new vendor-bump PR that
+re-runs the in-OS toolchain test suite and records any object-count or
+total-size drift in the PR description (mirrors the BearSSL discipline,
+issue #117).
+
+This pin is the foundation of the in-OS toolchain effort
+(plans/2026-05-28-in-os-toolchain-self-hosting.md). TinyCC is used because it
+is a single, self-contained compiler that performs compile + assemble + link
+in one process — SecureOS cannot spawn a separate assembler/linker.

@@ -112,6 +112,12 @@ TEST_TARGETS=(
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
     sosh_contract_registry_drift
+    # In-OS toolchain Phase 1 (plan
+    # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
+    # the /apps/dev developer directory + hello.c sample stage onto the disk
+    # image and round-trip byte-identically. Guards the disk-staging wiring so
+    # a regression that drops /apps/dev flips the bundle to FAIL.
+    in_os_toolchain_dev_dir
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /

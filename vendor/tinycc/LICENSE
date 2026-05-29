@@ -1,0 +1,38 @@
+TinyCC license for SecureOS
+===========================
+
+TinyCC is licensed under the GNU Lesser General Public License, version 2.1
+(LGPL-2.1). The authoritative text ships with the submodule:
+
+    vendor/tinycc/tinycc/COPYING
+
+Decision record (in-OS toolchain plan, 2026-05-28)
+--------------------------------------------------
+
+SecureOS deliberately selected TinyCC despite its LGPL terms being more
+restrictive than the project's other vendored dependency (BearSSL, MIT). The
+trade-off was made consciously:
+
+  * TinyCC is the only small, self-contained C compiler that performs
+    compile + assemble + link in one process. SecureOS cannot spawn separate
+    assembler/linker stages, so a multi-binary GCC/Clang toolchain is not an
+    option, and chibicc (MIT) would require additionally porting an assembler
+    and a linker.
+
+  * LGPL obligations that apply when TinyCC is statically linked into a shipped
+    SecureOS image:
+      - The combined work may be distributed, but recipients must be able to
+        relink against a modified TinyCC. In practice this means shipping the
+        TinyCC object files (or this pinned source) and the SecureOS-side
+        object files needed to relink.
+      - Any modifications to TinyCC's own source must be made available under
+        the LGPL.
+
+  * The fallback, if these obligations become unacceptable for a given
+    distribution channel, is to switch the compiler backend to chibicc (MIT)
+    and absorb the cost of porting an assembler + linker. This is recorded as
+    an open question in the plan rather than chosen now.
+
+The `vendor/tinycc/tinycc/RELICENSING` file records which contributors have
+agreed to relicense their contributions under MIT; it does not, on its own,
+make the whole of TinyCC MIT-licensed.

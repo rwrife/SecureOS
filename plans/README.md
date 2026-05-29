@@ -57,6 +57,12 @@ back to its design doc should start here.
 
 - `2026-05-25-scripting-language.md`
 
+### Toolchain and SDK
+
+- `2026-05-15-public-sdk-external-app-template.md`
+- `2026-05-25-docker-toolchain-consolidation.md`
+- `2026-05-28-in-os-toolchain-self-hosting.md`
+
 ### Console, launcher, capabilities (M2–M4)
 
 - `2026-04-11-console-launcher-capability-slice.md`
