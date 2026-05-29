@@ -24,7 +24,7 @@
 
 enum {
   SECUREOS_NATIVE_BRIDGE_MAGIC = 0x53524247u,
-  SECUREOS_NATIVE_BRIDGE_VERSION = 1u,
+  SECUREOS_NATIVE_BRIDGE_VERSION = 2u,
   SECUREOS_NATIVE_BRIDGE_ADDR = 0x009FF000u,
 };
 
@@ -89,6 +89,11 @@ typedef struct {
   /* Process */
   int (*process_getcwd)(char *out_buffer, unsigned int out_buffer_size);
   int (*process_chdir)(const char *path);
+  /* M7-TOOLCHAIN-003 (#406): clean process exit.
+   * Must be a no-return call when invoked by an in-process app; the
+   * kernel side longjmps out of the launcher via the fault-recovery
+   * path. Bridge version 2+ only. */
+  void (*process_exit)(int status);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -218,6 +223,29 @@ os_status_t os_process_chdir(const char *path) {
   }
 
   (void)path;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_process_exit(int status) {
+  /*
+   * M7-TOOLCHAIN-003 (#406). When a real bridge is attached the kernel
+   * never returns from this call: the bridge thunk runs the launcher
+   * teardown and longjmps out via the fault-recovery slot. In
+   * host-test / no-bridge builds the call must remain non-fatal so
+   * tests can drive the wrapper without terminating the test process,
+   * which is why we return `OS_STATUS_OK` rather than `_Exit(status)`.
+   */
+  secureos_native_bridge_t *bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->process_exit != 0) {
+    bridge->process_exit(status);
+    /* Defensive: if the bridge implementation ever returns (it
+     * shouldn't), surface that as a generic error rather than letting
+     * the caller silently continue. */
+    return OS_STATUS_ERROR;
+  }
+
+  (void)status;
   return OS_STATUS_OK;
 }
 

@@ -29,6 +29,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "../../kernel/event/event_bus.h"
 #include "../../kernel/hal/clock_hal.h"
@@ -152,6 +153,12 @@ void serial_hal_write(const char *message) { (void)message; }
 
 int fault_recover_set(void) { return 0; }
 void fault_recover_clear(void) {}
+/* Host stub for the assembly longjmp used by app_native_process_exit
+ * (M7-TOOLCHAIN-003, #406). Host-side launcher_exec.c is compiled but
+ * the exit thunk is never actually invoked from this test surface;
+ * the symbol just needs to resolve at link time. abort() is the
+ * loudest fail-safe if a future test ever does call it. */
+void fault_recover_jump(int return_value) { (void)return_value; abort(); }
 
 /* ------------------------------------------------------------------ */
 /* drivers/video/vga_gfx.c                                            */

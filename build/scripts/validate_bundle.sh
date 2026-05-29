@@ -148,6 +148,28 @@ TEST_TARGETS=(
     # preprocessor + lexer call. Pure host-side check, no env deps, no
     # syscalls. Drift on any shipped symbol flips the bundle to FAIL.
     clib_ctype
+    # Manifest schema v0 validator + additive-enum gates (umbrella #285 /
+    # #312 / #368 / #396 / #150). These six targets were intentionally
+    # dropped from PR #401 (commit 667e932) because the
+    # secureos/toolchain container did not ship python3-jsonschema, so
+    # every wrapper short-circuited with TEST:FAIL:harness_missing_jsonschema
+    # (rc=78). PR for #414 added python3-jsonschema to
+    # build/docker/Dockerfile.toolchain (kept the container-internal
+    # invariant post-#332) and wires the targets here so a regression to
+    # any manifest enum / required-field / abi-major check flips the
+    # bundle to FAIL — same orphan-from-TEST_TARGETS shape #129 / #366 /
+    # #384 / #401 caught for prior host-only targets.
+    manifest_required_fields
+    manifest_persistence_enum
+    manifest_broker_role_enum
+    manifest_ownership_role_enum
+    manifest_owner_kind_enum
+    validate_manifests_abi_major
+    # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
+    # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
+    # into the bundle so a regression to the libc nucleus trips here before
+    # TinyCC (P4) starts depending on the same symbols.
+    clib_string
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
