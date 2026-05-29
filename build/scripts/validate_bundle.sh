@@ -170,6 +170,14 @@ TEST_TARGETS=(
     # into the bundle so a regression to the libc nucleus trips here before
     # TinyCC (P4) starts depending on the same symbols.
     clib_string
+    # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
+    # `user/libs/clib`. Same parity shape as the str/mem slice (PR
+    # #416) and the ctype slice (PR #417) — userland-only, no syscall
+    # dependency, drift-pinned via a `symbol_set_pinned` sub-marker so
+    # a future TinyCC drop / unrelated PR cannot silently remove the
+    # symbol. Cheap host-side check; wire so a regression flips the
+    # bundle.
+    clib_qsort
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /

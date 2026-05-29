@@ -79,6 +79,22 @@ TEST:PASS:clib_malloc:out_of_arena_no_panic
 TEST:PASS:clib_malloc:toolchain_heap_isolation
 TEST:PASS:clib_malloc:min_seed_bytes_anchored
 TEST:PASS:clib_malloc
+
+$ bash build/scripts/test.sh clib_qsort
+TEST:PASS:clib_qsort:empty_no_op
+TEST:PASS:clib_qsort:single_no_op
+TEST:PASS:clib_qsort:sorted_idempotent
+TEST:PASS:clib_qsort:reverse_sorted
+TEST:PASS:clib_qsort:random_ints
+TEST:PASS:clib_qsort:duplicates_grouped
+TEST:PASS:clib_qsort:small_under_insertion_threshold
+TEST:PASS:clib_qsort:large_pathological_no_overflow
+TEST:PASS:clib_qsort:struct_elements
+TEST:PASS:clib_qsort:byte_elements_size_one
+TEST:PASS:clib_qsort:odd_size_unaligned_elements
+TEST:PASS:clib_qsort:stable_against_model
+TEST:PASS:clib_qsort:symbol_set_pinned
+TEST:PASS:clib_qsort
 ```
 
 The `toolchain_heap_isolation` marker is the same one called out in the
