@@ -158,6 +158,13 @@ TEST_TARGETS=(
     manifest_broker_role_enum
     manifest_ownership_role_enum
     manifest_owner_kind_enum
+    # Issue #424 (M7-TOOLCHAIN-001 schema sub-slice, refs #404/#421):
+    # additive `runtime.arena_bytes` range gate. Wired here alongside
+    # the peer manifest enum gates so the bundle flips on any
+    # regression to per-app arena clamp range / required-field
+    # behavior; jsonschema dependency already covered by the #414
+    # toolchain container update.
+    manifest_arena_bytes_range
     validate_manifests_abi_major
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally

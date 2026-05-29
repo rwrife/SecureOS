@@ -122,6 +122,19 @@
         }
       }
     },
+    "runtime": {
+      "description": "M7-TOOLCHAIN-001 per-app runtime knobs (BUILD_ROADMAP §5.7 / plan plans/2026-05-28-in-os-toolchain-self-hosting.md §P1, issue #424). Schema-only / additive at v0 — kernel wiring lands in the os_mem_brk slice (#421). The launcher reads `runtime.arena_bytes` from the manifest, clamps to `[PROC_ARENA_BYTES_DEFAULT, PROC_ARENA_BYTES_MAX]`, and a value exceeding the cap is a deny-by-default launch failure with a documented audit reason (no kernel panic). Omitting `runtime` (or `runtime.arena_bytes`) preserves today's behavior: the launcher applies the kernel default arena size. This field does NOT bump OS_ABI_VERSION (same precedent as `capabilities.persistence` in #285/#286, `capabilities.broker_role` in #312, `capabilities.ownership_role` in #368, and `owner.kind` in #396).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "arena_bytes": {
+          "description": "Optional per-app userland arena ceiling in bytes. Range [PROC_ARENA_BYTES_DEFAULT=65536, PROC_ARENA_BYTES_MAX=16777216]. The launcher clamps and rejects out-of-range values at spawn with a deny-by-default audit reason; the kernel default arena size is applied when omitted. Used by the in-OS toolchain (plan #402) so only the compiler pays for a large arena window.",
+          "type": "integer",
+          "minimum": 65536,
+          "maximum": 16777216
+        }
+      }
+    },
     "launcher": {
       "type": "object",
       "additionalProperties": false,
