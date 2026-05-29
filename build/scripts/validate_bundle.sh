@@ -112,6 +112,24 @@ TEST_TARGETS=(
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
     sosh_contract_registry_drift
+    # ABI / SDK public-surface gates (umbrella #136 / plan
+    # `plans/2026-05-15-public-sdk-external-app-template.md`):
+    # `abi_version` pins `OS_ABI_VERSION = 0` (#150 / #228),
+    # `sdk_abi_pin` keeps `sdk/VERSION` ↔ `sdk/include/os/abi.h`
+    # consistent, `sdk_libos_link` proves a freestanding link against
+    # `sdk/lib/libos.a`, and `validate_sdk_no_kernel_includes` keeps
+    # the SDK surface free of `kernel/` includes (the containment
+    # guarantee #396 slice 3 wrappers depend on). Same orphan-from-
+    # TEST_TARGETS shape — wire so a regression flips the bundle.
+    abi_version
+    sdk_abi_pin
+    sdk_libos_link
+    validate_sdk_no_kernel_includes
+    # `docs/abi/` Last-verified-stamp freshness guard (PR #298 / #297).
+    # Pure static check that every `Last verified against commit:` line
+    # in `docs/abi/*.md` does not predate the file's last content
+    # commit. Cheap to run, no env deps.
+    abi_stamps_drift
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
