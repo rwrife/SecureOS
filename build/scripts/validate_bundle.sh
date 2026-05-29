@@ -219,6 +219,17 @@ TEST_TARGETS=(
     # surface that `tccpp.c` / `tccgen.c` and the `tcc_error*` /
     # `tcc_warning*` diagnostic paths depend on.
     clib_stdarg
+    # M7-TOOLCHAIN-004 slice 7 (issue #407, plan P3): freestanding
+    # `bsearch` in `user/libs/clib`. Peer of the `qsort` slice (PR
+    # #418) — the C standard pairs the two in <stdlib.h> because
+    # callers typically sort then search the same array. Pure host
+    # side check, no env / syscall deps, drift-pinned via a
+    # `symbol_set_pinned` sub-marker so a future TinyCC drop /
+    # unrelated PR cannot silently remove the symbol. Cheap host
+    # side check; wired here so a regression flips the bundle
+    # (same orphan-from-TEST_TARGETS shape #129 / #366 / #384 /
+    # #401 / #414 catch).
+    clib_bsearch
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
