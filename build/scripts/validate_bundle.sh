@@ -178,6 +178,17 @@ TEST_TARGETS=(
     # symbol. Cheap host-side check; wire so a regression flips the
     # bundle.
     clib_qsort
+    # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
+    # nucleus in `user/libs/clib` — writable `int errno;` global plus
+    # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
+    # a bounded `clib_strerror`. Same parity shape as the str/mem (PR
+    # #416), ctype (PR #417), qsort (PR #418), and stdlib (PR #428)
+    # slices — userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + `macro_values_pinned` so a TinyCC drop
+    # (#408) or unrelated PR cannot silently renumber `ERANGE` and
+    # break the `strtol`/`strtoul` overflow contract that PR #428's
+    # header explicitly defers to this slice.
+    clib_errno
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
