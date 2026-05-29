@@ -142,6 +142,42 @@ TEST_TARGETS=(
     # `user/libs/clib`) — pure host-side check, no env deps. The matching
     # `os_mem_brk` kernel-side wiring lands as the M7-TOOLCHAIN-001 follow-up.
     clib_malloc
+    # M7 in-OS toolchain freestanding libc slice 2 (issue #407, parallel
+    # to the str/mem slice in PR #416). `clib_ctype` pins the ctype family
+    # (isdigit / isalpha / isspace / toupper / tolower / ...) that TinyCC's
+    # preprocessor + lexer call. Pure host-side check, no env deps, no
+    # syscalls. Drift on any shipped symbol flips the bundle to FAIL.
+    clib_ctype
+    # Manifest schema v0 validator + additive-enum gates (umbrella #285 /
+    # #312 / #368 / #396 / #150). These six targets were intentionally
+    # dropped from PR #401 (commit 667e932) because the
+    # secureos/toolchain container did not ship python3-jsonschema, so
+    # every wrapper short-circuited with TEST:FAIL:harness_missing_jsonschema
+    # (rc=78). PR for #414 added python3-jsonschema to
+    # build/docker/Dockerfile.toolchain (kept the container-internal
+    # invariant post-#332) and wires the targets here so a regression to
+    # any manifest enum / required-field / abi-major check flips the
+    # bundle to FAIL — same orphan-from-TEST_TARGETS shape #129 / #366 /
+    # #384 / #401 caught for prior host-only targets.
+    manifest_required_fields
+    manifest_persistence_enum
+    manifest_broker_role_enum
+    manifest_ownership_role_enum
+    manifest_owner_kind_enum
+    validate_manifests_abi_major
+    # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
+    # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
+    # into the bundle so a regression to the libc nucleus trips here before
+    # TinyCC (P4) starts depending on the same symbols.
+    clib_string
+    # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
+    # `user/libs/clib`. Same parity shape as the str/mem slice (PR
+    # #416) and the ctype slice (PR #417) — userland-only, no syscall
+    # dependency, drift-pinned via a `symbol_set_pinned` sub-marker so
+    # a future TinyCC drop / unrelated PR cannot silently remove the
+    # symbol. Cheap host-side check; wire so a regression flips the
+    # bundle.
+    clib_qsort
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
