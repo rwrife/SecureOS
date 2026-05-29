@@ -81,8 +81,31 @@ typedef struct {
 } session_record_t;
 
 /* Static buffer to save the parent app's ELF region during a tick.
- * Only one tick runs at a time (cooperative), so one buffer suffices. */
-static unsigned char g_elf_parent_buf[ELF_SNAPSHOT_SIZE];
+ * Only one tick runs at a time (cooperative), so one buffer suffices.
+ * 16-byte aligned so we can copy with `rep movsq` (8 bytes per iter) safely. */
+static unsigned char g_elf_parent_buf[ELF_SNAPSHOT_SIZE]
+    __attribute__((aligned(16)));
+
+/* Fast block copy. The previous implementation was a per-byte for-loop, which
+ * under -O0 boils down to ~5 instructions per byte. For the 128KB ELF region
+ * that ran every tick, this was tens of millions of cycles per WM frame —
+ * the dominant cost once vga_gfx_blit() was sped up (see PR #429).
+ *
+ * On x86_64, `rep movsq` copies 8 bytes per microcode iteration at memory
+ * bandwidth, so the same 128KB takes orders of magnitude less time.
+ * Callers must pass 8-byte aligned src/dst and a byte count divisible by 8;
+ * the ELF region (0x800000) and `g_elf_parent_buf` satisfy this. The child
+ * snapshot buffers come from kmalloc which returns aligned pointers, and
+ * ELF_SNAPSHOT_SIZE is exactly 128*1024 (divisible by 8). */
+static inline void fast_block_copy(void *dst, const void *src, unsigned int n) {
+  unsigned long qwords = (unsigned long)(n >> 3);
+  __asm__ __volatile__(
+      "cld\n\t"
+      "rep movsq\n\t"
+      : "+D"(dst), "+S"(src), "+c"(qwords)
+      :
+      : "memory");
+}
 
 static session_record_t g_sessions[SESSION_MAX];
 static unsigned int g_active_session_id;
@@ -460,16 +483,24 @@ void session_manager_tick(unsigned int session_id) {
     return;
   }
 
+  /* Fast-path: if the session is not blocked AND has no injected input
+   * queued, the tick has literally nothing to do. The trampoline would call
+   * console_process_injected() (immediate return) and ctx_resume back. Skip
+   * the entire 384KB ELF dance in that case — for an idle WM window this
+   * is the common case and was previously the dominant per-frame cost. */
+  if (!g_sessions[session_id].blocked &&
+      g_sessions[session_id].console_context.inject_head ==
+          g_sessions[session_id].console_context.inject_tail) {
+    return;
+  }
+
   /* --- ELF region save: protect parent app's code at 0x800000 ---
    * All user ELF apps share the same load address. A child app loaded
    * during this tick would overwrite the parent. Save the parent's code
    * now; restore it when the tick yields or completes. */
   {
     unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
-    unsigned int i;
-    for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
-      g_elf_parent_buf[i] = elf_base[i];
-    }
+    fast_block_copy(g_elf_parent_buf, elf_base, ELF_SNAPSHOT_SIZE);
   }
 
   /* Temporarily switch active session so console_write's VFB hook
@@ -499,10 +530,8 @@ void session_manager_tick(unsigned int session_id) {
      * Restore the child app's ELF snapshot before resuming. */
     if (g_sessions[session_id].elf_snapshot != 0) {
       unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
-      unsigned int i;
-      for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
-        elf_base[i] = g_sessions[session_id].elf_snapshot[i];
-      }
+      fast_block_copy(elf_base, g_sessions[session_id].elf_snapshot,
+                      ELF_SNAPSHOT_SIZE);
     }
     g_sessions[session_id].blocked = 0;
     ctx_resume(&g_sessions[session_id].blocked_ctx, 1);
@@ -526,7 +555,6 @@ restore:
    * the parent app's code so it can continue executing. */
   {
     unsigned char *elf_base = (unsigned char *)(unsigned long)ELF_REGION_START;
-    unsigned int i;
 
     /* Allocate child snapshot on first use */
     if (g_sessions[session_id].elf_snapshot == 0) {
@@ -536,15 +564,12 @@ restore:
 
     /* Save child's ELF state */
     if (g_sessions[session_id].elf_snapshot != 0) {
-      for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
-        g_sessions[session_id].elf_snapshot[i] = elf_base[i];
-      }
+      fast_block_copy(g_sessions[session_id].elf_snapshot, elf_base,
+                      ELF_SNAPSHOT_SIZE);
     }
 
     /* Restore parent's ELF code */
-    for (i = 0; i < ELF_SNAPSHOT_SIZE; i++) {
-      elf_base[i] = g_elf_parent_buf[i];
-    }
+    fast_block_copy(elf_base, g_elf_parent_buf, ELF_SNAPSHOT_SIZE);
   }
 
   /* Restore previous active session and context */

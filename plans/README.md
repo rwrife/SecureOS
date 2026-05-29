@@ -36,6 +36,7 @@ back to its design doc should start here.
 - `2026-05-26-virtual-vga.md`
 - `2026-05-28-wm-mouse-performance.md`
 - `2026-05-29-wm-render-speedup.md`
+- `2026-05-30-wm-tick-snapshot-skip.md`
 
 ### Filesystem and code-signing
 
