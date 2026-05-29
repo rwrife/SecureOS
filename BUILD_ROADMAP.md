@@ -498,7 +498,16 @@ Deliver:
   references `os_get_abi_version`.
 - tool wrappers (`os-cc`, `os-pack`, `os-run`) — slice `M6-SDK-003`.
 - manifest schema and ABI versioning guide — slice `M6-SDK-003`
-  (`abi.version`, `capabilities.required/optional` additions).
+  (`abi.version`, `capabilities.required/optional` additions). The
+  additive `owner.kind` enum (`internal` — default; `external`
+  — SDK-produced) landed as the schema-only sub-slice of
+  `M6-SDK-003` (issue #396); see
+  [`docs/abi/manifest.md`](docs/abi/manifest.md) §"§5.6 owner.kind
+  enforcement status (M6-SDK-003 schema sub-slice)" and the
+  `manifest_owner_kind_enum` host test. Runtime semantics for
+  `owner.kind: "external"` modules land in later M6-SDK-003 /
+  M6-SDK-004 sub-slices once the wrapper A/B design question in
+  #396 is resolved.
 
 Validate:
 
