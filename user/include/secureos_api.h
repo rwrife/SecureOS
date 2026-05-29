@@ -26,6 +26,21 @@ os_status_t os_fs_write_file(const char *path, const char *content, int append);
 os_status_t os_fs_mkdir(const char *path);
 os_status_t os_process_chdir(const char *path);
 os_status_t os_process_getcwd(char *out_buffer, unsigned int out_buffer_size);
+/*
+ * Terminate the calling process with the given exit status. Mirrors the
+ * POSIX `_exit(2)` shape: does not return on success. When the bridge
+ * is wired (kernel-hosted run), control is surrendered to the kernel
+ * and the call does not return.
+ *
+ * This wrapper reaches through the fixed native-bridge address like
+ * every other bridge-mediated call, so it is NOT safe to invoke from
+ * a bare host process without a mapped bridge — host validation is
+ * link-time only (`tests/process_exit_wrapper_test.c`).
+ *
+ * Tracks M7-TOOLCHAIN-003 (#406); paired with the future
+ * `os_process_spawn` slice in the same milestone.
+ */
+os_status_t os_process_exit(int status);
 os_status_t os_env_get(const char *key, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_env_set(const char *key, const char *value);
 os_status_t os_env_list(char *out_buffer, unsigned int out_buffer_size);

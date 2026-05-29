@@ -2,7 +2,7 @@
 
 > **Owner:** kernel / user-API
 > **Status:** draft `v0` — surface still iterating
-> **Last reviewed:** 2026-05-22
+> **Last reviewed:** 2026-05-29
 > **Applies to:** `OS_ABI_VERSION = 0`
 > **Tracking issue:** [#93](https://github.com/rwrife/SecureOS/issues/93)
 
@@ -59,6 +59,7 @@ unspecified in that case.
 | ---- | ------------ | ----- |
 | `os_process_chdir(path)` | (none — bound to caller) | |
 | `os_process_getcwd(out, len)` | (none) | |
+| `os_process_exit(status)` | (none — bound to caller) | M7-TOOLCHAIN-003 (#406). Terminates the calling process. Does not return when a real bridge is attached. The host-build wrapper reaches through the fixed bridge address (`SECUREOS_NATIVE_BRIDGE_ADDR`) like every other bridge-mediated call, so it is not safe to invoke on bare host without a mapped bridge — host validation is link-time only (`tests/process_exit_wrapper_test.c`). The `status` value is currently advisory (richer exit-code surface is a follow-up). |
 | `os_env_get/set/list(...)` | (none) | Per-process env. |
 
 ### Libraries
@@ -139,5 +140,5 @@ unused"). The reservation is purely an ABI-shape anchor.
 4. Add an allow-path and a deny-path test under `build/scripts/test_*.sh`.
 5. Update this table and bump the verification line below.
 
-Last verified against commit: 9b2089bbcfac9813eda86503e076f11f85ca4ab6
+Last verified against commit: d8d22e89c6176aad6e13bf3e64e6ae35d77a8edd
 
