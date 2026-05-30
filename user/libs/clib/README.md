@@ -1,7 +1,7 @@
 # user/libs/clib — freestanding userland libc nucleus
 
 > **Owner:** in-OS toolchain (M7) / SDK runtime
-> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)), the `str*`/`mem*` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), and the ctype slice of [#407](https://github.com/rwrife/SecureOS/issues/407) have landed; `stdio` / `setjmp` / `qsort` follow on later slices.
+> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)), the `str*`/`mem*` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), the ctype / qsort / stdlib / errno / stdarg slices of [#407](https://github.com/rwrife/SecureOS/issues/407), and the `setjmp`/`longjmp` slice ([#446](https://github.com/rwrife/SecureOS/issues/446)) have landed; `stdio` ([#447](https://github.com/rwrife/SecureOS/issues/447)) follows.
 > **Plan:** [`plans/2026-05-28-in-os-toolchain-self-hosting.md`](../../../plans/2026-05-28-in-os-toolchain-self-hosting.md) (P1 + P3)
 
 ## What this is
@@ -23,10 +23,13 @@ against. Today it ships:
   of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
-`fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`,
-`setjmp` / `longjmp`, and `qsort`. Symbol-set drift is pinned today
-by `tests/clib_string_test.c` (`symbol_set_pinned`) and will be
-extended as each slice lands.
+`fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`. The
+freestanding `setjmp`/`longjmp` pair landed via
+[#446](https://github.com/rwrife/SecureOS/issues/446) as hand-rolled
+i386 + x86_64 SysV callee-saved snapshot/restore in
+`src/setjmp_x86.S`. Symbol-set drift is pinned per slice via each
+test's `symbol_set_pinned` sub-marker (see `tests/clib_*_test.c`) and
+will be extended as each slice lands.
 
 ## What it is **not**
 
