@@ -298,6 +298,72 @@ TEST:PASS:clib_stdnoreturn
 
 No `OS_ABI_VERSION` bump (userland-only, additive, header-only).
 
+## Slice 8 — `<stdio.h>` nucleus (issue [#447](https://github.com/rwrife/SecureOS/issues/447))
+
+Final large gating slice before TinyCC can link (#408) and before the
+`cc` driver (#409) can persist a `.sof` to disk. Ships the freestanding
+`<stdio.h>` surface TinyCC and `cc` actually exercise — deliberately
+minimal, no floats, no `scanf`, no locale.
+
+**Backend abstraction.** `user/libs/clib/` MUST NOT include
+`<secureos_api.h>` (the same containment rule the str/mem, ctype,
+qsort, stdlib, errno, stdarg, bsearch slices follow). All I/O routes
+through a `clib_stdio_backend_t` function-pointer table the embedder
+registers via `clib_stdio_init`:
+
+- on-target: the SDK app init layer fills the table with thunks to
+  `os_fs_read_file` / `os_fs_write_file` / `os_console_write` (the
+  embedder side is a small follow-up alongside the toolchain app
+  itself; out of scope for the slice).
+- host tests: `tests/clib_stdio_test.c` registers a recorder backend
+  that captures bytes into an in-memory file table + console buffer,
+  pins exact output, and asserts `fprintf(stderr, ...)` routes to the
+  console sink (not the file sink) by handing the slice a backend
+  with `write_file == NULL`.
+
+**Shipped surface:**
+
+- `FILE`, `stdin` / `stdout` / `stderr`
+- `fopen` / `fclose` / `fread` / `fwrite` / `fflush`
+- `fputs` / `fputc`
+- `fprintf` / `vfprintf` / `printf`
+- `feof` / `ferror`
+- format spec set: `%s %d %i %u %x %p %c %% %ld %li %lu %lx`,
+  optional width (`%8d`), zero-pad (`%08d`), left-justify (`%-5s`)
+
+**Format walker quirks** (deliberate and pinned by the tests):
+
+- unsupported specifiers (e.g. `%f`) echo the literal `%...` sequence
+  rather than silently dropping it, so a regression is visible in the
+  recorder buffer.
+- `%p` always emits the `0x` prefix.
+- vfprintf truncates at a 1 KiB stack-resident formatting buffer but
+  still returns the full requested length so callers can detect it.
+
+```
+$ bash build/scripts/test.sh clib_stdio
+TEST:PASS:clib_stdio:printf_basic_format
+TEST:PASS:clib_stdio:printf_full_spec_set
+TEST:PASS:clib_stdio:fopen_fwrite_fread_round_trip
+TEST:PASS:clib_stdio:large_payload_round_trip
+TEST:PASS:clib_stdio:stderr_routes_to_console
+TEST:PASS:clib_stdio:fopen_invalid_mode_returns_null
+TEST:PASS:clib_stdio:defensive_no_backend
+TEST:PASS:clib_stdio:shutdown_resets_pool
+TEST:PASS:clib_stdio:symbol_set_pinned
+TEST:PASS:clib_stdio
+```
+
+`large_payload_round_trip` writes 4097 bytes (deliberately above the
+4 KiB threshold called out in #447's acceptance — the same threshold
+that exercises the multi-cluster FS write path landed in PR #411) and
+asserts byte-exact round-trip through the recorder.
+
+No `OS_ABI_VERSION` bump (userland-only, additive). The on-target
+embedder side — a one-line `clib_stdio_init(&os_backend)` from the
+toolchain app's `main` — lands with the TinyCC port (#408) /
+`cc` driver (#409).
+
 ## Slice 1 — string/memory family (issue #407)
 
 ```

@@ -355,6 +355,18 @@ TEST_TARGETS=(
     # break the `strtol`/`strtoul` overflow contract that PR #428's
     # header explicitly defers to this slice.
     clib_errno
+    # M7-TOOLCHAIN-004 slice 8 (issue #447 / #407, plan P3): freestanding
+    # `<stdio.h>` nucleus in `user/libs/clib` — `FILE` + `stdin`/
+    # `stdout`/`stderr` over a swappable `clib_stdio_backend_t`
+    # function-pointer table (on-target: `os_fs_*` + `os_console_write`;
+    # host: recorder shim). Covers `fopen`/`fclose`/`fread`/`fwrite`/
+    # `fflush`/`fputs`/`fputc`/`fprintf`/`vfprintf`/`printf` plus the
+    # minimal printf format set TinyCC (#408) and the `cc` driver
+    # (#409) emit. Same parity shape as the peer clib slices —
+    # userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` so a TinyCC drop or unrelated PR cannot
+    # silently drop one of the public symbols TinyCC links against.
+    clib_stdio
     # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdnoreturn.h>`
     # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdnoreturn.h>` as
     # one of the freestanding-required headers; §7.23 defines the header
