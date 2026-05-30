@@ -199,6 +199,18 @@ TEST_TARGETS=(
     # symbol. Cheap host-side check; wire so a regression flips the
     # bundle.
     clib_qsort
+    # M7-TOOLCHAIN-004 slice 6 (issue #407): freestanding `<stdarg.h>`
+    # nucleus in `user/libs/clib` — `va_list` typedef + va_start /
+    # va_arg / va_end / va_copy forwarded to `__builtin_va_*` (the only
+    # correct freestanding implementation; see header rationale). Same
+    # parity shape as the str/mem (PR #416), ctype (PR #417), qsort
+    # (PR #418), stdlib (PR #428), and errno (PR #430) slices —
+    # userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + macro-defined guards so a TinyCC drop (#408)
+    # or unrelated PR cannot silently drop a member of the variadic
+    # surface that `tccpp.c` / `tccgen.c` and the `tcc_error*` /
+    # `tcc_warning*` diagnostic paths depend on.
+    clib_stdarg
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
