@@ -42,6 +42,28 @@ static int g_fails = 0;
     }                                                                        \
   } while (0)
 
+#define EXPECT_EQ_LL(actual, expected, sub)                                  \
+  do {                                                                       \
+    long long _a = (long long)(actual);                                      \
+    long long _e = (long long)(expected);                                    \
+    if (_a != _e) {                                                          \
+      printf("TEST:FAIL:clib_stdlib:%s: got %lld, expected %lld (%s:%d)\n", \
+             (sub), _a, _e, __FILE__, __LINE__);                             \
+      g_fails++;                                                             \
+    }                                                                        \
+  } while (0)
+
+#define EXPECT_EQ_ULL(actual, expected, sub)                                 \
+  do {                                                                       \
+    unsigned long long _a = (unsigned long long)(actual);                    \
+    unsigned long long _e = (unsigned long long)(expected);                  \
+    if (_a != _e) {                                                          \
+      printf("TEST:FAIL:clib_stdlib:%s: got %llu, expected %llu (%s:%d)\n", \
+             (sub), _a, _e, __FILE__, __LINE__);                             \
+      g_fails++;                                                             \
+    }                                                                        \
+  } while (0)
+
 #define EXPECT_EQ_PTR(actual, expected, sub)                                 \
   do {                                                                       \
     const void *_a = (const void *)(actual);                                 \
@@ -167,6 +189,99 @@ static void test_strtoul_overflow_clamp(void) {
   PASS("strtoul_overflow_clamp");
 }
 
+/* ---------- strtoll / strtoull ----------------------------------------- */
+
+static void test_strtoll_decimal(void) {
+  char *end;
+  EXPECT_EQ_LL(strtoll("0",   &end, 10),  0LL,   "strtoll_decimal");
+  EXPECT_EQ_LL(strtoll("123", &end, 10),  123LL, "strtoll_decimal");
+  EXPECT_EQ_L (*end, '\0',                       "strtoll_decimal");
+  EXPECT_EQ_LL(strtoll("-456",&end, 10), -456LL, "strtoll_decimal");
+  /* base=0 hex auto-detect via the shared prefix path. */
+  EXPECT_EQ_LL(strtoll("0x7fffffff", &end, 0),
+               0x7fffffffLL, "strtoll_decimal");
+  /* Width that LONG might not cover on a 32-bit host: 1<<33 = 8589934592. */
+  EXPECT_EQ_LL(strtoll("8589934592", &end, 10),
+               8589934592LL, "strtoll_decimal");
+  EXPECT_EQ_LL(strtoll("-8589934592", &end, 10),
+               -8589934592LL, "strtoll_decimal");
+  PASS("strtoll_decimal");
+}
+
+static void test_strtoll_overflow_clamp(void) {
+  char *end;
+  EXPECT_EQ_LL(strtoll("99999999999999999999999999999999", &end, 10),
+               LLONG_MAX, "strtoll_overflow_clamp");
+  EXPECT_EQ_LL(strtoll("-99999999999999999999999999999999", &end, 10),
+               LLONG_MIN, "strtoll_overflow_clamp");
+  /* LLONG_MIN itself must round-trip through the signed-clamp path. */
+  char buf[64];
+  snprintf(buf, sizeof buf, "%lld", LLONG_MIN);
+  EXPECT_EQ_LL(strtoll(buf, &end, 10), LLONG_MIN, "strtoll_overflow_clamp");
+  EXPECT_EQ_L (*end, '\0',                        "strtoll_overflow_clamp");
+  /* LLONG_MAX itself must NOT clamp. */
+  snprintf(buf, sizeof buf, "%lld", LLONG_MAX);
+  EXPECT_EQ_LL(strtoll(buf, &end, 10), LLONG_MAX, "strtoll_overflow_clamp");
+  PASS("strtoll_overflow_clamp");
+}
+
+static void test_strtoull_basic(void) {
+  char *end;
+  EXPECT_EQ_ULL(strtoull("0",    &end, 10),  0ULL,   "strtoull_basic");
+  EXPECT_EQ_ULL(strtoull("42",   &end, 10),  42ULL,  "strtoull_basic");
+  EXPECT_EQ_ULL(strtoull("0xff", &end, 0),   255ULL, "strtoull_basic");
+  /* Negative parse: result is negation mod (ULLONG_MAX+1). */
+  EXPECT_EQ_ULL(strtoull("-1",   &end, 10),  ULLONG_MAX,        "strtoull_basic");
+  EXPECT_EQ_ULL(strtoull("-2",   &end, 10),  ULLONG_MAX - 1ULL, "strtoull_basic");
+  /* Width that ULONG might not cover on a 32-bit host. */
+  EXPECT_EQ_ULL(strtoull("18446744073709551614", &end, 10),
+                ULLONG_MAX - 1ULL, "strtoull_basic");
+  PASS("strtoull_basic");
+}
+
+static void test_strtoull_overflow_clamp(void) {
+  char *end;
+  EXPECT_EQ_ULL(strtoull("99999999999999999999999999999999", &end, 10),
+                ULLONG_MAX, "strtoull_overflow_clamp");
+  /* ULLONG_MAX itself must NOT clamp. */
+  char buf[64];
+  snprintf(buf, sizeof buf, "%llu", ULLONG_MAX);
+  EXPECT_EQ_ULL(strtoull(buf, &end, 10), ULLONG_MAX,
+                "strtoull_overflow_clamp");
+  EXPECT_EQ_L (*end, '\0',                "strtoull_overflow_clamp");
+  PASS("strtoull_overflow_clamp");
+}
+
+static void test_strtoll_endptr_no_digits(void) {
+  const char *src = "  abc";
+  char       *end = NULL;
+  long long   v   = strtoll(src, &end, 10);
+  EXPECT_EQ_LL(v, 0LL,                        "strtoll_endptr_no_digits");
+  /* Per C99: if no conversion can be performed, *endptr is set to nptr. */
+  EXPECT_EQ_PTR(end, src,                     "strtoll_endptr_no_digits");
+  /* Same shape on strtoull. */
+  end = NULL;
+  unsigned long long uv = strtoull(src, &end, 10);
+  EXPECT_EQ_ULL(uv, 0ULL,                     "strtoll_endptr_no_digits");
+  EXPECT_EQ_PTR(end, src,                     "strtoll_endptr_no_digits");
+  PASS("strtoll_endptr_no_digits");
+}
+
+static void test_strtoll_invalid_base(void) {
+  const char *src = "10";
+  char       *end = NULL;
+  EXPECT_EQ_LL(strtoll(src, &end, 1),  0LL,    "strtoll_invalid_base");
+  EXPECT_EQ_PTR(end, src,                       "strtoll_invalid_base");
+  EXPECT_EQ_LL(strtoll(src, &end, 37), 0LL,    "strtoll_invalid_base");
+  EXPECT_EQ_PTR(end, src,                       "strtoll_invalid_base");
+  end = NULL;
+  EXPECT_EQ_ULL(strtoull(src, &end, 1),  0ULL, "strtoll_invalid_base");
+  EXPECT_EQ_PTR(end, src,                       "strtoll_invalid_base");
+  EXPECT_EQ_ULL(strtoull(src, &end, 37), 0ULL, "strtoll_invalid_base");
+  EXPECT_EQ_PTR(end, src,                       "strtoll_invalid_base");
+  PASS("strtoll_invalid_base");
+}
+
 /* ---------- abs / labs -------------------------------------------------- */
 
 static void test_abs_labs(void) {
@@ -196,6 +311,8 @@ static void test_symbol_set_pinned(void) {
     (void *)atoi,
     (void *)strtol,
     (void *)strtoul,
+    (void *)strtoll,
+    (void *)strtoull,
     (void *)abs,
     (void *)labs,
   };
@@ -209,8 +326,8 @@ static void test_symbol_set_pinned(void) {
   /* Pin the count: any future slice that adds/removes a symbol MUST
    * update this number and the symbol_set list above in lockstep, the
    * same way slices 1/2/3 pin their families. */
-  if (sizeof syms / sizeof syms[0] != 5) {
-    printf("TEST:FAIL:clib_stdlib:symbol_set_pinned: expected 5 symbols\n");
+  if (sizeof syms / sizeof syms[0] != 7) {
+    printf("TEST:FAIL:clib_stdlib:symbol_set_pinned: expected 7 symbols\n");
     g_fails++;
   }
   PASS("symbol_set_pinned");
@@ -227,6 +344,12 @@ int main(void) {
   test_strtol_invalid_base();
   test_strtoul_basic();
   test_strtoul_overflow_clamp();
+  test_strtoll_decimal();
+  test_strtoll_overflow_clamp();
+  test_strtoll_endptr_no_digits();
+  test_strtoll_invalid_base();
+  test_strtoull_basic();
+  test_strtoull_overflow_clamp();
   test_abs_labs();
   test_symbol_set_pinned();
 
