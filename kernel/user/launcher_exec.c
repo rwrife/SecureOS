@@ -347,12 +347,19 @@ static int g_native_exit_status = 0;
  * lands real process-private address spaces this becomes a per-process
  * arena (and the deny-on-overflow contract stays unchanged).
  *
- * Sized to the upper end of the M7 plan's recommended in-OS-toolchain
- * arena window (~16 MiB) so the freestanding TinyCC port can compile a
- * non-trivial translation unit; the cost is BSS, not committed RAM, so
- * apps that never call `os_mem_brk` pay nothing at runtime.
+ * Sized to 4 MiB for this slice: the kernel image (load base 1 MiB,
+ * .text/.rodata/.data plus the 1 MiB .proc_arena) must fit within the
+ * 16 MiB identity-mapped window set up by the bootstrap page tables in
+ * arch/x86/boot/entry.asm (see kernel/arch/x86/boot/linker.ld), so we
+ * cannot hand the M7 plan's recommended upper-bound ~16 MiB to a single
+ * BSS pool without overflowing the early-boot mapping and silently
+ * losing the console. 4 MiB leaves headroom inside the 16 MiB ceiling
+ * while still giving a freestanding TinyCC port enough room to compile
+ * a non-trivial translation unit; a follow-up slice can grow this once
+ * the bootstrap mapping is widened or the pool is moved to a per-
+ * process arena window.
  */
-#define APP_NATIVE_HEAP_BYTES (16u * 1024u * 1024u)
+#define APP_NATIVE_HEAP_BYTES (4u * 1024u * 1024u)
 static uint8_t g_native_heap_pool[APP_NATIVE_HEAP_BYTES] __attribute__((aligned(16)));
 static size_t  g_native_heap_break = 0; /* current break offset within pool */
 
