@@ -28,6 +28,10 @@ changes are deliberate and reviewable rather than emergent.
   implementation tracked by the M1 sync-IPC plan (#180 / #185).
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
+- [clib-symbols.md](clib-symbols.md) — Public symbol surface of
+  `libclib.a` (`user/libs/clib/`), one row per exported symbol grouped
+  by defining header. Pinned by the `clib_symbol_drift` test
+  ([#449](https://github.com/rwrife/SecureOS/issues/449)).
 - [sosh-capability-contract.md](sosh-capability-contract.md) — capability
   surface + sandbox contract for the `sosh` scripting language: which
   builtins are side-effecting, which existing `CAP_*` gates them, how a
