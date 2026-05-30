@@ -218,3 +218,117 @@ char *strstr(const char *haystack, const char *needle) {
   }
   return (char *)0;
 }
+
+/* --- string tokenize / span -------------------------------------------- *
+ *
+ * Slice 12 of M7-TOOLCHAIN-004 (issue #407). Adds the freestanding
+ * tokenize / span family TinyCC's argv + include-path parsers link
+ * against. Pure byte-level, no allocator, no syscalls.
+ *
+ * Implementation notes:
+ *   - Class membership (`s_in_set`) treats bytes as `unsigned char`,
+ *     mirroring the existing `memcmp` posture so that ordering and
+ *     membership match the C standard regardless of host `char`
+ *     signedness.
+ *   - `strtok` uses a single static `char *` for state (canonical
+ *     C99 §7.21.5.8). The re-entrant `strtok_r` keeps its state in
+ *     a caller-provided `*saveptr` and is implemented by the same
+ *     core helper so the two cannot drift apart.
+ *   - `strpbrk` returns the first occurrence of any byte from
+ *     `accept` in `s`, or NULL on no match. `strspn` returns the
+ *     length of the leading run of bytes that ARE in `accept`;
+ *     `strcspn` returns the leading run that are NOT in `reject`.
+ *     All three treat NUL as a hard terminator on the searched
+ *     string (`s`) but a normal byte inside the set string when
+ *     scanning the set — i.e. the set ends at its own NUL exactly as
+ *     the standard prescribes.
+ *   - Defensive posture: NULL `s` or NULL set inputs are treated as
+ *     empty rather than dereferenced, matching the same
+ *     no-crash-on-programmer-mistake stance used by qsort / bsearch
+ *     slices.
+ */
+
+static int s_in_set(unsigned char c, const char *set) {
+  if (set == (const char *)0) {
+    return 0;
+  }
+  for (const unsigned char *p = (const unsigned char *)set; *p != 0; p++) {
+    if (*p == c) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+size_t strspn(const char *s, const char *accept) {
+  if (s == (const char *)0) {
+    return 0;
+  }
+  size_t i = 0;
+  while (s[i] != '\0' && s_in_set((unsigned char)s[i], accept)) {
+    i++;
+  }
+  return i;
+}
+
+size_t strcspn(const char *s, const char *reject) {
+  if (s == (const char *)0) {
+    return 0;
+  }
+  size_t i = 0;
+  while (s[i] != '\0' && !s_in_set((unsigned char)s[i], reject)) {
+    i++;
+  }
+  return i;
+}
+
+char *strpbrk(const char *s, const char *accept) {
+  if (s == (const char *)0) {
+    return (char *)0;
+  }
+  for (size_t i = 0; s[i] != '\0'; i++) {
+    if (s_in_set((unsigned char)s[i], accept)) {
+      return (char *)(s + i);
+    }
+  }
+  return (char *)0;
+}
+
+char *strtok_r(char *s, const char *delim, char **saveptr) {
+  if (saveptr == (char **)0) {
+    return (char *)0;
+  }
+  char *cursor = (s != (char *)0) ? s : *saveptr;
+  if (cursor == (char *)0) {
+    return (char *)0;
+  }
+  /* Skip leading delimiters. */
+  while (*cursor != '\0' && s_in_set((unsigned char)*cursor, delim)) {
+    cursor++;
+  }
+  if (*cursor == '\0') {
+    *saveptr = cursor;
+    return (char *)0;
+  }
+  /* Scan to the next delimiter (or end of string). */
+  char *tok_start = cursor;
+  while (*cursor != '\0' && !s_in_set((unsigned char)*cursor, delim)) {
+    cursor++;
+  }
+  if (*cursor == '\0') {
+    *saveptr = cursor;
+  } else {
+    *cursor  = '\0';
+    *saveptr = cursor + 1;
+  }
+  return tok_start;
+}
+
+/* Canonical C99 `strtok` keeps its state in a single static pointer.
+ * Not thread-safe by design — the in-OS toolchain is single-threaded
+ * (plan P0 §Threading model). */
+static char *s_strtok_saveptr;
+
+char *strtok(char *s, const char *delim) {
+  return strtok_r(s, delim, &s_strtok_saveptr);
+}

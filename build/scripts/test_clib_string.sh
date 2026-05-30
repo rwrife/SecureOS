@@ -12,6 +12,8 @@
 #   - strcpy / strncpy (historical zero-pad + truncation)
 #   - strcat / strncat
 #   - strchr / strrchr / strstr (incl. empty-needle + OOB-safety)
+#   - strspn / strcspn / strpbrk (slice 12)
+#   - strtok / strtok_r (slice 12, single-state + reentrant)
 #   - symbol_set_pinned drift test
 #
 # Outputs deterministic TEST:PASS markers consumed by
@@ -50,6 +52,11 @@ grep -q "TEST:PASS:clib_string:strcpy_and_strncpy_pad"    "$LOG_PATH"
 grep -q "TEST:PASS:clib_string:strcat_and_strncat"        "$LOG_PATH"
 grep -q "TEST:PASS:clib_string:strchr_and_strrchr"        "$LOG_PATH"
 grep -q "TEST:PASS:clib_string:strstr_hit_and_miss"       "$LOG_PATH"
+grep -q "TEST:PASS:clib_string:strspn_basic"              "$LOG_PATH"
+grep -q "TEST:PASS:clib_string:strcspn_basic"             "$LOG_PATH"
+grep -q "TEST:PASS:clib_string:strpbrk_hit_and_miss"      "$LOG_PATH"
+grep -q "TEST:PASS:clib_string:strtok_walks_tokens"       "$LOG_PATH"
+grep -q "TEST:PASS:clib_string:strtok_r_reentrant_independence" "$LOG_PATH"
 grep -q "TEST:PASS:clib_string:symbol_set_pinned"         "$LOG_PATH"
 grep -q "TEST:PASS:clib_string$"                          "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"
