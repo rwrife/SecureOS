@@ -50,4 +50,4 @@ touch the underlying surface (a syscall signature, a capability ID, the
 launcher API, the manifest layout), bump the verification line in the
 corresponding doc in the same change.
 
-Last verified against commit: 323c36ec7201bda119bccf01ef685c8ede16660b
+Last verified against commit: b08a32c362599b3ec8235c0c3a451d37d3cf92f3
