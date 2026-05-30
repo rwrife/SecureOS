@@ -292,3 +292,42 @@ The `symbol_set_pinned` marker is the drift guard called out in the
 M7-TOOLCHAIN-004 acceptance — every shipped symbol must remain
 reachable through a function pointer, so a TinyCC drop or an unrelated
 PR cannot silently remove a family member.
+
+## Slice 10 — `<stdint.h>` nucleus (issue #407)
+
+C11 §4¶6 / §7.20 mandate `<stdint.h>` on a freestanding
+implementation. TinyCC ([#408](https://github.com/rwrife/SecureOS/issues/408))
+and any non-trivial in-OS C source consume the exact-width / pointer-
+width / max-width integer typedefs + their limit constants + the
+`INTn_C` / `UINTn_C` constant-suffix macros. Header is wholly
+freestanding (no syscall dependency); typedef widths and limits are
+derived from the compiler-provided `__INT*_TYPE__` / `__INT*_MAX__`
+builtins so the same source is target-correct on the x86_64 cross-
+compiler and on the host gcc/clang the unit test runs under.
+
+**Shipped symbols:**
+
+- Exact-width typedefs (8): `int{8,16,32,64}_t`, `uint{8,16,32,64}_t`
+- Pointer-width typedefs (2): `intptr_t`, `uintptr_t`
+- Max-width typedefs (2): `intmax_t`, `uintmax_t`
+- Limit macros: `INT{8,16,32,64}_{MIN,MAX}`, `UINT{8,16,32,64}_MAX`,
+  `INTPTR_{MIN,MAX}`, `UINTPTR_MAX`, `INTMAX_{MIN,MAX}`, `UINTMAX_MAX`,
+  `SIZE_MAX`, `PTRDIFF_{MIN,MAX}`
+- Constant macros: `INT{8,16,32,64}_C(v)`, `UINT{8,16,32,64}_C(v)`,
+  `INTMAX_C(v)`, `UINTMAX_C(v)`
+
+Out of scope this slice: the `int_least*_t` / `int_fast*_t` families
+(no TinyCC consumer pins them yet) and `<inttypes.h>` (sits on top of
+`<stdio.h>`, which is its own deferred slice).
+
+```
+$ bash build/scripts/test.sh clib_stdint
+TEST:PASS:clib_stdint:exact_widths_pinned
+TEST:PASS:clib_stdint:pointer_widths_pinned
+TEST:PASS:clib_stdint:max_widths_pinned
+TEST:PASS:clib_stdint:limits_pinned
+TEST:PASS:clib_stdint:size_and_ptrdiff_pinned
+TEST:PASS:clib_stdint:const_macros_pinned
+TEST:PASS:clib_stdint:symbol_set_pinned
+TEST:PASS:clib_stdint
+```

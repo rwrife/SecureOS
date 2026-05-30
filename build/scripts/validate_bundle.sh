@@ -261,6 +261,20 @@ TEST_TARGETS=(
     # cannot silently change a typedef width. Cheap host-side check;
     # wire so a regression flips the bundle.
     clib_stddef
+    # M7-TOOLCHAIN-004 slice 10 (issue #407): freestanding `<stdint.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 / §7.20 requires `<stdint.h>`
+    # even on a freestanding implementation; TinyCC (#408) and any non-
+    # trivial in-OS C source consume `int{8,16,32,64}_t`,
+    # `uint{8,16,32,64}_t`, `intptr_t`, `uintptr_t`, `intmax_t`,
+    # `uintmax_t`, `INT*_MAX/MIN`, `UINT*_MAX`, `SIZE_MAX`, and
+    # `PTRDIFF_*` pervasively. Same parity shape as the str/mem,
+    # ctype, qsort, `<limits.h>`, and `<stddef.h>` slices — userland-
+    # only, no syscall dependency, drift-pinned via a
+    # `symbol_set_pinned` sub-marker on the helper TU so a future
+    # TinyCC drop or unrelated PR cannot silently change a typedef
+    # width or drop a constant. Cheap host-side check; wire so a
+    # regression flips the bundle.
+    clib_stdint
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
