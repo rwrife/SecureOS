@@ -73,6 +73,26 @@ typedef struct {
   cap_subject_id_t        subject_id;
   const capability_id_t  *auto_grant_caps;
   size_t                  auto_grant_count;
+  /*
+   * Per-app userland arena ceiling, in bytes (M7-TOOLCHAIN-001, plan
+   * `plans/2026-05-28-in-os-toolchain-self-hosting.md` §P1, issue
+   * #424 schema sub-slice / issue #448 launcher enforcement slice).
+   * Additive optional field at v0 — zero means "use kernel default"
+   * and exactly preserves the pre-#424 spawn / arena-sizing path
+   * (i.e. legacy back-compat for any manifest that omits
+   * `runtime.arena_bytes`).
+   *
+   * Non-zero values are validated by the launcher against
+   * `[PROC_ARENA_BYTES_DEFAULT, PROC_ARENA_BYTES_MAX]` (64 KiB …
+   * 16 MiB; see `kernel/proc/address_space.h`). Out-of-range values
+   * are deny-by-default: the spawn entry point returns
+   * `LAUNCHER_ERR_INVALID_MANIFEST` and records the deny reason via
+   * `launcher_arena_last_deny_*()`. The kernel does not panic.
+   *
+   * Adding this field is additive, has a no-op default, and does not
+   * bump `OS_ABI_VERSION` (same precedent as `auto_grant_caps`).
+   */
+  uint32_t                arena_bytes;
 } launcher_manifest_t;
 
 /*
@@ -281,5 +301,44 @@ launcher_result_t launcher_broker_spawn_app_with_broker_cap(
  * `cap_handle_revoke_subject()` per #239 so the stamped broker handle
  * fails closed after the call. */
 launcher_result_t launcher_broker_spawn_destroy(process_id_t pid);
+
+/* ----------------------------------------------------------------
+ * M7-TOOLCHAIN-001 slice 3 (issue #448, refs #404 #421 #424):
+ * per-app userland arena ceiling (`runtime.arena_bytes`) enforcement.
+ *
+ * The three launcher spawn entry points above
+ * (`launcher_spawn_app_from_manifest`,
+ *  `launcher_fs_spawn_app_with_fs_caps`,
+ *  `launcher_broker_spawn_app_with_broker_cap`) all consume the same
+ * `launcher_manifest_t::arena_bytes` field and apply the same clamp
+ * rules. The accessors below expose the resulting per-spawn cap and
+ * the most-recent deny reason so host tests can pin both the happy
+ * path ("declared value applied") and the deny-by-default audit
+ * shape ("over cap / under floor denied"). All accessors are pure
+ * reads on launcher-local state; they never widen authority.
+ *
+ * Reasons surfaced by `launcher_arena_last_deny_reason()`:
+ *   - LAUNCHER_ARENA_DENY_NONE   : no deny recorded since last
+ *                                  successful spawn / launcher_reset().
+ *   - LAUNCHER_ARENA_DENY_OVER_CAP : declared value > PROC_ARENA_BYTES_MAX.
+ *   - LAUNCHER_ARENA_DENY_UNDER_FLOOR : declared non-zero value
+ *                                       < PROC_ARENA_BYTES_DEFAULT.
+ *
+ * `launcher_arena_active_cap()` returns the per-spawn cap (in bytes)
+ * that the most recent successful spawn would feed to the per-app
+ * native-heap path; for a manifest that omits `arena_bytes` this is
+ * `PROC_ARENA_BYTES_DEFAULT`.
+ */
+typedef enum {
+  LAUNCHER_ARENA_DENY_NONE        = 0,
+  LAUNCHER_ARENA_DENY_OVER_CAP    = 1,
+  LAUNCHER_ARENA_DENY_UNDER_FLOOR = 2,
+} launcher_arena_deny_reason_t;
+
+uint32_t                       launcher_arena_active_cap(void);
+launcher_arena_deny_reason_t   launcher_arena_last_deny_reason(void);
+uint32_t                       launcher_arena_last_deny_value(void);
+uint32_t                       launcher_arena_deny_count(void);
+void                           launcher_arena_audit_reset(void);
 
 #endif

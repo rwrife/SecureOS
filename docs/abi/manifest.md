@@ -401,11 +401,28 @@ per-app userland arena ceiling, refs #404 / #421):
 | `manifest_arena_bytes_range` (positive) | enforced (PR for #424 schema sub-slice) |
 | `manifest_arena_bytes_range:negative_rejected` | enforced (PR for #424 schema sub-slice) |
 | `manifest_arena_bytes_range:default_when_omitted` | enforced (PR for #424 schema sub-slice) |
+| `launcher_arena_bytes:default_when_omitted_matches_legacy` | enforced at spawn (PR for #448 launcher slice) |
+| `launcher_arena_bytes:declared_value_applied` | enforced at spawn (PR for #448 launcher slice) |
+| `launcher_arena_bytes:over_cap_denied` | enforced at spawn (PR for #448 launcher slice) |
+| `launcher_arena_bytes:under_floor_denied` | enforced at spawn (PR for #448 launcher slice) |
 
-Runtime semantics (kernel `os_mem_brk` and the launcher clamp /
-spawn-time audit / deny-by-default path for out-of-range values)
-land in the M7-TOOLCHAIN-001 kernel slice tracked by #421. This
-sub-slice intentionally introduces no runtime behavior change.
+Runtime semantics: as of the M7-TOOLCHAIN-001 launcher slice (#448),
+`launcher_spawn_app_from_manifest()` and its fs/broker siblings read
+`runtime.arena_bytes` from the manifest, resolve `0`/omitted to
+`PROC_ARENA_BYTES_DEFAULT` (exactly preserving the pre-#424 spawn
+path), accept any value in `[PROC_ARENA_BYTES_DEFAULT,
+PROC_ARENA_BYTES_MAX]` as the per-spawn cap, and deny-by-default any
+out-of-range value with `LAUNCHER_ERR_INVALID_MANIFEST` plus a
+launcher-local audit cell
+(`launcher_arena_last_deny_reason()` /
+`launcher_arena_last_deny_value()` /
+`launcher_arena_deny_count()`). The kernel does not panic on a
+deny. The kernel `os_mem_brk` syscall (#421) continues to operate
+against the existing `g_native_heap_pool` ceiling; threading the
+per-spawn cap into the bridge so `os_mem_brk` returns
+`OS_STATUS_DENIED` at the manifest-declared ceiling lands in the
+follow-up wiring slice tracked by #404 (no schema change
+required).
 
 Runtime semantics (launcher trust/policy treatment of
 `owner.kind: "external"` modules, plus the

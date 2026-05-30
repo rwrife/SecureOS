@@ -64,6 +64,7 @@ void launcher_reset(void) {
     launcher_apps[i].subject_id = 0u;
   }
   launcher_spawn_reset();
+  launcher_arena_audit_reset();
 }
 
 launcher_result_t launcher_register_app(cap_subject_id_t app_subject_id) {
@@ -187,6 +188,49 @@ static launcher_spawn_slot_t  g_launcher_spawns[LAUNCHER_SPAWN_MAX];
 static size_t                 g_launcher_aspace_next = 0u;
 static bool                   g_launcher_arena_ready = false;
 
+/* M7-TOOLCHAIN-001 slice 3 (issue #448): per-spawn arena-cap state.
+ * `g_arena_active_cap` is the bytes value the most recent successful
+ * spawn applied (defaulting to PROC_ARENA_BYTES_DEFAULT for manifests
+ * that omit runtime.arena_bytes). `g_arena_last_deny_*` mirrors a
+ * lightweight "capability-audit deny event" the test surface can
+ * inspect without dragging the audit-ring formatter into launcher.c
+ * — same single-cell shape used by `launcher_arena_audit_reset()`. */
+static uint32_t                       g_arena_active_cap     = PROC_ARENA_BYTES_DEFAULT;
+static launcher_arena_deny_reason_t   g_arena_last_deny      = LAUNCHER_ARENA_DENY_NONE;
+static uint32_t                       g_arena_last_deny_val  = 0u;
+static uint32_t                       g_arena_deny_count     = 0u;
+
+/* Shared validator for the three spawn entry points. Returns true and
+ * writes the resolved per-spawn cap into *out_cap when the manifest's
+ * arena_bytes is acceptable. On a deny it records the audit event and
+ * returns false; callers MUST return LAUNCHER_ERR_INVALID_MANIFEST. */
+static bool launcher_resolve_arena_bytes(uint32_t requested,
+                                         uint32_t *out_cap) {
+  if (requested == 0u) {
+    /* Default-when-omitted matches legacy pre-#424 behavior. */
+    if (out_cap != NULL) {
+      *out_cap = PROC_ARENA_BYTES_DEFAULT;
+    }
+    return true;
+  }
+  if (requested > PROC_ARENA_BYTES_MAX) {
+    g_arena_last_deny     = LAUNCHER_ARENA_DENY_OVER_CAP;
+    g_arena_last_deny_val = requested;
+    g_arena_deny_count++;
+    return false;
+  }
+  if (requested < PROC_ARENA_BYTES_DEFAULT) {
+    g_arena_last_deny     = LAUNCHER_ARENA_DENY_UNDER_FLOOR;
+    g_arena_last_deny_val = requested;
+    g_arena_deny_count++;
+    return false;
+  }
+  if (out_cap != NULL) {
+    *out_cap = requested;
+  }
+  return true;
+}
+
 static bool launcher_arena_rebuild(void) {
   aspace_result_t pr = aspace_partition(
       (uintptr_t)g_launcher_arena, sizeof(g_launcher_arena),
@@ -281,6 +325,16 @@ launcher_result_t launcher_spawn_app_from_manifest(
     return LAUNCHER_ERR_INVALID_MANIFEST;
   }
 
+  /* Validate per-spawn arena_bytes before doing any allocation. The
+   * default-when-omitted (manifest->arena_bytes == 0) path resolves
+   * to PROC_ARENA_BYTES_DEFAULT and exactly matches the legacy
+   * pre-#424 behavior. Out-of-range values are deny-by-default. */
+  uint32_t resolved_arena_cap = PROC_ARENA_BYTES_DEFAULT;
+  if (!launcher_resolve_arena_bytes(manifest->arena_bytes,
+                                    &resolved_arena_cap)) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+
   /* v0 supports at most one auto-granted cap; ignore extras silently
    * the same way the on-disk schema reserves room for them. */
   bool want_grant = (manifest->auto_grant_count > 0);
@@ -354,6 +408,14 @@ launcher_result_t launcher_spawn_app_from_manifest(
   slot->aspace = as;
   slot->handle = h;
   slot->cap = grant_cap;
+
+  /* Commit the per-spawn arena cap so accessors + the native-heap
+   * path observe the new ceiling. Reset the deny audit cell so
+   * subsequent tests that interleave success + deny calls see a
+   * crisp transition. */
+  g_arena_active_cap = resolved_arena_cap;
+  g_arena_last_deny  = LAUNCHER_ARENA_DENY_NONE;
+  g_arena_last_deny_val = 0u;
 
   out_spawn->pid = pid;
   out_spawn->aspace = as;
@@ -441,6 +503,15 @@ launcher_result_t launcher_fs_spawn_app_with_fs_caps(
     return LAUNCHER_ERR_INVALID_MANIFEST;
   }
 
+  /* M7-TOOLCHAIN-001 slice 3 (#448): per-spawn arena cap. Same
+   * default-when-omitted + deny-by-default contract as the console
+   * spawn entry point above. */
+  uint32_t resolved_arena_cap = PROC_ARENA_BYTES_DEFAULT;
+  if (!launcher_resolve_arena_bytes(manifest->arena_bytes,
+                                    &resolved_arena_cap)) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+
   launcher_spawn_slot_t *slot = launcher_spawn_slot_alloc();
   if (slot == NULL) {
     return LAUNCHER_ERR_INTERNAL;
@@ -517,6 +588,10 @@ launcher_result_t launcher_fs_spawn_app_with_fs_caps(
   slot->handle = read_h;
   slot->cap = CAP_FS_READ;
 
+  g_arena_active_cap    = resolved_arena_cap;
+  g_arena_last_deny     = LAUNCHER_ARENA_DENY_NONE;
+  g_arena_last_deny_val = 0u;
+
   out_spawn->pid = pid;
   out_spawn->aspace = as;
   out_spawn->read_handle = read_h;
@@ -565,6 +640,15 @@ launcher_result_t launcher_broker_spawn_app_with_broker_cap(
    * a non-zero auto_grant_count so the caller can't smuggle in an
    * unrelated console/fs grant by accident (matches fs-spawn contract). */
   if (manifest->auto_grant_count != 0u) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
+
+  /* M7-TOOLCHAIN-001 slice 3 (#448): per-spawn arena cap. Same
+   * default-when-omitted + deny-by-default contract as the console
+   * spawn entry point above. */
+  uint32_t resolved_arena_cap = PROC_ARENA_BYTES_DEFAULT;
+  if (!launcher_resolve_arena_bytes(manifest->arena_bytes,
+                                    &resolved_arena_cap)) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
   }
 
@@ -618,6 +702,10 @@ launcher_result_t launcher_broker_spawn_app_with_broker_cap(
   slot->handle = broker_h;
   slot->cap = CAP_IPC_SEND;
 
+  g_arena_active_cap    = resolved_arena_cap;
+  g_arena_last_deny     = LAUNCHER_ARENA_DENY_NONE;
+  g_arena_last_deny_val = 0u;
+
   out_spawn->pid = pid;
   out_spawn->aspace = as;
   out_spawn->broker_handle = broker_h;
@@ -630,4 +718,33 @@ launcher_result_t launcher_broker_spawn_destroy(process_id_t pid) {
    * cap_handle_revoke_subject() (#239) so the stamped broker handle
    * fails closed post-call. */
   return launcher_spawn_destroy(pid);
+}
+
+/* ----------------------------------------------------------------
+ * M7-TOOLCHAIN-001 slice 3 (issue #448) accessors for the per-spawn
+ * arena cap + deny-audit cell. See `launcher.h` for the contract.
+ * Pure reads on launcher-local state; never widen authority.
+ * ---------------------------------------------------------------- */
+
+uint32_t launcher_arena_active_cap(void) {
+  return g_arena_active_cap;
+}
+
+launcher_arena_deny_reason_t launcher_arena_last_deny_reason(void) {
+  return g_arena_last_deny;
+}
+
+uint32_t launcher_arena_last_deny_value(void) {
+  return g_arena_last_deny_val;
+}
+
+uint32_t launcher_arena_deny_count(void) {
+  return g_arena_deny_count;
+}
+
+void launcher_arena_audit_reset(void) {
+  g_arena_active_cap    = PROC_ARENA_BYTES_DEFAULT;
+  g_arena_last_deny     = LAUNCHER_ARENA_DENY_NONE;
+  g_arena_last_deny_val = 0u;
+  g_arena_deny_count    = 0u;
 }
