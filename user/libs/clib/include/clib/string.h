@@ -27,6 +27,10 @@
  *   - strchr, strrchr
  *   - strstr
  *
+ * Symbol coverage (slice 12, additive, issue #407):
+ *   - strspn, strcspn, strpbrk
+ *   - strtok, strtok_r
+ *
  * Out of scope for this slice (folded in by later #407 slices once
  * TinyCC's link-error set pins them):
  *   - stdio (`fopen` / `fprintf` / `fread` / `fwrite` / `fclose`) — needs
@@ -92,6 +96,32 @@ char   *strncat(char *dst, const char *src, size_t n);
 char   *strchr (const char *s, int c);
 char   *strrchr(const char *s, int c);
 char   *strstr (const char *haystack, const char *needle);
+
+/* --- string tokenize / span -------------------------------------------- *
+ *
+ * M7-TOOLCHAIN-004 slice 12 (issue #407): freestanding tokenize / span
+ * family. TinyCC's option parser (`tcc.c` argv walk), include-path /
+ * library-path splitters, and `-D`/`-U` macro definition parser all
+ * link against `strspn`, `strcspn`, `strpbrk`, and the `strtok` /
+ * `strtok_r` pair.
+ *
+ * Notes:
+ *   - `strtok` keeps state in a single static `char *` (canonical C99
+ *     §7.21.5.8 contract). Not thread-safe by design — the in-OS
+ *     toolchain is single-threaded (P0 plan §"Threading model"), so
+ *     this matches the consumer.
+ *   - `strtok_r` is the re-entrant POSIX variant that threads its
+ *     state through a caller-provided `char **saveptr`. We ship it
+ *     because some TinyCC drops (and any future on-target callers)
+ *     prefer the re-entrant form and the implementation cost is one
+ *     extra public symbol over the canonical `strtok`.
+ */
+
+size_t  strspn (const char *s, const char *accept);
+size_t  strcspn(const char *s, const char *reject);
+char   *strpbrk(const char *s, const char *accept);
+char   *strtok (char *s, const char *delim);
+char   *strtok_r(char *s, const char *delim, char **saveptr);
 
 #ifdef __cplusplus
 } /* extern "C" */

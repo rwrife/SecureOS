@@ -17,6 +17,11 @@
  *   TEST:PASS:clib_string:strcat_and_strncat
  *   TEST:PASS:clib_string:strchr_and_strrchr
  *   TEST:PASS:clib_string:strstr_hit_and_miss
+ *   TEST:PASS:clib_string:strspn_basic
+ *   TEST:PASS:clib_string:strcspn_basic
+ *   TEST:PASS:clib_string:strpbrk_hit_and_miss
+ *   TEST:PASS:clib_string:strtok_walks_tokens
+ *   TEST:PASS:clib_string:strtok_r_reentrant_independence
  *   TEST:PASS:clib_string:symbol_set_pinned
  *   TEST:PASS:clib_string
  *
@@ -200,6 +205,119 @@ static void test_strstr_hit_and_miss(void) {
   PASS("strstr_hit_and_miss");
 }
 
+/* --- tokenize / span family (slice 12) -------------------------------- */
+
+static void test_strspn_basic(void) {
+  /* Leading run of accept-class bytes. */
+  CHECK(strspn("aabbcXY", "abc") == 5, "strspn_basic");
+  /* Empty accept set -> 0. */
+  CHECK(strspn("abc", "") == 0, "strspn_basic");
+  /* All-accept -> full length. */
+  CHECK(strspn("abc", "cba") == 3, "strspn_basic");
+  /* First byte not in set -> 0. */
+  CHECK(strspn("xabc", "abc") == 0, "strspn_basic");
+  /* Empty input -> 0. */
+  CHECK(strspn("", "abc") == 0, "strspn_basic");
+  /* High-bit byte treated as unsigned (matches strcmp posture). */
+  const char hi[2] = { (char)0x80, 0 };
+  const char set[2] = { (char)0x80, 0 };
+  CHECK(strspn(hi, set) == 1, "strspn_basic");
+  PASS("strspn_basic");
+}
+
+static void test_strcspn_basic(void) {
+  /* Leading run of bytes NOT in reject set. */
+  CHECK(strcspn("hello/world", "/") == 5, "strcspn_basic");
+  /* No hit -> full length. */
+  CHECK(strcspn("hello", "XYZ") == 5, "strcspn_basic");
+  /* First byte in reject -> 0. */
+  CHECK(strcspn("/abc", "/") == 0, "strcspn_basic");
+  /* Empty input -> 0. */
+  CHECK(strcspn("", "/") == 0, "strcspn_basic");
+  /* Empty reject -> full length. */
+  CHECK(strcspn("abc", "") == 3, "strcspn_basic");
+  PASS("strcspn_basic");
+}
+
+static void test_strpbrk_hit_and_miss(void) {
+  const char *s = "hello world";
+  /* First match is the space at index 5. */
+  CHECK(strpbrk(s, " \t") == s + 5, "strpbrk_hit_and_miss");
+  /* Multi-char accept set: first 'o' at index 4. */
+  CHECK(strpbrk(s, "o") == s + 4, "strpbrk_hit_and_miss");
+  /* No match -> NULL. */
+  CHECK(strpbrk("abc", "XYZ") == NULL, "strpbrk_hit_and_miss");
+  /* Empty input -> NULL. */
+  CHECK(strpbrk("", "abc") == NULL, "strpbrk_hit_and_miss");
+  /* Empty accept set -> NULL. */
+  CHECK(strpbrk("abc", "") == NULL, "strpbrk_hit_and_miss");
+  PASS("strpbrk_hit_and_miss");
+}
+
+static void test_strtok_walks_tokens(void) {
+  /* Classic strtok walk: split a path-ish string on '/'. The first
+   * call seeds with the buffer; subsequent calls pass NULL to resume
+   * from the saved state. */
+  char buf[] = "//usr//bin/cc//";
+  char *t1 = strtok(buf, "/");
+  CHECK(t1 != NULL && strcmp(t1, "usr") == 0, "strtok_walks_tokens");
+  char *t2 = strtok(NULL, "/");
+  CHECK(t2 != NULL && strcmp(t2, "bin") == 0, "strtok_walks_tokens");
+  char *t3 = strtok(NULL, "/");
+  CHECK(t3 != NULL && strcmp(t3, "cc") == 0, "strtok_walks_tokens");
+  /* Trailing delimiters -> no more tokens -> NULL. */
+  CHECK(strtok(NULL, "/") == NULL, "strtok_walks_tokens");
+  /* All-delim input -> immediately NULL. */
+  char only_delims[] = "////";
+  CHECK(strtok(only_delims, "/") == NULL, "strtok_walks_tokens");
+  /* Empty input -> NULL. */
+  char empty[] = "";
+  CHECK(strtok(empty, "/") == NULL, "strtok_walks_tokens");
+  PASS("strtok_walks_tokens");
+}
+
+static void test_strtok_r_reentrant_independence(void) {
+  /* Two interleaved walks must not share state. */
+  char a[] = "one,two,three";
+  char b[] = "alpha;beta;gamma";
+  char *sa = NULL;
+  char *sb = NULL;
+
+  char *ta1 = strtok_r(a, ",", &sa);
+  char *tb1 = strtok_r(b, ";", &sb);
+  char *ta2 = strtok_r(NULL, ",", &sa);
+  char *tb2 = strtok_r(NULL, ";", &sb);
+  char *ta3 = strtok_r(NULL, ",", &sa);
+  char *tb3 = strtok_r(NULL, ";", &sb);
+
+  CHECK(ta1 && strcmp(ta1, "one")    == 0, "strtok_r_reentrant_independence");
+  CHECK(ta2 && strcmp(ta2, "two")    == 0, "strtok_r_reentrant_independence");
+  CHECK(ta3 && strcmp(ta3, "three")  == 0, "strtok_r_reentrant_independence");
+  CHECK(tb1 && strcmp(tb1, "alpha")  == 0, "strtok_r_reentrant_independence");
+  CHECK(tb2 && strcmp(tb2, "beta")   == 0, "strtok_r_reentrant_independence");
+  CHECK(tb3 && strcmp(tb3, "gamma")  == 0, "strtok_r_reentrant_independence");
+
+  CHECK(strtok_r(NULL, ",", &sa) == NULL, "strtok_r_reentrant_independence");
+  CHECK(strtok_r(NULL, ";", &sb) == NULL, "strtok_r_reentrant_independence");
+
+  /* Multi-character delimiter set: split on whitespace OR comma. */
+  char mixed[] = " \tfoo, bar\tbaz ";
+  char *sm = NULL;
+  char *m1 = strtok_r(mixed, " \t,", &sm);
+  char *m2 = strtok_r(NULL,  " \t,", &sm);
+  char *m3 = strtok_r(NULL,  " \t,", &sm);
+  CHECK(m1 && strcmp(m1, "foo") == 0, "strtok_r_reentrant_independence");
+  CHECK(m2 && strcmp(m2, "bar") == 0, "strtok_r_reentrant_independence");
+  CHECK(m3 && strcmp(m3, "baz") == 0, "strtok_r_reentrant_independence");
+  CHECK(strtok_r(NULL, " \t,", &sm) == NULL,
+        "strtok_r_reentrant_independence");
+
+  /* Defensive: NULL saveptr -> NULL without crash. */
+  CHECK(strtok_r(NULL, ",", NULL) == NULL, "strtok_r_reentrant_independence");
+
+  PASS("strtok_r_reentrant_independence");
+}
+
 /* --- ABI pin ----------------------------------------------------------- */
 /*
  * Drift test: pin the exact slice-1 symbol set so a TinyCC drop or an
@@ -225,10 +343,15 @@ static void test_symbol_set_pinned(void) {
   char *(*p_strchr) (const char *, int)                   = strchr;
   char *(*p_strrchr)(const char *, int)                   = strrchr;
   char *(*p_strstr) (const char *, const char *)          = strstr;
+  size_t(*p_strspn) (const char *, const char *)          = strspn;
+  size_t(*p_strcspn)(const char *, const char *)          = strcspn;
+  char *(*p_strpbrk)(const char *, const char *)          = strpbrk;
+  char *(*p_strtok) (char *, const char *)                = strtok;
+  char *(*p_strtok_r)(char *, const char *, char **)      = strtok_r;
 
   /* Touch every pointer so -Wunused-variable does not strip them and
    * so the symbol-set pin is observable at runtime. */
-  void *sink[16];
+  void *sink[21];
   sink[0]  = (void *)p_memcpy;
   sink[1]  = (void *)p_memmove;
   sink[2]  = (void *)p_memset;
@@ -245,8 +368,13 @@ static void test_symbol_set_pinned(void) {
   sink[13] = (void *)p_strchr;
   sink[14] = (void *)p_strrchr;
   sink[15] = (void *)p_strstr;
+  sink[16] = (void *)p_strspn;
+  sink[17] = (void *)p_strcspn;
+  sink[18] = (void *)p_strpbrk;
+  sink[19] = (void *)p_strtok;
+  sink[20] = (void *)p_strtok_r;
 
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < 21; i++) {
     CHECK(sink[i] != NULL, "symbol_set_pinned");
   }
   PASS("symbol_set_pinned");
@@ -266,6 +394,11 @@ int main(void) {
   test_strcat_and_strncat();
   test_strchr_and_strrchr();
   test_strstr_hit_and_miss();
+  test_strspn_basic();
+  test_strcspn_basic();
+  test_strpbrk_hit_and_miss();
+  test_strtok_walks_tokens();
+  test_strtok_r_reentrant_independence();
   test_symbol_set_pinned();
 
   if (g_failures == 0) {

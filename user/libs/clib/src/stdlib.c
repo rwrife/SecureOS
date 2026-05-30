@@ -252,3 +252,130 @@ long labs(long x) {
   }
   return x < 0 ? -x : x;
 }
+
+/* --- long long variants ------------------------------------------------- *
+ *
+ * Mirror of s_parse_digits but accumulating into unsigned long long so
+ * we can support strtoll / strtoull on hosts where sizeof(long) == 4
+ * (e.g. 32-bit cross-targets) and on the SecureOS x86_64 target where
+ * long == long long == 8 bytes. Kept as a separate function to leave
+ * the existing long-width path bit-for-bit unchanged.
+ */
+static unsigned long long s_parse_digits_ull(const char **p, int base,
+                                             int *consumed_any,
+                                             int *overflow) {
+  const char        *q    = *p;
+  unsigned long long acc  = 0;
+  int                any  = 0;
+  int                over = 0;
+
+  for (;; q++) {
+    int v = s_digit_value((unsigned char)*q, base);
+    if (v < 0) {
+      break;
+    }
+    any = 1;
+
+    unsigned long long limit_div = ULLONG_MAX / (unsigned long long)base;
+    unsigned long long limit_mod = ULLONG_MAX % (unsigned long long)base;
+    if (acc > limit_div ||
+        (acc == limit_div && (unsigned long long)v > limit_mod)) {
+      over = 1;
+      acc  = ULLONG_MAX;
+      /* Consume the rest of the digit run so *endptr lands past it. */
+      continue;
+    }
+    acc = acc * (unsigned long long)base + (unsigned long long)v;
+  }
+
+  *p            = q;
+  *consumed_any = any;
+  *overflow     = over;
+  return acc;
+}
+
+long long strtoll(const char *nptr, char **endptr, int base) {
+  const char *p             = nptr;
+  int         consumed_any  = 0;
+  int         overflow_flag = 0;
+
+  if (base != 0 && (base < 2 || base > 36)) {
+    if (endptr) {
+      *endptr = (char *)nptr;
+    }
+    return 0;
+  }
+
+  int sign = s_strip_prefix(&p, &base);
+
+  unsigned long long mag =
+      s_parse_digits_ull(&p, base, &consumed_any, &overflow_flag);
+
+  if (!consumed_any) {
+    if (endptr) {
+      *endptr = (char *)nptr;
+    }
+    return 0;
+  }
+
+  if (endptr) {
+    *endptr = (char *)p;
+  }
+
+  const unsigned long long llong_min_mag =
+      (unsigned long long)LLONG_MAX + 1ULL;
+
+  if (sign > 0) {
+    if (overflow_flag || mag > (unsigned long long)LLONG_MAX) {
+      return LLONG_MAX;
+    }
+    return (long long)mag;
+  } else {
+    if (overflow_flag || mag > llong_min_mag) {
+      return LLONG_MIN;
+    }
+    if (mag == llong_min_mag) {
+      return LLONG_MIN;
+    }
+    return -(long long)mag;
+  }
+}
+
+unsigned long long strtoull(const char *nptr, char **endptr, int base) {
+  const char *p             = nptr;
+  int         consumed_any  = 0;
+  int         overflow_flag = 0;
+
+  if (base != 0 && (base < 2 || base > 36)) {
+    if (endptr) {
+      *endptr = (char *)nptr;
+    }
+    return 0;
+  }
+
+  int sign = s_strip_prefix(&p, &base);
+
+  unsigned long long mag =
+      s_parse_digits_ull(&p, base, &consumed_any, &overflow_flag);
+
+  if (!consumed_any) {
+    if (endptr) {
+      *endptr = (char *)nptr;
+    }
+    return 0;
+  }
+
+  if (endptr) {
+    *endptr = (char *)p;
+  }
+
+  if (overflow_flag) {
+    return ULLONG_MAX;
+  }
+
+  if (sign < 0) {
+    /* C standard: negation modulo ULLONG_MAX+1. 0 stays 0. */
+    return (unsigned long long)0 - mag;
+  }
+  return mag;
+}

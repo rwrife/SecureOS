@@ -17,6 +17,10 @@ against. Today it ships:
   `strcmp`, `strncmp`, `strcpy`, `strncpy`, `strcat`, `strncat`,
   `strchr`, `strrchr`, `strstr`) under `include/clib/string.h` — slice 1
   of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
+  Slice 12 of #407 extends the same header with the freestanding
+  tokenize / span family (`strspn`, `strcspn`, `strpbrk`, `strtok`,
+  `strtok_r`) TinyCC's argv + include-path parsers link against.
+  of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
 `fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`,
@@ -255,6 +259,11 @@ TEST:PASS:clib_string:strcpy_and_strncpy_pad
 TEST:PASS:clib_string:strcat_and_strncat
 TEST:PASS:clib_string:strchr_and_strrchr
 TEST:PASS:clib_string:strstr_hit_and_miss
+TEST:PASS:clib_string:strspn_basic
+TEST:PASS:clib_string:strcspn_basic
+TEST:PASS:clib_string:strpbrk_hit_and_miss
+TEST:PASS:clib_string:strtok_walks_tokens
+TEST:PASS:clib_string:strtok_r_reentrant_independence
 TEST:PASS:clib_string:symbol_set_pinned
 TEST:PASS:clib_string
 ```
