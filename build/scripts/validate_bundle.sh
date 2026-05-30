@@ -192,6 +192,13 @@ TEST_TARGETS=(
     # no env deps, no syscalls. Drift on any shipped symbol flips the bundle
     # to FAIL before TinyCC (P4) wires in.
     clib_stdlib
+    # M7-TOOLCHAIN-004 slice (issue #407, plan P3): freestanding <float.h>
+    # nucleus in `user/libs/clib`. Final freestanding-required header from
+    # C11 §4¶6 (peer to <stddef.h> / <stdint.h> / <limits.h> / <stdarg.h>
+    # / <stdbool.h> / <iso646.h> / <stdalign.h>). Pure host-side check,
+    # no env deps, no syscalls. Drift on any shipped macro flips the
+    # bundle to FAIL before TinyCC (P4) starts consuming the header.
+    clib_float
     # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
     # `os_process_spawn` user-runtime wrapper. Pairs with
     # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
