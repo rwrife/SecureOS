@@ -164,6 +164,13 @@ TEST_TARGETS=(
     manifest_broker_role_enum
     manifest_ownership_role_enum
     manifest_owner_kind_enum
+    # Issue #424 (M7-TOOLCHAIN-001 schema sub-slice, refs #404/#421):
+    # additive `runtime.arena_bytes` range gate. Wired here alongside
+    # the peer manifest enum gates so the bundle flips on any
+    # regression to per-app arena clamp range / required-field
+    # behavior; jsonschema dependency already covered by the #414
+    # toolchain container update.
+    manifest_arena_bytes_range
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
@@ -177,6 +184,37 @@ TEST_TARGETS=(
     # no env deps, no syscalls. Drift on any shipped symbol flips the bundle
     # to FAIL before TinyCC (P4) wires in.
     clib_stdlib
+    # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
+    # `os_process_spawn` user-runtime wrapper. Pairs with
+    # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
+    # in the spawn wrapper's exported symbol, signature, or
+    # reserved-flag / bad-arg early-reject contract flips the
+    # bundle to FAIL.
+    process_spawn_wrapper
+    # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
+    # `user/libs/clib`. Same parity shape as the str/mem slice (PR
+    # #416) and the ctype slice (PR #417) — userland-only, no syscall
+    # dependency, drift-pinned via a `symbol_set_pinned` sub-marker so
+    # a future TinyCC drop / unrelated PR cannot silently remove the
+    # symbol. Cheap host-side check; wire so a regression flips the
+    # bundle.
+    clib_qsort
+    # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
+    # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
+    # tests"). All six markers are SKIP-pinned today — each subordinate
+    # script in tests/m7_toolchain/ emits TEST:SKIP:<marker>:awaiting_<n>
+    # then rolls up TEST:PASS:<marker> so the bundle stays green. Wiring
+    # them here freezes the marker spellings as a single source of truth:
+    # any accidental rename or drop flips the bundle to FAIL (same orphan-
+    # from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414 catch).
+    # The gating execute slices (#409 / #410 / #421 / #422) replace each
+    # SKIP with a real assertion as they land.
+    toolchain_compiles_hello_in_os
+    toolchain_runs_compiled_binary
+    toolchain_unsigned_prompt_enforced
+    toolchain_large_output_persisted
+    toolchain_compile_error_reported
+    toolchain_heap_isolation
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
@@ -598,6 +636,44 @@ report = {
       ]
     }
 }
+# M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
+# plan plans/2026-05-28-in-os-toolchain-self-hosting.md). Surface a
+# dedicated top-level section in the bundle JSON so consumers can find
+# the six acceptance markers without scanning the flat targets[] list.
+# Status comes from the markers.json source-of-truth file (SKIP today;
+# each gating execute slice flips its entry to "PASS" as it lands).
+m7_markers_path = root_dir / "tests" / "m7_toolchain" / "markers.json"
+if m7_markers_path.exists():
+    try:
+        _m7_doc = json.loads(m7_markers_path.read_text())
+    except Exception as exc:
+        _m7_doc = {"_error": f"unreadable markers.json: {exc}"}
+    _m7_target_status = {t["name"]: t["status"] for t in targets}
+    _m7_section_markers = []
+    for _m in _m7_doc.get("markers", []):
+        _name = _m.get("name")
+        _target_status = _m7_target_status.get(_name)
+        # Default to SKIP; flip to the bundle target status once the
+        # gating issue replaces the stub with a real assertion.
+        _status = "SKIP"
+        if _target_status == "pass":
+            _status = "SKIP"  # stub still emits PASS but is conceptually SKIP
+        _m7_section_markers.append({
+            "name": _name,
+            "status": _status,
+            "reason": _m.get("reason"),
+            "gatingIssue": _m.get("gatingIssue"),
+            "description": _m.get("description"),
+            "bundleTargetStatus": _target_status,
+        })
+    report["m7_toolchain"] = {
+        "schemaVersion": _m7_doc.get("schemaVersion", 1),
+        "umbrella":      _m7_doc.get("umbrella"),
+        "plan":          _m7_doc.get("plan"),
+        "scaffoldIssue": _m7_doc.get("scaffoldIssue"),
+        "markers":       _m7_section_markers,
+    }
+
 report_path = run_dir / "validator_report.json"
 report_path.write_text(json.dumps(report, indent=2) + "\n")
 print(f"VALIDATION_REPORT:{report_path}")
