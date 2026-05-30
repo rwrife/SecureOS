@@ -32,7 +32,15 @@ against. Today it ships:
   `__bool_true_false_are_defined` under `include/clib/stdbool.h` (slice
   9 of [#407](https://github.com/rwrife/SecureOS/issues/407)). Required
   by C11 §4¶6 for any freestanding implementation; TinyCC and pending
-  #407 sibling slices link against it.
+  #407 sibling slices link against it, and
+- the freestanding `<stddef.h>` nucleus — `NULL`, `size_t`, `ptrdiff_t`,
+  `wchar_t`, `max_align_t`, and `offsetof` under
+  `include/clib/stddef.h` — slice 9 of M7-TOOLCHAIN-004
+  ([#407](https://github.com/rwrife/SecureOS/issues/407)); required for
+  freestanding by C11 §4¶6, bound to the compiler intrinsics
+  `__SIZE_TYPE__` / `__PTRDIFF_TYPE__` / `__WCHAR_TYPE__` that TinyCC
+  (#408) and the host toolchain both expose, drift-anchored through a
+  helper TU in `src/stddef.c`.
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
 `fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`,

@@ -251,6 +251,16 @@ TEST_TARGETS=(
     # macro value or re-alias `bool` to `int`. Cheap host-side check;
     # wire so a regression flips the bundle.
     clib_stdbool
+    # M7-TOOLCHAIN-004 slice 9 (issue #407): freestanding `<stddef.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 requires `<stddef.h>` even on
+    # a freestanding implementation; TinyCC (#408) consumes `size_t`,
+    # `ptrdiff_t`, and `offsetof` pervasively. Same parity shape as the
+    # str/mem, ctype, qsort, and `<limits.h>` slices — userland-only, no
+    # syscall dependency, drift-pinned via a `symbol_set_pinned` sub-
+    # marker on the helper TU so a future TinyCC drop or unrelated PR
+    # cannot silently change a typedef width. Cheap host-side check;
+    # wire so a regression flips the bundle.
+    clib_stddef
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
