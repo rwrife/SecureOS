@@ -58,6 +58,32 @@ counter at v0.
 | `toupper`   | `int toupper(int c)`     |                                        |
 | `tolower`   | `int tolower(int c)`     |                                        |
 
+### `clib/bsearch.h` (slice 7 / PR #433)
+
+| Symbol     | Signature                                                                                  | Notes |
+| ---------- | ------------------------------------------------------------------------------------------ | ----- |
+| `bsearch`  | `void *bsearch(const void *key, const void *base, size_t nmemb, size_t size, int (*cmp)(const void *, const void *))` | freestanding peer of `qsort` |
+
+### `clib/limits.h` (slice 8 / PR #434)
+
+| Symbol                     | Signature                                | Notes |
+| -------------------------- | ---------------------------------------- | ----- |
+| `clib_limits_char_bit`     | `int  clib_limits_char_bit(void)`        | drift anchor for `CHAR_BIT` |
+| `clib_limits_check_value`  | `long clib_limits_check_value(int which)` | drift anchor for `<limits.h>` macros |
+
+### `clib/stdbool.h` (slice 9 / PR #435)
+
+| Symbol                                | Signature                                       | Notes |
+| ------------------------------------- | ----------------------------------------------- | ----- |
+| `clib_stdbool_true_value`             | `int clib_stdbool_true_value(void)`             | drift anchor for `true` |
+| `clib_stdbool_false_value`            | `int clib_stdbool_false_value(void)`            | drift anchor for `false` |
+| `clib_stdbool_sizeof_bool`            | `int clib_stdbool_sizeof_bool(void)`            | drift anchor for `sizeof(bool)` |
+| `clib_stdbool_feature_macro_value`    | `int clib_stdbool_feature_macro_value(void)`    | drift anchor for `__bool_true_false_are_defined` |
+
+Note: `clib/stddef.h` (slice 9 / PR #436) is a header-only nucleus and
+contributes no public symbols to `libclib.a`. It is therefore correctly
+absent from the canonical pin.
+
 ### `clib/errno.h` (slice 5 / PR #430)
 
 | Symbol          | Signature                              | Notes                                  |
@@ -98,6 +124,8 @@ counter at v0.
 | `atoi`    | `int atoi(const char *s)`                                          | |
 | `strtol`  | `long strtol(const char *s, char **end, int base)`                 | overflow clamps; `<errno.h>` wiring deferred |
 | `strtoul` | `unsigned long strtoul(const char *s, char **end, int base)`       | overflow clamps |
+| `strtoll` | `long long strtoll(const char *s, char **end, int base)`           | slice 11 / PR #444; overflow clamps to `LLONG_MIN`/`LLONG_MAX` |
+| `strtoull`| `unsigned long long strtoull(const char *s, char **end, int base)` | slice 11 / PR #444; overflow clamps to `ULLONG_MAX` |
 | `abs`     | `int abs(int x)`                                                   | INT_MIN UB-safe (input == INT_MIN saturates to INT_MAX) |
 | `labs`    | `long labs(long x)`                                                | LONG_MIN UB-safe |
 
@@ -121,6 +149,11 @@ counter at v0.
 | `strchr`  | `char *strchr(const char *s, int c)`                               |
 | `strrchr` | `char *strrchr(const char *s, int c)`                              |
 | `strstr`  | `char *strstr(const char *hay, const char *needle)`                |
+| `strspn`  | `size_t strspn(const char *s, const char *accept)`                 | slice 12 / PR #445 |
+| `strcspn` | `size_t strcspn(const char *s, const char *reject)`                | slice 12 / PR #445 |
+| `strpbrk` | `char *strpbrk(const char *s, const char *accept)`                 | slice 12 / PR #445 |
+| `strtok`  | `char *strtok(char *s, const char *delim)`                         | slice 12 / PR #445; static-state |
+| `strtok_r`| `char *strtok_r(char *s, const char *delim, char **saveptr)`       | slice 12 / PR #445; re-entrant POSIX variant |
 
 ## Canonical pin
 
@@ -134,8 +167,11 @@ and every symbol named in any table above MUST appear here. The
 ```
 abs
 atoi
+bsearch
 clib_calloc
 clib_free
+clib_limits_char_bit
+clib_limits_check_value
 clib_malloc
 clib_malloc_get_stats
 clib_malloc_init
@@ -144,6 +180,10 @@ clib_malloc_shutdown
 clib_realloc
 clib_stdarg_sum_ints
 clib_stdarg_sum_ints_via_copy
+clib_stdbool_false_value
+clib_stdbool_feature_macro_value
+clib_stdbool_sizeof_bool
+clib_stdbool_true_value
 clib_strerror
 errno
 isalnum
@@ -170,15 +210,22 @@ strcat
 strchr
 strcmp
 strcpy
+strcspn
 strlen
 strncat
 strncmp
 strncpy
 strnlen
+strpbrk
 strrchr
+strspn
 strstr
+strtok
+strtok_r
 strtol
+strtoll
 strtoul
+strtoull
 tolower
 toupper
 ```
