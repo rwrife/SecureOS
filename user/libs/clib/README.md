@@ -188,6 +188,60 @@ slice can flip the existing `strtol`/`strtoul` clamp paths from
 "silent" to `errno = ERANGE` without touching this slice's symbol
 surface.
 
+## Slice 7 — bsearch (issue #407)
+
+TinyCC's symbol-table lookup paths sort-then-search the same arrays
+they feed to `qsort`; the C standard pairs the two in `<stdlib.h>`
+precisely because callers typically need both. This slice ships the
+companion `bsearch` so the TinyCC port (#408) can link the pair as
+a unit.
+
+Peer of the qsort slice (PR #418) — different header, different
+source file, different `symbol_set_pinned` sub-marker; can land in
+either order. No allocator dependency, no syscall dependency,
+userland-only (no `OS_ABI_VERSION` bump).
+
+**Shipped surface (1 symbol, canonical libc name):**
+
+- `bsearch(key, base, nmemb, size, compar)` — iterative,
+  overflow-safe midpoint (`lo + (hi - lo) / 2`), alignment-agnostic
+  byte-wise pointer arithmetic so unaligned element widths (e.g.
+  TinyCC's 3-byte symbol records) work correctly.
+
+**Defensive contract** (same posture as the qsort slice's NULL /
+empty handling): every input the canonical contract leaves UB
+(NULL key, NULL base with nmemb>0, NULL compar, size==0) degrades
+to `NULL` rather than dereferencing.
+
+```
+$ bash build/scripts/test.sh clib_bsearch
+TEST:PASS:clib_bsearch:empty_returns_null
+TEST:PASS:clib_bsearch:single_hit
+TEST:PASS:clib_bsearch:single_miss
+TEST:PASS:clib_bsearch:hit_at_first
+TEST:PASS:clib_bsearch:hit_at_last
+TEST:PASS:clib_bsearch:hit_in_middle
+TEST:PASS:clib_bsearch:miss_below_range
+TEST:PASS:clib_bsearch:miss_above_range
+TEST:PASS:clib_bsearch:miss_between_neighbours
+TEST:PASS:clib_bsearch:duplicates_returns_some_match
+TEST:PASS:clib_bsearch:struct_elements_payload_intact
+TEST:PASS:clib_bsearch:odd_size_unaligned_elements
+TEST:PASS:clib_bsearch:large_array_no_overflow
+TEST:PASS:clib_bsearch:defensive_null_key
+TEST:PASS:clib_bsearch:defensive_null_compar
+TEST:PASS:clib_bsearch:defensive_zero_size
+TEST:PASS:clib_bsearch:defensive_null_base_nonzero_nmemb
+TEST:PASS:clib_bsearch:symbol_set_pinned
+TEST:PASS:clib_bsearch
+```
+
+`large_array_no_overflow` sweeps every even key (hit) and every odd
+key (miss) across a 2048-element sorted array — same N as the
+qsort slice's `large_pathological_no_overflow` — and also probes
+out-of-range values below and above the populated span to exercise
+the overflow-safe midpoint path.
+
 ## Slice 1 — string/memory family (issue #407)
 
 ```
