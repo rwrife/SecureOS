@@ -177,6 +177,13 @@ TEST_TARGETS=(
     # into the bundle so a regression to the libc nucleus trips here before
     # TinyCC (P4) starts depending on the same symbols.
     clib_string
+    # M7-TOOLCHAIN-004 slice 4 (issue #407, plan P3): freestanding stdlib
+    # subset (`atoi` / `strtol` / `strtoul` / `abs` / `labs`) in
+    # `user/libs/clib`. Parallel to slices 1/2/3 -- different header, source,
+    # test, and `symbol_set_pinned` sub-marker scope. Pure host-side check,
+    # no env deps, no syscalls. Drift on any shipped symbol flips the bundle
+    # to FAIL before TinyCC (P4) wires in.
+    clib_stdlib
     # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
     # `os_process_spawn` user-runtime wrapper. Pairs with
     # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
