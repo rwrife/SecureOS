@@ -41,14 +41,23 @@
 static unsigned char g_backbuffer[SCREEN_W * SCREEN_H];
 
 static void fill_rect(int x, int y, int w, int h, unsigned char color) {
-  int row, col;
-  for (row = 0; row < h; row++) {
-    int py = y + row;
-    if (py < 0 || py >= SCREEN_H) continue;
-    for (col = 0; col < w; col++) {
-      int px = x + col;
-      if (px < 0 || px >= SCREEN_W) continue;
-      g_backbuffer[py * SCREEN_W + px] = color;
+  int row;
+  int x_end = x + w;
+  int y_end = y + h;
+
+  /* Clip rectangle to screen once instead of testing per pixel. */
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  if (x_end > SCREEN_W) x_end = SCREEN_W;
+  if (y_end > SCREEN_H) y_end = SCREEN_H;
+  if (x >= x_end || y >= y_end) return;
+
+  for (row = y; row < y_end; row++) {
+    unsigned char *dst = &g_backbuffer[row * SCREEN_W + x];
+    int span = x_end - x;
+    int i;
+    for (i = 0; i < span; i++) {
+      dst[i] = color;
     }
   }
 }
@@ -104,14 +113,29 @@ static void draw_window(win_window_t *w) {
                                     0, 0,
                                     (unsigned int)vfb_w,
                                     (unsigned int)vfb_h) == OS_STATUS_OK) {
-      for (row = 0; row < vfb_h; row++) {
-        int dst_y = content_y + row;
-        int col;
-        if (dst_y < 0 || dst_y >= SCREEN_H) continue;
-        for (col = 0; col < vfb_w; col++) {
-          int dst_x = content_x + col;
-          if (dst_x >= 0 && dst_x < SCREEN_W) {
-            g_backbuffer[dst_y * SCREEN_W + dst_x] = vfb_bulk[row * vfb_w + col];
+      /* Per-row clipped copy. The previous per-pixel bounds-checked inner
+       * loop was a major drag on frame rate (~40K iterations per window per
+       * frame at -O0) and contributed to the laggy mouse — see
+       * plans/2026-05-29-wm-render-speedup.md. */
+      int src_x_off = 0;
+      int src_y_off = 0;
+      int dx = content_x;
+      int dy = content_y;
+      int cw = vfb_w;
+      int ch = vfb_h;
+
+      if (dx < 0) { src_x_off = -dx; cw += dx; dx = 0; }
+      if (dy < 0) { src_y_off = -dy; ch += dy; dy = 0; }
+      if (dx + cw > SCREEN_W) cw = SCREEN_W - dx;
+      if (dy + ch > SCREEN_H) ch = SCREEN_H - dy;
+      if (cw > 0 && ch > 0) {
+        for (row = 0; row < ch; row++) {
+          unsigned char *dst = &g_backbuffer[(dy + row) * SCREEN_W + dx];
+          const unsigned char *src =
+              &vfb_bulk[(src_y_off + row) * vfb_w + src_x_off];
+          int col;
+          for (col = 0; col < cw; col++) {
+            dst[col] = src[col];
           }
         }
       }

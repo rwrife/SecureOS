@@ -24,7 +24,7 @@
 
 enum {
   SECUREOS_NATIVE_BRIDGE_MAGIC = 0x53524247u,
-  SECUREOS_NATIVE_BRIDGE_VERSION = 3u,
+  SECUREOS_NATIVE_BRIDGE_VERSION = 4u,
   SECUREOS_NATIVE_BRIDGE_ADDR = 0x009FF000u,
 };
 
@@ -94,11 +94,23 @@ typedef struct {
    * kernel side longjmps out of the launcher via the fault-recovery
    * path. Bridge version 2+ only. */
   void (*process_exit)(int status);
+  /* M7-TOOLCHAIN-003 slice 2 (#422): synchronous spawn of a staged
+   * SOF binary. argv is marshalled by the wrapper into the
+   * single space-joined `raw_args` string consumed by the kernel-
+   * side `process_run` path; flags is reserved (must be 0).
+   * Returns 0 on a successful run (with `*out_exit_status` set to
+   * the child's captured exit code), 1 on capability deny, 2 on
+   * binary-not-found, 3 on any other failure. Bridge version 3+
+   * only. */
+  int (*process_spawn)(const char *path,
+                       const char *raw_args,
+                       unsigned int flags,
+                       int *out_exit_status);
   /* M7-TOOLCHAIN-001 slice 2 (#421): sbrk-shape heap extension.
    * Return value mirrors a kernel-side os_status_t cast to int
    * (0 = OK, 1 = DENIED for out-of-arena growth, 3 = ERROR for bad
    * args). On success the previous break is written to *out_prev_break.
-   * Bridge version 3+ only. */
+   * Bridge version 4+ only. */
   int (*mem_brk)(int delta, void **out_prev_break);
 } secureos_native_bridge_t;
 
@@ -273,6 +285,100 @@ os_status_t os_process_exit(int status) {
   }
 
   (void)status;
+  return OS_STATUS_OK;
+}
+
+/*
+ * Internal helper: join `argv[1..]` (NULL-terminated) into the
+ * caller-provided buffer, separated by single spaces. argv[0] is
+ * the program name, forwarded out-of-band as `path`; the kernel-
+ * side launcher reconstructs argv[0] from `path` like every other
+ * process_run() call site. Returns 0 on success, -1 if the joined
+ * args would overflow `buf_size` (NUL included). On overflow the
+ * buffer contents are unspecified.
+ */
+static int secureos_join_argv(const char *const *argv,
+                              char *buf,
+                              unsigned int buf_size) {
+  unsigned int pos = 0u;
+  unsigned int i = 1u;
+
+  if (buf == 0 || buf_size == 0u) {
+    return -1;
+  }
+  buf[0] = '\0';
+  if (argv == 0 || argv[0] == 0) {
+    return 0;
+  }
+
+  for (; argv[i] != 0; ++i) {
+    const char *s = argv[i];
+    unsigned int j = 0u;
+    if (i > 1u) {
+      if (pos + 1u >= buf_size) return -1;
+      buf[pos++] = ' ';
+    }
+    while (s[j] != '\0') {
+      if (pos + 1u >= buf_size) return -1;
+      buf[pos++] = s[j++];
+    }
+  }
+  buf[pos] = '\0';
+  return 0;
+}
+
+os_status_t os_process_spawn(const char *path,
+                              const char *const *argv,
+                              unsigned int flags,
+                              int *out_exit_status) {
+  /*
+   * M7-TOOLCHAIN-003 slice 2 (#422). Synchronous spawn of a staged
+   * SOF binary through the existing launcher / capability gate.
+   * Argv is space-joined into the kernel `raw_args` contract; env
+   * marshalling is intentionally out of scope for this slice.
+   *
+   * Status mapping (kernel bridge int -> os_status_t):
+   *   0 -> OS_STATUS_OK       (clean run; *out_exit_status valid)
+   *   1 -> OS_STATUS_DENIED   (missing CAP_APP_EXEC, audited)
+   *   2 -> OS_STATUS_NOT_FOUND (binary not present)
+   *   else -> OS_STATUS_ERROR (bad args, format, spawn-time fail)
+   */
+  secureos_native_bridge_t *bridge;
+  char joined_args[256];
+
+  /* Validate inputs BEFORE touching the bridge pointer so the
+   * early-reject paths (NULL/empty path, reserved flag bits) are
+   * safe to exercise on the host without a mapped bridge. The
+   * host link smoke test in `tests/process_spawn_wrapper_test.c`
+   * depends on this ordering. */
+  if (path == 0 || path[0] == '\0') {
+    return OS_STATUS_ERROR;
+  }
+  if (flags != 0u) {
+    /* Reserved flag bits — refuse rather than silently ignore so the
+     * meaning of a future flag is never grandfathered into the v0
+     * surface. */
+    return OS_STATUS_ERROR;
+  }
+
+  if (secureos_join_argv(argv, joined_args, (unsigned int)sizeof(joined_args)) != 0) {
+    return OS_STATUS_ERROR;
+  }
+
+  bridge = secureos_native_bridge();
+
+  if (bridge != 0 && bridge->process_spawn != 0) {
+    int rc = bridge->process_spawn(path, joined_args, flags, out_exit_status);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    if (rc == 2) return OS_STATUS_NOT_FOUND;
+    return OS_STATUS_ERROR;
+  }
+
+  /* No-bridge / host-test path: succeed silently so the wrapper is
+   * link-testable without a live kernel. Mirrors the
+   * `os_process_exit` host-build contract. */
+  (void)out_exit_status;
   return OS_STATUS_OK;
 }
 

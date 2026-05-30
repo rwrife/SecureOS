@@ -145,6 +145,45 @@ acceptance: every shipped symbol must remain reachable through a
 function pointer, so a TinyCC drop or unrelated PR cannot silently
 remove a family member.
 
+## Slice 5 — `<errno.h>` nucleus (issue #407)
+
+PR #428's freestanding `stdlib.c` documents in its header that the
+in-OS toolchain libc has "no errno" — `strtol` / `strtoul` overflow
+paths clamp silently because the canonical POSIX `errno = ERANGE`
+assignment had nowhere to land. TinyCC's driver (#408) reads `errno`
+after `strtol` to distinguish a clean clamp from a real overflow, so
+this slice lands the symbol + macro family ahead of that consumer.
+
+**Shipped surface:**
+
+- Storage: `int errno;` (writable global, no `__errno_location`
+  indirection — SecureOS userland is single-threaded at
+  `OS_ABI_VERSION = 0`).
+- Macros (musl / Linux numbering, drift-pinned by
+  `macro_values_pinned`): `EPERM`, `ENOENT`, `EIO`, `EBADF`, `ENOMEM`,
+  `EACCES`, `EFAULT`, `EBUSY`, `EEXIST`, `ENOTDIR`, `EISDIR`,
+  `EINVAL`, `ENFILE`, `EMFILE`, `ENOSPC`, `ESPIPE`, `EROFS`, `ERANGE`,
+  `ENOSYS`, `ENOTSUP`, `EOVERFLOW`.
+- Helper: `const char *clib_strerror(int)` — bounded ASCII, never
+  `NULL`, returns `"Unknown error"` for unrecognised codes.
+
+```
+$ bash build/scripts/test.sh clib_errno
+TEST:PASS:clib_errno:macro_values_pinned
+TEST:PASS:clib_errno:errno_global_zero_init
+TEST:PASS:clib_errno:errno_writable_roundtrip
+TEST:PASS:clib_errno:errno_address_stable
+TEST:PASS:clib_errno:strerror_known_codes
+TEST:PASS:clib_errno:strerror_unknown_code
+TEST:PASS:clib_errno:symbol_set_pinned
+TEST:PASS:clib_errno
+```
+
+No `OS_ABI_VERSION` bump (userland-only, additive). A follow-up
+slice can flip the existing `strtol`/`strtoul` clamp paths from
+"silent" to `errno = ERANGE` without touching this slice's symbol
+surface.
+
 ## Slice 1 — string/memory family (issue #407)
 
 ```

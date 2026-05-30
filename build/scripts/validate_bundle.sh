@@ -185,6 +185,20 @@ TEST_TARGETS=(
     # into the bundle so a regression to the libc nucleus trips here before
     # TinyCC (P4) starts depending on the same symbols.
     clib_string
+    # M7-TOOLCHAIN-004 slice 4 (issue #407, plan P3): freestanding stdlib
+    # subset (`atoi` / `strtol` / `strtoul` / `abs` / `labs`) in
+    # `user/libs/clib`. Parallel to slices 1/2/3 -- different header, source,
+    # test, and `symbol_set_pinned` sub-marker scope. Pure host-side check,
+    # no env deps, no syscalls. Drift on any shipped symbol flips the bundle
+    # to FAIL before TinyCC (P4) wires in.
+    clib_stdlib
+    # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
+    # `os_process_spawn` user-runtime wrapper. Pairs with
+    # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
+    # in the spawn wrapper's exported symbol, signature, or
+    # reserved-flag / bad-arg early-reject contract flips the
+    # bundle to FAIL.
+    process_spawn_wrapper
     # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
     # `user/libs/clib`. Same parity shape as the str/mem slice (PR
     # #416) and the ctype slice (PR #417) — userland-only, no syscall
@@ -193,6 +207,18 @@ TEST_TARGETS=(
     # symbol. Cheap host-side check; wire so a regression flips the
     # bundle.
     clib_qsort
+    # M7-TOOLCHAIN-004 slice 6 (issue #407): freestanding `<stdarg.h>`
+    # nucleus in `user/libs/clib` — `va_list` typedef + va_start /
+    # va_arg / va_end / va_copy forwarded to `__builtin_va_*` (the only
+    # correct freestanding implementation; see header rationale). Same
+    # parity shape as the str/mem (PR #416), ctype (PR #417), qsort
+    # (PR #418), stdlib (PR #428), and errno (PR #430) slices —
+    # userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + macro-defined guards so a TinyCC drop (#408)
+    # or unrelated PR cannot silently drop a member of the variadic
+    # surface that `tccpp.c` / `tccgen.c` and the `tcc_error*` /
+    # `tcc_warning*` diagnostic paths depend on.
+    clib_stdarg
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
@@ -209,6 +235,17 @@ TEST_TARGETS=(
     toolchain_large_output_persisted
     toolchain_compile_error_reported
     toolchain_heap_isolation
+    # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
+    # nucleus in `user/libs/clib` — writable `int errno;` global plus
+    # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
+    # a bounded `clib_strerror`. Same parity shape as the str/mem (PR
+    # #416), ctype (PR #417), qsort (PR #418), and stdlib (PR #428)
+    # slices — userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + `macro_values_pinned` so a TinyCC drop
+    # (#408) or unrelated PR cannot silently renumber `ERANGE` and
+    # break the `strtol`/`strtoul` overflow contract that PR #428's
+    # header explicitly defers to this slice.
+    clib_errno
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /

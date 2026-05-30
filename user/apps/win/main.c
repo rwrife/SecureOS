@@ -51,6 +51,11 @@ int main(void) {
   }
   os_console_write("[win] gfx mode OK\n");
 
+  /* Clear the framebuffer — VGA memory retains pixels from any previous
+   * graphics session (e.g. a prior win.bin run or draw.bin), so wipe it
+   * before the first compositor blit so the user never sees stale graphics. */
+  os_video_clear();
+
   /* Initialize subsystems */
   os_console_write("[win] init subsystems\n");
   win_init();
@@ -129,6 +134,10 @@ int main(void) {
       if (!any_active) break;
     }
   }
+
+  /* Clear the framebuffer before leaving gfx mode so we don't leave stale
+   * graphics behind for the next gfx-mode app (or the next win run). */
+  os_video_clear();
 
   /* Restore text mode */
   os_video_set_mode(OS_VIDEO_MODE_TEXT);

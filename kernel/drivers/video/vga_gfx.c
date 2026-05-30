@@ -332,3 +332,60 @@ void vga_gfx_draw_rect(int x, int y, int w, int h, unsigned char color) {
     }
   }
 }
+
+/*
+ * Bulk pixel blit. Walks one row at a time and writes the clipped span
+ * via a tight pointer loop. The previous code path for the same operation
+ * was a cross-TU `vga_gfx_put_pixel()` call per pixel from
+ * `app_native_video_blit()` — for a 320x200 backbuffer flush from the
+ * window manager that was 64,000 function calls + 4 bounds checks each,
+ * which dominated frame time and caused the visible mouse lag (see
+ * plans/2026-05-29-wm-render-speedup.md). We keep the destination pointer
+ * `volatile` so the compiler treats writes to VGA MMIO conservatively.
+ */
+void vga_gfx_blit(int x, int y, int w, int h, const unsigned char *pixels) {
+  int row;
+  int src_x_off = 0;
+  int src_y_off = 0;
+  int src_stride;
+  int clipped_w;
+  int clipped_h;
+
+  if (pixels == 0 || w <= 0 || h <= 0) {
+    return;
+  }
+
+  /* Preserve the original row stride for indexing into `pixels`. */
+  src_stride = w;
+
+  /* Clip the destination rectangle and compute the matching source offset. */
+  if (x < 0) {
+    src_x_off = -x;
+    w += x;
+    x = 0;
+  }
+  if (y < 0) {
+    src_y_off = -y;
+    h += y;
+    y = 0;
+  }
+  if (x >= VGA_GFX_WIDTH || y >= VGA_GFX_HEIGHT) {
+    return;
+  }
+  clipped_w = (x + w > VGA_GFX_WIDTH) ? (VGA_GFX_WIDTH - x) : w;
+  clipped_h = (y + h > VGA_GFX_HEIGHT) ? (VGA_GFX_HEIGHT - y) : h;
+  if (clipped_w <= 0 || clipped_h <= 0) {
+    return;
+  }
+
+  for (row = 0; row < clipped_h; row++) {
+    volatile unsigned char *dst =
+        VGA_GFX_FRAMEBUFFER + (y + row) * VGA_GFX_WIDTH + x;
+    const unsigned char *src =
+        pixels + (src_y_off + row) * src_stride + src_x_off;
+    int i;
+    for (i = 0; i < clipped_w; i++) {
+      dst[i] = src[i];
+    }
+  }
+}

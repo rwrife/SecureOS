@@ -42,6 +42,45 @@ os_status_t os_process_getcwd(char *out_buffer, unsigned int out_buffer_size);
  */
 os_status_t os_process_exit(int status);
 /*
+ * Launch a staged SOF binary located at `path` and synchronously wait
+ * for it to terminate. Returns the syscall-level status (DENIED when
+ * the caller lacks `CAP_APP_EXEC`, NOT_FOUND when the target binary
+ * cannot be located, ERROR for invalid args / bad ELF / spawn-time
+ * failures, OK on a clean run). The child's `os_process_exit` status
+ * (captured by the launcher's recovery slot) is written into
+ * `*out_exit_status` when the pointer is non-NULL and the call
+ * returned OK; it is left untouched on failure paths.
+ *
+ * Argv marshalling contract:
+ *   - `argv` MUST be a NULL-terminated array of NUL-terminated C
+ *     strings, mirroring POSIX `execv`. `argv[0]` is conventionally
+ *     the program name and is forwarded so the child observes the
+ *     usual self-name as its first token.
+ *   - The wrapper space-joins `argv[1..]` into a single raw-args
+ *     string before crossing the bridge, matching the existing
+ *     launcher contract that `process_run` accepts a raw_args string
+ *     (no length-prefixed wire format on this slice).
+ *   - Env-var marshalling is deferred to a follow-up slice; child
+ *     inherits the parent's environment via the existing
+ *     env_get/env_set bridge slots.
+ *
+ * `flags` is reserved for future use and MUST be zero in this slice;
+ * non-zero values return `OS_STATUS_ERROR`.
+ *
+ * Like every other bridge-mediated wrapper, calling this from a bare
+ * host process without a mapped bridge is not safe (the bridge
+ * pointer is the fixed in-OS address `SECUREOS_NATIVE_BRIDGE_ADDR`).
+ * Host validation is link-time only, see
+ * `tests/process_spawn_wrapper_test.c`.
+ *
+ * Tracks M7-TOOLCHAIN-003 (#422); pairs with `os_process_exit`
+ * (#406 / slice 1).
+ */
+os_status_t os_process_spawn(const char *path,
+                              const char *const *argv,
+                              unsigned int flags,
+                              int *out_exit_status);
+/*
  * Extend (or query) the calling process's heap by `delta` bytes and write
  * the *previous* break value (the address of the first newly-committed byte
  * on a positive delta) through `out_prev_break`. Semantics match POSIX
@@ -62,7 +101,7 @@ os_status_t os_process_exit(int status);
  *
  * `out_prev_break` must not be NULL.
  *
- * Wired through the native bridge as slot `mem_brk` (bridge version 3+).
+ * Wired through the native bridge as slot `mem_brk` (bridge version 4+).
  * Host-only callers (no bridge mapped) get `OS_STATUS_ERROR`.
  *
  * Tracks M7-TOOLCHAIN-001 slice 2 (#421); paired with the freestanding
