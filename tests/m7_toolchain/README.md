@@ -30,7 +30,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | Marker                              | Gating issue | What unblocks PASS                                       |
 | ----------------------------------- | ------------ | -------------------------------------------------------- |
 | `toolchain_compiles_hello_in_os`    | [#409]       | `cc` driver app produces a SOF/ELF on-target             |
-| `toolchain_runs_compiled_binary`    | [#422]       | `os_process_spawn` syscall + `CAP_APP_EXEC` gating       |
+| `toolchain_runs_compiled_binary`    | [#410]       | unsigned-run wiring + `cc` driver output reachable through launcher (os_process_spawn merged via #422 / PR #427) |
 | `toolchain_unsigned_prompt_enforced`| [#410]       | unsigned-run wiring through the launcher auth flow       |
 | `toolchain_large_output_persisted`  | [#409]       | `cc` emits a >1 KB binary; FS path stays byte-identical  |
 | `toolchain_compile_error_reported`  | [#409]       | `cc` exits non-zero on syntax error with no output file  |

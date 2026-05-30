@@ -13,9 +13,9 @@
     },
     {
       "name": "toolchain_runs_compiled_binary",
-      "gatingIssue": 422,
-      "reason": "awaiting_422",
-      "description": "os_process_spawn syscall + CAP_APP_EXEC gating let the launcher execute the cc output."
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "description": "End-to-end run of cc output: os_process_spawn (#422) merged via PR #427; remaining gates are the cc driver (#409) producing a binary on-target and the launcher unsigned-run wiring (#410) that actually executes it."
     },
     {
       "name": "toolchain_unsigned_prompt_enforced",
