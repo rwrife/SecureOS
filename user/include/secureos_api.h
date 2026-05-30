@@ -80,6 +80,34 @@ os_status_t os_process_spawn(const char *path,
                               const char *const *argv,
                               unsigned int flags,
                               int *out_exit_status);
+/*
+ * Extend (or query) the calling process's heap by `delta` bytes and write
+ * the *previous* break value (the address of the first newly-committed byte
+ * on a positive delta) through `out_prev_break`. Semantics match POSIX
+ * `sbrk(2)`:
+ *
+ *   - `delta == 0`: write current break, do not move it.
+ *   - `delta > 0` : extend by `delta`; on success, `*out_prev_break` is the
+ *                   address of the first freshly-committed byte. Bytes in
+ *                   `[*out_prev_break, *out_prev_break + delta)` are
+ *                   readable and writable by the caller.
+ *   - `delta < 0` : shrink by `-delta`; on success, `*out_prev_break` is
+ *                   the *prior* (higher) break. Reading/writing released
+ *                   bytes is undefined.
+ *
+ * Out-of-arena growth (would push the break past the per-process heap
+ * window) returns `OS_STATUS_DENIED`, does NOT move the break, and does
+ * NOT panic the kernel — the issue's deny-clean contract.
+ *
+ * `out_prev_break` must not be NULL.
+ *
+ * Wired through the native bridge as slot `mem_brk` (bridge version 4+).
+ * Host-only callers (no bridge mapped) get `OS_STATUS_ERROR`.
+ *
+ * Tracks M7-TOOLCHAIN-001 slice 2 (#421); paired with the freestanding
+ * `user/libs/clib` allocator's `clib_brk_fn` seam landed in PR #412.
+ */
+os_status_t os_mem_brk(int delta, void **out_prev_break);
 os_status_t os_env_get(const char *key, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_env_set(const char *key, const char *value);
 os_status_t os_env_list(char *out_buffer, unsigned int out_buffer_size);

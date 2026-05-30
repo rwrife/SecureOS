@@ -171,6 +171,14 @@ TEST_TARGETS=(
     # behavior; jsonschema dependency already covered by the #414
     # toolchain container update.
     manifest_arena_bytes_range
+    # M7-TOOLCHAIN-001 slice 2 (issue #421): host-side smoke for the
+    # `os_mem_brk` user-runtime wrapper landed alongside the kernel
+    # bridge slot in the same PR. Pins the symbol export, the
+    # `(int, void **)` signature shape consumed by the freestanding
+    # `user/libs/clib` allocator's `clib_brk_fn` forwarder, and the
+    # NULL-out-pointer fall-through. Same orphan-from-TEST_TARGETS
+    # gate shape as #129 / #366 / #384 / #401 / #414 / #426.
+    mem_brk_wrapper
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
