@@ -240,6 +240,17 @@ TEST_TARGETS=(
     # macro value. Cheap host-side check; wire so a regression flips the
     # bundle.
     clib_limits
+    # M7-TOOLCHAIN-004 slice 9 (issue #407): freestanding `<stdbool.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdbool.h>` among
+    # the headers a *freestanding* implementation must ship, and TinyCC
+    # (#408) plus several pending #407 siblings can use `bool` / `true`
+    # / `false` once it lands. Same parity shape as the str/mem, ctype,
+    # qsort, and limits slices — userland-only, no syscall dependency,
+    # drift-pinned via a `symbol_set_pinned` sub-marker on the helper TU
+    # so a future TinyCC drop or unrelated PR cannot silently change a
+    # macro value or re-alias `bool` to `int`. Cheap host-side check;
+    # wire so a regression flips the bundle.
+    clib_stdbool
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate

@@ -27,7 +27,12 @@ against. Today it ships:
   `include/clib/limits.h` — slice 8 of M7-TOOLCHAIN-004
   ([#407](https://github.com/rwrife/SecureOS/issues/407)); required for
   freestanding by C11 §4¶6, pinned at the x86_64 SysV values TinyCC
-  (#408) targets, drift-anchored through a helper TU in `src/limits.c`.
+  (#408) targets, drift-anchored through a helper TU in `src/limits.c`, and
+- the freestanding `<stdbool.h>` nucleus — `bool` / `true` / `false` /
+  `__bool_true_false_are_defined` under `include/clib/stdbool.h` (slice
+  9 of [#407](https://github.com/rwrife/SecureOS/issues/407)). Required
+  by C11 §4¶6 for any freestanding implementation; TinyCC and pending
+  #407 sibling slices link against it.
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
 `fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`,
