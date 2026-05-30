@@ -309,6 +309,14 @@ TEST_TARGETS=(
     # flip a `__align{as,of}_is_defined` feature-test macro to `0`.
     # Cheap host-side check; wire so a regression flips the bundle.
     clib_stdalign
+    # Freestanding <assert.h> nucleus (#407 / M7-TOOLCHAIN-004) —
+    # userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + macro-defined guards. The registered-handler
+    # hook (`clib_assert_set_handler`) lets the host test exercise the
+    # failure path via longjmp and the on-target runtime install a
+    # forwarder to `os_process_exit(1)` once #406 lands without
+    # touching the slice.
+    clib_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
