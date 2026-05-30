@@ -189,6 +189,17 @@ TEST_TARGETS=(
     # NULL-out-pointer fall-through. Same orphan-from-TEST_TARGETS
     # gate shape as #129 / #366 / #384 / #401 / #414 / #426.
     mem_brk_wrapper
+    # M7-TOOLCHAIN-001 slice 3 (issue #421): host-side smoke for the
+    # `clib_os_brk` forwarder that wires `user/libs/clib`'s
+    # `clib_brk_fn` callback to `os_mem_brk`. Pins the `clib_brk_fn`
+    # signature compatibility (so the forwarder symbol can be passed
+    # straight to `clib_malloc_init`), the narrowing/zero-delta
+    # guards (so a stray growth request never wraps the syscall's
+    # signed `int` into a shrink), and the no-bridge -> NULL collapse
+    # the allocator relies on for clean out-of-arena fallback. Same
+    # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
+    # #401 / #414 / #426 / #432.
+    clib_os_brk
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired

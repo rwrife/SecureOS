@@ -76,9 +76,21 @@ int clib_malloc_init(void *seed_base,
 
 - Host test (`tests/clib_malloc_test.c`) registers a brk shim backed by
   a single `malloc(3)` page-aligned buffer — no syscall dependency.
-- On-target runtime (next slice) registers a one-line forward to
-  `os_mem_brk(delta)` once that syscall lands. No other allocator
-  code changes.
+- On-target runtime registers the freestanding `clib_os_brk`
+  forwarder (`include/clib/os_brk.h`, `src/os_brk.c`) which adapts
+  the `clib_brk_fn` shape to the `os_mem_brk(int, void **)` syscall
+  landed in PR #432 (commit `af8ece8`). Usage:
+
+  ```c
+  #include "clib/malloc.h"
+  #include "clib/os_brk.h"
+  clib_malloc_init(NULL, 0, clib_os_brk, NULL);
+  ```
+
+  Host coverage of the forwarder lives in
+  `tests/clib_os_brk_test.c` (signature pin + zero/overflow guards;
+  the live growth round-trip is the deferred `clib_brk_growth_qemu`
+  peer per issue #421).
 
 This keeps the allocator itself reviewable in isolation — a single
 host unit test covers alloc/free/realloc, fragmentation/coalescing,
