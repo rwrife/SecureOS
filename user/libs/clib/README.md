@@ -262,6 +262,37 @@ qsort slice's `large_pathological_no_overflow` — and also probes
 out-of-range values below and above the populated span to exercise
 the overflow-safe midpoint path.
 
+## Slice — `<stdnoreturn.h>` nucleus (issue #407)
+
+C11 §4¶6 lists `<stdnoreturn.h>` among the freestanding-required
+headers; §7.23 defines the header as a single convenience macro
+`noreturn` aliasing the C11 keyword `_Noreturn`. TinyCC (#408) and
+any third-party SDK code consumed by the in-OS toolchain (#403) are
+entitled to `#include <stdnoreturn.h>` and to spell abort-like
+helpers with `noreturn` rather than the bare keyword. Landing the
+macro now lets those consumers compile unchanged.
+
+**Shipped surface:**
+
+- `noreturn` — alias for `_Noreturn` (C11 §7.23¶1). Suppressed under
+  `__cplusplus` because `_Noreturn` is not a C++ keyword and `noreturn`
+  is a standard C++ attribute.
+- Helper TU `src/stdnoreturn.c` — drift anchor that exports
+  `clib_stdnoreturn_eval`, `clib_stdnoreturn_op_count`, and a real
+  `noreturn`-decorated function `clib_stdnoreturn_loop_forever`,
+  pinned by the `symbol_set_pinned` sub-marker.
+
+```
+$ bash build/scripts/test.sh clib_stdnoreturn
+TEST:PASS:clib_stdnoreturn:macros_defined
+TEST:PASS:clib_stdnoreturn:macros_expand_correctly
+TEST:PASS:clib_stdnoreturn:helper_tu_agrees
+TEST:PASS:clib_stdnoreturn:symbol_set_pinned
+TEST:PASS:clib_stdnoreturn
+```
+
+No `OS_ABI_VERSION` bump (userland-only, additive, header-only).
+
 ## Slice 1 — string/memory family (issue #407)
 
 ```

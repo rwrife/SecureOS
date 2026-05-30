@@ -336,6 +336,23 @@ TEST_TARGETS=(
     # break the `strtol`/`strtoul` overflow contract that PR #428's
     # header explicitly defers to this slice.
     clib_errno
+    # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdnoreturn.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdnoreturn.h>` as
+    # one of the freestanding-required headers; §7.23 defines the header
+    # as a single convenience macro `noreturn` aliasing the C11 keyword
+    # `_Noreturn`. TinyCC (#408) and any third-party SDK code consumed
+    # by the in-OS toolchain (#403) are entitled to `#include
+    # <stdnoreturn.h>`. Same parity shape as the str/mem (PR #416),
+    # ctype (PR #417), qsort (PR #418), stdlib (PR #428), errno (PR
+    # #430), and in-flight `<iso646.h>`/`<stdalign.h>` slices --
+    # header-only nucleus + a tiny `src/stdnoreturn.c` helper TU plus
+    # a host test that pins the macro semantically (declares a real
+    # `noreturn`-decorated function through the header under -Werror)
+    # and pins the helper-TU exports via a `symbol_set_pinned`
+    # sub-marker so a future PR cannot silently turn `#define noreturn
+    # _Noreturn` into a no-op. Cheap host-side check; wire so a
+    # regression flips the bundle.
+    clib_stdnoreturn
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
