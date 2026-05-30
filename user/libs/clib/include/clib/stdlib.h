@@ -24,12 +24,13 @@
  *     - atoi
  *     - strtol
  *     - strtoul
+ *     - strtoll  (long long path; added by the slice 11 extension)
+ *     - strtoull (unsigned long long path; added by the slice 11 extension)
  *   Integer utilities:
  *     - abs
  *     - labs
  *
  * Out of scope for this slice (folded in by later #407 slices):
- *   - strtoll / strtoull (long long path; TinyCC drops below pin them).
  *   - atof / strtod (floating point; TinyCC reads no float command-line
  *     args today).
  *   - rand / srand (PRNG; no consumer yet).
@@ -97,6 +98,22 @@ long strtol(const char *nptr, char **endptr, int base);
  *   negative offsets.
  */
 unsigned long strtoul(const char *nptr, char **endptr, int base);
+
+/*
+ * strtoll(nptr, endptr, base)
+ *   Same parse / overflow / *endptr rules as strtol, but accumulates
+ *   into a `long long` and clamps to LLONG_MAX / LLONG_MIN. TinyCC's
+ *   driver consumes this for `-D` macro values that exceed 32 bits
+ *   on the x86_64 target (e.g. `-DFOO=0x80000000ULL`).
+ */
+long long strtoll(const char *nptr, char **endptr, int base);
+
+/*
+ * strtoull(nptr, endptr, base)
+ *   Same parse rules as strtoul, but unsigned long long width. Clamps
+ *   to ULLONG_MAX on overflow; negation is taken modulo ULLONG_MAX+1.
+ */
+unsigned long long strtoull(const char *nptr, char **endptr, int base);
 
 /* --- integer utilities -------------------------------------------------- */
 
