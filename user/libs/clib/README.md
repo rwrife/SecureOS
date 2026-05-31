@@ -203,10 +203,12 @@ TEST:PASS:clib_errno:symbol_set_pinned
 TEST:PASS:clib_errno
 ```
 
-No `OS_ABI_VERSION` bump (userland-only, additive). A follow-up
-slice can flip the existing `strtol`/`strtoul` clamp paths from
-"silent" to `errno = ERANGE` without touching this slice's symbol
-surface.
+No `OS_ABI_VERSION` bump (userland-only, additive). The slice-4
+`strtol` / `strtoul` / `strtoll` / `strtoull` clamp paths now set
+`errno = ERANGE` on overflow and `errno = EINVAL` on a bad `base`
+argument (the canonical ISO C / POSIX contract TinyCC's driver
+relies on to distinguish a clean clamp from a real overflow). The
+clamp return values and `*endptr` semantics are unchanged.
 
 ## Slice 7 — bsearch (issue #407)
 

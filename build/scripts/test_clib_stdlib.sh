@@ -19,6 +19,7 @@ mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror -fno-builtin \
   "$ROOT_DIR/user/libs/clib/src/stdlib.c" \
+  "$ROOT_DIR/user/libs/clib/src/errno.c" \
   "$ROOT_DIR/tests/clib_stdlib_test.c" \
   -o "$OUT_DIR/clib_stdlib_test"
 
@@ -39,6 +40,9 @@ grep -q "TEST:PASS:clib_stdlib:strtoll_endptr_no_digits"  "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdlib:strtoll_invalid_base"      "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdlib:strtoull_basic"            "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdlib:strtoull_overflow_clamp"   "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdlib:errno_overflow_set_erange"  "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdlib:errno_invalid_base_set_einval" "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdlib:errno_success_preserved"   "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdlib:abs_labs"                  "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdlib:symbol_set_pinned"         "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdlib$"                          "$LOG_PATH"

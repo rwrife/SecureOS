@@ -13,9 +13,12 @@
  *   calling `strtol` to distinguish a clean clamp from an actual
  *   overflow. Filing this slice now lands the symbol + macro family
  *   so the M7-TOOLCHAIN-005 TinyCC port (issue #408) does not hit a
- *   link-error on `errno` / `ERANGE` / `EINVAL` / `ENOMEM`, and so a
- *   follow-up slice can flip the stdlib clamp paths from "silent" to
- *   "errno = ERANGE" without touching the symbol surface.
+ *   link-error on `errno` / `ERANGE` / `EINVAL` / `ENOMEM`, and so
+ *   the slice-4 stdlib clamp paths can be flipped from "silent" to
+ *   "errno = ERANGE" without touching the symbol surface (landed in
+ *   the errno-on-overflow follow-up that wires `errno = ERANGE` into
+ *   `strtol` / `strtoul` / `strtoll` / `strtoull` and `errno = EINVAL`
+ *   on a bad `base`).
  *
  * Why it lives in this slice
  *   Same shape as the str/mem, ctype, qsort, and stdlib slices: pure

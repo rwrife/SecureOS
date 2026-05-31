@@ -3,11 +3,12 @@
  * Freestanding stdlib subset (M7-TOOLCHAIN-004 slice 4, issue #407).
  *
  * Implementation notes:
- *   - Freestanding: no libc, no syscalls, no globals.
+ *   - Freestanding: no libc, no syscalls.
  *   - We reproduce just enough of <ctype.h> inline (the isspace test
  *     used by atoi/strtol/strtoul) so this translation unit has zero
- *     intra-clib dependencies — keeps the link of `libclib.a` flat and
- *     keeps the host unit test free of slice-1/slice-2 ordering.
+ *     intra-clib dependencies on the ctype slice — keeps the link of
+ *     `libclib.a` flat and keeps the host unit test free of
+ *     slice-1/slice-2 ordering.
  *   - Overflow uses unsigned accumulation so the cumulative check is
  *     well-defined in C; signed overflow is then translated by
  *     comparing against LONG_MAX / (LONG_MIN as unsigned).
@@ -15,9 +16,26 @@
  *     avoid invoking signed-overflow UB; the C standard leaves this
  *     case undefined, so matching two's-complement HW is acceptable
  *     and avoids surprises in TinyCC's own driver.
+ *
+ * errno wiring (errno-on-overflow follow-up to the slice-5 <errno.h>
+ * landing in PR #430):
+ *   - strtol / strtoul / strtoll / strtoull all set `errno = ERANGE`
+ *     on overflow (in addition to clamping the return value to
+ *     `{L,LL}{ONG_MIN,ONG_MAX}` / `U{L,LL}ONG_MAX`), matching the
+ *     ISO C / POSIX contract TinyCC's `tcc.c` numeric paths rely on
+ *     to distinguish a clean clamp from a real overflow.
+ *   - An out-of-range `base` argument (anything other than 0 or
+ *     2..36) sets `errno = EINVAL` before returning 0 / leaving
+ *     `*endptr == nptr`. POSIX extension — musl does the same, and
+ *     TinyCC's driver never feeds a bad base so the spelling is
+ *     forward-compatible.
+ *   - No path clears `errno`; the canonical contract is "set on
+ *     error, leave alone on success", which lets callers preset
+ *     `errno = 0` and then check after a successful parse.
  */
 
 #include "../include/clib/stdlib.h"
+#include "../include/clib/errno.h"
 
 #include <limits.h>
 #include <stddef.h>
@@ -140,6 +158,7 @@ long strtol(const char *nptr, char **endptr, int base) {
   int         overflow_flag  = 0;
 
   if (base != 0 && (base < 2 || base > 36)) {
+    errno = EINVAL;
     if (endptr) {
       *endptr = (char *)nptr;
     }
@@ -171,11 +190,13 @@ long strtol(const char *nptr, char **endptr, int base) {
 
   if (sign > 0) {
     if (overflow_flag || mag > (unsigned long)LONG_MAX) {
+      errno = ERANGE;
       return LONG_MAX;
     }
     return (long)mag;
   } else {
     if (overflow_flag || mag > long_min_mag) {
+      errno = ERANGE;
       return LONG_MIN;
     }
     if (mag == long_min_mag) {
@@ -191,6 +212,7 @@ unsigned long strtoul(const char *nptr, char **endptr, int base) {
   int         overflow_flag  = 0;
 
   if (base != 0 && (base < 2 || base > 36)) {
+    errno = EINVAL;
     if (endptr) {
       *endptr = (char *)nptr;
     }
@@ -214,6 +236,7 @@ unsigned long strtoul(const char *nptr, char **endptr, int base) {
   }
 
   if (overflow_flag) {
+    errno = ERANGE;
     return ULONG_MAX;
   }
 
@@ -300,6 +323,7 @@ long long strtoll(const char *nptr, char **endptr, int base) {
   int         overflow_flag = 0;
 
   if (base != 0 && (base < 2 || base > 36)) {
+    errno = EINVAL;
     if (endptr) {
       *endptr = (char *)nptr;
     }
@@ -327,11 +351,13 @@ long long strtoll(const char *nptr, char **endptr, int base) {
 
   if (sign > 0) {
     if (overflow_flag || mag > (unsigned long long)LLONG_MAX) {
+      errno = ERANGE;
       return LLONG_MAX;
     }
     return (long long)mag;
   } else {
     if (overflow_flag || mag > llong_min_mag) {
+      errno = ERANGE;
       return LLONG_MIN;
     }
     if (mag == llong_min_mag) {
@@ -347,6 +373,7 @@ unsigned long long strtoull(const char *nptr, char **endptr, int base) {
   int         overflow_flag = 0;
 
   if (base != 0 && (base < 2 || base > 36)) {
+    errno = EINVAL;
     if (endptr) {
       *endptr = (char *)nptr;
     }
@@ -370,6 +397,7 @@ unsigned long long strtoull(const char *nptr, char **endptr, int base) {
   }
 
   if (overflow_flag) {
+    errno = ERANGE;
     return ULLONG_MAX;
   }
 
