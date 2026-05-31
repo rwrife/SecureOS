@@ -20,6 +20,16 @@ Output contract (mirrors `validate_capability_registry.py` and #234):
     1  one or more `ABI_STAMP:FAIL:*` markers emitted.
     2  environment / usage error (file missing, not a git checkout,
        no stamp line at all in a file we expected to have one).
+
+Strict-no-skip mode (#470):
+  Pass ``--strict-no-skip`` (or set ``STRICT_STAMPS=1`` in the env, which
+  the build/scripts wrapper translates into the flag) to promote the
+  ``ABI_STAMP:SKIP:<file>:no_stamp_line`` arm to
+  ``ABI_STAMP:FAIL:<file>:no_stamp_line`` (exit 1). Use ``--exempt <name>``
+  (repeatable) to drop a filename under ``docs/abi/`` from iteration
+  entirely so it is neither PASS-checked nor FAIL-ed under strict mode
+  (e.g. genuinely non-freshness index pages); this matches the existing
+  semantics for ``capability-registry.md``.
 """
 
 from __future__ import annotations
@@ -139,6 +149,16 @@ def main() -> int:
         default=[],
         help="Additional filenames (under abi-dir) to exempt. Repeatable.",
     )
+    parser.add_argument(
+        "--strict-no-skip",
+        action="store_true",
+        default=False,
+        help=(
+            "Issue #470: promote 'no_stamp_line' SKIP to FAIL (exit 1) for "
+            "any in-scope docs/abi/*.md missing the 'Last verified against "
+            "commit:' line. Files listed via --exempt remain SKIP-eligible."
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -187,8 +207,19 @@ def main() -> int:
             # Not all docs/abi/*.md participate in the provenance
             # convention (e.g. spec-only contracts that pre-date the
             # `Last verified` header). Per README §Provenance the line
-            # is required when present; missing line is out-of-scope.
-            print(f"ABI_STAMP:SKIP:{rel}:no_stamp_line")
+            # is required when present; missing line is out-of-scope
+            # unless --strict-no-skip is in force (#470). Files genuinely
+            # outside the freshness contract are dropped from `files` up
+            # in iter_in_scope() via --exempt, so they never reach this
+            # branch.
+            if args.strict_no_skip:
+                print(
+                    f"ABI_STAMP:FAIL:{rel}:no_stamp_line",
+                    file=sys.stderr,
+                )
+                failures += 1
+            else:
+                print(f"ABI_STAMP:SKIP:{rel}:no_stamp_line")
             continue
 
         try:
