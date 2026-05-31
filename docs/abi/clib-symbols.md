@@ -80,9 +80,60 @@ counter at v0.
 | `clib_stdbool_sizeof_bool`            | `int clib_stdbool_sizeof_bool(void)`            | drift anchor for `sizeof(bool)` |
 | `clib_stdbool_feature_macro_value`    | `int clib_stdbool_feature_macro_value(void)`    | drift anchor for `__bool_true_false_are_defined` |
 
-Note: `clib/stddef.h` (slice 9 / PR #436) is a header-only nucleus and
-contributes no public symbols to `libclib.a`. It is therefore correctly
-absent from the canonical pin.
+Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
+`src/stddef.c`; see its own section below.
+
+### `clib/stddef.h` (slice 9 / PR #436)
+
+| Symbol                          | Signature                                | Notes |
+| ------------------------------- | ---------------------------------------- | ----- |
+| `clib_stddef_sizeof`            | `unsigned long clib_stddef_sizeof(int which)` | drift anchor for `size_t` / `ptrdiff_t` / `wchar_t` / `max_align_t` widths |
+| `clib_stddef_offsetof_probe`    | `unsigned long clib_stddef_offsetof_probe(int which)` | drift anchor for `offsetof` |
+
+### `clib/stdint.h` (slice 10 / PR #457)
+
+| Symbol                | Signature                                 | Notes |
+| --------------------- | ----------------------------------------- | ----- |
+| `clib_stdint_sizeof`  | `unsigned long clib_stdint_sizeof(int which)` | drift anchor for exact-width / pointer-width / max-width typedef sizes |
+| `clib_stdint_maxof`   | `unsigned long long clib_stdint_maxof(int which)` | drift anchor for `INTn_MAX`/`UINTn_MAX`/`SIZE_MAX`/`PTRDIFF_MAX` |
+
+### `clib/iso646.h` (M7-TOOLCHAIN-004 slice)
+
+| Symbol                   | Signature                              | Notes |
+| ------------------------ | -------------------------------------- | ----- |
+| `clib_iso646_eval`       | `int clib_iso646_eval(int op, int a, int b)` | drift anchor for `and`/`or`/`not`/`xor`/`bitand`/`bitor`/`compl` macros |
+| `clib_iso646_op_count`   | `int clib_iso646_op_count(void)`       | reports number of pinned operator macros |
+
+### `clib/stdalign.h` (M7-TOOLCHAIN-004 slice)
+
+| Symbol                     | Signature                            | Notes |
+| -------------------------- | ------------------------------------ | ----- |
+| `clib_stdalign_eval`       | `unsigned long clib_stdalign_eval(int which)` | drift anchor for `alignas`/`alignof`/`__alignas_is_defined`/`__alignof_is_defined` |
+| `clib_stdalign_op_count`   | `int clib_stdalign_op_count(void)`   | reports number of pinned C11 §7.15 macros |
+
+### `clib/float.h` (M7-TOOLCHAIN-004 slice)
+
+| Symbol                       | Signature                            | Notes |
+| ---------------------------- | ------------------------------------ | ----- |
+| `clib_float_eval_int`        | `long long clib_float_eval_int(int which)`     | drift anchor for integer-valued `<float.h>` macros (radix, mant_dig, exp ranges) |
+| `clib_float_eval_fp`         | `double clib_float_eval_fp(int which)`         | drift anchor for floating-point-valued `<float.h>` macros (FLT/DBL/LDBL_*) |
+| `clib_float_int_op_count`    | `int clib_float_int_op_count(void)`            | reports number of pinned integer macros |
+| `clib_float_fp_op_count`     | `int clib_float_fp_op_count(void)`             | reports number of pinned FP macros |
+
+### `clib/stdnoreturn.h` (M7-TOOLCHAIN-004 slice)
+
+| Symbol                          | Signature                                | Notes |
+| ------------------------------- | ---------------------------------------- | ----- |
+| `clib_stdnoreturn_eval`         | `int clib_stdnoreturn_eval(int which)`   | drift anchor for the `noreturn` -> `_Noreturn` macro |
+| `clib_stdnoreturn_op_count`     | `int clib_stdnoreturn_op_count(void)`    | reports number of pinned C11 §7.23 macros |
+| `clib_stdnoreturn_loop_forever` | `_Noreturn void clib_stdnoreturn_loop_forever(void)` | exercises `_Noreturn` through the header alias |
+
+### `clib/assert.h` (M7-TOOLCHAIN-004 slice)
+
+| Symbol                       | Signature                                                    | Notes |
+| ---------------------------- | ------------------------------------------------------------ | ----- |
+| `__clib_assert_fail`         | `void __clib_assert_fail(const char *expr, const char *file, int line, const char *func)` | failure trampoline invoked by `assert()` |
+| `clib_assert_set_handler`    | `void clib_assert_set_handler(clib_assert_handler_t fn)`     | install a custom handler (used by host tests) |
 
 ### `clib/errno.h` (slice 5 / PR #430)
 
@@ -165,11 +216,19 @@ and every symbol named in any table above MUST appear here. The
 
 <!-- clib-symbols:begin -->
 ```
+__clib_assert_fail
 abs
 atoi
 bsearch
+clib_assert_set_handler
 clib_calloc
+clib_float_eval_fp
+clib_float_eval_int
+clib_float_fp_op_count
+clib_float_int_op_count
 clib_free
+clib_iso646_eval
+clib_iso646_op_count
 clib_limits_char_bit
 clib_limits_check_value
 clib_malloc
@@ -178,12 +237,21 @@ clib_malloc_init
 clib_malloc_min_seed_bytes
 clib_malloc_shutdown
 clib_realloc
+clib_stdalign_eval
+clib_stdalign_op_count
 clib_stdarg_sum_ints
 clib_stdarg_sum_ints_via_copy
 clib_stdbool_false_value
 clib_stdbool_feature_macro_value
 clib_stdbool_sizeof_bool
 clib_stdbool_true_value
+clib_stddef_offsetof_probe
+clib_stddef_sizeof
+clib_stdint_maxof
+clib_stdint_sizeof
+clib_stdnoreturn_eval
+clib_stdnoreturn_loop_forever
+clib_stdnoreturn_op_count
 clib_strerror
 errno
 isalnum

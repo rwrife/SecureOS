@@ -32,7 +32,15 @@ against. Today it ships:
   `__bool_true_false_are_defined` under `include/clib/stdbool.h` (slice
   9 of [#407](https://github.com/rwrife/SecureOS/issues/407)). Required
   by C11 §4¶6 for any freestanding implementation; TinyCC and pending
-  #407 sibling slices link against it.
+  #407 sibling slices link against it, and
+- the freestanding `<stddef.h>` nucleus — `NULL`, `size_t`, `ptrdiff_t`,
+  `wchar_t`, `max_align_t`, and `offsetof` under
+  `include/clib/stddef.h` — slice 9 of M7-TOOLCHAIN-004
+  ([#407](https://github.com/rwrife/SecureOS/issues/407)); required for
+  freestanding by C11 §4¶6, bound to the compiler intrinsics
+  `__SIZE_TYPE__` / `__PTRDIFF_TYPE__` / `__WCHAR_TYPE__` that TinyCC
+  (#408) and the host toolchain both expose, drift-anchored through a
+  helper TU in `src/stddef.c`.
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
 `fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`,
@@ -254,6 +262,37 @@ qsort slice's `large_pathological_no_overflow` — and also probes
 out-of-range values below and above the populated span to exercise
 the overflow-safe midpoint path.
 
+## Slice — `<stdnoreturn.h>` nucleus (issue #407)
+
+C11 §4¶6 lists `<stdnoreturn.h>` among the freestanding-required
+headers; §7.23 defines the header as a single convenience macro
+`noreturn` aliasing the C11 keyword `_Noreturn`. TinyCC (#408) and
+any third-party SDK code consumed by the in-OS toolchain (#403) are
+entitled to `#include <stdnoreturn.h>` and to spell abort-like
+helpers with `noreturn` rather than the bare keyword. Landing the
+macro now lets those consumers compile unchanged.
+
+**Shipped surface:**
+
+- `noreturn` — alias for `_Noreturn` (C11 §7.23¶1). Suppressed under
+  `__cplusplus` because `_Noreturn` is not a C++ keyword and `noreturn`
+  is a standard C++ attribute.
+- Helper TU `src/stdnoreturn.c` — drift anchor that exports
+  `clib_stdnoreturn_eval`, `clib_stdnoreturn_op_count`, and a real
+  `noreturn`-decorated function `clib_stdnoreturn_loop_forever`,
+  pinned by the `symbol_set_pinned` sub-marker.
+
+```
+$ bash build/scripts/test.sh clib_stdnoreturn
+TEST:PASS:clib_stdnoreturn:macros_defined
+TEST:PASS:clib_stdnoreturn:macros_expand_correctly
+TEST:PASS:clib_stdnoreturn:helper_tu_agrees
+TEST:PASS:clib_stdnoreturn:symbol_set_pinned
+TEST:PASS:clib_stdnoreturn
+```
+
+No `OS_ABI_VERSION` bump (userland-only, additive, header-only).
+
 ## Slice 1 — string/memory family (issue #407)
 
 ```
@@ -284,3 +323,42 @@ The `symbol_set_pinned` marker is the drift guard called out in the
 M7-TOOLCHAIN-004 acceptance — every shipped symbol must remain
 reachable through a function pointer, so a TinyCC drop or an unrelated
 PR cannot silently remove a family member.
+
+## Slice 10 — `<stdint.h>` nucleus (issue #407)
+
+C11 §4¶6 / §7.20 mandate `<stdint.h>` on a freestanding
+implementation. TinyCC ([#408](https://github.com/rwrife/SecureOS/issues/408))
+and any non-trivial in-OS C source consume the exact-width / pointer-
+width / max-width integer typedefs + their limit constants + the
+`INTn_C` / `UINTn_C` constant-suffix macros. Header is wholly
+freestanding (no syscall dependency); typedef widths and limits are
+derived from the compiler-provided `__INT*_TYPE__` / `__INT*_MAX__`
+builtins so the same source is target-correct on the x86_64 cross-
+compiler and on the host gcc/clang the unit test runs under.
+
+**Shipped symbols:**
+
+- Exact-width typedefs (8): `int{8,16,32,64}_t`, `uint{8,16,32,64}_t`
+- Pointer-width typedefs (2): `intptr_t`, `uintptr_t`
+- Max-width typedefs (2): `intmax_t`, `uintmax_t`
+- Limit macros: `INT{8,16,32,64}_{MIN,MAX}`, `UINT{8,16,32,64}_MAX`,
+  `INTPTR_{MIN,MAX}`, `UINTPTR_MAX`, `INTMAX_{MIN,MAX}`, `UINTMAX_MAX`,
+  `SIZE_MAX`, `PTRDIFF_{MIN,MAX}`
+- Constant macros: `INT{8,16,32,64}_C(v)`, `UINT{8,16,32,64}_C(v)`,
+  `INTMAX_C(v)`, `UINTMAX_C(v)`
+
+Out of scope this slice: the `int_least*_t` / `int_fast*_t` families
+(no TinyCC consumer pins them yet) and `<inttypes.h>` (sits on top of
+`<stdio.h>`, which is its own deferred slice).
+
+```
+$ bash build/scripts/test.sh clib_stdint
+TEST:PASS:clib_stdint:exact_widths_pinned
+TEST:PASS:clib_stdint:pointer_widths_pinned
+TEST:PASS:clib_stdint:max_widths_pinned
+TEST:PASS:clib_stdint:limits_pinned
+TEST:PASS:clib_stdint:size_and_ptrdiff_pinned
+TEST:PASS:clib_stdint:const_macros_pinned
+TEST:PASS:clib_stdint:symbol_set_pinned
+TEST:PASS:clib_stdint
+```
