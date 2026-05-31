@@ -28,6 +28,24 @@ unsigned long clib_stdint_sizeof(int which) {
     case CLIB_STDINT_SIZE_UINTPTR: return (unsigned long)sizeof(uintptr_t);
     case CLIB_STDINT_SIZE_INTMAX:  return (unsigned long)sizeof(intmax_t);
     case CLIB_STDINT_SIZE_UINTMAX: return (unsigned long)sizeof(uintmax_t);
+    /* slice 10b — least-width family */
+    case CLIB_STDINT_SIZE_INT_LEAST8:   return (unsigned long)sizeof(int_least8_t);
+    case CLIB_STDINT_SIZE_INT_LEAST16:  return (unsigned long)sizeof(int_least16_t);
+    case CLIB_STDINT_SIZE_INT_LEAST32:  return (unsigned long)sizeof(int_least32_t);
+    case CLIB_STDINT_SIZE_INT_LEAST64:  return (unsigned long)sizeof(int_least64_t);
+    case CLIB_STDINT_SIZE_UINT_LEAST8:  return (unsigned long)sizeof(uint_least8_t);
+    case CLIB_STDINT_SIZE_UINT_LEAST16: return (unsigned long)sizeof(uint_least16_t);
+    case CLIB_STDINT_SIZE_UINT_LEAST32: return (unsigned long)sizeof(uint_least32_t);
+    case CLIB_STDINT_SIZE_UINT_LEAST64: return (unsigned long)sizeof(uint_least64_t);
+    /* slice 10b — fast-width family */
+    case CLIB_STDINT_SIZE_INT_FAST8:    return (unsigned long)sizeof(int_fast8_t);
+    case CLIB_STDINT_SIZE_INT_FAST16:   return (unsigned long)sizeof(int_fast16_t);
+    case CLIB_STDINT_SIZE_INT_FAST32:   return (unsigned long)sizeof(int_fast32_t);
+    case CLIB_STDINT_SIZE_INT_FAST64:   return (unsigned long)sizeof(int_fast64_t);
+    case CLIB_STDINT_SIZE_UINT_FAST8:   return (unsigned long)sizeof(uint_fast8_t);
+    case CLIB_STDINT_SIZE_UINT_FAST16:  return (unsigned long)sizeof(uint_fast16_t);
+    case CLIB_STDINT_SIZE_UINT_FAST32:  return (unsigned long)sizeof(uint_fast32_t);
+    case CLIB_STDINT_SIZE_UINT_FAST64:  return (unsigned long)sizeof(uint_fast64_t);
     default:                       return 0u;
   }
 }
@@ -46,6 +64,24 @@ unsigned long long clib_stdint_maxof(int which) {
     case CLIB_STDINT_SIZE_UINTPTR: return (unsigned long long)UINTPTR_MAX;
     case CLIB_STDINT_SIZE_INTMAX:  return (unsigned long long)INTMAX_MAX;
     case CLIB_STDINT_SIZE_UINTMAX: return (unsigned long long)UINTMAX_MAX;
+    /* slice 10b — least-width family */
+    case CLIB_STDINT_SIZE_INT_LEAST8:   return (unsigned long long)INT_LEAST8_MAX;
+    case CLIB_STDINT_SIZE_INT_LEAST16:  return (unsigned long long)INT_LEAST16_MAX;
+    case CLIB_STDINT_SIZE_INT_LEAST32:  return (unsigned long long)INT_LEAST32_MAX;
+    case CLIB_STDINT_SIZE_INT_LEAST64:  return (unsigned long long)INT_LEAST64_MAX;
+    case CLIB_STDINT_SIZE_UINT_LEAST8:  return (unsigned long long)UINT_LEAST8_MAX;
+    case CLIB_STDINT_SIZE_UINT_LEAST16: return (unsigned long long)UINT_LEAST16_MAX;
+    case CLIB_STDINT_SIZE_UINT_LEAST32: return (unsigned long long)UINT_LEAST32_MAX;
+    case CLIB_STDINT_SIZE_UINT_LEAST64: return (unsigned long long)UINT_LEAST64_MAX;
+    /* slice 10b — fast-width family */
+    case CLIB_STDINT_SIZE_INT_FAST8:    return (unsigned long long)INT_FAST8_MAX;
+    case CLIB_STDINT_SIZE_INT_FAST16:   return (unsigned long long)INT_FAST16_MAX;
+    case CLIB_STDINT_SIZE_INT_FAST32:   return (unsigned long long)INT_FAST32_MAX;
+    case CLIB_STDINT_SIZE_INT_FAST64:   return (unsigned long long)INT_FAST64_MAX;
+    case CLIB_STDINT_SIZE_UINT_FAST8:   return (unsigned long long)UINT_FAST8_MAX;
+    case CLIB_STDINT_SIZE_UINT_FAST16:  return (unsigned long long)UINT_FAST16_MAX;
+    case CLIB_STDINT_SIZE_UINT_FAST32:  return (unsigned long long)UINT_FAST32_MAX;
+    case CLIB_STDINT_SIZE_UINT_FAST64:  return (unsigned long long)UINT_FAST64_MAX;
     default:                       return (unsigned long long)-1;
   }
 }

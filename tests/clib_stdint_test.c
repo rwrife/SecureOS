@@ -191,6 +191,87 @@ static void check_const_macros(void) {
   CHECK(vumax == 0xFFFFFFFFFFFFFFFFull, "uintmax_c");
 }
 
+/* ---- 9. least- / fast-width family (slice 10b) ------------------------ *
+ *
+ * C11 §7.20.1.2/3: int_leastN_t is the smallest type with ≥ N bits,
+ * int_fastN_t is the implementation's fastest type with ≥ N bits;
+ * both required for N ∈ {8, 16, 32, 64}. §7.20.2.2/3 require the
+ * matching `INT_LEASTN_*` / `INT_FASTN_*` limit macros (signed MIN
+ * = -MAX-1 in two's complement on every supported target).
+ */
+static void check_least_fast_widths(void) {
+  /* Least-width: width ≥ N bits. Local-TU sizeof. */
+  CHECK(sizeof(int_least8_t)   * 8 >= 8,  "int_least8_at_least_8_local");
+  CHECK(sizeof(int_least16_t)  * 8 >= 16, "int_least16_at_least_16_local");
+  CHECK(sizeof(int_least32_t)  * 8 >= 32, "int_least32_at_least_32_local");
+  CHECK(sizeof(int_least64_t)  * 8 >= 64, "int_least64_at_least_64_local");
+  CHECK(sizeof(uint_least8_t)  * 8 >= 8,  "uint_least8_at_least_8_local");
+  CHECK(sizeof(uint_least16_t) * 8 >= 16, "uint_least16_at_least_16_local");
+  CHECK(sizeof(uint_least32_t) * 8 >= 32, "uint_least32_at_least_32_local");
+  CHECK(sizeof(uint_least64_t) * 8 >= 64, "uint_least64_at_least_64_local");
+
+  /* Signed-vs-unsigned least-N pair must have the same width. */
+  CHECK(sizeof(int_least8_t)   == sizeof(uint_least8_t),  "least8_signed_unsigned_match");
+  CHECK(sizeof(int_least16_t)  == sizeof(uint_least16_t), "least16_signed_unsigned_match");
+  CHECK(sizeof(int_least32_t)  == sizeof(uint_least32_t), "least32_signed_unsigned_match");
+  CHECK(sizeof(int_least64_t)  == sizeof(uint_least64_t), "least64_signed_unsigned_match");
+
+  /* Fast-width: width ≥ N bits. */
+  CHECK(sizeof(int_fast8_t)    * 8 >= 8,  "int_fast8_at_least_8_local");
+  CHECK(sizeof(int_fast16_t)   * 8 >= 16, "int_fast16_at_least_16_local");
+  CHECK(sizeof(int_fast32_t)   * 8 >= 32, "int_fast32_at_least_32_local");
+  CHECK(sizeof(int_fast64_t)   * 8 >= 64, "int_fast64_at_least_64_local");
+  CHECK(sizeof(uint_fast8_t)   * 8 >= 8,  "uint_fast8_at_least_8_local");
+  CHECK(sizeof(uint_fast16_t)  * 8 >= 16, "uint_fast16_at_least_16_local");
+  CHECK(sizeof(uint_fast32_t)  * 8 >= 32, "uint_fast32_at_least_32_local");
+  CHECK(sizeof(uint_fast64_t)  * 8 >= 64, "uint_fast64_at_least_64_local");
+
+  CHECK(sizeof(int_fast8_t)    == sizeof(uint_fast8_t),  "fast8_signed_unsigned_match");
+  CHECK(sizeof(int_fast16_t)   == sizeof(uint_fast16_t), "fast16_signed_unsigned_match");
+  CHECK(sizeof(int_fast32_t)   == sizeof(uint_fast32_t), "fast32_signed_unsigned_match");
+  CHECK(sizeof(int_fast64_t)   == sizeof(uint_fast64_t), "fast64_signed_unsigned_match");
+
+  /* Helper-TU round-trip: confirms the LINKED libclib agrees. */
+  CHECK(clib_stdint_sizeof(CLIB_STDINT_SIZE_INT_LEAST8)   == sizeof(int_least8_t),   "int_least8_size_helper");
+  CHECK(clib_stdint_sizeof(CLIB_STDINT_SIZE_INT_LEAST64)  == sizeof(int_least64_t),  "int_least64_size_helper");
+  CHECK(clib_stdint_sizeof(CLIB_STDINT_SIZE_UINT_LEAST32) == sizeof(uint_least32_t), "uint_least32_size_helper");
+  CHECK(clib_stdint_sizeof(CLIB_STDINT_SIZE_INT_FAST16)   == sizeof(int_fast16_t),   "int_fast16_size_helper");
+  CHECK(clib_stdint_sizeof(CLIB_STDINT_SIZE_UINT_FAST64)  == sizeof(uint_fast64_t),  "uint_fast64_size_helper");
+
+  /* C11 §7.20.2.2/3: each limit must dominate the matching exact-N limit. */
+  CHECK((unsigned long long)INT_LEAST8_MAX  >= 127ull,                  "int_least8_max_dominates");
+  CHECK((unsigned long long)INT_LEAST16_MAX >= 32767ull,                "int_least16_max_dominates");
+  CHECK((unsigned long long)INT_LEAST32_MAX >= 2147483647ull,           "int_least32_max_dominates");
+  CHECK((unsigned long long)INT_LEAST64_MAX >= 9223372036854775807ull,  "int_least64_max_dominates");
+  CHECK((unsigned long long)UINT_LEAST8_MAX  >= 0xFFull,                "uint_least8_max_dominates");
+  CHECK((unsigned long long)UINT_LEAST16_MAX >= 0xFFFFull,              "uint_least16_max_dominates");
+  CHECK((unsigned long long)UINT_LEAST32_MAX >= 0xFFFFFFFFull,          "uint_least32_max_dominates");
+  CHECK((unsigned long long)UINT_LEAST64_MAX >= 0xFFFFFFFFFFFFFFFFull,  "uint_least64_max_dominates");
+
+  CHECK((unsigned long long)INT_FAST8_MAX   >= 127ull,                  "int_fast8_max_dominates");
+  CHECK((unsigned long long)INT_FAST16_MAX  >= 32767ull,                "int_fast16_max_dominates");
+  CHECK((unsigned long long)INT_FAST32_MAX  >= 2147483647ull,           "int_fast32_max_dominates");
+  CHECK((unsigned long long)INT_FAST64_MAX  >= 9223372036854775807ull,  "int_fast64_max_dominates");
+  CHECK((unsigned long long)UINT_FAST8_MAX   >= 0xFFull,                "uint_fast8_max_dominates");
+  CHECK((unsigned long long)UINT_FAST16_MAX  >= 0xFFFFull,              "uint_fast16_max_dominates");
+  CHECK((unsigned long long)UINT_FAST32_MAX  >= 0xFFFFFFFFull,          "uint_fast32_max_dominates");
+  CHECK((unsigned long long)UINT_FAST64_MAX  >= 0xFFFFFFFFFFFFFFFFull,  "uint_fast64_max_dominates");
+
+  /* Signed MIN = -MAX - 1 (two's complement). */
+  CHECK(INT_LEAST8_MIN  == (int_least8_t)(-INT_LEAST8_MAX  - 1),  "int_least8_min_twos_comp");
+  CHECK(INT_LEAST16_MIN == (int_least16_t)(-INT_LEAST16_MAX - 1), "int_least16_min_twos_comp");
+  CHECK(INT_LEAST32_MIN == (int_least32_t)(-INT_LEAST32_MAX - 1), "int_least32_min_twos_comp");
+  CHECK(INT_LEAST64_MIN == (int_least64_t)(-INT_LEAST64_MAX - 1), "int_least64_min_twos_comp");
+  CHECK(INT_FAST8_MIN   == (int_fast8_t)(-INT_FAST8_MAX  - 1),    "int_fast8_min_twos_comp");
+  CHECK(INT_FAST16_MIN  == (int_fast16_t)(-INT_FAST16_MAX - 1),   "int_fast16_min_twos_comp");
+  CHECK(INT_FAST32_MIN  == (int_fast32_t)(-INT_FAST32_MAX - 1),   "int_fast32_min_twos_comp");
+  CHECK(INT_FAST64_MIN  == (int_fast64_t)(-INT_FAST64_MAX - 1),   "int_fast64_min_twos_comp");
+
+  /* Helper-TU `maxof` agrees with the local-TU constant. */
+  CHECK(clib_stdint_maxof(CLIB_STDINT_SIZE_INT_LEAST32) == (unsigned long long)INT_LEAST32_MAX, "int_least32_max_helper");
+  CHECK(clib_stdint_maxof(CLIB_STDINT_SIZE_UINT_FAST16) == (unsigned long long)UINT_FAST16_MAX, "uint_fast16_max_helper");
+}
+
 /* ---- 8. symbol_set_pinned --------------------------------------------- */
 static void check_symbol_set_pinned(void) {
   unsigned long      (*p_size)(int) = clib_stdint_sizeof;
@@ -202,6 +283,16 @@ static void check_symbol_set_pinned(void) {
         "symbol_sizeof_callable");
   CHECK(p_max(CLIB_STDINT_SIZE_INT32)  == (unsigned long long)INT32_MAX,
         "symbol_maxof_callable");
+
+  /* slice 10b: least- / fast-width helpers reachable through the same surface. */
+  CHECK(p_size(CLIB_STDINT_SIZE_INT_LEAST64) == sizeof(int_least64_t),
+        "symbol_sizeof_least_callable");
+  CHECK(p_size(CLIB_STDINT_SIZE_UINT_FAST32) == sizeof(uint_fast32_t),
+        "symbol_sizeof_fast_callable");
+  CHECK(p_max(CLIB_STDINT_SIZE_INT_LEAST64)  == (unsigned long long)INT_LEAST64_MAX,
+        "symbol_maxof_least_callable");
+  CHECK(p_max(CLIB_STDINT_SIZE_UINT_FAST32)  == (unsigned long long)UINT_FAST32_MAX,
+        "symbol_maxof_fast_callable");
 
   /* Unknown `which` returns 0 from sizeof helper. */
   CHECK(p_size(CLIB_STDINT_SIZE_COUNT + 1) == 0u,
@@ -231,6 +322,9 @@ int main(void) {
 
   check_const_macros();
   if (!g_fail) fprintf(stdout, "TEST:PASS:clib_stdint:const_macros_pinned\n");
+
+  check_least_fast_widths();
+  if (!g_fail) fprintf(stdout, "TEST:PASS:clib_stdint:least_fast_pinned\n");
 
   check_symbol_set_pinned();
   if (!g_fail) fprintf(stdout, "TEST:PASS:clib_stdint:symbol_set_pinned\n");
