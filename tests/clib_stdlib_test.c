@@ -333,6 +333,38 @@ static void test_symbol_set_pinned(void) {
   PASS("symbol_set_pinned");
 }
 
+static void test_exit_macros(void) {
+  /* C11 §7.22: EXIT_SUCCESS must be defined and usable as an
+   * integer constant expression suitable for `return` / `exit()`. We
+   * pin the exact value (0) so a future drift that, e.g., redefines
+   * it to a non-zero status is caught here rather than silently
+   * inverting program-status semantics. */
+#ifndef EXIT_SUCCESS
+  printf("TEST:FAIL:clib_stdlib:exit_macros: EXIT_SUCCESS not defined\n");
+  g_fails++;
+#else
+  EXPECT_EQ_L(EXIT_SUCCESS, 0, "exit_macros");
+#endif
+#ifndef EXIT_FAILURE
+  printf("TEST:FAIL:clib_stdlib:exit_macros: EXIT_FAILURE not defined\n");
+  g_fails++;
+#else
+  /* C11 leaves EXIT_FAILURE implementation-defined non-zero; we pin
+   * the chosen value (1) so the SecureOS exit-status contract is
+   * stable for TinyCC's driver and the sosh `$?` round-trip. */
+  EXPECT_EQ_L(EXIT_FAILURE, 1, "exit_macros");
+  if (EXIT_FAILURE == 0) {
+    printf("TEST:FAIL:clib_stdlib:exit_macros: EXIT_FAILURE must be non-zero\n");
+    g_fails++;
+  }
+#endif
+  /* Usable in constant-expression contexts. */
+  enum { e_success = EXIT_SUCCESS, e_failure = EXIT_FAILURE };
+  EXPECT_EQ_L(e_success, 0, "exit_macros");
+  EXPECT_EQ_L(e_failure, 1, "exit_macros");
+  PASS("exit_macros");
+}
+
 int main(void) {
   printf("TEST:START:clib_stdlib\n");
 
@@ -351,6 +383,7 @@ int main(void) {
   test_strtoull_basic();
   test_strtoull_overflow_clamp();
   test_abs_labs();
+  test_exit_macros();
   test_symbol_set_pinned();
 
   if (g_fails != 0) {
