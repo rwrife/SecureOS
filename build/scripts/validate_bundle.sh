@@ -130,6 +130,12 @@ TEST_TARGETS=(
     # in `docs/abi/*.md` does not predate the file's last content
     # commit. Cheap to run, no env deps.
     abi_stamps_drift
+    # Issue #470: negative canary for --strict-no-skip mode. Asserts that
+    # default mode still SKIPs an unstamped docs/abi/*.md while
+    # --strict-no-skip + the STRICT_STAMPS=1 wrapper path both FAIL with
+    # ABI_STAMP:FAIL:<file>:no_stamp_line. Pure host-side check, no env
+    # deps.
+    abi_stamps_strict_no_skip
     # In-OS toolchain Phase 1 (plan
     # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
     # the /apps/dev developer directory + hello.c sample stage onto the disk
