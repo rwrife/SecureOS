@@ -171,6 +171,16 @@ TEST_TARGETS=(
     # behavior; jsonschema dependency already covered by the #414
     # toolchain container update.
     manifest_arena_bytes_range
+    # M7-TOOLCHAIN-001 slice 3 (issue #448, refs #404 / #421 / #424):
+    # the launcher-side enforcement peer of the schema sub-slice
+    # (#424). Verifies that `launcher_spawn_app_from_manifest()` (and
+    # its fs/broker siblings) clamp the optional manifest
+    # `runtime.arena_bytes` to `[PROC_ARENA_BYTES_DEFAULT,
+    # PROC_ARENA_BYTES_MAX]` at spawn time, with deny-by-default audit
+    # event + LAUNCHER_ERR_INVALID_MANIFEST for out-of-range values
+    # and no-op default-when-omitted parity. Same orphan-from-
+    # TEST_TARGETS gate shape as the rest of the M7 slice peers above.
+    launcher_arena_bytes
     # M7-TOOLCHAIN-001 slice 2 (issue #421): host-side smoke for the
     # `os_mem_brk` user-runtime wrapper landed alongside the kernel
     # bridge slot in the same PR. Pins the symbol export, the

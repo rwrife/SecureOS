@@ -73,6 +73,31 @@ extern "C" {
 #define PROC_ARENA_BYTES (1u * 1024u * 1024u)
 
 /*
+ * Per-app userland arena ceiling bounds (M7-TOOLCHAIN-001, plan
+ * `plans/2026-05-28-in-os-toolchain-self-hosting.md` §P1, issue #424).
+ *
+ * These are the inclusive `[DEFAULT, MAX]` clamp range the launcher
+ * applies to the optional manifest `runtime.arena_bytes` field at
+ * spawn time (see `docs/abi/manifest.md` §5.7 and
+ * `kernel/user/launcher.h`). They are kept separate from
+ * `PROC_ARENA_BYTES` (which sizes the launcher's _spawn-slot_ arena
+ * for `address_space_t` partitioning) because the two concepts are
+ * distinct: the spawn-slot arena is a kernel-internal partitioning
+ * budget, while `PROC_ARENA_BYTES_{DEFAULT,MAX}` is the v0 contract
+ * for the per-app userland heap window that `os_mem_brk` operates
+ * against. Adjusting `PROC_ARENA_BYTES` therefore does NOT require
+ * touching these constants (and vice versa).
+ *
+ * Values pinned by the schema in `manifests/schema/v0.json`
+ * (`runtime.arena_bytes` minimum/maximum) and the manifest-doc
+ * §5.7 enforcement table. Changing either bound is a v0 contract
+ * change — keep the four sources of truth (this header, the schema,
+ * the doc, and the manifest_arena_bytes_range test) in lockstep.
+ */
+#define PROC_ARENA_BYTES_DEFAULT (65536u)             /* 64 KiB */
+#define PROC_ARENA_BYTES_MAX     (16u * 1024u * 1024u) /* 16 MiB */
+
+/*
  * Concrete address-space shape. Field order is part of the v0
  * contract — tests pin sizeof/offsetof in aspace_carve_test.c. New
  * fields go at the end.
