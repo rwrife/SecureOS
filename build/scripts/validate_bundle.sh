@@ -226,6 +226,17 @@ TEST_TARGETS=(
     # surface that `tccpp.c` / `tccgen.c` and the `tcc_error*` /
     # `tcc_warning*` diagnostic paths depend on.
     clib_stdarg
+    # M7-TOOLCHAIN-004 slice 7 (issue #407, slice issue #446): freestanding
+    # `<setjmp.h>` nucleus in `user/libs/clib` — hand-rolled i386 + x86_64
+    # SysV callee-saved snapshot/restore implementing setjmp(env) /
+    # longjmp(env, val). Required by #408 (TinyCC freestanding port) for
+    # the tcc_error* / tcc_warning* recovery path that unwinds parse-time
+    # faults. Same parity shape as the str/mem (#416), ctype (#417),
+    # qsort (#418), stdlib (#428), errno (#430), and stdarg (#431) slices
+    # — userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` so a future PR cannot silently drop setjmp /
+    # longjmp from the public surface.
+    clib_setjmp
     # M7-TOOLCHAIN-004 slice 7 (issue #407, plan P3): freestanding
     # `bsearch` in `user/libs/clib`. Peer of the `qsort` slice (PR
     # #418) — the C standard pairs the two in <stdlib.h> because
