@@ -34,27 +34,42 @@
  *     mechanism used by glibc's, musl's, and clang's own
  *     `<stdint.h>`. No magic numbers in this header.
  *
- * Symbol coverage (slice 10):
+ * Symbol coverage (slice 10 + slice 10b):
  *   - Exact-width signed:   int8_t,  int16_t,  int32_t,  int64_t
  *   - Exact-width unsigned: uint8_t, uint16_t, uint32_t, uint64_t
+ *   - Least-width signed:   int_least{8,16,32,64}_t            (slice 10b)
+ *   - Least-width unsigned: uint_least{8,16,32,64}_t           (slice 10b)
+ *   - Fast-width signed:    int_fast{8,16,32,64}_t             (slice 10b)
+ *   - Fast-width unsigned:  uint_fast{8,16,32,64}_t            (slice 10b)
  *   - Pointer-width:        intptr_t, uintptr_t
  *   - Max-width:            intmax_t, uintmax_t
  *   - Limits:               INT{8,16,32,64}_{MIN,MAX},
  *                           UINT{8,16,32,64}_MAX,
+ *                           INT_LEAST{8,16,32,64}_{MIN,MAX},     (slice 10b)
+ *                           UINT_LEAST{8,16,32,64}_MAX,          (slice 10b)
+ *                           INT_FAST{8,16,32,64}_{MIN,MAX},      (slice 10b)
+ *                           UINT_FAST{8,16,32,64}_MAX,           (slice 10b)
  *                           INTPTR_{MIN,MAX}, UINTPTR_MAX,
  *                           INTMAX_{MIN,MAX}, UINTMAX_MAX
  *   - Constant macros:      INT{8,16,32,64}_C(v), UINT{8,16,32,64}_C(v),
  *                           INTMAX_C(v), UINTMAX_C(v)
  *   - SIZE_MAX, PTRDIFF_{MIN,MAX}
  *
+ * Slice 10b note (least- / fast- width families):
+ *   C11 §7.20.1.2/3 require these alongside the exact-width set, and
+ *   the constant-suffix macros `INTn_C(v)` / `UINTn_C(v)` are formally
+ *   typed as `int_leastn_t` / `uint_leastn_t` (§7.20.4.1), so slice 10
+ *   was technically already relying on them implicitly. Slice 10b
+ *   makes them present-and-pinned through the same compiler-builtin
+ *   path (`__INT_LEAST*_TYPE__` / `__INT_LEAST*_MAX__` and
+ *   `__INT_FAST*_TYPE__` / `__INT_FAST*_MAX__`) every modern Clang /
+ *   GCC / TinyCC defines for the supported targets, and adds drift
+ *   anchors + a `least_fast_pinned` sub-marker to the host unit test.
+ *   No ABI bump (additive optional surface, mirrors the no-bump
+ *   discipline shared with every other slice 10/11/12 nucleus).
+ *
  * Out of scope for this slice (folded in by later #407 slices once a
  * TinyCC drop forces them):
- *   - The least- / fast- width typedef families (`int_least*_t`,
- *     `int_fast*_t`, ...). C11 §7.20.1.2/3 require them, but TinyCC's
- *     own runtime does not consume them, and shipping them now without
- *     a use-site to pin against would invite drift. The `symbol_set_pinned`
- *     marker explicitly reserves an `int_least*` / `int_fast*` sub-marker
- *     for the next slice that actually needs them.
  *   - `<inttypes.h>` (printf / scanf format-string macros). Lives on
  *     top of `<stdio.h>`, which is itself deferred to the M7-TOOLCHAIN-004
  *     stdio slice.
@@ -109,6 +124,49 @@ typedef __UINTPTR_TYPE__ uintptr_t;
 typedef __INTMAX_TYPE__  intmax_t;
 typedef __UINTMAX_TYPE__ uintmax_t;
 
+/* --- least-width integer types (C11 §7.20.1.2, slice 10b) -------------- *
+ *
+ * `int_leastN_t` is the *smallest* integer type with at least N bits.
+ * Required to exist for N in {8, 16, 32, 64} (C11 §7.20.1.2¶3). The
+ * compiler exposes `__INT_LEASTN_TYPE__` / `__UINT_LEASTN_TYPE__` for
+ * every supported target; using them keeps the typedef target-correct
+ * on both the x86_64 cross-compiler and the host gcc/clang.
+ *
+ * On every target the project ships against today the least-width
+ * typedef is the matching exact-width one, but encoding that
+ * assumption locally would defeat the purpose of the typedef — defer
+ * to the compiler builtin.
+ */
+
+typedef __INT_LEAST8_TYPE__   int_least8_t;
+typedef __INT_LEAST16_TYPE__  int_least16_t;
+typedef __INT_LEAST32_TYPE__  int_least32_t;
+typedef __INT_LEAST64_TYPE__  int_least64_t;
+
+typedef __UINT_LEAST8_TYPE__  uint_least8_t;
+typedef __UINT_LEAST16_TYPE__ uint_least16_t;
+typedef __UINT_LEAST32_TYPE__ uint_least32_t;
+typedef __UINT_LEAST64_TYPE__ uint_least64_t;
+
+/* --- fast-width integer types (C11 §7.20.1.3, slice 10b) --------------- *
+ *
+ * `int_fastN_t` is the implementation's *fastest* integer type with
+ * at least N bits. Required for the same N ∈ {8, 16, 32, 64} set
+ * (C11 §7.20.1.3¶2). On x86_64 the canonical choice for N > 8 is
+ * `long`, which is what both Clang and GCC expose via
+ * `__INT_FASTN_TYPE__`.
+ */
+
+typedef __INT_FAST8_TYPE__    int_fast8_t;
+typedef __INT_FAST16_TYPE__   int_fast16_t;
+typedef __INT_FAST32_TYPE__   int_fast32_t;
+typedef __INT_FAST64_TYPE__   int_fast64_t;
+
+typedef __UINT_FAST8_TYPE__   uint_fast8_t;
+typedef __UINT_FAST16_TYPE__  uint_fast16_t;
+typedef __UINT_FAST32_TYPE__  uint_fast32_t;
+typedef __UINT_FAST64_TYPE__  uint_fast64_t;
+
 /* --- exact-width limits ------------------------------------------------ *
  *
  * The compiler exposes one positive constant per width
@@ -131,6 +189,46 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 #define UINT16_MAX __UINT16_MAX__
 #define UINT32_MAX __UINT32_MAX__
 #define UINT64_MAX __UINT64_MAX__
+
+/* --- least- / fast-width limits (C11 §7.20.2.2/3, slice 10b) ----------- *
+ *
+ * Each `INT_LEASTn_MAX` / `INT_FASTn_MAX` is at least 2^(n-1) - 1 and
+ * each `UINT_LEASTn_MAX` / `UINT_FASTn_MAX` is at least 2^n - 1, but
+ * may be larger if the chosen typedef is wider than n bits (e.g.
+ * `int_fast16_t == long` on x86_64). The compiler builtin exposes
+ * the *actual* width's max so the macro stays self-consistent with
+ * the typedef.
+ */
+
+#define INT_LEAST8_MAX   __INT_LEAST8_MAX__
+#define INT_LEAST16_MAX  __INT_LEAST16_MAX__
+#define INT_LEAST32_MAX  __INT_LEAST32_MAX__
+#define INT_LEAST64_MAX  __INT_LEAST64_MAX__
+
+#define INT_LEAST8_MIN   (-INT_LEAST8_MAX  - 1)
+#define INT_LEAST16_MIN  (-INT_LEAST16_MAX - 1)
+#define INT_LEAST32_MIN  (-INT_LEAST32_MAX - 1)
+#define INT_LEAST64_MIN  (-INT_LEAST64_MAX - 1)
+
+#define UINT_LEAST8_MAX  __UINT_LEAST8_MAX__
+#define UINT_LEAST16_MAX __UINT_LEAST16_MAX__
+#define UINT_LEAST32_MAX __UINT_LEAST32_MAX__
+#define UINT_LEAST64_MAX __UINT_LEAST64_MAX__
+
+#define INT_FAST8_MAX    __INT_FAST8_MAX__
+#define INT_FAST16_MAX   __INT_FAST16_MAX__
+#define INT_FAST32_MAX   __INT_FAST32_MAX__
+#define INT_FAST64_MAX   __INT_FAST64_MAX__
+
+#define INT_FAST8_MIN    (-INT_FAST8_MAX  - 1)
+#define INT_FAST16_MIN   (-INT_FAST16_MAX - 1)
+#define INT_FAST32_MIN   (-INT_FAST32_MAX - 1)
+#define INT_FAST64_MIN   (-INT_FAST64_MAX - 1)
+
+#define UINT_FAST8_MAX   __UINT_FAST8_MAX__
+#define UINT_FAST16_MAX  __UINT_FAST16_MAX__
+#define UINT_FAST32_MAX  __UINT_FAST32_MAX__
+#define UINT_FAST64_MAX  __UINT_FAST64_MAX__
 
 /* --- pointer-width / max-width limits ---------------------------------- */
 
@@ -249,6 +347,24 @@ enum {
   CLIB_STDINT_SIZE_UINTPTR,
   CLIB_STDINT_SIZE_INTMAX,
   CLIB_STDINT_SIZE_UINTMAX,
+  /* slice 10b — least-width family */
+  CLIB_STDINT_SIZE_INT_LEAST8,
+  CLIB_STDINT_SIZE_INT_LEAST16,
+  CLIB_STDINT_SIZE_INT_LEAST32,
+  CLIB_STDINT_SIZE_INT_LEAST64,
+  CLIB_STDINT_SIZE_UINT_LEAST8,
+  CLIB_STDINT_SIZE_UINT_LEAST16,
+  CLIB_STDINT_SIZE_UINT_LEAST32,
+  CLIB_STDINT_SIZE_UINT_LEAST64,
+  /* slice 10b — fast-width family */
+  CLIB_STDINT_SIZE_INT_FAST8,
+  CLIB_STDINT_SIZE_INT_FAST16,
+  CLIB_STDINT_SIZE_INT_FAST32,
+  CLIB_STDINT_SIZE_INT_FAST64,
+  CLIB_STDINT_SIZE_UINT_FAST8,
+  CLIB_STDINT_SIZE_UINT_FAST16,
+  CLIB_STDINT_SIZE_UINT_FAST32,
+  CLIB_STDINT_SIZE_UINT_FAST64,
   CLIB_STDINT_SIZE_COUNT
 };
 
