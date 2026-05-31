@@ -347,6 +347,14 @@ TEST_TARGETS=(
     # forwarder to `os_process_exit(1)` once #406 lands without
     # touching the slice.
     clib_assert
+    # On-target `clib_os_assert` forwarder (#407 follow-up) that wires
+    # the registered-handler hook above to `os_process_exit(1)` (the
+    # syscall landed by #406 / PR #427). Host smoke pins the
+    # `clib_assert_handler_fn` signature compatibility and the
+    # `clib_os_assert_install` convenience-installer symbol. Same
+    # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
+    # #401 / #414 / #426 / #432 / #455.
+    clib_os_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate

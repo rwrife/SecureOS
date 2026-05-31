@@ -154,6 +154,8 @@ Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
 |-------------------------------|--------------------------------------------------------------------|-------|
 | `clib_malloc_init`            | `int clib_malloc_init(void *seed_base, size_t seed_bytes, clib_brk_fn brk, void *brk_ctx)` | |
 | `clib_malloc_shutdown`        | `void clib_malloc_shutdown(void)`                                  | |
+| `clib_os_assert_forwarder`    | `void clib_os_assert_forwarder(const char *expr, const char *file, int line, const char *func)` | On-target `<clib/assert.h>` handler forwarder; calls `os_process_exit(1)` (issue #407 follow-up). |
+| `clib_os_assert_install`      | `void clib_os_assert_install(void)`                                | Convenience installer: `clib_assert_set_handler(clib_os_assert_forwarder)`. |
 | `clib_malloc_min_seed_bytes`  | `size_t clib_malloc_min_seed_bytes(void)`                          | |
 | `clib_malloc`                 | `void *clib_malloc(size_t size)`                                   | |
 | `clib_free`                   | `void clib_free(void *ptr)`                                        | |
@@ -276,6 +278,8 @@ clib_malloc_get_stats
 clib_malloc_init
 clib_malloc_min_seed_bytes
 clib_malloc_shutdown
+clib_os_assert_forwarder
+clib_os_assert_install
 clib_realloc
 clib_stdalign_eval
 clib_stdalign_op_count
