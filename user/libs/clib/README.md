@@ -433,3 +433,46 @@ TEST:PASS:clib_stdint:const_macros_pinned
 TEST:PASS:clib_stdint:symbol_set_pinned
 TEST:PASS:clib_stdint
 ```
+
+## Slice 11 — `<inttypes.h>` format-string nucleus (issue #407)
+
+C11 §7.8 specifies `<inttypes.h>` as a layer on top of `<stdint.h>`
+for printf/scanf format-string macros (`PRId32`, `SCNu64`, etc.).
+TinyCC ([#408](https://github.com/rwrife/SecureOS/issues/408)) and
+any non-trivial C source it compiles parse these macros pervasively.
+This slice ships the macros only; the matching function family
+(`imaxabs` / `imaxdiv` / `strtoimax` / `strtoumax`) is intentionally
+deferred to a follow-on slice that lives next to its `<stdlib.h>`
+peers (`abs` / `div` / `strtol`).
+
+The macros are pure preprocessor — no `<stdio.h>` dependency at the
+language level — so this slice does not block on the stdio nucleus
+(#447 / PR #453). Length-modifier resolution is driven by the
+compiler-provided `__INTn_FMTd__` builtins where available (Clang),
+with a `__SIZEOF_LONG__` / `__SIZEOF_POINTER__` fallback that keeps
+the header target-correct on both ILP32 and LP64 GCC.
+
+**Shipped symbols:**
+
+- Exact-width PRI / SCN: `PRI{d,i,u,o,x,X}{8,16,32,64}`,
+  `SCN{d,i,u,o,x}{8,16,32,64}`
+- Least-width / fast-width family rows (parity with slice 10b
+  typedefs, PR #457): `PRI*LEAST{8,16,32,64}`, `PRI*FAST{8,16,32,64}`,
+  and the matching `SCN*LEAST*` / `SCN*FAST*`
+- Max-width: `PRI{d,i,u,o,x,X}MAX`, `SCN{d,i,u,o,x}MAX`
+- Pointer-width: `PRI{d,i,u,o,x,X}PTR`, `SCN{d,i,u,o,x}PTR`
+
+Out of scope this slice (deferred to a follow-on PR): `imaxabs`,
+`imaxdiv`, `imaxdiv_t`, `strtoimax`, `strtoumax` — these belong with
+their `<stdlib.h>` peers and want to share the overflow-clamp
+plumbing the strtol{,l} slice landed.
+
+```
+$ bash build/scripts/test.sh clib_inttypes
+TEST:PASS:clib_inttypes:macro_shape_pinned
+TEST:PASS:clib_inttypes:printf_roundtrip_pinned
+TEST:PASS:clib_inttypes:least_fast_format_pinned
+TEST:PASS:clib_inttypes:max_ptr_roundtrip_pinned
+TEST:PASS:clib_inttypes:symbol_set_pinned
+TEST:PASS:clib_inttypes
+```
