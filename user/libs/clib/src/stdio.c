@@ -534,6 +534,58 @@ int printf(const char *fmt, ...) {
   return r;
 }
 
+/* ---- snprintf / vsnprintf -----------------------------------------------
+ *
+ * Pure-memory format renderers — no FILE, no backend, no syscalls.
+ * Reuses the exact same `do_vfprintf_into` walker as `vfprintf` so
+ * the spec set stays in lock-step (one place to add features, one
+ * place to add bugs).
+ *
+ * C11 §7.21.6.5 (snprintf):
+ *   - if `size > 0`, writes up to `size - 1` formatted bytes to
+ *     `buf` followed by a terminating `'\0'`;
+ *   - if `size == 0`, `buf` may be NULL and no bytes are written;
+ *   - returns the number of bytes the *full* formatted output
+ *     would have required (NUL excluded), so callers can detect
+ *     truncation via `ret >= size`.
+ *
+ * On a NULL `fmt` we return -1 (mirrors `vfprintf`).
+ */
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) {
+  if (fmt == 0) return -1;
+  /* If size == 0 we still need to compute the full length so the
+   * caller can size a buffer. We point the walker at a 1-byte
+   * scratch slot it will overwrite but never read; sink_put tracks
+   * `used` independently of `cap`, so the returned length is the
+   * full requested length. */
+  unsigned char scratch;
+  unsigned char *out;
+  size_t         out_cap;
+  if (size == 0 || buf == 0) {
+    out     = &scratch;
+    out_cap = 0;
+  } else {
+    out     = (unsigned char *)buf;
+    /* Reserve one slot for the trailing NUL. */
+    out_cap = size - 1;
+  }
+  fmt_sink_t sk = { out, out_cap, 0 };
+  int        full_len = do_vfprintf_into(&sk, fmt, ap);
+  if (size > 0 && buf != 0) {
+    size_t nul_at = (sk.used < out_cap) ? sk.used : out_cap;
+    buf[nul_at] = '\0';
+  }
+  return full_len;
+}
+
+int snprintf(char *buf, size_t size, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  int r = vsnprintf(buf, size, fmt, ap);
+  va_end(ap);
+  return r;
+}
+
 /* ---- eof / err ----------------------------------------------------------- */
 
 int feof(FILE *fp)   { return (fp != 0 && fp->eof_flag) ? 1 : 0; }

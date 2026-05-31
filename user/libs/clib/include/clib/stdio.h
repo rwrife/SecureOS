@@ -15,6 +15,7 @@
  *   - `fopen` / `fclose` / `fread` / `fwrite` / `fflush`
  *   - `fputs` / `fputc`
  *   - `fprintf` / `vfprintf` / `printf`
+ *   - `snprintf` / `vsnprintf` (C11 §7.21.6.5 / §7.21.6.13)
  *   - format specifiers TinyCC and `cc` actually emit:
  *       `%s %d %u %x %p %c %%`
  *       `%ld %lu` for `long` ints
@@ -182,6 +183,31 @@ int    fputc(int c, FILE *fp);
 int    fprintf(FILE *fp, const char *fmt, ...);
 int    vfprintf(FILE *fp, const char *fmt, va_list ap);
 int    printf(const char *fmt, ...);
+
+/*
+ * `snprintf` / `vsnprintf` (C11 §7.21.6.5 / §7.21.6.13).
+ *
+ * Format-render into a caller-supplied buffer. The format spec set
+ * is identical to `vfprintf` (see the implementation TU and
+ * `docs/abi/clib-symbols.md` for the canonical list). NUL-
+ * termination semantics follow C11 exactly:
+ *
+ *   - if `size > 0`, at most `size - 1` formatted bytes are written
+ *     to `buf` and a trailing `'\0'` is always placed at
+ *     `buf[min(size-1, written)]`;
+ *   - if `size == 0`, `buf` may be NULL and no bytes are written;
+ *   - the return value is the number of bytes the full formatted
+ *     output would have produced (excluding the NUL), i.e. the
+ *     length needed by a buffer big enough to hold everything.
+ *     Callers detect truncation with `ret >= size`.
+ *
+ * On error (NULL `fmt`) the return value is negative.
+ *
+ * No floats, no `*`-from-arg width, no positional args — same
+ * scope rules as `vfprintf` (issue #447).
+ */
+int    snprintf(char *buf, size_t size, const char *fmt, ...);
+int    vsnprintf(char *buf, size_t size, const char *fmt, va_list ap);
 
 /* `feof` / `ferror`: TinyCC tests these on its source-file reads. */
 int feof(FILE *fp);
