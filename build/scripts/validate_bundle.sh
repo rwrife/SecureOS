@@ -275,6 +275,19 @@ TEST_TARGETS=(
     # width or drop a constant. Cheap host-side check; wire so a
     # regression flips the bundle.
     clib_stdint
+    # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<iso646.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<iso646.h>` as one of
+    # the freestanding-required headers; TinyCC (#408), the stdlib slice
+    # (PR #428), and any third-party SDK code consumed by the in-OS
+    # toolchain (#403) are entitled to `#include <iso646.h>`. Same parity
+    # shape as the str/mem, ctype, qsort, `<limits.h>`, `<stddef.h>`, and
+    # `<stdint.h>` slices — header-only nucleus + a tiny `src/iso646.c`
+    # helper TU that folds each macro into an integer constant the host
+    # test round-trips, drift-pinned via a `symbol_set_pinned` sub-marker
+    # so a future TinyCC drop or unrelated PR cannot silently redefine an
+    # operator-spelling macro (e.g. `#define or  &` instead of `||`).
+    # Cheap host-side check; wire so a regression flips the bundle.
+    clib_iso646
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
