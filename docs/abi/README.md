@@ -26,6 +26,16 @@ changes are deliberate and reviewable rather than emergent.
 - [ipc-wire.md](ipc-wire.md) — IPC wire format (`ipc_msg_v0`) + error
   model (`ipc_result_t`) for `OS_ABI_VERSION = 0`. Specified by #194;
   implementation tracked by the M1 sync-IPC plan (#180 / #185).
+- [capability-deny-contract.md](capability-deny-contract.md) — canonical
+  capability-denied return code (`OS_STATUS_DENIED`) and the
+  `CAP:DENY:<subject>:<cap_name>:<resource>` serial-log marker grammar
+  that every deny-path service (M2 console, M3 fs, M4 broker, IPC,
+  launcher, sosh) MUST emit. Cross-referenced by
+  [`capability-registry.md`](capability-registry.md) §`deny_marker`,
+  [`ipc-wire.md`](ipc-wire.md) §`IPC_ERR_CAP_DENIED`,
+  [`manifest.md`](manifest.md), and the deny-marker formatter in
+  `kernel/cap/cap_deny_marker.c`. Originally specified by
+  [#164](https://github.com/rwrife/SecureOS/issues/164).
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
 - [clib-symbols.md](clib-symbols.md) — Public symbol surface of
@@ -50,4 +60,4 @@ touch the underlying surface (a syscall signature, a capability ID, the
 launcher API, the manifest layout), bump the verification line in the
 corresponding doc in the same change.
 
-Last verified against commit: b08a32c362599b3ec8235c0c3a451d37d3cf92f3
+Last verified against commit: e889994e520a81120633e5dfda5c0ee08e3b1e89
