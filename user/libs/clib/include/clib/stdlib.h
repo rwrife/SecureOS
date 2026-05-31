@@ -29,6 +29,11 @@
  *   Integer utilities:
  *     - abs
  *     - labs
+ *   Program-status constants (slice 4b, added 2026-05-31):
+ *     - EXIT_SUCCESS  (C11 §7.22, value 0)
+ *     - EXIT_FAILURE  (C11 §7.22, value 1 — implementation-defined
+ *                      non-zero; we pin 1 to match TinyCC's expectation
+ *                      and the glibc/musl/newlib convention)
  *
  * Out of scope for this slice (folded in by later #407 slices):
  *   - atof / strtod (floating point; TinyCC reads no float command-line
@@ -62,6 +67,32 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* --- program-status constants ------------------------------------------
+ *
+ * C11 §7.22 mandates `EXIT_SUCCESS` and `EXIT_FAILURE` as macros that
+ * expand to integer constant expressions usable as the argument to
+ * `exit()` (and, by extension, as a `main()` return value). The
+ * standard fixes `EXIT_SUCCESS` at the same status as a `0` return;
+ * `EXIT_FAILURE` is implementation-defined non-zero. We pin both
+ * values explicitly so:
+ *
+ *   - TinyCC's driver (`tcc.c`, #408) — which spells exit status as
+ *     `return EXIT_FAILURE;` on a failed parse / link — links
+ *     unchanged against `libclib.a`.
+ *   - The on-target `cc` driver app (#409) propagates a numerically
+ *     stable failure status to the sosh `$?` round-trip pinned by
+ *     #406's `os_process_exit` wiring.
+ *   - The host unit test (`clib_stdlib:exit_macros`) can pin the exact
+ *     values rather than "any non-zero int" — keeps regressions
+ *     detectable.
+ *
+ * Value choices match the glibc / musl / newlib / TinyCC convention
+ * (0 / 1). No header on the freestanding side exposes the `exit()`
+ * function itself; the macros are usable purely as integer constants.
+ */
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
 
 /* --- numeric parse ------------------------------------------------------ */
 
