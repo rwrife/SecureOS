@@ -9,6 +9,7 @@ clib_float_eval_int
 clib_float_fp_op_count
 clib_float_int_op_count
 clib_free
+clib_inttypes_fmt
 clib_iso646_eval
 clib_iso646_op_count
 clib_limits_char_bit

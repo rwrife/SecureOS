@@ -303,6 +303,15 @@ TEST_TARGETS=(
     # width or drop a constant. Cheap host-side check; wire so a
     # regression flips the bundle.
     clib_stdint
+    # M7-TOOLCHAIN-004 slice 11 (issue #407): freestanding `<inttypes.h>`
+    # format-string nucleus in `user/libs/clib`. Layers PRI*/SCN*
+    # macros on top of the slice 10 / 10b stdint typedefs (PRs #437,
+    # #457). Pure-preprocessor surface (no stdio dependency); the test
+    # round-trips canonical decimal/hex/octal spellings against the
+    # host's snprintf and pins least/fast-width macros to their
+    # exact-width counterparts. The `symbol_set_pinned` sub-marker
+    # drift-anchors each macro through the src/inttypes.c helper TU.
+    clib_inttypes
     # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<iso646.h>`
     # nucleus in `user/libs/clib`. C11 §4¶6 lists `<iso646.h>` as one of
     # the freestanding-required headers; TinyCC (#408), the stdlib slice

@@ -97,6 +97,12 @@ Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
 | `clib_stdint_sizeof`  | `unsigned long clib_stdint_sizeof(int which)` | drift anchor for exact-width / pointer-width / max-width typedef sizes |
 | `clib_stdint_maxof`   | `unsigned long long clib_stdint_maxof(int which)` | drift anchor for `INTn_MAX`/`UINTn_MAX`/`SIZE_MAX`/`PTRDIFF_MAX` |
 
+### `clib/inttypes.h` (M7-TOOLCHAIN-004 slice 11 / PR #459)
+
+| Symbol                | Signature                                 | Notes |
+| --------------------- | ----------------------------------------- | ----- |
+| `clib_inttypes_fmt`   | `const char *clib_inttypes_fmt(int which)` | drift anchor for `PRI*`/`SCN*` format-string macros (exact-width, least, fast, max, ptr) |
+
 ### `clib/iso646.h` (M7-TOOLCHAIN-004 slice)
 
 | Symbol                   | Signature                              | Notes |
@@ -260,6 +266,7 @@ clib_float_eval_int
 clib_float_fp_op_count
 clib_float_int_op_count
 clib_free
+clib_inttypes_fmt
 clib_iso646_eval
 clib_iso646_op_count
 clib_limits_char_bit
