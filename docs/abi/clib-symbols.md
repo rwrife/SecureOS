@@ -206,6 +206,39 @@ Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
 | `strtok`  | `char *strtok(char *s, const char *delim)`                         | slice 12 / PR #445; static-state |
 | `strtok_r`| `char *strtok_r(char *s, const char *delim, char **saveptr)`       | slice 12 / PR #445; re-entrant POSIX variant |
 
+### `clib/stdio.h` (slice 8 / issue #447)
+
+Freestanding `<stdio.h>` nucleus routed through a swappable
+`clib_stdio_backend_t` function-pointer table. The embedder registers
+the backend at init (`clib_stdio_init`); on-target it wraps
+`os_fs_*` + `os_console_write`, on the host the test harness installs
+a recorder shim.
+
+| Symbol               | Signature                                                                       | Notes |
+|----------------------|---------------------------------------------------------------------------------|-------|
+| `clib_stdio_init`    | `int clib_stdio_init(const clib_stdio_backend_t *backend)`                      | embedder hook; rejects NULL backend |
+| `clib_stdio_shutdown`| `void clib_stdio_shutdown(void)`                                                | resets FILE pool + backend |
+| `stdin`              | `FILE *stdin`                                                                   | sentinel; outside FILE pool |
+| `stdout`             | `FILE *stdout`                                                                  | sentinel; routes through `console_write` |
+| `stderr`             | `FILE *stderr`                                                                  | sentinel; routes through `console_write` |
+| `fopen`              | `FILE *fopen(const char *path, const char *mode)`                               | modes: `r`, `w`, `r+`, `w+`; rejects unknown |
+| `fclose`             | `int fclose(FILE *fp)`                                                          | flushes; no-op on sentinels |
+| `fread`              | `size_t fread(void *buf, size_t sz, size_t n, FILE *fp)`                        |  |
+| `fwrite`             | `size_t fwrite(const void *buf, size_t sz, size_t n, FILE *fp)`                 |  |
+| `fflush`             | `int fflush(FILE *fp)`                                                          | NULL flushes all open FILEs |
+| `fputs`              | `int fputs(const char *s, FILE *fp)`                                            |  |
+| `fputc`              | `int fputc(int c, FILE *fp)`                                                    |  |
+| `fprintf`            | `int fprintf(FILE *fp, const char *fmt, ...)`                                   | minimal printf spec set |
+| `vfprintf`           | `int vfprintf(FILE *fp, const char *fmt, va_list ap)`                           | 1 KiB stack buffer; returns full requested length |
+| `printf`             | `int printf(const char *fmt, ...)`                                              | forwards to `vfprintf(stdout, ...)` |
+| `feof`               | `int feof(FILE *fp)`                                                            |  |
+| `ferror`             | `int ferror(FILE *fp)`                                                          |  |
+
+printf spec set: `%s %d %i %u %x %p %c %% %ld %li %lu %lx`, optional
+width (`%8d`), zero-pad (`%08d`), left-justify (`%-5s`). Unsupported
+specs echo the literal `%...` sequence; `%p` always emits the `0x`
+prefix.
+
 ## Canonical pin
 
 The block below is the **machine-checkable** symbol pin. It MUST stay
@@ -249,11 +282,23 @@ clib_stddef_offsetof_probe
 clib_stddef_sizeof
 clib_stdint_maxof
 clib_stdint_sizeof
+clib_stdio_init
+clib_stdio_shutdown
 clib_stdnoreturn_eval
 clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
 errno
+fclose
+feof
+ferror
+fflush
+fopen
+fprintf
+fputc
+fputs
+fread
+fwrite
 isalnum
 isalpha
 isascii
@@ -273,7 +318,11 @@ memcmp
 memcpy
 memmove
 memset
+printf
 qsort
+stderr
+stdin
+stdout
 strcat
 strchr
 strcmp
@@ -296,6 +345,7 @@ strtoul
 strtoull
 tolower
 toupper
+vfprintf
 ```
 <!-- clib-symbols:end -->
 
