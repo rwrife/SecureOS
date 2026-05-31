@@ -13,6 +13,17 @@
 
 #include "../user/libs/clib/include/clib/stdlib.h"
 
+/*
+ * Pull in the freestanding <errno.h> nucleus so the errno-on-overflow
+ * follow-up to PR #430 can be asserted directly against OUR `errno`
+ * global and macro family rather than glibc's. The header guards on
+ * SECUREOS_USER_LIBS_CLIB_ERRNO_H and the macro values match musl /
+ * Linux numbering, so transitive inclusion of glibc's <errno.h>
+ * (which does NOT happen via <stdio.h> on Debian bookworm — same
+ * property the slice-5 test relies on) would still agree on numbering.
+ */
+#include "../user/libs/clib/include/clib/errno.h"
+
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -152,6 +163,111 @@ static void test_strtol_overflow_clamp(void) {
   snprintf(buf, sizeof buf, "%ld", LONG_MAX);
   EXPECT_EQ_L(strtol(buf, &end, 10), LONG_MAX, "strtol_overflow_clamp");
   PASS("strtol_overflow_clamp");
+}
+
+/* ---------- errno-on-overflow follow-up to slice 5 (PR #430) ----------- *
+ *
+ * The slice-5 errno nucleus shipped the `int errno` global + the
+ * ERANGE / EINVAL macros precisely so the stdlib clamp paths could
+ * flip from "silent" to canonical ISO C / POSIX `errno = ERANGE`.
+ * These sub-assertions pin that contract:
+ *
+ *   - Overflow on any of strtol/strtoul/strtoll/strtoull sets
+ *     errno to ERANGE (in addition to clamping the return value).
+ *   - A bad `base` argument sets errno to EINVAL (POSIX extension;
+ *     musl matches).
+ *   - A successful parse does NOT clobber a caller-preset errno.
+ */
+static void test_errno_overflow_set_erange(void) {
+  char *end;
+  errno = 0;
+  (void)strtol("99999999999999999999999999999999", &end, 10);
+  EXPECT_EQ_L(errno, ERANGE, "errno_overflow_set_erange");
+
+  errno = 0;
+  (void)strtol("-99999999999999999999999999999999", &end, 10);
+  EXPECT_EQ_L(errno, ERANGE, "errno_overflow_set_erange");
+
+  errno = 0;
+  (void)strtoul("99999999999999999999999999999999", &end, 10);
+  EXPECT_EQ_L(errno, ERANGE, "errno_overflow_set_erange");
+
+  errno = 0;
+  (void)strtoll("99999999999999999999999999999999", &end, 10);
+  EXPECT_EQ_L(errno, ERANGE, "errno_overflow_set_erange");
+
+  errno = 0;
+  (void)strtoll("-99999999999999999999999999999999", &end, 10);
+  EXPECT_EQ_L(errno, ERANGE, "errno_overflow_set_erange");
+
+  errno = 0;
+  (void)strtoull("99999999999999999999999999999999", &end, 10);
+  EXPECT_EQ_L(errno, ERANGE, "errno_overflow_set_erange");
+  PASS("errno_overflow_set_erange");
+}
+
+static void test_errno_invalid_base_set_einval(void) {
+  char *end;
+  errno = 0;
+  (void)strtol("10", &end, 1);
+  EXPECT_EQ_L(errno, EINVAL, "errno_invalid_base_set_einval");
+
+  errno = 0;
+  (void)strtol("10", &end, 37);
+  EXPECT_EQ_L(errno, EINVAL, "errno_invalid_base_set_einval");
+
+  errno = 0;
+  (void)strtoul("10", &end, 1);
+  EXPECT_EQ_L(errno, EINVAL, "errno_invalid_base_set_einval");
+
+  errno = 0;
+  (void)strtoll("10", &end, 1);
+  EXPECT_EQ_L(errno, EINVAL, "errno_invalid_base_set_einval");
+
+  errno = 0;
+  (void)strtoull("10", &end, 37);
+  EXPECT_EQ_L(errno, EINVAL, "errno_invalid_base_set_einval");
+  PASS("errno_invalid_base_set_einval");
+}
+
+static void test_errno_success_preserved(void) {
+  /*
+   * Canonical contract: errno is set on error, left alone on success.
+   * Preset errno to a sentinel (EBADF) and confirm a clean parse does
+   * not clobber it. Also confirms a "no digits" call (which returns 0
+   * but is not an overflow) does not clobber errno — same musl posture.
+   */
+  char *end;
+  errno = EBADF;
+  long v = strtol("  +42x", &end, 10);
+  EXPECT_EQ_L(v, 42L,             "errno_success_preserved");
+  EXPECT_EQ_L(errno, EBADF,       "errno_success_preserved");
+
+  errno = EBADF;
+  (void)strtoul("0xff", &end, 0);
+  EXPECT_EQ_L(errno, EBADF,       "errno_success_preserved");
+
+  errno = EBADF;
+  (void)strtoll("8589934592", &end, 10);
+  EXPECT_EQ_L(errno, EBADF,       "errno_success_preserved");
+
+  errno = EBADF;
+  (void)strtoull("42", &end, 10);
+  EXPECT_EQ_L(errno, EBADF,       "errno_success_preserved");
+
+  /* No-digits path: returns 0, leaves errno untouched. */
+  errno = EBADF;
+  long w = strtol("  abc", &end, 10);
+  EXPECT_EQ_L(w, 0L,              "errno_success_preserved");
+  EXPECT_EQ_L(errno, EBADF,       "errno_success_preserved");
+
+  /* LONG_MAX exactly: not an overflow, must not set errno. */
+  char buf[64];
+  snprintf(buf, sizeof buf, "%ld", LONG_MAX);
+  errno = EBADF;
+  (void)strtol(buf, &end, 10);
+  EXPECT_EQ_L(errno, EBADF,       "errno_success_preserved");
+  PASS("errno_success_preserved");
 }
 
 static void test_strtol_invalid_base(void) {
@@ -382,6 +498,9 @@ int main(void) {
   test_strtoll_invalid_base();
   test_strtoull_basic();
   test_strtoull_overflow_clamp();
+  test_errno_overflow_set_erange();
+  test_errno_invalid_base_set_einval();
+  test_errno_success_preserved();
   test_abs_labs();
   test_exit_macros();
   test_symbol_set_pinned();
