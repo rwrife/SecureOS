@@ -192,6 +192,13 @@ TEST_TARGETS=(
     # no env deps, no syscalls. Drift on any shipped symbol flips the bundle
     # to FAIL before TinyCC (P4) wires in.
     clib_stdlib
+    # M7-TOOLCHAIN-004 slice (issue #407, plan P3): freestanding <float.h>
+    # nucleus in `user/libs/clib`. Final freestanding-required header from
+    # C11 §4¶6 (peer to <stddef.h> / <stdint.h> / <limits.h> / <stdarg.h>
+    # / <stdbool.h> / <iso646.h> / <stdalign.h>). Pure host-side check,
+    # no env deps, no syscalls. Drift on any shipped macro flips the
+    # bundle to FAIL before TinyCC (P4) starts consuming the header.
+    clib_float
     # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
     # `os_process_spawn` user-runtime wrapper. Pairs with
     # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
@@ -230,6 +237,97 @@ TEST_TARGETS=(
     # `symbol_set_pinned` so a future PR cannot silently drop setjmp /
     # longjmp from the public surface.
     clib_setjmp
+    # M7-TOOLCHAIN-004 slice 7 (issue #407, plan P3): freestanding
+    # `bsearch` in `user/libs/clib`. Peer of the `qsort` slice (PR
+    # #418) — the C standard pairs the two in <stdlib.h> because
+    # callers typically sort then search the same array. Pure host
+    # side check, no env / syscall deps, drift-pinned via a
+    # `symbol_set_pinned` sub-marker so a future TinyCC drop /
+    # unrelated PR cannot silently remove the symbol. Cheap host
+    # side check; wired here so a regression flips the bundle
+    # (same orphan-from-TEST_TARGETS shape #129 / #366 / #384 /
+    # #401 / #414 catch).
+    clib_bsearch
+    # M7-TOOLCHAIN-004 slice 8 (issue #407): freestanding `<limits.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 requires `<limits.h>` even on
+    # a freestanding implementation, and TinyCC (#408) plus the stdlib
+    # slice (PR #428) both consume it. Same parity shape as the str/mem,
+    # ctype, and qsort slices — userland-only, no syscall dependency,
+    # drift-pinned via a `symbol_set_pinned` sub-marker on the helper TU
+    # so a future TinyCC drop or unrelated PR cannot silently change a
+    # macro value. Cheap host-side check; wire so a regression flips the
+    # bundle.
+    clib_limits
+    # M7-TOOLCHAIN-004 slice 9 (issue #407): freestanding `<stdbool.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdbool.h>` among
+    # the headers a *freestanding* implementation must ship, and TinyCC
+    # (#408) plus several pending #407 siblings can use `bool` / `true`
+    # / `false` once it lands. Same parity shape as the str/mem, ctype,
+    # qsort, and limits slices — userland-only, no syscall dependency,
+    # drift-pinned via a `symbol_set_pinned` sub-marker on the helper TU
+    # so a future TinyCC drop or unrelated PR cannot silently change a
+    # macro value or re-alias `bool` to `int`. Cheap host-side check;
+    # wire so a regression flips the bundle.
+    clib_stdbool
+    # M7-TOOLCHAIN-004 slice 9 (issue #407): freestanding `<stddef.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 requires `<stddef.h>` even on
+    # a freestanding implementation; TinyCC (#408) consumes `size_t`,
+    # `ptrdiff_t`, and `offsetof` pervasively. Same parity shape as the
+    # str/mem, ctype, qsort, and `<limits.h>` slices — userland-only, no
+    # syscall dependency, drift-pinned via a `symbol_set_pinned` sub-
+    # marker on the helper TU so a future TinyCC drop or unrelated PR
+    # cannot silently change a typedef width. Cheap host-side check;
+    # wire so a regression flips the bundle.
+    clib_stddef
+    # M7-TOOLCHAIN-004 slice 10 (issue #407): freestanding `<stdint.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 / §7.20 requires `<stdint.h>`
+    # even on a freestanding implementation; TinyCC (#408) and any non-
+    # trivial in-OS C source consume `int{8,16,32,64}_t`,
+    # `uint{8,16,32,64}_t`, `intptr_t`, `uintptr_t`, `intmax_t`,
+    # `uintmax_t`, `INT*_MAX/MIN`, `UINT*_MAX`, `SIZE_MAX`, and
+    # `PTRDIFF_*` pervasively. Same parity shape as the str/mem,
+    # ctype, qsort, `<limits.h>`, and `<stddef.h>` slices — userland-
+    # only, no syscall dependency, drift-pinned via a
+    # `symbol_set_pinned` sub-marker on the helper TU so a future
+    # TinyCC drop or unrelated PR cannot silently change a typedef
+    # width or drop a constant. Cheap host-side check; wire so a
+    # regression flips the bundle.
+    clib_stdint
+    # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<iso646.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<iso646.h>` as one of
+    # the freestanding-required headers; TinyCC (#408), the stdlib slice
+    # (PR #428), and any third-party SDK code consumed by the in-OS
+    # toolchain (#403) are entitled to `#include <iso646.h>`. Same parity
+    # shape as the str/mem, ctype, qsort, `<limits.h>`, `<stddef.h>`, and
+    # `<stdint.h>` slices — header-only nucleus + a tiny `src/iso646.c`
+    # helper TU that folds each macro into an integer constant the host
+    # test round-trips, drift-pinned via a `symbol_set_pinned` sub-marker
+    # so a future TinyCC drop or unrelated PR cannot silently redefine an
+    # operator-spelling macro (e.g. `#define or  &` instead of `||`).
+    # Cheap host-side check; wire so a regression flips the bundle.
+    clib_iso646
+    # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdalign.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdalign.h>` as one
+    # of the freestanding-required headers; TinyCC (#408), the stdlib
+    # slice (PR #428), and any third-party SDK code consumed by the
+    # in-OS toolchain (#403) are entitled to `#include <stdalign.h>`.
+    # Same parity shape as the str/mem, ctype, qsort, `<limits.h>`,
+    # `<stddef.h>`, `<stdint.h>`, and `<iso646.h>` slices — header-only
+    # nucleus + a tiny `src/stdalign.c` helper TU that folds each macro
+    # into an integer constant the host test round-trips, drift-pinned
+    # via a `symbol_set_pinned` sub-marker so a future TinyCC drop or
+    # unrelated PR cannot silently redefine `alignas` / `alignof` or
+    # flip a `__align{as,of}_is_defined` feature-test macro to `0`.
+    # Cheap host-side check; wire so a regression flips the bundle.
+    clib_stdalign
+    # Freestanding <assert.h> nucleus (#407 / M7-TOOLCHAIN-004) —
+    # userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + macro-defined guards. The registered-handler
+    # hook (`clib_assert_set_handler`) lets the host test exercise the
+    # failure path via longjmp and the on-target runtime install a
+    # forwarder to `os_process_exit(1)` once #406 lands without
+    # touching the slice.
+    clib_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
@@ -257,6 +355,34 @@ TEST_TARGETS=(
     # break the `strtol`/`strtoul` overflow contract that PR #428's
     # header explicitly defers to this slice.
     clib_errno
+    # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdnoreturn.h>`
+    # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdnoreturn.h>` as
+    # one of the freestanding-required headers; §7.23 defines the header
+    # as a single convenience macro `noreturn` aliasing the C11 keyword
+    # `_Noreturn`. TinyCC (#408) and any third-party SDK code consumed
+    # by the in-OS toolchain (#403) are entitled to `#include
+    # <stdnoreturn.h>`. Same parity shape as the str/mem (PR #416),
+    # ctype (PR #417), qsort (PR #418), stdlib (PR #428), errno (PR
+    # #430), and in-flight `<iso646.h>`/`<stdalign.h>` slices --
+    # header-only nucleus + a tiny `src/stdnoreturn.c` helper TU plus
+    # a host test that pins the macro semantically (declares a real
+    # `noreturn`-decorated function through the header under -Werror)
+    # and pins the helper-TU exports via a `symbol_set_pinned`
+    # sub-marker so a future PR cannot silently turn `#define noreturn
+    # _Noreturn` into a no-op. Cheap host-side check; wire so a
+    # regression flips the bundle.
+    clib_stdnoreturn
+    # M7-TOOLCHAIN-004 / issue #449: drift gate for the public symbol
+    # surface of `libclib.a`. Three-way diff between
+    # `tests/data/clib_symbols.expected` (canonical pin), the canonical
+    # block in `docs/abi/clib-symbols.md`, and the actual `nm -g
+    # --defined-only` of a freshly host-built `libclib.a`. Same
+    # orphan-from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414
+    # / #426 catches for other host-only gates -- adding it here so a
+    # future slice that bumps `libclib.a`'s surface without updating
+    # the pin OR doc trips the bundle before TinyCC (#408) starts
+    # linking against the same symbols.
+    clib_symbol_drift
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /

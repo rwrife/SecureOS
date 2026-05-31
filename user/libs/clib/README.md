@@ -1,7 +1,7 @@
 # user/libs/clib — freestanding userland libc nucleus
 
 > **Owner:** in-OS toolchain (M7) / SDK runtime
-> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)), the `str*`/`mem*` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), the ctype / qsort / stdlib / errno / stdarg slices of [#407](https://github.com/rwrife/SecureOS/issues/407), and the `setjmp`/`longjmp` slice ([#446](https://github.com/rwrife/SecureOS/issues/446)) have landed; `stdio` ([#447](https://github.com/rwrife/SecureOS/issues/447)) follows.
+> **Status:** slice 1 (allocator, issue [#404](https://github.com/rwrife/SecureOS/issues/404)), the `str*`/`mem*` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), the ctype slice of [#407](https://github.com/rwrife/SecureOS/issues/407), the `<limits.h>` slice of [#407](https://github.com/rwrife/SecureOS/issues/407), and the `setjmp`/`longjmp` slice ([#446](https://github.com/rwrife/SecureOS/issues/446)) have landed; `stdio` ([#447](https://github.com/rwrife/SecureOS/issues/447)) follows.
 > **Plan:** [`plans/2026-05-28-in-os-toolchain-self-hosting.md`](../../../plans/2026-05-28-in-os-toolchain-self-hosting.md) (P1 + P3)
 
 ## What this is
@@ -19,8 +19,28 @@ against. Today it ships:
   of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
   Slice 12 of #407 extends the same header with the freestanding
   tokenize / span family (`strspn`, `strcspn`, `strpbrk`, `strtok`,
-  `strtok_r`) TinyCC's argv + include-path parsers link against.
-  of M7-TOOLCHAIN-004 ([#407](https://github.com/rwrife/SecureOS/issues/407)).
+  `strtok_r`) TinyCC's argv + include-path parsers link against, and
+- the freestanding `<limits.h>` nucleus — `CHAR_BIT`, `SCHAR_MIN`/
+  `SCHAR_MAX`/`UCHAR_MAX`, `SHRT_MIN`/`SHRT_MAX`/`USHRT_MAX`, `INT_MIN`/
+  `INT_MAX`/`UINT_MAX`, `LONG_MIN`/`LONG_MAX`/`ULONG_MAX`, `LLONG_MIN`/
+  `LLONG_MAX`/`ULLONG_MAX`, `CHAR_MIN`/`CHAR_MAX` under
+  `include/clib/limits.h` — slice 8 of M7-TOOLCHAIN-004
+  ([#407](https://github.com/rwrife/SecureOS/issues/407)); required for
+  freestanding by C11 §4¶6, pinned at the x86_64 SysV values TinyCC
+  (#408) targets, drift-anchored through a helper TU in `src/limits.c`, and
+- the freestanding `<stdbool.h>` nucleus — `bool` / `true` / `false` /
+  `__bool_true_false_are_defined` under `include/clib/stdbool.h` (slice
+  9 of [#407](https://github.com/rwrife/SecureOS/issues/407)). Required
+  by C11 §4¶6 for any freestanding implementation; TinyCC and pending
+  #407 sibling slices link against it, and
+- the freestanding `<stddef.h>` nucleus — `NULL`, `size_t`, `ptrdiff_t`,
+  `wchar_t`, `max_align_t`, and `offsetof` under
+  `include/clib/stddef.h` — slice 9 of M7-TOOLCHAIN-004
+  ([#407](https://github.com/rwrife/SecureOS/issues/407)); required for
+  freestanding by C11 §4¶6, bound to the compiler intrinsics
+  `__SIZE_TYPE__` / `__PTRDIFF_TYPE__` / `__WCHAR_TYPE__` that TinyCC
+  (#408) and the host toolchain both expose, drift-anchored through a
+  helper TU in `src/stddef.c`.
 
 Later slices of #407 add stdio (`fopen` / `fread` / `fwrite` /
 `fclose` / `fprintf`) on top of `os_fs_*` + `os_console_write`. The
@@ -191,6 +211,91 @@ slice can flip the existing `strtol`/`strtoul` clamp paths from
 "silent" to `errno = ERANGE` without touching this slice's symbol
 surface.
 
+## Slice 7 — bsearch (issue #407)
+
+TinyCC's symbol-table lookup paths sort-then-search the same arrays
+they feed to `qsort`; the C standard pairs the two in `<stdlib.h>`
+precisely because callers typically need both. This slice ships the
+companion `bsearch` so the TinyCC port (#408) can link the pair as
+a unit.
+
+Peer of the qsort slice (PR #418) — different header, different
+source file, different `symbol_set_pinned` sub-marker; can land in
+either order. No allocator dependency, no syscall dependency,
+userland-only (no `OS_ABI_VERSION` bump).
+
+**Shipped surface (1 symbol, canonical libc name):**
+
+- `bsearch(key, base, nmemb, size, compar)` — iterative,
+  overflow-safe midpoint (`lo + (hi - lo) / 2`), alignment-agnostic
+  byte-wise pointer arithmetic so unaligned element widths (e.g.
+  TinyCC's 3-byte symbol records) work correctly.
+
+**Defensive contract** (same posture as the qsort slice's NULL /
+empty handling): every input the canonical contract leaves UB
+(NULL key, NULL base with nmemb>0, NULL compar, size==0) degrades
+to `NULL` rather than dereferencing.
+
+```
+$ bash build/scripts/test.sh clib_bsearch
+TEST:PASS:clib_bsearch:empty_returns_null
+TEST:PASS:clib_bsearch:single_hit
+TEST:PASS:clib_bsearch:single_miss
+TEST:PASS:clib_bsearch:hit_at_first
+TEST:PASS:clib_bsearch:hit_at_last
+TEST:PASS:clib_bsearch:hit_in_middle
+TEST:PASS:clib_bsearch:miss_below_range
+TEST:PASS:clib_bsearch:miss_above_range
+TEST:PASS:clib_bsearch:miss_between_neighbours
+TEST:PASS:clib_bsearch:duplicates_returns_some_match
+TEST:PASS:clib_bsearch:struct_elements_payload_intact
+TEST:PASS:clib_bsearch:odd_size_unaligned_elements
+TEST:PASS:clib_bsearch:large_array_no_overflow
+TEST:PASS:clib_bsearch:defensive_null_key
+TEST:PASS:clib_bsearch:defensive_null_compar
+TEST:PASS:clib_bsearch:defensive_zero_size
+TEST:PASS:clib_bsearch:defensive_null_base_nonzero_nmemb
+TEST:PASS:clib_bsearch:symbol_set_pinned
+TEST:PASS:clib_bsearch
+```
+
+`large_array_no_overflow` sweeps every even key (hit) and every odd
+key (miss) across a 2048-element sorted array — same N as the
+qsort slice's `large_pathological_no_overflow` — and also probes
+out-of-range values below and above the populated span to exercise
+the overflow-safe midpoint path.
+
+## Slice — `<stdnoreturn.h>` nucleus (issue #407)
+
+C11 §4¶6 lists `<stdnoreturn.h>` among the freestanding-required
+headers; §7.23 defines the header as a single convenience macro
+`noreturn` aliasing the C11 keyword `_Noreturn`. TinyCC (#408) and
+any third-party SDK code consumed by the in-OS toolchain (#403) are
+entitled to `#include <stdnoreturn.h>` and to spell abort-like
+helpers with `noreturn` rather than the bare keyword. Landing the
+macro now lets those consumers compile unchanged.
+
+**Shipped surface:**
+
+- `noreturn` — alias for `_Noreturn` (C11 §7.23¶1). Suppressed under
+  `__cplusplus` because `_Noreturn` is not a C++ keyword and `noreturn`
+  is a standard C++ attribute.
+- Helper TU `src/stdnoreturn.c` — drift anchor that exports
+  `clib_stdnoreturn_eval`, `clib_stdnoreturn_op_count`, and a real
+  `noreturn`-decorated function `clib_stdnoreturn_loop_forever`,
+  pinned by the `symbol_set_pinned` sub-marker.
+
+```
+$ bash build/scripts/test.sh clib_stdnoreturn
+TEST:PASS:clib_stdnoreturn:macros_defined
+TEST:PASS:clib_stdnoreturn:macros_expand_correctly
+TEST:PASS:clib_stdnoreturn:helper_tu_agrees
+TEST:PASS:clib_stdnoreturn:symbol_set_pinned
+TEST:PASS:clib_stdnoreturn
+```
+
+No `OS_ABI_VERSION` bump (userland-only, additive, header-only).
+
 ## Slice 1 — string/memory family (issue #407)
 
 ```
@@ -221,3 +326,42 @@ The `symbol_set_pinned` marker is the drift guard called out in the
 M7-TOOLCHAIN-004 acceptance — every shipped symbol must remain
 reachable through a function pointer, so a TinyCC drop or an unrelated
 PR cannot silently remove a family member.
+
+## Slice 10 — `<stdint.h>` nucleus (issue #407)
+
+C11 §4¶6 / §7.20 mandate `<stdint.h>` on a freestanding
+implementation. TinyCC ([#408](https://github.com/rwrife/SecureOS/issues/408))
+and any non-trivial in-OS C source consume the exact-width / pointer-
+width / max-width integer typedefs + their limit constants + the
+`INTn_C` / `UINTn_C` constant-suffix macros. Header is wholly
+freestanding (no syscall dependency); typedef widths and limits are
+derived from the compiler-provided `__INT*_TYPE__` / `__INT*_MAX__`
+builtins so the same source is target-correct on the x86_64 cross-
+compiler and on the host gcc/clang the unit test runs under.
+
+**Shipped symbols:**
+
+- Exact-width typedefs (8): `int{8,16,32,64}_t`, `uint{8,16,32,64}_t`
+- Pointer-width typedefs (2): `intptr_t`, `uintptr_t`
+- Max-width typedefs (2): `intmax_t`, `uintmax_t`
+- Limit macros: `INT{8,16,32,64}_{MIN,MAX}`, `UINT{8,16,32,64}_MAX`,
+  `INTPTR_{MIN,MAX}`, `UINTPTR_MAX`, `INTMAX_{MIN,MAX}`, `UINTMAX_MAX`,
+  `SIZE_MAX`, `PTRDIFF_{MIN,MAX}`
+- Constant macros: `INT{8,16,32,64}_C(v)`, `UINT{8,16,32,64}_C(v)`,
+  `INTMAX_C(v)`, `UINTMAX_C(v)`
+
+Out of scope this slice: the `int_least*_t` / `int_fast*_t` families
+(no TinyCC consumer pins them yet) and `<inttypes.h>` (sits on top of
+`<stdio.h>`, which is its own deferred slice).
+
+```
+$ bash build/scripts/test.sh clib_stdint
+TEST:PASS:clib_stdint:exact_widths_pinned
+TEST:PASS:clib_stdint:pointer_widths_pinned
+TEST:PASS:clib_stdint:max_widths_pinned
+TEST:PASS:clib_stdint:limits_pinned
+TEST:PASS:clib_stdint:size_and_ptrdiff_pinned
+TEST:PASS:clib_stdint:const_macros_pinned
+TEST:PASS:clib_stdint:symbol_set_pinned
+TEST:PASS:clib_stdint
+```
