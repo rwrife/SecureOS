@@ -361,6 +361,17 @@ TEST_TARGETS=(
     # _Noreturn` into a no-op. Cheap host-side check; wire so a
     # regression flips the bundle.
     clib_stdnoreturn
+    # M7-TOOLCHAIN-004 / issue #449: drift gate for the public symbol
+    # surface of `libclib.a`. Three-way diff between
+    # `tests/data/clib_symbols.expected` (canonical pin), the canonical
+    # block in `docs/abi/clib-symbols.md`, and the actual `nm -g
+    # --defined-only` of a freshly host-built `libclib.a`. Same
+    # orphan-from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414
+    # / #426 catches for other host-only gates -- adding it here so a
+    # future slice that bumps `libclib.a`'s surface without updating
+    # the pin OR doc trips the bundle before TinyCC (#408) starts
+    # linking against the same symbols.
+    clib_symbol_drift
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
