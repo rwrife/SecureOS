@@ -32,11 +32,13 @@
  *   build/scripts/test.sh clib_inttypes).
  */
 
+#include "../user/libs/clib/include/clib/inttypes.h"
+#include "../user/libs/clib/include/clib/stdint.h"
+#include "../user/libs/clib/include/clib/errno.h"
+
 #include <stdio.h>
 #include <string.h>
-
-/* OUR freestanding header. */
-#include "../user/libs/clib/include/clib/inttypes.h"
+#include <limits.h>
 
 static int g_fail = 0;
 
@@ -215,6 +217,116 @@ static void check_symbol_set_pinned(void) {
   CHECK(clib_inttypes_fmt(-1) == NULL, "helper_negative_returns_null");
 }
 
+/* ---- 7. imaxabs / imaxdiv (C11 §7.8.2.1 / §7.8.2.2) ------------------ */
+static void check_imaxabs_imaxdiv(void) {
+  /* imaxabs positive / zero / negative. */
+  CHECK(imaxabs((intmax_t)0)     == (intmax_t)0,    "imaxabs_zero");
+  CHECK(imaxabs((intmax_t)7)     == (intmax_t)7,    "imaxabs_pos");
+  CHECK(imaxabs((intmax_t)-7)    == (intmax_t)7,    "imaxabs_neg");
+  CHECK(imaxabs(INTMAX_MAX)      == INTMAX_MAX,     "imaxabs_max");
+  /* INTMAX_MIN is the documented UB-adjacent input; the contract is
+   * "return input unchanged", same as abs/labs. */
+  CHECK(imaxabs(INTMAX_MIN)      == INTMAX_MIN,     "imaxabs_min_carveout");
+
+  /* imaxdiv: positive / negative numerator + denom, both signs of rem. */
+  imaxdiv_t d;
+
+  d = imaxdiv((intmax_t)17, (intmax_t)5);
+  CHECK(d.quot ==  3 && d.rem ==  2, "imaxdiv_pos_pos");
+
+  d = imaxdiv((intmax_t)-17, (intmax_t)5);
+  CHECK(d.quot == -3 && d.rem == -2, "imaxdiv_neg_pos_rem_sign_of_numer");
+
+  d = imaxdiv((intmax_t)17, (intmax_t)-5);
+  CHECK(d.quot == -3 && d.rem ==  2, "imaxdiv_pos_neg");
+
+  d = imaxdiv((intmax_t)-17, (intmax_t)-5);
+  CHECK(d.quot ==  3 && d.rem == -2, "imaxdiv_neg_neg_rem_sign_of_numer");
+
+  /* Exact division — rem == 0. */
+  d = imaxdiv((intmax_t)20, (intmax_t)4);
+  CHECK(d.quot ==  5 && d.rem ==  0, "imaxdiv_exact");
+
+  /* Identity: numer == quot*denom + rem. */
+  d = imaxdiv((intmax_t)1234567, (intmax_t)89);
+  CHECK(d.quot * (intmax_t)89 + d.rem == (intmax_t)1234567,
+        "imaxdiv_identity");
+
+  /* Deny-clean divide-by-zero: returns sentinel, does not trap. */
+  d = imaxdiv((intmax_t)42, (intmax_t)0);
+  CHECK(d.quot == INTMAX_MAX && d.rem == 0, "imaxdiv_div0_pos_sentinel");
+  d = imaxdiv((intmax_t)-42, (intmax_t)0);
+  CHECK(d.quot == INTMAX_MIN && d.rem == 0, "imaxdiv_div0_neg_sentinel");
+}
+
+/* ---- 8. strtoimax / strtoumax (C11 §7.8.2.3 / §7.8.2.4) -------------- */
+static void check_strto_imax_umax(void) {
+  char *end = NULL;
+
+  /* Basic decimal parse, *endptr advancement. */
+  errno = 0;
+  CHECK(strtoimax("  -1234rest", &end, 10) == (intmax_t)-1234,
+        "strtoimax_basic_neg");
+  CHECK(end != NULL && strcmp(end, "rest") == 0, "strtoimax_endptr_advanced");
+  CHECK(errno == 0, "strtoimax_no_errno_on_success");
+
+  /* Hex auto-detect via base=0. */
+  errno = 0;
+  CHECK(strtoimax("0x7f", &end, 0) == (intmax_t)0x7f, "strtoimax_base0_hex");
+  CHECK(end != NULL && *end == '\0', "strtoimax_base0_endptr");
+
+  /* Octal auto-detect via base=0. */
+  errno = 0;
+  CHECK(strtoimax("017", &end, 0) == (intmax_t)017, "strtoimax_base0_octal");
+
+  /* Overflow clamp + ERANGE. */
+  errno = 0;
+  CHECK(strtoimax("99999999999999999999999999999999", &end, 10) == INTMAX_MAX,
+        "strtoimax_overflow_clamps_to_max");
+  CHECK(errno == ERANGE, "strtoimax_sets_erange_on_overflow");
+
+  errno = 0;
+  CHECK(strtoimax("-99999999999999999999999999999999", &end, 10) == INTMAX_MIN,
+        "strtoimax_underflow_clamps_to_min");
+  CHECK(errno == ERANGE, "strtoimax_sets_erange_on_underflow");
+
+  /* strtoumax: positive parse + clamp. */
+  errno = 0;
+  CHECK(strtoumax("4242", &end, 10) == (uintmax_t)4242, "strtoumax_basic");
+
+  errno = 0;
+  CHECK(strtoumax("99999999999999999999999999999999", &end, 10) == UINTMAX_MAX,
+        "strtoumax_overflow_clamps_to_max");
+  CHECK(errno == ERANGE, "strtoumax_sets_erange_on_overflow");
+
+  /* Invalid base: errno=EINVAL, return 0, endptr = nptr. */
+  errno = 0;
+  const char *bad = "42";
+  CHECK(strtoimax(bad, &end, 1) == 0, "strtoimax_invalid_base_returns_zero");
+  CHECK(errno == EINVAL, "strtoimax_sets_einval_on_bad_base");
+  CHECK(end == bad, "strtoimax_endptr_unmoved_on_bad_base");
+
+  errno = 0;
+  CHECK(strtoumax(bad, &end, 37) == 0, "strtoumax_invalid_base_returns_zero");
+  CHECK(errno == EINVAL, "strtoumax_sets_einval_on_bad_base");
+
+  /* Round-trip with PRIdMAX / PRIuMAX formatting (slice 11 surface). */
+  char buf[64];
+  intmax_t  iv = (intmax_t)-1234567890;
+  uintmax_t uv = (uintmax_t)1234567890u;
+  int n;
+
+  n = snprintf(buf, sizeof(buf), "%" PRIdMAX, iv);
+  CHECK(n > 0 && (size_t)n < sizeof(buf), "strtoimax_roundtrip_snprintf_ok");
+  errno = 0;
+  CHECK(strtoimax(buf, &end, 10) == iv, "strtoimax_roundtrip_value");
+
+  n = snprintf(buf, sizeof(buf), "%" PRIuMAX, uv);
+  CHECK(n > 0 && (size_t)n < sizeof(buf), "strtoumax_roundtrip_snprintf_ok");
+  errno = 0;
+  CHECK(strtoumax(buf, &end, 10) == uv, "strtoumax_roundtrip_value");
+}
+
 int main(void) {
   printf("TEST:START:clib_inttypes\n");
 
@@ -232,6 +344,12 @@ int main(void) {
 
   check_symbol_set_pinned();
   if (g_fail == 0) printf("TEST:PASS:clib_inttypes:symbol_set_pinned\n");
+
+  check_imaxabs_imaxdiv();
+  if (g_fail == 0) printf("TEST:PASS:clib_inttypes:imaxabs_imaxdiv_pinned\n");
+
+  check_strto_imax_umax();
+  if (g_fail == 0) printf("TEST:PASS:clib_inttypes:strto_imax_umax_pinned\n");
 
   if (g_fail != 0) {
     fprintf(stderr, "TEST:FAIL:clib_inttypes\n");
