@@ -309,6 +309,14 @@ TEST_TARGETS=(
     # flip a `__align{as,of}_is_defined` feature-test macro to `0`.
     # Cheap host-side check; wire so a regression flips the bundle.
     clib_stdalign
+    # Freestanding <assert.h> nucleus (#407 / M7-TOOLCHAIN-004) —
+    # userland-only, no syscall dependency, drift-pinned via
+    # `symbol_set_pinned` + macro-defined guards. The registered-handler
+    # hook (`clib_assert_set_handler`) lets the host test exercise the
+    # failure path via longjmp and the on-target runtime install a
+    # forwarder to `os_process_exit(1)` once #406 lands without
+    # touching the slice.
+    clib_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). All six markers are SKIP-pinned today — each subordinate
@@ -353,6 +361,17 @@ TEST_TARGETS=(
     # _Noreturn` into a no-op. Cheap host-side check; wire so a
     # regression flips the bundle.
     clib_stdnoreturn
+    # M7-TOOLCHAIN-004 / issue #449: drift gate for the public symbol
+    # surface of `libclib.a`. Three-way diff between
+    # `tests/data/clib_symbols.expected` (canonical pin), the canonical
+    # block in `docs/abi/clib-symbols.md`, and the actual `nm -g
+    # --defined-only` of a freshly host-built `libclib.a`. Same
+    # orphan-from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414
+    # / #426 catches for other host-only gates -- adding it here so a
+    # future slice that bumps `libclib.a`'s surface without updating
+    # the pin OR doc trips the bundle before TinyCC (#408) starts
+    # linking against the same symbols.
+    clib_symbol_drift
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
