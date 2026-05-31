@@ -454,6 +454,57 @@ enum {
 
 const char *clib_inttypes_fmt(int which);
 
+/* ---- C11 §7.8.2 imaxabs / imaxdiv ----------------------------------- *
+ *
+ * Slice 11b (issue #407 follow-on, M7-TOOLCHAIN-004) — the function
+ * family <inttypes.h> §7.8.2 mandates on top of the format-string
+ * macros shipped in slice 11. Symbols are pinned by the existing
+ * clib_symbol_drift gate; behavior is exercised by the per-symbol
+ * sub-checks in tests/clib_inttypes_test.c.
+ *
+ * imaxabs(j)
+ *   Behavior on INTMAX_MIN is undefined per C11; this implementation
+ *   returns the input unchanged in that case (consistent with the
+ *   two's-complement carve-out we use for abs/labs).
+ *
+ * imaxdiv_t / imaxdiv(numer, denom)
+ *   Truncated-toward-zero division (C11 §7.8.2.2) — quot * denom + rem
+ *   == numer, sign(rem) == sign(numer) when rem != 0. Division by zero
+ *   is undefined per the standard; this implementation returns
+ *   {INTMAX_MAX, 0} for numer >= 0 and {INTMAX_MIN, 0} for numer < 0
+ *   rather than trapping, mirroring the deny-clean discipline the
+ *   other clib slices use for UB-adjacent inputs.
+ *
+ * Layout note: imaxdiv_t members are exposed as `intmax_t quot` then
+ * `intmax_t rem` per the C standard. Order is fixed; no other members.
+ */
+typedef struct imaxdiv_t {
+  intmax_t quot;
+  intmax_t rem;
+} imaxdiv_t;
+
+intmax_t  imaxabs(intmax_t j);
+imaxdiv_t imaxdiv(intmax_t numer, intmax_t denom);
+
+/* ---- C11 §7.8.2 strtoimax / strtoumax ------------------------------- *
+ *
+ * Same parse / overflow / *endptr rules as strtoll / strtoull (slice 9
+ * extension, PR #444 / #458), but accumulating into intmax_t /
+ * uintmax_t. On overflow errno is set to ERANGE and the call returns
+ * INTMAX_MAX / INTMAX_MIN / UINTMAX_MAX as appropriate (same clamp
+ * shape as strtol{l}).
+ *
+ * Implementation forwards to strtoll / strtoull on targets where
+ * intmax_t / uintmax_t are layout-compatible with long long /
+ * unsigned long long (the only configuration libclib supports today —
+ * SecureOS x86_64 + the libclib host test bench). A static assertion
+ * in src/inttypes.c pins the width contract so a future target with
+ * a wider intmax_t fails the build loudly rather than silently
+ * truncating.
+ */
+intmax_t  strtoimax(const char *nptr, char **endptr, int base);
+uintmax_t strtoumax(const char *nptr, char **endptr, int base);
+
 #ifdef __cplusplus
 }
 #endif
