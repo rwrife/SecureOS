@@ -260,4 +260,4 @@ above are unstable: additive changes (new fields appended after
 bumping `OS_ABI_VERSION`. A grammar change MUST update §4 and §7 in the
 same PR.
 
-Last verified against commit: d34f05f4a159d88c13dbd81de5667f34bf84c57b
+Last verified against commit: 9349706d49eb81a08f2b480d9b803d18fc9ebca8
