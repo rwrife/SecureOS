@@ -34,7 +34,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | `toolchain_unsigned_prompt_enforced`| [#410]       | unsigned-run wiring through the launcher auth flow       |
 | `toolchain_large_output_persisted`  | [#409]       | `cc` emits a >1 KB binary; FS path stays byte-identical  |
 | `toolchain_compile_error_reported`  | [#409]       | `cc` exits non-zero on syntax error with no output file  |
-| `toolchain_heap_isolation`          | [#421]       | kernel `os_mem_brk` + per-process arena reset on teardown|
+| `toolchain_heap_isolation`          | [#410]       | two sequential `cc` runs in one boot don't see each other's arena state (kernel `os_mem_brk` + per-process arena reset shipped in #421 via PR #432/#455 and per-spawn arena clamp via PR #454; remaining gate is `cc` driver #409 + acceptance-suite wiring #410) |
 
 [#409]: https://github.com/rwrife/SecureOS/issues/409
 [#410]: https://github.com/rwrife/SecureOS/issues/410
