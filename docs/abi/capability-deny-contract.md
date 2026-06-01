@@ -259,3 +259,5 @@ above are unstable: additive changes (new fields appended after
 `<resource>` with a leading `:`) MAY land; renames or removals require
 bumping `OS_ABI_VERSION`. A grammar change MUST update §4 and §7 in the
 same PR.
+
+Last verified against commit: 7cd9eca241eb1352ad069ac2763ea2ed04279a4d
