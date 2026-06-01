@@ -63,6 +63,18 @@ TEST_TARGETS=(
     proc_sched
     m1_ipc_demo
     validate_abi_stamps
+    # M1 substrate process-table host gates (umbrella #299, plan
+    # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side checks
+    # that pin the `process_*` table contract every M2/M3/M4/M5 slice
+    # rides on. All three pass on `main` and are dispatched by
+    # `build/scripts/test.sh`, but were not yet gating the bundle —
+    # same orphan-from-TEST_TARGETS shape as #129 / #366 / #384 /
+    # #401 / #414 / #469 / #482 / #487 / #489 / #490. A regression in
+    # the process-table bounds, the per-subject aspace finder, or the
+    # table-full deny marker would otherwise land green.
+    process_table
+    process_find_aspace_by_subject
+    process_create_table_full_deny_marker
     # M4 capability-broker substrate (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
     # checks + the three `_qemu` peers (slices 003/004) are all green on
