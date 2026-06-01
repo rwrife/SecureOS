@@ -58,3 +58,45 @@ section (status `"SKIP"` for every marker until #410 flips them).
 This directory is **harness-only**: no compiler invocation, no QEMU boot,
 no kernel-side changes, no `OS_ABI_VERSION` bump. Removing a SKIP and
 asserting a real `TEST:PASS:<marker>` is the gating execute issue's job.
+
+## Drift gate
+
+[`tools/validate_m7_markers.py`](../../tools/validate_m7_markers.py) (issue
+[#494]) treats `markers.json` as a contract instead of a comment block.
+Wired as the `validate_m7_markers` target in
+[`build/scripts/test.sh`](../../build/scripts/test.sh) and present in the
+`TEST_TARGETS` block of
+[`build/scripts/validate_bundle.sh`](../../build/scripts/validate_bundle.sh).
+It asserts:
+
+1. Every `markers[].name` appears as a `toolchain_*` case arm in
+   `build/scripts/test.sh` AND in `TEST_TARGETS` of
+   `build/scripts/validate_bundle.sh`.
+2. Every `toolchain_*` case arm / `TEST_TARGETS` entry exists in
+   `markers.json` (orphan-from-`TEST_TARGETS` shape, mirroring
+   [#129] / [#366] / [#401] / [#414] / [#469] / [#482] / [#487]).
+3. Each `tests/m7_toolchain/<marker>.sh` stub exists and contains the
+   literal `TEST:PASS:<marker>` string (so a rename in the stub that
+   breaks the bundle rollup cannot land silently).
+4. For each `gatingIssue`, when `gh` is reachable, the issue is fetched
+   and FAILs if it is `CLOSED` while `reason` is still `awaiting_<n>`.
+   Use `--allow-offline` in air-gapped CI to skip this check with an
+   explicit `M7_MARKER:SKIP:<marker>:gating_issue_check_offline` line.
+
+The `m7_markers_drift` target is the negative canary that mutates a
+marker name in a sandbox copy and asserts the validator FAILs with a
+deterministic message — mirroring [#213] /
+`capability_registry_drift` ([#234]) /
+`sosh_contract_registry_drift` ([#351]).
+
+[#494]: https://github.com/rwrife/SecureOS/issues/494
+[#129]: https://github.com/rwrife/SecureOS/issues/129
+[#213]: https://github.com/rwrife/SecureOS/issues/213
+[#234]: https://github.com/rwrife/SecureOS/issues/234
+[#351]: https://github.com/rwrife/SecureOS/issues/351
+[#366]: https://github.com/rwrife/SecureOS/issues/366
+[#401]: https://github.com/rwrife/SecureOS/issues/401
+[#414]: https://github.com/rwrife/SecureOS/issues/414
+[#469]: https://github.com/rwrife/SecureOS/issues/469
+[#482]: https://github.com/rwrife/SecureOS/issues/482
+[#487]: https://github.com/rwrife/SecureOS/issues/487

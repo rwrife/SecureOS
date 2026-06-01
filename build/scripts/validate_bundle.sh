@@ -414,6 +414,15 @@ TEST_TARGETS=(
     toolchain_large_output_persisted
     toolchain_compile_error_reported
     toolchain_heap_isolation
+    # Issue #494: drift gate for the markers.json source-of-truth file
+    # above. validate_m7_markers cross-checks that every marker is wired
+    # through this TEST_TARGETS block + the case arms in test.sh + the
+    # stub scripts in tests/m7_toolchain/, and (when gh is reachable)
+    # that no gatingIssue has closed while reason= is still
+    # awaiting_<n>. m7_markers_drift is the negative canary that proves
+    # the validator is real, mirroring #213 / #234 / #297 / #351.
+    validate_m7_markers
+    m7_markers_drift
     # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
     # nucleus in `user/libs/clib` — writable `int errno;` global plus
     # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
