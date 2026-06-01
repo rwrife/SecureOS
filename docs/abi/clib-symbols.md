@@ -396,3 +396,4 @@ When a new clib symbol is added (or an obsolete one removed) in the
 Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
+
