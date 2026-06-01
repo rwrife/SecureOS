@@ -57,6 +57,13 @@ TEST_TARGETS=(
     broker_svc_port_alloc
     broker_svc_delete_owner_authority_check
     broker_svc_cascade_revokes_minted_handle
+    # `broker_svc_step3_5_session_teardown` is the host-side pin on
+    # step 3.5 of `broker_svc_delete_owner` (session-leg drain); the
+    # M5 WM/session-leg `_qemu` peer below covers the on-target arm,
+    # but the host gate that pins the no-session-owner / table-drain
+    # contract was still orphan from TEST_TARGETS. Same orphan-from-
+    # TEST_TARGETS shape catalogued by #129 / #366 / #384 / #482 / #487.
+    broker_svc_step3_5_session_teardown
     m4_broker_share_allow_qemu
     m4_broker_share_deny_qemu
     m4_broker_share_revoke_qemu
