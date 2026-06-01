@@ -57,6 +57,22 @@ TEST_TARGETS=(
     broker_svc_port_alloc
     broker_svc_delete_owner_authority_check
     broker_svc_cascade_revokes_minted_handle
+    # M4 broker substrate session-manager host gates (umbrella #299,
+    # plan plans/2026-05-25-m4-broker-on-m1-substrate.md). These pin
+    # the broker_svc <-> session_manager bookkeeping that step 3.5 of
+    # `broker_svc_delete_owner` (PR #363, gate `broker_svc_step3_5_session_teardown`
+    # below) drains against: `session_manager_first_for_subject` covers
+    # the no-sessions / single / drain / owner-isolation / null-out
+    # invariants and `session_manager_subject_for_session` covers the
+    # bounds / unused-slot / in-use / null-out / roundtrip invariants.
+    # Both targets pass on `main` and are dispatched by
+    # `build/scripts/test.sh`, but were orphan from the bundle gate --
+    # same orphan-from-TEST_TARGETS shape catalogued by #129 / #366 /
+    # #384 / #482 / #487 / #489. Without these wire-ups a regression
+    # in the session-manager bookkeeping that step 3.5's cascade walks
+    # over would land green on `main`.
+    session_manager_first_for_subject
+    session_manager_subject_for_session
     m4_broker_share_allow_qemu
     m4_broker_share_deny_qemu
     m4_broker_share_revoke_qemu
