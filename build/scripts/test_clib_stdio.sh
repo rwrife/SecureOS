@@ -13,7 +13,13 @@
 #   - stderr_routes_to_console       : fprintf(stderr,...) hits console sink
 #   - fopen_invalid_mode_returns_null
 #   - defensive_no_backend           : no backend → fopen("r") returns NULL
-#   - shutdown_resets_pool           : after shutdown, full pool available
+#   - shutdown_resets_pool               : after shutdown, full pool available
+#   - snprintf_basic                     : full-fits + bytes + NUL
+#   - snprintf_truncation                : returns full len, terminates at size-1
+#   - snprintf_size_zero_sizing_probe    : (NULL,0) returns required length
+#   - snprintf_exact_fit                 : size == strlen+1
+#   - snprintf_null_fmt_returns_negative : NULL fmt → -1
+#   - vsnprintf_matches_snprintf         : va_list path mirrors variadic
 #   - symbol_set_pinned              : drift guard
 #
 # Compiled with `-fno-builtin` so the assertions exercise OUR
@@ -50,6 +56,12 @@ grep -q "TEST:PASS:clib_stdio:stderr_routes_to_console"      "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:fopen_invalid_mode_returns_null" "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:defensive_no_backend"          "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:shutdown_resets_pool"          "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:snprintf_basic"                "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:snprintf_truncation"           "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:snprintf_size_zero_sizing_probe" "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:snprintf_exact_fit"            "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:snprintf_null_fmt_returns_negative" "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:vsnprintf_matches_snprintf"    "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:symbol_set_pinned"             "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio$"                              "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"

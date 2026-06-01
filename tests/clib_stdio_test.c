@@ -74,6 +74,8 @@ int          fputs (const char *s, clib_FILE_t *fp) __asm__("fputs");
 int          fputc (int c, clib_FILE_t *fp) __asm__("fputc");
 int          fprintf(clib_FILE_t *fp, const char *fmt, ...) __asm__("fprintf");
 int          printf (const char *fmt, ...) __asm__("printf");
+int          snprintf(char *buf, size_t size, const char *fmt, ...) __asm__("snprintf");
+int          vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) __asm__("vsnprintf");
 int          feof  (clib_FILE_t *fp) __asm__("feof");
 int          ferror(clib_FILE_t *fp) __asm__("ferror");
 
@@ -396,6 +398,77 @@ static void test_shutdown_resets_pool(void) {
   if (opened == 8 && reopened == 8) PASS("shutdown_resets_pool");
 }
 
+static void test_snprintf_basic_and_truncation(void) {
+  /* snprintf full-fits case: returns the full length, NUL-terminates. */
+  char buf[64];
+  for (size_t i = 0; i < sizeof buf; ++i) buf[i] = 0x7f; /* sentinel */
+  int n = snprintf(buf, sizeof buf, "hi %s %d", "world", 42);
+  int len_ok    = (n == 11);
+  int bytes_ok  = (memcmp(buf, "hi world 42", 11) == 0);
+  int nul_ok    = (buf[11] == '\0');
+  /* Untouched tail keeps sentinel — we only write 12 bytes total. */
+  int tail_ok   = (buf[12] == 0x7f);
+  int ok = len_ok && bytes_ok && nul_ok && tail_ok;
+  CHECK(ok, "snprintf_basic");
+  if (ok) PASS("snprintf_basic");
+
+  /* Truncation case: tiny buffer. Return value is the full length
+   * we WOULD have produced (so callers can re-size); buffer is
+   * NUL-terminated at size-1. */
+  char small[6];
+  for (size_t i = 0; i < sizeof small; ++i) small[i] = 0x7f;
+  int n2 = snprintf(small, sizeof small, "hi %s %d", "world", 42);
+  int len_ok2     = (n2 == 11);
+  int bytes_ok2   = (memcmp(small, "hi wo", 5) == 0);
+  int nul_ok2     = (small[5] == '\0');
+  int trunc_ok    = (n2 >= (int)sizeof small);
+  int ok2 = len_ok2 && bytes_ok2 && nul_ok2 && trunc_ok;
+  CHECK(ok2, "snprintf_truncation");
+  if (ok2) PASS("snprintf_truncation");
+
+  /* size == 0, buf == NULL: legal sizing probe. No writes, full
+   * length returned. */
+  int n3 = snprintf(NULL, 0, "need %d bytes", 12345);
+  int ok3 = (n3 == 16);
+  CHECK(ok3, "snprintf_size_zero_sizing_probe");
+  if (ok3) PASS("snprintf_size_zero_sizing_probe");
+
+  /* Exact-fit edge: size == strlen+1 → no truncation, terminator at
+   * size-1. */
+  char tight[6];
+  for (size_t i = 0; i < sizeof tight; ++i) tight[i] = 0x7f;
+  int n4 = snprintf(tight, sizeof tight, "abcde");
+  int ok4 = (n4 == 5) && (memcmp(tight, "abcde", 5) == 0) && (tight[5] == '\0');
+  CHECK(ok4, "snprintf_exact_fit");
+  if (ok4) PASS("snprintf_exact_fit");
+
+  /* NULL fmt → -1. */
+  char dummy[4] = { 'a', 'a', 'a', 'a' };
+  int n5 = snprintf(dummy, sizeof dummy, NULL);
+  int ok5 = (n5 < 0);
+  CHECK(ok5, "snprintf_null_fmt_returns_negative");
+  if (ok5) PASS("snprintf_null_fmt_returns_negative");
+}
+
+static int vsn_trampoline(char *buf, size_t size, const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  int r = vsnprintf(buf, size, fmt, ap);
+  va_end(ap);
+  return r;
+}
+
+static void test_vsnprintf_forwarding(void) {
+  /* vsnprintf must produce identical bytes / return value to
+   * snprintf for the same call — they share the underlying walker. */
+  char a[32], b[32];
+  int  ra = snprintf(a, sizeof a, "%08x|%-4s|%lu", 0x2au, "q", 7uL);
+  int  rb = vsn_trampoline(b, sizeof b, "%08x|%-4s|%lu", 0x2au, "q", 7uL);
+  int ok = (ra == rb) && (ra > 0) && (memcmp(a, b, (size_t)ra + 1) == 0);
+  CHECK(ok, "vsnprintf_matches_snprintf");
+  if (ok) PASS("vsnprintf_matches_snprintf");
+}
+
 static void test_symbol_set_pinned(void) {
   /* Drift guard — take the address of every public symbol through a
    * function pointer table. If any signature changes or any symbol is
@@ -413,6 +486,8 @@ static void test_symbol_set_pinned(void) {
     (void *)(uintptr_t)&fputc,
     (void *)(uintptr_t)&fprintf,
     (void *)(uintptr_t)&printf,
+    (void *)(uintptr_t)&snprintf,
+    (void *)(uintptr_t)&vsnprintf,
     (void *)(uintptr_t)&feof,
     (void *)(uintptr_t)&ferror,
     (void *)(uintptr_t)&stdin,
@@ -436,6 +511,8 @@ int main(void) {
   test_fopen_invalid_mode_returns_null();
   test_defensive_no_backend();
   test_shutdown_resets_pool();
+  test_snprintf_basic_and_truncation();
+  test_vsnprintf_forwarding();
   test_symbol_set_pinned();
 
   if (!g_fail) hprintf("TEST:PASS:clib_stdio\n");

@@ -73,6 +73,7 @@ memmove
 memset
 printf
 qsort
+snprintf
 stderr
 stdin
 stdout
@@ -99,3 +100,4 @@ strtoull
 tolower
 toupper
 vfprintf
+vsnprintf
