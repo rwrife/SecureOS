@@ -130,6 +130,19 @@ TEST_TARGETS=(
     # in `docs/abi/*.md` does not predate the file's last content
     # commit. Cheap to run, no env deps.
     abi_stamps_drift
+    # Capability-registry contract guards (umbrella #234, issue #482).
+    # `validate_capability_registry` pins the `capability_id_t` enum ↔
+    # `docs/abi/capability-registry.json` bijection, deny-marker shape,
+    # and test-target / owning-plan resolution. `capability_registry_drift`
+    # is the matching negative canary (#213 / #177 shape) that proves the
+    # validator actually fails on a fresh enum entry. Both targets are
+    # green on `main` and dispatched by `build/scripts/test.sh`, but
+    # neither was gating the bundle — same orphan-from-TEST_TARGETS
+    # regression shape #129 / #366 / #384 / #401 / #414 / #469 caught
+    # for other host-side targets. Wire so a regression to the
+    # capability-registry contract flips the bundle to FAIL.
+    validate_capability_registry
+    capability_registry_drift
     # In-OS toolchain Phase 1 (plan
     # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
     # the /apps/dev developer directory + hello.c sample stage onto the disk
