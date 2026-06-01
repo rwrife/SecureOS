@@ -163,6 +163,24 @@ Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
 | `clib_calloc`                 | `void *clib_calloc(size_t nmemb, size_t size)`                     | |
 | `clib_malloc_get_stats`       | `void clib_malloc_get_stats(clib_malloc_stats_t *out)`             | |
 
+### `clib/os_brk.h` (M7-TOOLCHAIN-001 slice 3 / PR #455, issue #421)
+
+On-target `clib_brk_fn` adapter that lets an SDK app wire
+`user/libs/clib`'s allocator to the kernel `os_mem_brk` syscall:
+
+```c
+clib_malloc_init(NULL, 0, clib_os_brk, NULL);
+```
+
+Host tests keep their existing `brk_shim_fn` shim — the forwarder
+can't drive a live heap on the host (the bridge is unmapped) but its
+signature, narrowing/zero-delta guards, and no-bridge → NULL collapse
+are locked down by `clib_os_brk` (build/scripts/test_clib_os_brk.sh).
+
+| Symbol        | Signature                                  | Notes |
+|---------------|--------------------------------------------|-------|
+| `clib_os_brk` | `void *clib_os_brk(void *ctx, size_t delta)` | `clib_brk_fn`-shaped; `ctx` ignored; forwards to `os_mem_brk`. |
+
 ### `clib/qsort.h` (slice 3 / PR #418)
 
 | Symbol  | Signature                                                                                 |
@@ -280,6 +298,7 @@ clib_malloc_min_seed_bytes
 clib_malloc_shutdown
 clib_os_assert_forwarder
 clib_os_assert_install
+clib_os_brk
 clib_realloc
 clib_stdalign_eval
 clib_stdalign_op_count

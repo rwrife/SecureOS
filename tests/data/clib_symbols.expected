@@ -21,6 +21,7 @@ clib_malloc_min_seed_bytes
 clib_malloc_shutdown
 clib_os_assert_forwarder
 clib_os_assert_install
+clib_os_brk
 clib_realloc
 clib_stdalign_eval
 clib_stdalign_op_count
