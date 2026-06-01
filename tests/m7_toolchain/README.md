@@ -53,6 +53,38 @@ The full set runs as part of `build/scripts/validate_bundle.sh` and is
 also reflected in the bundle JSON under the top-level `m7_toolchain`
 section (status `"SKIP"` for every marker until #410 flips them).
 
+## Drift gate
+
+A static drift gate (`build/scripts/validate_m7_markers.sh`, issue
+[#494]) cross-checks `markers.json` against every consumer surface:
+
+- the `toolchain_*` case arms in `build/scripts/test.sh`
+- the `TEST_TARGETS` array in `build/scripts/validate_bundle.sh`
+- the per-marker stubs in this directory (the `TEST:PASS:<marker>`
+  rollup AND the `TEST:SKIP:<marker>:<reason>` line)
+- each `gatingIssue` still being `OPEN` on `rwrife/SecureOS`, with the
+  paired `reason` field spelled `awaiting_<gatingIssue>`
+
+Deleting or renaming a marker locally surfaces a deterministic
+`M7_MARKER:FAIL:<reason>:<marker>` line. The matching negative canary
+(`tests/harness/m7_markers_drift_test.sh`, wired as the
+`m7_markers_drift` test target) mutates a sandbox copy of
+`markers.json` and asserts the validator fails — same canary
+discipline as #213 / #234 / #297 / #351.
+
+Run standalone:
+
+```
+bash build/scripts/test.sh validate_m7_markers
+bash build/scripts/test.sh m7_markers_drift
+```
+
+On hosts without `gh`, the validator auto-falls back to
+`--allow-offline` and emits `M7_MARKER:SKIP:gh_unavailable:<marker>`
+for each gating-issue arm; every other drift class is still enforced.
+
+[#494]: https://github.com/rwrife/SecureOS/issues/494
+
 ## Scope guard
 
 This directory is **harness-only**: no compiler invocation, no QEMU boot,

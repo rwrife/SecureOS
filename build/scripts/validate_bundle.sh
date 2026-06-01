@@ -414,6 +414,14 @@ TEST_TARGETS=(
     toolchain_large_output_persisted
     toolchain_compile_error_reported
     toolchain_heap_isolation
+    # M7 markers.json ↔ test.sh / TEST_TARGETS / per-marker stub /
+    # gatingIssue drift gate (umbrella #403, issue #494). Same shape
+    # as the #234 capability-registry / #297 abi-stamp / #351 sosh-
+    # contract drift gates: pure static check + paired negative canary.
+    # Wired here so any future rename of an M7 marker that forgets one
+    # of the four consumer surfaces flips the bundle to FAIL.
+    validate_m7_markers
+    m7_markers_drift
     # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
     # nucleus in `user/libs/clib` — writable `int errno;` global plus
     # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
