@@ -352,7 +352,7 @@ The enforcement status of each §4 row at this revision is:
 | `source <path>` (`SOSH_CAP_FS_READ`)         | enforced — `sosh_cap_source_exec` (slice 3/3 of #351, refs #371)                   |
 | `exists <path>` (`SOSH_CAP_FS_READ`)         | enforced — `sosh_cap_exists`                                                       |
 | `write <path>` / `append <path>` (`SOSH_CAP_FS_WRITE`) | enforced — `sosh_cap_write_append`                                       |
-| external command (`SOSH_CAP_APP_EXEC`)       | enforced — `sosh_cap_source_exec` (slice 3/3 of #351, refs #371)                   |
+| external command (`SOSH_CAP_APP_EXEC`)       | enforced — `sosh_cap_source_exec` (soshlib gate, slice 3/3 of #351); embedder fall-through to `os_process_spawn` in `user/apps/sosh/main.c` pinned by `sosh_external_exec` (#493 — closes the `sosh> hello` no-op gap; depends on #422). Probe order: `/apps/<cmd>`, `/apps/dev/<cmd>`, then `<cmd>` literal. Deny rc is NOT swallowed: `os_process_spawn → OS_STATUS_DENIED` surfaces as a non-zero `$?` paired with the kernel-emitted `CAP:DENY:<sid>:app_exec:<resource>` marker. |
 | `export VAR=...` (`SOSH_CAP_ENV_WRITE`)      | enforced (host-only no-op deny path per §3.b) — `sosh_cap_export`                  |
 
 All §4 rows now route through `sosh_state_t.cap_check` before the
@@ -364,4 +364,4 @@ the `cap.deny` audit-ring follow-up (#389) covered by the
 on every sosh deny test.
 
 Last verified against commit: 02514ac (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in sosh_cap_write_append; `export` ENV_WRITE gate landed in sosh_cap_export; `source` FS_READ + external-command APP_EXEC gates pinned by sosh_cap_source_exec (slice 3/3 of #351, refs #371) — §4 enforcement matrix is now complete at `OS_ABI_VERSION = 0`.
-Last verified against commit: 761a9b2
+Last verified against commit: 4b97d3f

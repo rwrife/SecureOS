@@ -115,6 +115,12 @@ TEST_TARGETS=(
     sosh_cap_cat_ls
     sosh_cap_write_append
     sosh_cap_export
+    # sosh fall-through to os_process_spawn for external binaries
+    # (issue #493, sub-slice of #410 depending on #422). Closes the
+    # gap where `sosh> hello` silently no-op'd. Host smoke drives
+    # the embedder helper (probe + spawn mocks) so deny/allow/unknown
+    # are covered without a live bridge.
+    sosh_external_exec
     # sosh contract ↔ capability-registry drift guard (PR #361). Pure
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
