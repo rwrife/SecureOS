@@ -220,6 +220,18 @@ TEST_TARGETS=(
     # no env deps, no syscalls. Drift on any shipped macro flips the
     # bundle to FAIL before TinyCC (P4) starts consuming the header.
     clib_float
+    # M7-TOOLCHAIN-003 slice 1 (issue #406 / PR #413): host-side smoke
+    # for the `os_process_exit` user-runtime wrapper. Sibling of
+    # `process_spawn_wrapper` (slice 2) and `mem_brk_wrapper`
+    # (M7-TOOLCHAIN-001 slice 2) -- the only one of the three
+    # M7-TOOLCHAIN-003 / -001 user-runtime wrapper smokes that was
+    # missing from TEST_TARGETS. Pins the exported symbol, signature,
+    # and no-bridge fall-through contract that `sdk/lib/crt0.c`
+    # forwards into, so a silent drift on `os_process_exit` would
+    # otherwise break every SDK-built app's process-exit path. Same
+    # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
+    # #401 / #414 (see issue #469).
+    process_exit_wrapper
     # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
     # `os_process_spawn` user-runtime wrapper. Pairs with
     # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
