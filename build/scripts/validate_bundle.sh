@@ -17,6 +17,20 @@ TEST_TARGETS=(
   cap_api_contract
   capability_table
   capability_gate
+  # M1 substrate cap_handle / cap_table host gates (issue #487): pin
+  # the cap_handle_t representation (#237/#240), the
+  # cap_handle_revoke_subject + process_destroy hook contract (#247),
+  # the cap_handle_revoke_subtree BFS walker + grant_child contract
+  # (#327 / #323), and the cap_table bounds + table-full reject
+  # (#240 area). All pass on main and are wired into test.sh, but were
+  # missing from TEST_TARGETS — same orphan-from-TEST_TARGETS shape
+  # #129 / #366 / #384 / #401 / #414 / #469 / #482 catches for other
+  # host-only gates. cap_handle is the foundation every M2/M3/M4/M5
+  # slice sits on, so a silent drift here is particularly load-bearing.
+  cap_handle_repr
+  cap_handle_revoke_subject
+  cap_handle_revoke_subtree
+  cap_table_skeleton
   capability_audit
   capability_audit_fixture
   capability_audit_log
