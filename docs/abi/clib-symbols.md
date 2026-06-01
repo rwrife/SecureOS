@@ -97,11 +97,15 @@ Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
 | `clib_stdint_sizeof`  | `unsigned long clib_stdint_sizeof(int which)` | drift anchor for exact-width / pointer-width / max-width typedef sizes |
 | `clib_stdint_maxof`   | `unsigned long long clib_stdint_maxof(int which)` | drift anchor for `INTn_MAX`/`UINTn_MAX`/`SIZE_MAX`/`PTRDIFF_MAX` |
 
-### `clib/inttypes.h` (M7-TOOLCHAIN-004 slice 11 / PR #459)
+### `clib/inttypes.h` (M7-TOOLCHAIN-004 slice 11 / PR #459, slice 11b / this PR)
 
 | Symbol                | Signature                                 | Notes |
 | --------------------- | ----------------------------------------- | ----- |
 | `clib_inttypes_fmt`   | `const char *clib_inttypes_fmt(int which)` | drift anchor for `PRI*`/`SCN*` format-string macros (exact-width, least, fast, max, ptr) |
+| `imaxabs`             | `intmax_t imaxabs(intmax_t j)`            | slice 11b; `INTMAX_MIN` UB-safe (returns input unchanged, mirrors `abs`/`labs`) |
+| `imaxdiv`             | `imaxdiv_t imaxdiv(intmax_t numer, intmax_t denom)` | slice 11b; deny-clean divide-by-zero (`{INTMAX_MAX,0}` / `{INTMAX_MIN,0}` sentinel, no trap) |
+| `strtoimax`           | `intmax_t strtoimax(const char *nptr, char **endptr, int base)` | slice 11b; same parse/overflow rules as `strtoll`; clamps + `errno=ERANGE` on overflow |
+| `strtoumax`           | `uintmax_t strtoumax(const char *nptr, char **endptr, int base)` | slice 11b; same parse/overflow rules as `strtoull`; clamps to `UINTMAX_MAX` + `errno=ERANGE` |
 
 ### `clib/iso646.h` (M7-TOOLCHAIN-004 slice)
 
@@ -331,6 +335,8 @@ fputc
 fputs
 fread
 fwrite
+imaxabs
+imaxdiv
 isalnum
 isalpha
 isascii
@@ -370,12 +376,14 @@ strpbrk
 strrchr
 strspn
 strstr
+strtoimax
 strtok
 strtok_r
 strtol
 strtoll
 strtoul
 strtoull
+strtoumax
 tolower
 toupper
 vfprintf

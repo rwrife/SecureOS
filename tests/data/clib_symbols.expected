@@ -52,6 +52,8 @@ fputc
 fputs
 fread
 fwrite
+imaxabs
+imaxdiv
 isalnum
 isalpha
 isascii
@@ -91,12 +93,14 @@ strpbrk
 strrchr
 strspn
 strstr
+strtoimax
 strtok
 strtok_r
 strtol
 strtoll
 strtoul
 strtoull
+strtoumax
 tolower
 toupper
 vfprintf

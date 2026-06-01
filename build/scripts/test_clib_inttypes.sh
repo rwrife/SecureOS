@@ -18,6 +18,8 @@ mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror -fno-builtin \
   "$ROOT_DIR/user/libs/clib/src/inttypes.c" \
+  "$ROOT_DIR/user/libs/clib/src/stdlib.c" \
+  "$ROOT_DIR/user/libs/clib/src/errno.c" \
   "$ROOT_DIR/tests/clib_inttypes_test.c" \
   -o "$OUT_DIR/clib_inttypes_test"
 
@@ -29,5 +31,7 @@ grep -q "TEST:PASS:clib_inttypes:printf_roundtrip_pinned"   "$LOG_PATH"
 grep -q "TEST:PASS:clib_inttypes:least_fast_format_pinned"  "$LOG_PATH"
 grep -q "TEST:PASS:clib_inttypes:max_ptr_roundtrip_pinned"  "$LOG_PATH"
 grep -q "TEST:PASS:clib_inttypes:symbol_set_pinned"         "$LOG_PATH"
+grep -q "TEST:PASS:clib_inttypes:imaxabs_imaxdiv_pinned"    "$LOG_PATH"
+grep -q "TEST:PASS:clib_inttypes:strto_imax_umax_pinned"    "$LOG_PATH"
 grep -q "TEST:PASS:clib_inttypes$"                          "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"
