@@ -31,6 +31,21 @@ TEST_TARGETS=(
   cap_handle_revoke_subject
   cap_handle_revoke_subtree
   cap_table_skeleton
+  # M1 substrate address-space host gates (issue #503): pin the
+  # flat-with-bounds address_space_t + .proc_arena carve-out (#248 /
+  # PR #249), per-aspace bounds enforcement, aspace structural
+  # invariant, and the scheduler<->aspace invariant (#250 area). All
+  # pass on main and are wired into test.sh, but were missing from
+  # TEST_TARGETS — same orphan-from-TEST_TARGETS shape #129 / #366 /
+  # #384 / #401 / #414 / #469 / #482 / #487 / #489 / #490 / #491 /
+  # #492 catches for other host-only gates. The aspace layer is the
+  # foundation every M2/M3/M4/M5/M7 slice mounts onto (every
+  # process's arena window, every brk syscall, every launcher
+  # spawn), so a silent drift here is particularly load-bearing.
+  aspace_carve
+  aspace_bounds
+  aspace_invariant
+  proc_sched_aspace_invariant
   capability_audit
   capability_audit_fixture
   capability_audit_log
