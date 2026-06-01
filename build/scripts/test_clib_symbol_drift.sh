@@ -87,7 +87,15 @@ echo "TEST:PASS:clib_symbol_drift:doc_matches_pin"
 # -fno-builtin (parity with the per-slice tests) so str*/mem* are not
 # resolved to host builtins. Compiler default ABI is fine -- the symbol
 # *names* are stable across hosts.
-CFLAGS="-std=c11 -Wall -Wextra -Werror -fno-builtin -I${INC_DIR}"
+# Note: `user/include` is added so the `clib_os_brk` forwarder
+# (slice 3 of M7-TOOLCHAIN-001, issue #421) can resolve
+# `secureos_api.h` — the only kernel-adjacent header the
+# freestanding clib library depends on. This mirrors what
+# `build/scripts/build_user_lib.sh` does for the SDK build.
+# `validate_sdk_no_kernel_includes` still pins that the include
+# chain stays inside `user/include`.
+USER_INC_DIR="$ROOT_DIR/user/include"
+CFLAGS="-std=c11 -Wall -Wextra -Werror -fno-builtin -I${INC_DIR} -I${USER_INC_DIR}"
 
 OBJS=()
 for src in "$SRC_DIR"/*.c; do
