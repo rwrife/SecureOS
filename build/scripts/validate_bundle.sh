@@ -75,6 +75,20 @@ TEST_TARGETS=(
     process_table
     process_find_aspace_by_subject
     process_create_table_full_deny_marker
+    # M2 console-svc / M3 fs-svc well-known-port allocator host gates
+    # (umbrella #299, plan plans/2026-05-25-m4-broker-on-m1-substrate.md).
+    # Both pin the IPC port_table seeding contract that the boot-order
+    # wiring `ipc_port_table_init -> console_svc_init -> fs_svc_init ->
+    # broker_svc_init -> proc_init` rides on (#272 / #282 / #287). All
+    # four `*_port_alloc_{uninit,init,double_init,reset}` sub-checks
+    # pass on `main` and are dispatched by `build/scripts/test.sh`, but
+    # were not yet gating the bundle -- same orphan-from-TEST_TARGETS
+    # shape as #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 /
+    # #489 / #490 / #491. Wire so a regression in the M2/M3 port
+    # allocator (double-init, reset, or uninit sentinel) flips the
+    # bundle to FAIL instead of landing green on `main`.
+    console_svc_port_alloc
+    fs_svc_port_alloc
     # M4 capability-broker substrate (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
     # checks + the three `_qemu` peers (slices 003/004) are all green on
