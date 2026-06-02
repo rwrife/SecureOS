@@ -567,6 +567,16 @@ TEST_TARGETS=(
     # the validator is real, mirroring #213 / #234 / #297 / #351.
     validate_m7_markers
     m7_markers_drift
+    # Issue #523: LGPL-2.1 compliance bundle gate. SKIP-pinned
+    # (`awaiting_408`) until M7-TOOLCHAIN-005 Phase 3 actually links
+    # libtcc into the shipped image. Even SKIP-pinned, the wrapper
+    # exercises build_release_compliance_bundle.sh end-to-end and
+    # asserts bundle layout + byte-identity against the vendor license
+    # texts, so the scaffold cannot silently drift before the gating
+    # slice lands. Mirrors the SKIP-with-real-shape discipline used by
+    # tests/m7_toolchain/. Normative contract:
+    # docs/legal/lgpl-compliance.md.
+    release_compliance_bundle
     # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
     # nucleus in `user/libs/clib` — writable `int errno;` global plus
     # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
