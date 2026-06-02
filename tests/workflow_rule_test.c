@@ -194,6 +194,40 @@ int main(void) {
                              WORKFLOW_REASON_TENANT_POLICY),
       WORKFLOW_ERR_CAPABILITY_INVALID,
       "register_rejects_unknown_capability");
+  /*
+   * Regression pin for issue #508: caps registered after the original
+   * workflow_rule_register() allow-list (CAP_CLOCK_SET / CAP_INPUT_*
+   * / CAP_GFX_FRAMEBUFFER, added by #348 et al.) are intentionally
+   * not yet workflow-rule-scoped and MUST round-trip through input
+   * validation as WORKFLOW_ERR_CAPABILITY_INVALID rather than silently
+   * succeeding. Promote per-cap into the allow-list above (in
+   * `kernel/cap/workflow_rule.c::capability_is_known`) once a
+   * workflow consumer actually wires them in.
+   */
+  expect_result(
+      workflow_rule_register(1u, 1u, WORKFLOW_SCOPE_READ,
+                             1u, CAP_CLOCK_SET,
+                             WORKFLOW_REASON_TENANT_POLICY),
+      WORKFLOW_ERR_CAPABILITY_INVALID,
+      "register_rejects_cap_clock_set_until_workflow_scoped");
+  expect_result(
+      workflow_rule_register(1u, 1u, WORKFLOW_SCOPE_READ,
+                             1u, CAP_GFX_FRAMEBUFFER,
+                             WORKFLOW_REASON_TENANT_POLICY),
+      WORKFLOW_ERR_CAPABILITY_INVALID,
+      "register_rejects_cap_gfx_framebuffer_until_workflow_scoped");
+  expect_result(
+      workflow_rule_register(1u, 1u, WORKFLOW_SCOPE_READ,
+                             1u, CAP_INPUT_KEYBOARD,
+                             WORKFLOW_REASON_TENANT_POLICY),
+      WORKFLOW_ERR_CAPABILITY_INVALID,
+      "register_rejects_cap_input_keyboard_until_workflow_scoped");
+  expect_result(
+      workflow_rule_register(1u, 1u, WORKFLOW_SCOPE_READ,
+                             1u, CAP_INPUT_MOUSE,
+                             WORKFLOW_REASON_TENANT_POLICY),
+      WORKFLOW_ERR_CAPABILITY_INVALID,
+      "register_rejects_cap_input_mouse_until_workflow_scoped");
   expect_result(
       workflow_rule_register(1u, 1u, WORKFLOW_SCOPE_READ,
                              1u, CAP_FS_READ, WORKFLOW_REASON_NONE),

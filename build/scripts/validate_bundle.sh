@@ -336,6 +336,19 @@ TEST_TARGETS=(
     # reserved-flag / bad-arg early-reject contract flips the
     # bundle to FAIL.
     process_spawn_wrapper
+    # Issue #508: kernel-side capability workflow-rule layer (PR #209,
+    # closes #77). Host-side dispatcher exists and is documented in the
+    # test.sh usage banner, but was never added to TEST_TARGETS, so a
+    # `-Werror=switch` regression in `kernel/cap/workflow_rule.c`'s
+    # `capability_is_known()` allow-list slid in unnoticed when #348
+    # (CAP_GFX_FRAMEBUFFER / CAP_INPUT_{KEYBOARD,MOUSE}) and
+    # CAP_CLOCK_SET appended new `capability_id_t` slots. Same
+    # orphan-from-TEST_TARGETS shape catalogued by #129 / #366 / #384 /
+    # #401 / #414 / #469 / #482 / #487 / #489 / #490 / #491 / #492 /
+    # #503 -- wiring here ensures the next cap-id addition flips the
+    # bundle if the allow-list (or the deferred-cap fall-through arm)
+    # is not updated in the same PR.
+    workflow_rule
     # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
     # `user/libs/clib`. Same parity shape as the str/mem slice (PR
     # #416) and the ctype slice (PR #417) — userland-only, no syscall
