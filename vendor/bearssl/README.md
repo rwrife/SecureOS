@@ -16,8 +16,13 @@ After cloning the repo, initialize the submodule:
 git submodule update --init
 ```
 
-CI initializes all submodules automatically via `actions/checkout@v4`
-with `submodules: recursive` (see `.github/workflows/*.yml`, #520).
+CI initializes all submodules via an explicit `git submodule update
+--init --recursive` step in each workflow (see
+`.github/workflows/*.yml`, #520). We avoid `actions/checkout@v4`'s
+`submodules: recursive` because it does a shallow (`--depth=1`) submodule
+fetch, which fails against bearssl.org — that server only advertises
+the tip and rejects requests for the pinned commit. A full clone resolves
+cleanly.
 Local clones need `git submodule update --init --recursive` before
 running `build/scripts/test.sh bearssl_compile`.
 

@@ -19,13 +19,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # Init submodules so vendor/tinycc/tinycc and
-          # vendor/bearssl/BearSSL sources are present. Pre-emptive
-          # for #408 Phase 3 (TinyCC freestanding port reads under
-          # vendor/tinycc/tinycc/); BearSSL already builds via its
-          # Makefile.secureos shim. Refs #520.
-          submodules: recursive
+
+      - name: Init submodules (full-depth)
+        # NOTE: we deliberately do NOT use `submodules: recursive` on
+        # actions/checkout@v4 here. checkout@v4 inits submodules with
+        # `--depth=1`, which fails against vendor/bearssl/BearSSL because
+        # the upstream git server at bearssl.org only advertises tip,
+        # not arbitrary commits ("Server does not allow request for
+        # unadvertised object ..."). A plain `git submodule update`
+        # does a full clone and resolves the pinned SHA cleanly.
+        # Pre-emptive for #408 Phase 3 (TinyCC freestanding port reads
+        # under vendor/tinycc/tinycc/); BearSSL already builds via its
+        # Makefile.secureos shim. Refs #520.
+        run: git submodule update --init --recursive
 
       - name: Ensure build scripts are executable
         run: |

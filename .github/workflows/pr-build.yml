@@ -23,12 +23,16 @@ jobs:
           # `last_content=<merge-sha>` newer than every stamp. Fetch full
           # history so freshness comparisons are accurate.
           fetch-depth: 0
-          # Init submodules so vendor/tinycc/tinycc and
-          # vendor/bearssl/BearSSL sources are present. Pre-emptive for
-          # #408 Phase 3 (TinyCC freestanding port will compile under
-          # vendor/tinycc/tinycc/); BearSSL already builds via its
-          # Makefile.secureos shim. Refs #520.
-          submodules: recursive
+
+      - name: Init submodules (full-depth)
+        # See iso-vm-build.yml: checkout@v4's `submodules: recursive`
+        # uses --depth=1, which fails against bearssl.org (server only
+        # advertises tip, not pinned commits). A plain `git submodule
+        # update --init --recursive` does a full clone and resolves the
+        # pinned SHAs. Pre-emptive for #408 Phase 3 (TinyCC freestanding
+        # port will compile under vendor/tinycc/tinycc/); BearSSL already
+        # builds via its Makefile.secureos shim. Refs #520.
+        run: git submodule update --init --recursive
 
       - name: Ensure build scripts are executable
         # Defensive: mirrors the same step in iso-vm-build.yml.
