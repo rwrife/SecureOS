@@ -564,6 +564,27 @@ TEST_TARGETS=(
     # the pin OR doc trips the bundle before TinyCC (#408) starts
     # linking against the same symbols.
     clib_symbol_drift
+
+    # Issue #514: four substrate-level host gates that were dispatched by
+    # build/scripts/test.sh but orphan-from-TEST_TARGETS (same shape as
+    # #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 / #489 /
+    # #490 / #491 / #492 / #503 / #512). All four are load-bearing:
+    #   - syscall_entry_stub: M1 syscall ABI anchor + deny-marker shape
+    #     (originally #232) — every M2/M3/M4/M5/M7 syscall test rides on
+    #     this contract.
+    #   - ipc_bounds: kernel IPC payload-bounds allow + one-past-end +
+    #     straddle + no-pcb skipped (every capability check + spawn
+    #     handoff path rides this).
+    #   - netlib_url_scheme: zero-trust network ABI URL-scheme allow/deny
+    #     contract — sole host gate for the netlib surface today.
+    #   - harness_defense: meta-canary that defends the bundle harness
+    #     itself against silent no-ops (the original #91 motivation; the
+    #     reason every other orphan-from-TEST_TARGETS issue in this chain
+    #     can be caught at all).
+    syscall_entry_stub
+    ipc_bounds
+    netlib_url_scheme
+    harness_defense
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
