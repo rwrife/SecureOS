@@ -86,4 +86,42 @@ Decode with `(v >> 16) & 0xFFFF` and `v & 0xFFFF`.
 3. `os_get_abi_version()` returns the same value the header advertises
    (catches stale runtime stubs after a bump).
 
-Last verified against commit: 9b2089bbcfac9813eda86503e076f11f85ca4ab6
+## Stamp discipline for new ABI docs (#470)
+
+Every file under `docs/abi/` that participates in the ABI freshness
+contract MUST carry a `Last verified against commit: <sha>` line. The
+stamp is checked by `tools/validate_abi_stamps.py` (wrapper:
+`build/scripts/validate_abi_stamps.sh`) under the
+`TEST:PASS:validate_abi_stamps` bundle marker; an unstamped file is
+currently treated as `ABI_STAMP:SKIP:<file>:no_stamp_line` (exit 0) as a
+bootstrap concession for legacy docs.
+
+**Strict-no-skip mode** (issue #470) promotes that SKIP to
+`ABI_STAMP:FAIL:<file>:no_stamp_line` (exit 1). It can be enabled two
+ways:
+
+- CLI: `tools/validate_abi_stamps.py --strict-no-skip`
+- Wrapper: `STRICT_STAMPS=1 build/scripts/validate_abi_stamps.sh`
+
+A negative canary (`tests/harness/abi_stamps_strict_no_skip_test.sh`,
+wired as `TEST:PASS:abi_stamps_strict_no_skip` in `build/scripts/test.sh`
+and `validate_bundle.sh`) keeps both arms honest:
+
+- default mode still emits `ABI_STAMP:SKIP:<file>:no_stamp_line` and
+  exit 0 for an unstamped doc, and
+- strict mode emits `ABI_STAMP:FAIL:<file>:no_stamp_line` and exit 1
+  for the same doc, while files passed via `--exempt <name>` are
+  dropped from iteration entirely (matching the existing escape hatch
+  used by `capability-registry.md`).
+
+**Rule for new ABI surface PRs:** any newly-added `docs/abi/*.md` MUST
+include a `Last verified against commit:` line in the same change.
+Genuinely-non-freshness docs (e.g. pure index pages) MUST be added to
+the wrapper's `--exempt` list in the same PR with a one-line rationale.
+The wrapper's default will flip to strict (`STRICT_STAMPS=1` becomes the
+implicit default) once the four pre-existing `no_stamp_line` SKIP files
+(`docs/abi/manifest.md` #463, `docs/abi/clib-symbols.md` #468,
+`docs/abi/capability-deny-contract.md` PR #477,
+`docs/abi/sosh-capability-contract.md` PR #478) all carry stamps.
+
+Last verified against commit: d60775d

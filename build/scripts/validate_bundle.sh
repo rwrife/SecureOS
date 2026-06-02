@@ -17,6 +17,20 @@ TEST_TARGETS=(
   cap_api_contract
   capability_table
   capability_gate
+  # M1 substrate cap_handle / cap_table host gates (issue #487): pin
+  # the cap_handle_t representation (#237/#240), the
+  # cap_handle_revoke_subject + process_destroy hook contract (#247),
+  # the cap_handle_revoke_subtree BFS walker + grant_child contract
+  # (#327 / #323), and the cap_table bounds + table-full reject
+  # (#240 area). All pass on main and are wired into test.sh, but were
+  # missing from TEST_TARGETS — same orphan-from-TEST_TARGETS shape
+  # #129 / #366 / #384 / #401 / #414 / #469 / #482 catches for other
+  # host-only gates. cap_handle is the foundation every M2/M3/M4/M5
+  # slice sits on, so a silent drift here is particularly load-bearing.
+  cap_handle_repr
+  cap_handle_revoke_subject
+  cap_handle_revoke_subtree
+  cap_table_skeleton
   capability_audit
   capability_audit_fixture
   capability_audit_log
@@ -49,6 +63,32 @@ TEST_TARGETS=(
     proc_sched
     m1_ipc_demo
     validate_abi_stamps
+    # M1 substrate process-table host gates (umbrella #299, plan
+    # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side checks
+    # that pin the `process_*` table contract every M2/M3/M4/M5 slice
+    # rides on. All three pass on `main` and are dispatched by
+    # `build/scripts/test.sh`, but were not yet gating the bundle —
+    # same orphan-from-TEST_TARGETS shape as #129 / #366 / #384 /
+    # #401 / #414 / #469 / #482 / #487 / #489 / #490. A regression in
+    # the process-table bounds, the per-subject aspace finder, or the
+    # table-full deny marker would otherwise land green.
+    process_table
+    process_find_aspace_by_subject
+    process_create_table_full_deny_marker
+    # M2 console-svc / M3 fs-svc well-known-port allocator host gates
+    # (umbrella #299, plan plans/2026-05-25-m4-broker-on-m1-substrate.md).
+    # Both pin the IPC port_table seeding contract that the boot-order
+    # wiring `ipc_port_table_init -> console_svc_init -> fs_svc_init ->
+    # broker_svc_init -> proc_init` rides on (#272 / #282 / #287). All
+    # four `*_port_alloc_{uninit,init,double_init,reset}` sub-checks
+    # pass on `main` and are dispatched by `build/scripts/test.sh`, but
+    # were not yet gating the bundle -- same orphan-from-TEST_TARGETS
+    # shape as #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 /
+    # #489 / #490 / #491. Wire so a regression in the M2/M3 port
+    # allocator (double-init, reset, or uninit sentinel) flips the
+    # bundle to FAIL instead of landing green on `main`.
+    console_svc_port_alloc
+    fs_svc_port_alloc
     # M4 capability-broker substrate (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
     # checks + the three `_qemu` peers (slices 003/004) are all green on
@@ -64,6 +104,22 @@ TEST_TARGETS=(
     # contract was still orphan from TEST_TARGETS. Same orphan-from-
     # TEST_TARGETS shape catalogued by #129 / #366 / #384 / #482 / #487.
     broker_svc_step3_5_session_teardown
+    # M4 broker substrate session-manager host gates (umbrella #299,
+    # plan plans/2026-05-25-m4-broker-on-m1-substrate.md). These pin
+    # the broker_svc <-> session_manager bookkeeping that step 3.5 of
+    # `broker_svc_delete_owner` (PR #363, gate `broker_svc_step3_5_session_teardown`
+    # above) drains against: `session_manager_first_for_subject` covers
+    # the no-sessions / single / drain / owner-isolation / null-out
+    # invariants and `session_manager_subject_for_session` covers the
+    # bounds / unused-slot / in-use / null-out / roundtrip invariants.
+    # Both targets pass on `main` and are dispatched by
+    # `build/scripts/test.sh`, but were orphan from the bundle gate --
+    # same orphan-from-TEST_TARGETS shape catalogued by #129 / #366 /
+    # #384 / #482 / #487 / #489. Without these wire-ups a regression
+    # in the session-manager bookkeeping that step 3.5's cascade walks
+    # over would land green on `main`.
+    session_manager_first_for_subject
+    session_manager_subject_for_session
     m4_broker_share_allow_qemu
     m4_broker_share_deny_qemu
     m4_broker_share_revoke_qemu
@@ -150,6 +206,12 @@ TEST_TARGETS=(
     # capability-registry contract flips the bundle to FAIL.
     validate_capability_registry
     capability_registry_drift
+    # Issue #470: negative canary for --strict-no-skip mode. Asserts that
+    # default mode still SKIPs an unstamped docs/abi/*.md while
+    # --strict-no-skip + the STRICT_STAMPS=1 wrapper path both FAIL with
+    # ABI_STAMP:FAIL:<file>:no_stamp_line. Pure host-side check, no env
+    # deps.
+    abi_stamps_strict_no_skip
     # In-OS toolchain Phase 1 (plan
     # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
     # the /apps/dev developer directory + hello.c sample stage onto the disk

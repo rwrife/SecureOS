@@ -37,9 +37,9 @@
     },
     {
       "name": "toolchain_heap_isolation",
-      "gatingIssue": 421,
-      "reason": "awaiting_421",
-      "description": "Kernel os_mem_brk syscall + per-process arena reset on teardown."
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "description": "Two sequential `cc` runs in one boot must not see each other's arena state. Kernel half (os_mem_brk + per-process arena reset) landed: syscall + native-bridge slot in #421 via PR #432 (af8ece8), clib_os_brk forwarder via PR #455 (30d6443), launcher per-spawn runtime.arena_bytes enforcement via PR #454 (d6ae05a, closes #448). Remaining gates are the `cc` driver app (#409) that lets us actually invoke `cc` twice in one boot and the unsigned-run/acceptance-suite wiring tracked by #410."
     }
   ]
 }
