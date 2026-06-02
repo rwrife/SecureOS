@@ -31,6 +31,21 @@ TEST_TARGETS=(
   cap_handle_revoke_subject
   cap_handle_revoke_subtree
   cap_table_skeleton
+  # M1 substrate address-space host gates (issue #503): pin the
+  # flat-with-bounds address_space_t + .proc_arena carve-out (#248 /
+  # PR #249), per-aspace bounds enforcement, aspace structural
+  # invariant, and the scheduler<->aspace invariant (#250 area). All
+  # pass on main and are wired into test.sh, but were missing from
+  # TEST_TARGETS — same orphan-from-TEST_TARGETS shape #129 / #366 /
+  # #384 / #401 / #414 / #469 / #482 / #487 / #489 / #490 / #491 /
+  # #492 catches for other host-only gates. The aspace layer is the
+  # foundation every M2/M3/M4/M5/M7 slice mounts onto (every
+  # process's arena window, every brk syscall, every launcher
+  # spawn), so a silent drift here is particularly load-bearing.
+  aspace_carve
+  aspace_bounds
+  aspace_invariant
+  proc_sched_aspace_invariant
   capability_audit
   capability_audit_fixture
   capability_audit_log
@@ -321,6 +336,19 @@ TEST_TARGETS=(
     # reserved-flag / bad-arg early-reject contract flips the
     # bundle to FAIL.
     process_spawn_wrapper
+    # Issue #508: kernel-side capability workflow-rule layer (PR #209,
+    # closes #77). Host-side dispatcher exists and is documented in the
+    # test.sh usage banner, but was never added to TEST_TARGETS, so a
+    # `-Werror=switch` regression in `kernel/cap/workflow_rule.c`'s
+    # `capability_is_known()` allow-list slid in unnoticed when #348
+    # (CAP_GFX_FRAMEBUFFER / CAP_INPUT_{KEYBOARD,MOUSE}) and
+    # CAP_CLOCK_SET appended new `capability_id_t` slots. Same
+    # orphan-from-TEST_TARGETS shape catalogued by #129 / #366 / #384 /
+    # #401 / #414 / #469 / #482 / #487 / #489 / #490 / #491 / #492 /
+    # #503 -- wiring here ensures the next cap-id addition flips the
+    # bundle if the allow-list (or the deferred-cap fall-through arm)
+    # is not updated in the same PR.
+    workflow_rule
     # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
     # `user/libs/clib`. Same parity shape as the str/mem slice (PR
     # #416) and the ctype slice (PR #417) — userland-only, no syscall
@@ -485,6 +513,15 @@ TEST_TARGETS=(
     # generated config.h. Companion to PR #516's vendor-surface drift
     # gate (`tinycc_vendor_gate`); both run host-side, no kernel build.
     tinycc_config_secureos
+    # Issue #494: drift gate for the markers.json source-of-truth file
+    # above. validate_m7_markers cross-checks that every marker is wired
+    # through this TEST_TARGETS block + the case arms in test.sh + the
+    # stub scripts in tests/m7_toolchain/, and (when gh is reachable)
+    # that no gatingIssue has closed while reason= is still
+    # awaiting_<n>. m7_markers_drift is the negative canary that proves
+    # the validator is real, mirroring #213 / #234 / #297 / #351.
+    validate_m7_markers
+    m7_markers_drift
     # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
     # nucleus in `user/libs/clib` — writable `int errno;` global plus
     # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
@@ -536,6 +573,27 @@ TEST_TARGETS=(
     # the pin OR doc trips the bundle before TinyCC (#408) starts
     # linking against the same symbols.
     clib_symbol_drift
+
+    # Issue #514: four substrate-level host gates that were dispatched by
+    # build/scripts/test.sh but orphan-from-TEST_TARGETS (same shape as
+    # #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 / #489 /
+    # #490 / #491 / #492 / #503 / #512). All four are load-bearing:
+    #   - syscall_entry_stub: M1 syscall ABI anchor + deny-marker shape
+    #     (originally #232) — every M2/M3/M4/M5/M7 syscall test rides on
+    #     this contract.
+    #   - ipc_bounds: kernel IPC payload-bounds allow + one-past-end +
+    #     straddle + no-pcb skipped (every capability check + spawn
+    #     handoff path rides this).
+    #   - netlib_url_scheme: zero-trust network ABI URL-scheme allow/deny
+    #     contract — sole host gate for the netlib surface today.
+    #   - harness_defense: meta-canary that defends the bundle harness
+    #     itself against silent no-ops (the original #91 motivation; the
+    #     reason every other orphan-from-TEST_TARGETS issue in this chain
+    #     can be caught at all).
+    syscall_entry_stub
+    ipc_bounds
+    netlib_url_scheme
+    harness_defense
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /

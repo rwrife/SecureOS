@@ -74,6 +74,19 @@ static int reason_is_valid(workflow_reason_t reason) {
 }
 
 static int capability_is_known(capability_id_t cap) {
+  /*
+   * Allow-list of capability ids that have defined workflow-rule
+   * semantics. New `capability_id_t` slots MUST be added here (even
+   * when no workflow consumer is wired yet) so that `-Werror=switch`
+   * keeps `capability_is_known()` exhaustive — see issue #508.
+   *
+   * Caps that exist for the deny-marker / registry contract but do
+   * not (yet) have workflow-rule meaning are listed under the
+   * fall-through `return 0` arm. They round-trip cleanly through
+   * `workflow_rule_add()` input validation (rejected as
+   * WORKFLOW_RULE_ERR_INVALID_INPUT) until a workflow consumer
+   * promotes them into the allow-list above.
+   */
   switch (cap) {
     case CAP_CONSOLE_WRITE:
     case CAP_SERIAL_WRITE:
@@ -91,6 +104,16 @@ static int capability_is_known(capability_id_t cap) {
     case CAP_IPC_RECV:
     case CAP_SYSCALL:
       return 1;
+    /*
+     * Registered-but-not-yet-workflow-scoped caps. Listed explicitly
+     * to satisfy `-Werror=switch` and document the gap. Promote to
+     * the allow-list above when a workflow consumer needs them.
+     */
+    case CAP_CLOCK_SET:        /* registry slot 16 */
+    case CAP_INPUT_MOUSE:      /* registry slot 17 (refs #348) */
+    case CAP_GFX_FRAMEBUFFER:  /* registry slot 18 (refs #348) */
+    case CAP_INPUT_KEYBOARD:   /* registry slot 19 (refs #348) */
+      return 0;
   }
   return 0;
 }
