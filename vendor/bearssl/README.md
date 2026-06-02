@@ -16,6 +16,11 @@ After cloning the repo, initialize the submodule:
 git submodule update --init
 ```
 
+CI initializes all submodules automatically via `actions/checkout@v4`
+with `submodules: recursive` (see `.github/workflows/*.yml`, #520).
+Local clones need `git submodule update --init --recursive` before
+running `build/scripts/test.sh bearssl_compile`.
+
 ## Build
 
 Compile BearSSL objects for the SecureOS freestanding i386 target:

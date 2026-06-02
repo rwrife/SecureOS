@@ -24,6 +24,11 @@ After cloning the repo, initialize the submodule:
 git submodule update --init vendor/tinycc/tinycc
 ```
 
+CI initializes all submodules automatically via `actions/checkout@v4`
+with `submodules: recursive` (see `.github/workflows/*.yml`, #520).
+Local clones need `git submodule update --init --recursive` before
+running `build/scripts/test.sh tinycc_*`.
+
 ## Status
 
 > **Phase 1 (this slice): vendored only.** The submodule is pinned and the

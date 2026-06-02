@@ -26,6 +26,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Init submodules (vendor/tinycc/tinycc, vendor/bearssl/BearSSL)
+          # so any future lint over vendor sources sees real files.
+          # Refs #520 (pre-emptive for #408 Phase 3).
+          submodules: recursive
 
       - name: Ensure build scripts are executable
         # Defensive chmod, mirroring pr-build.yml. Several validator

@@ -19,6 +19,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Init submodules so vendor/tinycc/tinycc and
+          # vendor/bearssl/BearSSL sources are present. Pre-emptive
+          # for #408 Phase 3 (TinyCC freestanding port reads under
+          # vendor/tinycc/tinycc/); BearSSL already builds via its
+          # Makefile.secureos shim. Refs #520.
+          submodules: recursive
 
       - name: Ensure build scripts are executable
         run: |
