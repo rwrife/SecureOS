@@ -22,4 +22,14 @@ if ! command -v "$PY" >/dev/null 2>&1; then
   exit 2
 fi
 
-exec "$PY" "$ROOT_DIR/tools/validate_abi_stamps.py" --root "$ROOT_DIR" "$@"
+# Issue #470: STRICT_STAMPS=1 promotes 'no_stamp_line' SKIP to FAIL so a new
+# ABI doc cannot silently bypass the freshness gate. Defaults to opt-in until
+# the four pre-existing SKIP files (#463 / #467 / #468 plus the two contract
+# docs) all carry stamps; once those land the wrapper default flips to strict.
+STRICT_ARGS=()
+if [ "${STRICT_STAMPS:-0}" = "1" ]; then
+  STRICT_ARGS+=(--strict-no-skip)
+fi
+
+exec "$PY" "$ROOT_DIR/tools/validate_abi_stamps.py" --root "$ROOT_DIR" \
+  ${STRICT_ARGS[@]+"${STRICT_ARGS[@]}"} "$@"

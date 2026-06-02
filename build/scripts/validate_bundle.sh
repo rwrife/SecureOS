@@ -17,6 +17,35 @@ TEST_TARGETS=(
   cap_api_contract
   capability_table
   capability_gate
+  # M1 substrate cap_handle / cap_table host gates (issue #487): pin
+  # the cap_handle_t representation (#237/#240), the
+  # cap_handle_revoke_subject + process_destroy hook contract (#247),
+  # the cap_handle_revoke_subtree BFS walker + grant_child contract
+  # (#327 / #323), and the cap_table bounds + table-full reject
+  # (#240 area). All pass on main and are wired into test.sh, but were
+  # missing from TEST_TARGETS — same orphan-from-TEST_TARGETS shape
+  # #129 / #366 / #384 / #401 / #414 / #469 / #482 catches for other
+  # host-only gates. cap_handle is the foundation every M2/M3/M4/M5
+  # slice sits on, so a silent drift here is particularly load-bearing.
+  cap_handle_repr
+  cap_handle_revoke_subject
+  cap_handle_revoke_subtree
+  cap_table_skeleton
+  # M1 substrate address-space host gates (issue #503): pin the
+  # flat-with-bounds address_space_t + .proc_arena carve-out (#248 /
+  # PR #249), per-aspace bounds enforcement, aspace structural
+  # invariant, and the scheduler<->aspace invariant (#250 area). All
+  # pass on main and are wired into test.sh, but were missing from
+  # TEST_TARGETS — same orphan-from-TEST_TARGETS shape #129 / #366 /
+  # #384 / #401 / #414 / #469 / #482 / #487 / #489 / #490 / #491 /
+  # #492 catches for other host-only gates. The aspace layer is the
+  # foundation every M2/M3/M4/M5/M7 slice mounts onto (every
+  # process's arena window, every brk syscall, every launcher
+  # spawn), so a silent drift here is particularly load-bearing.
+  aspace_carve
+  aspace_bounds
+  aspace_invariant
+  proc_sched_aspace_invariant
   capability_audit
   capability_audit_fixture
   capability_audit_log
@@ -49,6 +78,32 @@ TEST_TARGETS=(
     proc_sched
     m1_ipc_demo
     validate_abi_stamps
+    # M1 substrate process-table host gates (umbrella #299, plan
+    # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side checks
+    # that pin the `process_*` table contract every M2/M3/M4/M5 slice
+    # rides on. All three pass on `main` and are dispatched by
+    # `build/scripts/test.sh`, but were not yet gating the bundle —
+    # same orphan-from-TEST_TARGETS shape as #129 / #366 / #384 /
+    # #401 / #414 / #469 / #482 / #487 / #489 / #490. A regression in
+    # the process-table bounds, the per-subject aspace finder, or the
+    # table-full deny marker would otherwise land green.
+    process_table
+    process_find_aspace_by_subject
+    process_create_table_full_deny_marker
+    # M2 console-svc / M3 fs-svc well-known-port allocator host gates
+    # (umbrella #299, plan plans/2026-05-25-m4-broker-on-m1-substrate.md).
+    # Both pin the IPC port_table seeding contract that the boot-order
+    # wiring `ipc_port_table_init -> console_svc_init -> fs_svc_init ->
+    # broker_svc_init -> proc_init` rides on (#272 / #282 / #287). All
+    # four `*_port_alloc_{uninit,init,double_init,reset}` sub-checks
+    # pass on `main` and are dispatched by `build/scripts/test.sh`, but
+    # were not yet gating the bundle -- same orphan-from-TEST_TARGETS
+    # shape as #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 /
+    # #489 / #490 / #491. Wire so a regression in the M2/M3 port
+    # allocator (double-init, reset, or uninit sentinel) flips the
+    # bundle to FAIL instead of landing green on `main`.
+    console_svc_port_alloc
+    fs_svc_port_alloc
     # M4 capability-broker substrate (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
     # checks + the three `_qemu` peers (slices 003/004) are all green on
@@ -64,6 +119,22 @@ TEST_TARGETS=(
     # contract was still orphan from TEST_TARGETS. Same orphan-from-
     # TEST_TARGETS shape catalogued by #129 / #366 / #384 / #482 / #487.
     broker_svc_step3_5_session_teardown
+    # M4 broker substrate session-manager host gates (umbrella #299,
+    # plan plans/2026-05-25-m4-broker-on-m1-substrate.md). These pin
+    # the broker_svc <-> session_manager bookkeeping that step 3.5 of
+    # `broker_svc_delete_owner` (PR #363, gate `broker_svc_step3_5_session_teardown`
+    # above) drains against: `session_manager_first_for_subject` covers
+    # the no-sessions / single / drain / owner-isolation / null-out
+    # invariants and `session_manager_subject_for_session` covers the
+    # bounds / unused-slot / in-use / null-out / roundtrip invariants.
+    # Both targets pass on `main` and are dispatched by
+    # `build/scripts/test.sh`, but were orphan from the bundle gate --
+    # same orphan-from-TEST_TARGETS shape catalogued by #129 / #366 /
+    # #384 / #482 / #487 / #489. Without these wire-ups a regression
+    # in the session-manager bookkeeping that step 3.5's cascade walks
+    # over would land green on `main`.
+    session_manager_first_for_subject
+    session_manager_subject_for_session
     m4_broker_share_allow_qemu
     m4_broker_share_deny_qemu
     m4_broker_share_revoke_qemu
@@ -156,6 +227,12 @@ TEST_TARGETS=(
     # capability-registry contract flips the bundle to FAIL.
     validate_capability_registry
     capability_registry_drift
+    # Issue #470: negative canary for --strict-no-skip mode. Asserts that
+    # default mode still SKIPs an unstamped docs/abi/*.md while
+    # --strict-no-skip + the STRICT_STAMPS=1 wrapper path both FAIL with
+    # ABI_STAMP:FAIL:<file>:no_stamp_line. Pure host-side check, no env
+    # deps.
+    abi_stamps_strict_no_skip
     # In-OS toolchain Phase 1 (plan
     # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
     # the /apps/dev developer directory + hello.c sample stage onto the disk
@@ -265,6 +342,19 @@ TEST_TARGETS=(
     # reserved-flag / bad-arg early-reject contract flips the
     # bundle to FAIL.
     process_spawn_wrapper
+    # Issue #508: kernel-side capability workflow-rule layer (PR #209,
+    # closes #77). Host-side dispatcher exists and is documented in the
+    # test.sh usage banner, but was never added to TEST_TARGETS, so a
+    # `-Werror=switch` regression in `kernel/cap/workflow_rule.c`'s
+    # `capability_is_known()` allow-list slid in unnoticed when #348
+    # (CAP_GFX_FRAMEBUFFER / CAP_INPUT_{KEYBOARD,MOUSE}) and
+    # CAP_CLOCK_SET appended new `capability_id_t` slots. Same
+    # orphan-from-TEST_TARGETS shape catalogued by #129 / #366 / #384 /
+    # #401 / #414 / #469 / #482 / #487 / #489 / #490 / #491 / #492 /
+    # #503 -- wiring here ensures the next cap-id addition flips the
+    # bundle if the allow-list (or the deferred-cap fall-through arm)
+    # is not updated in the same PR.
+    workflow_rule
     # M7-TOOLCHAIN-004 slice 3 (issue #407): freestanding `qsort` in
     # `user/libs/clib`. Same parity shape as the str/mem slice (PR
     # #416) and the ctype slice (PR #417) — userland-only, no syscall
@@ -420,6 +510,15 @@ TEST_TARGETS=(
     toolchain_large_output_persisted
     toolchain_compile_error_reported
     toolchain_heap_isolation
+    # Issue #494: drift gate for the markers.json source-of-truth file
+    # above. validate_m7_markers cross-checks that every marker is wired
+    # through this TEST_TARGETS block + the case arms in test.sh + the
+    # stub scripts in tests/m7_toolchain/, and (when gh is reachable)
+    # that no gatingIssue has closed while reason= is still
+    # awaiting_<n>. m7_markers_drift is the negative canary that proves
+    # the validator is real, mirroring #213 / #234 / #297 / #351.
+    validate_m7_markers
+    m7_markers_drift
     # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
     # nucleus in `user/libs/clib` — writable `int errno;` global plus
     # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and
@@ -471,6 +570,27 @@ TEST_TARGETS=(
     # the pin OR doc trips the bundle before TinyCC (#408) starts
     # linking against the same symbols.
     clib_symbol_drift
+
+    # Issue #514: four substrate-level host gates that were dispatched by
+    # build/scripts/test.sh but orphan-from-TEST_TARGETS (same shape as
+    # #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 / #489 /
+    # #490 / #491 / #492 / #503 / #512). All four are load-bearing:
+    #   - syscall_entry_stub: M1 syscall ABI anchor + deny-marker shape
+    #     (originally #232) — every M2/M3/M4/M5/M7 syscall test rides on
+    #     this contract.
+    #   - ipc_bounds: kernel IPC payload-bounds allow + one-past-end +
+    #     straddle + no-pcb skipped (every capability check + spawn
+    #     handoff path rides this).
+    #   - netlib_url_scheme: zero-trust network ABI URL-scheme allow/deny
+    #     contract — sole host gate for the netlib surface today.
+    #   - harness_defense: meta-canary that defends the bundle harness
+    #     itself against silent no-ops (the original #91 motivation; the
+    #     reason every other orphan-from-TEST_TARGETS issue in this chain
+    #     can be caught at all).
+    syscall_entry_stub
+    ipc_bounds
+    netlib_url_scheme
+    harness_defense
 )
 # NOTE: ed25519, cert_chain, codesign, and kernel_sessions are intentionally
 # NOT in TEST_TARGETS yet — see issue #129. They are wired into test.sh /
