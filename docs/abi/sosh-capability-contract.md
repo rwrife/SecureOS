@@ -364,4 +364,4 @@ the `cap.deny` audit-ring follow-up (#389) covered by the
 on every sosh deny test.
 
 Last verified against commit: 02514ac (sosh_cap_allow/deny wired via test.sh dispatcher); cat/ls FS_READ gate landed in sosh_cap_cat_ls; write/append FS_WRITE gate landed in sosh_cap_write_append; `export` ENV_WRITE gate landed in sosh_cap_export; `source` FS_READ + external-command APP_EXEC gates pinned by sosh_cap_source_exec (slice 3/3 of #351, refs #371) — §4 enforcement matrix is now complete at `OS_ABI_VERSION = 0`.
-Last verified against commit: 4b97d3f
+Last verified against commit: 24fcc86
