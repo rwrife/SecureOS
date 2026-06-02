@@ -303,6 +303,18 @@ TEST_TARGETS=(
     # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
     # #401 / #414 / #426 / #432.
     clib_os_brk
+    # M7-TOOLCHAIN-001 `_qemu` peer (issue #495, follow-up to #421 /
+    # PR #455): end-to-end round-trip on the `os_mem_brk` bridge
+    # slot. Links the production `app_native_mem_brk` body
+    # (extracted into `kernel/user/app_native_heap.c` for this slice)
+    # directly and drives grow / shrink / over-cap-deny / arena-reset
+    # against the live arena — the same code the launcher wires into
+    # `bridge->mem_brk`. Closes the deferred slice flagged by
+    # `docs/abi/syscalls.md` §`os_mem_brk` and the
+    # `toolchain_heap_isolation` acceptance marker. Same
+    # orphan-from-TEST_TARGETS lineage as #129 / #366 / #384 / #401 /
+    # #414 / #426 / #432.
+    mem_brk_qemu
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
