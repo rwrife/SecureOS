@@ -104,6 +104,28 @@ TEST_TARGETS=(
     # bundle to FAIL instead of landing green on `main`.
     console_svc_port_alloc
     fs_svc_port_alloc
+    # Launcher host gates (issue #512): the launcher is the single
+    # trust-boundary every M2/M3/M4/M5/M7 slice mounts onto (console,
+    # fs, broker, spawn handoff, HAL callsite migration, arena clamp).
+    # All six host tests pass on main and are dispatched by
+    # build/scripts/test.sh, but were orphan from TEST_TARGETS so a
+    # regression in launcher revoke-restores-deny / invalid-app /
+    # reset-clears-state (launcher_console), fs bypass-unregistered-
+    # denied / invalid-inputs (launcher_fs), spawn-handoff destroy /
+    # invalid-manifest (launcher_spawn_handoff), console-video HAL
+    # callsite allow/deny-drops-silently (launcher_hal_callsite_migration),
+    # broker spawn handoff gate + revoke-on-destroy
+    # (launcher_broker_spawn_handoff), or fs spawn handoff read/write +
+    # revoke-on-destroy (launcher_fs_spawn_handoff) would otherwise land
+    # green. Same orphan-from-TEST_TARGETS shape as
+    # #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 / #489 /
+    # #490 / #491 / #492 / #503.
+    launcher_console
+    launcher_fs
+    launcher_spawn_handoff
+    launcher_hal_callsite_migration
+    launcher_broker_spawn_handoff
+    launcher_fs_spawn_handoff
     # M4 capability-broker substrate (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
     # checks + the three `_qemu` peers (slices 003/004) are all green on
