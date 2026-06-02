@@ -247,6 +247,13 @@ TEST_TARGETS=(
     # ABI_STAMP:FAIL:<file>:no_stamp_line. Pure host-side check, no env
     # deps.
     abi_stamps_strict_no_skip
+    # Issue #470 (wrapper-flip slice): canary pinning the strict-mode
+    # default of build/scripts/validate_abi_stamps.sh. Asserts the
+    # wrapper now FAILs on an unstamped docs/abi/*.md without any env
+    # var, that STRICT_STAMPS=0 reverts to the legacy SKIP-tolerant
+    # mode, and that STRICT_STAMPS=1 still works as an explicit-strict
+    # path. Forces a regression of the default flip to flip the bundle.
+    abi_stamps_wrapper_default_strict
     # In-OS toolchain Phase 1 (plan
     # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
     # the /apps/dev developer directory + hello.c sample stage onto the disk

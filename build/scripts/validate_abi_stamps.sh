@@ -22,12 +22,15 @@ if ! command -v "$PY" >/dev/null 2>&1; then
   exit 2
 fi
 
-# Issue #470: STRICT_STAMPS=1 promotes 'no_stamp_line' SKIP to FAIL so a new
-# ABI doc cannot silently bypass the freshness gate. Defaults to opt-in until
-# the four pre-existing SKIP files (#463 / #467 / #468 plus the two contract
-# docs) all carry stamps; once those land the wrapper default flips to strict.
+# Issue #470: 'no_stamp_line' SKIP is promoted to FAIL so a new ABI doc cannot
+# silently bypass the freshness gate. The four pre-existing SKIP files
+# (#463 / #467 / #468 plus the two *-contract.md docs) all carry stamps on
+# main now, so the wrapper default flipped to strict. Set STRICT_STAMPS=0 to
+# fall back to the legacy SKIP-tolerant mode (only intended as a short-term
+# escape hatch when intentionally landing an unstamped doc behind --exempt
+# in the same change).
 STRICT_ARGS=()
-if [ "${STRICT_STAMPS:-0}" = "1" ]; then
+if [ "${STRICT_STAMPS:-1}" != "0" ]; then
   STRICT_ARGS+=(--strict-no-skip)
 fi
 
