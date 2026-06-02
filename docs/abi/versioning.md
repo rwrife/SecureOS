@@ -124,4 +124,4 @@ implicit default) once the four pre-existing `no_stamp_line` SKIP files
 `docs/abi/capability-deny-contract.md` PR #477,
 `docs/abi/sosh-capability-contract.md` PR #478) all carry stamps.
 
-Last verified against commit: 28a4633
+Last verified against commit: d60775d
