@@ -21,6 +21,7 @@
  */
 
 #include "secureos_api.h"
+#include "sosh_exec_external.h"
 
 /* --- Minimal string utilities (freestanding, no libc) --- */
 
@@ -70,6 +71,28 @@ static int sosh_app_streq(const char *a, const char *b) {
 static void sosh_app_output(const char *text, void *ctx) {
   (void)ctx;
   if (text) os_console_write(text);
+}
+
+/* Probe binding for sosh_try_exec_external. We use os_fs_list_dir
+ * as the existence check — same lightweight filesystem touch the
+ * `exists` builtin uses, so the resolution semantics match what a
+ * script can probe explicitly. */
+static os_status_t sosh_app_probe_path(const char *path, void *ctx) {
+  char tmp[64];
+  (void)ctx;
+  return os_fs_list_dir(path, tmp, (unsigned int)sizeof(tmp));
+}
+
+/* Spawn binding for sosh_try_exec_external — direct forwarder to
+ * the kernel wrapper. The wrapper performs argv marshalling +
+ * CAP_APP_EXEC gating. */
+static os_status_t sosh_app_spawn(const char *path,
+                                  const char *const *argv,
+                                  unsigned int flags,
+                                  int *out_exit_status,
+                                  void *ctx) {
+  (void)ctx;
+  return os_process_spawn(path, argv, flags, out_exit_status);
 }
 
 static int sosh_app_exec(const char *command, const char *args,
@@ -189,6 +212,32 @@ static int sosh_app_exec(const char *command, const char *args,
       return (st == OS_STATUS_OK) ? 0 : 1;
     }
     return 1;
+  }
+
+  /*
+   * Fall-through: not a recognised builtin. Try the external-exec
+   * path before declaring "command not found" (#493). The probe
+   * helper walks /apps/<cmd>, /apps/dev/<cmd>, then <cmd> literal,
+   * and on the first hit forwards to os_process_spawn — gated by
+   * CAP_APP_EXEC on the kernel leg. Deny rc is NOT swallowed: it
+   * surfaces as a non-zero return so $? in the script reflects the
+   * deny, paired with the canonical CAP:DENY:<sid>:app_exec:<resource>
+   * audit marker already emitted by the syscall.
+   */
+  {
+    int ext_exit = 0;
+    sosh_external_result_t r = sosh_try_exec_external(
+        command, args,
+        sosh_app_probe_path, (void *)0,
+        sosh_app_spawn,      (void *)0,
+        &ext_exit);
+    if (r == SOSH_EXTERNAL_RAN) {
+      /* External command consumed the dispatch. We do not write to
+       * out_buf — external binaries route their own output through
+       * the kernel console, not through sosh's per-command capture
+       * buffer. */
+      return ext_exit;
+    }
   }
 
   /* Unknown command — print error */
