@@ -49,6 +49,32 @@ list and the porting notes.
 | `Makefile.secureos` | Freestanding build file list + porting notes (scaffold)       |
 | `LICENSE`           | License pointer + the LGPL obligation note for SecureOS       |
 
+## Drift gate (`tinycc_vendor_gate`)
+
+While the freestanding port (#408) is in flight, the vendor surface itself is
+pinned by a deterministic drift gate (mirrors BearSSL's `bearssl_compile`
+from #117):
+
+```bash
+bash build/scripts/test.sh tinycc_vendor_gate
+```
+
+The gate asserts:
+
+- `Makefile.secureos` enumerates the in-scope `.c` list explicitly (no
+  globbing) and meets the documented 9-file minimum (libtcc core +
+  x86\_64 backend + shared i386 assembler).
+- Deliberately-excluded surfaces (`tccrun.c` JIT, `tcc.c` CLI main,
+  `tccpe.c` / `tccmacho.c` / `tcccoff.c` non-ELF formats, `tcctools.c`,
+  and every non-x86\_64 backend) are **absent** from the list.
+- `VERSION` carries a well-formed 40-hex `Commit:` SHA and — when the
+  submodule has been initialized — the pin SHA matches the live
+  submodule HEAD and every listed source file exists.
+
+The gate is wired into `build/scripts/validate_bundle.sh`'s `TEST_TARGETS`,
+so any silent surface change (vendor scope creep, pin/submodule
+mismatch, missing source) flips the bundle to FAIL.
+
 ## License
 
 TinyCC is licensed under **LGPL-2.1** (see `tinycc/COPYING`). This is a more
