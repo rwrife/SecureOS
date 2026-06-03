@@ -59,6 +59,12 @@ TEST_TARGETS=(
     scheduler
     sof_format
     sof_verify_at_rest
+    # M7-TOOLCHAIN-006 sub-slice (issue #409): host-only check that
+    # `user/libs/sofpack` emits byte-identical bytes to `sof_build()`
+    # for the same parameters and that the bytes round-trip through
+    # `sof_parse()`. Pure host-side, no env deps. Same orphan-from-
+    # TEST_TARGETS gate shape as the other M7 host-side slices.
+    sofpack_wrap
     tls
     https
     fs_service
