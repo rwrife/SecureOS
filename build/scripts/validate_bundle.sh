@@ -81,6 +81,12 @@ TEST_TARGETS=(
     # `sof_parse()`. Pure host-side, no env deps. Same orphan-from-
     # TEST_TARGETS gate shape as the other M7 host-side slices.
     sofpack_wrap
+    # M7-TOOLCHAIN-006 sub-slice (issue #533): host-only check that
+    # `user/libs/manifestgen` emits a deterministic v0 manifest that
+    # round-trips through manifests/schema/v0.json. SKIP-pins the
+    # `owner.kind="local"` arm until #522's additive enum lands. Same
+    # orphan-from-TEST_TARGETS gate shape as sofpack_wrap above.
+    manifest_default_synthesise
     tls
     https
     fs_service
