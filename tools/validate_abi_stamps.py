@@ -30,6 +30,17 @@ Strict-no-skip mode (#470):
   entirely so it is neither PASS-checked nor FAIL-ed under strict mode
   (e.g. genuinely non-freshness index pages); this matches the existing
   semantics for ``capability-registry.md``.
+
+Strict-no-placeholder mode (#470 co-scope, called out in PR #479):
+  Pass ``--strict-no-placeholder`` (or set ``STRICT_PLACEHOLDER=1`` in the
+  env, which the build/scripts wrapper translates into the flag) to
+  promote a ``Last verified against commit:`` line whose value is not a
+  7-40 char hex SHA (e.g. ``HEAD``, ``TBD``, ``unknown``) from
+  ``ABI_STAMP:SKIP:<file>:placeholder:<token>`` to
+  ``ABI_STAMP:FAIL:<file>:placeholder:<token>`` (exit 1). This is the
+  forcing-function for the gap originally tracked by #463
+  (``docs/abi/manifest.md`` shipped with a literal ``HEAD`` placeholder
+  that the strict-SHA regex silently dropped to ``no_stamp_line`` SKIP).
 """
 
 from __future__ import annotations
@@ -43,6 +54,11 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 STAMP_RE = re.compile(r"^Last verified against commit:\s*([0-9a-fA-F]{7,40})\s*$")
+# Looser detection: any ``Last verified against commit:`` line, regardless
+# of whether the value parses as a hex SHA. Used to distinguish a genuine
+# missing-line (``no_stamp_line``) from a placeholder-token line
+# (``placeholder:<token>``) under --strict-no-placeholder (#470).
+STAMP_LINE_RE = re.compile(r"^Last verified against commit:\s*(\S.*?)\s*$")
 
 # Files in docs/abi/ that participate in the convention.
 # `capability-registry.md` is exempt — its stamp says
@@ -66,7 +82,12 @@ def git(args: list[str], root: Path) -> str:
 
 
 def find_stamp(path: Path) -> Optional[str]:
-    """Return the SHA recorded in the `Last verified against commit:` line, or None."""
+    """Return the SHA recorded in the `Last verified against commit:` line, or None.
+
+    Kept as a backward-compatible helper. New callers should prefer
+    :func:`find_stamp_line` so the placeholder arm (#470) can be
+    distinguished from a genuinely-missing line.
+    """
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -76,6 +97,47 @@ def find_stamp(path: Path) -> Optional[str]:
         if m:
             return m.group(1).lower()
     return None
+
+
+def find_stamp_line(path: Path) -> tuple[Optional[str], Optional[str]]:
+    """Classify the file's ``Last verified against commit:`` line.
+
+    Returns ``("sha", <sha lowercased>)`` if the line is present and the
+    value is a 7-40 char hex SHA; ``("placeholder", <token>)`` if the
+    line is present but the value is not a hex SHA (e.g. ``HEAD``,
+    ``TBD``); ``(None, None)`` if no such line exists. Returning the
+    placeholder token verbatim (subject to a small length cap to keep
+    the marker single-line) lets the FAIL/SKIP marker self-describe the
+    offending value for the failing-PR feedback loop.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return (None, None)
+    # Prefer the strict-SHA match — first SHA wins, matching the
+    # historical :func:`find_stamp` semantics. Only fall through to the
+    # looser STAMP_LINE_RE if no SHA-shaped line is found, so a file
+    # that happens to contain both a placeholder line *and* a real SHA
+    # stamp keeps the existing PASS/FAIL path.
+    placeholder: Optional[str] = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        m = STAMP_RE.match(stripped)
+        if m:
+            return ("sha", m.group(1).lower())
+        if placeholder is None:
+            m2 = STAMP_LINE_RE.match(stripped)
+            if m2:
+                token = m2.group(1)
+                # Cap the echoed token so a pathologically-long value
+                # cannot corrupt the marker grammar consumed by
+                # validate_bundle.sh.
+                if len(token) > 64:
+                    token = token[:64] + "..."
+                placeholder = token
+    if placeholder is not None:
+        return ("placeholder", placeholder)
+    return (None, None)
 
 
 def last_content_commit(rel_path: str, root: Path) -> Optional[str]:
@@ -159,6 +221,20 @@ def main() -> int:
             "commit:' line. Files listed via --exempt remain SKIP-eligible."
         ),
     )
+    parser.add_argument(
+        "--strict-no-placeholder",
+        action="store_true",
+        default=False,
+        help=(
+            "Issue #470 (sibling of --strict-no-skip): promote a "
+            "'Last verified against commit:' line whose value is not a "
+            "7-40 char hex SHA from "
+            "'ABI_STAMP:SKIP:<file>:placeholder:<token>' to "
+            "'ABI_STAMP:FAIL:<file>:placeholder:<token>' (exit 1). "
+            "Forcing-function for the #463 'HEAD' placeholder shape that "
+            "the strict-SHA regex used to silently drop to no_stamp_line."
+        ),
+    )
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
@@ -202,8 +278,8 @@ def main() -> int:
     failures = 0
     for path in files:
         rel = os.path.relpath(path, root)
-        stamp = find_stamp(path)
-        if stamp is None:
+        kind, value = find_stamp_line(path)
+        if kind is None:
             # Not all docs/abi/*.md participate in the provenance
             # convention (e.g. spec-only contracts that pre-date the
             # `Last verified` header). Per README §Provenance the line
@@ -221,6 +297,26 @@ def main() -> int:
             else:
                 print(f"ABI_STAMP:SKIP:{rel}:no_stamp_line")
             continue
+        if kind == "placeholder":
+            # The file has a `Last verified against commit:` line but its
+            # value is not a hex SHA (e.g. `HEAD`, `TBD`). Historically
+            # the strict-SHA regex silently dropped this case to
+            # `no_stamp_line` SKIP (see #463 / #470 motivation). Under
+            # --strict-no-placeholder promote it to FAIL so a future
+            # placeholder cannot bypass the gate; otherwise emit a
+            # distinct SKIP reason so the bundle report can surface the
+            # offending token in the JSON without changing exit status.
+            if args.strict_no_placeholder:
+                print(
+                    f"ABI_STAMP:FAIL:{rel}:placeholder:{value}",
+                    file=sys.stderr,
+                )
+                failures += 1
+            else:
+                print(f"ABI_STAMP:SKIP:{rel}:placeholder:{value}")
+            continue
+        # kind == "sha"
+        stamp = value or ""
 
         try:
             stamp_full = resolve(stamp, root)

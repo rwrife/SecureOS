@@ -214,6 +214,14 @@ TEST_TARGETS=(
     # in `docs/abi/*.md` does not predate the file's last content
     # commit. Cheap to run, no env deps.
     abi_stamps_drift
+    # Issue #470 co-scope (sibling of #479's --strict-no-skip):
+    # canary that the validator's placeholder-stamp gate behaves under
+    # all three orthogonal arms (default SKIP, --strict-no-placeholder
+    # FAIL, --exempt short-circuit). Wired here on the same
+    # orphan-from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414 /
+    # #469 caught for peer host gates, so future placeholder regressions
+    # cannot land silently.
+    abi_stamps_strict_no_placeholder
     # Capability-registry contract guards (umbrella #234, issue #482).
     # `validate_capability_registry` pins the `capability_id_t` enum ↔
     # `docs/abi/capability-registry.json` bijection, deny-marker shape,
