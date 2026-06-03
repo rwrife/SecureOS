@@ -16,6 +16,16 @@ After cloning the repo, initialize the submodule:
 git submodule update --init
 ```
 
+CI initializes all submodules via an explicit `git submodule update
+--init --recursive` step in each workflow (see
+`.github/workflows/*.yml`, #520). We avoid `actions/checkout@v4`'s
+`submodules: recursive` because it does a shallow (`--depth=1`) submodule
+fetch, which fails against bearssl.org — that server only advertises
+the tip and rejects requests for the pinned commit. A full clone resolves
+cleanly.
+Local clones need `git submodule update --init --recursive` before
+running `build/scripts/test.sh bearssl_compile`.
+
 ## Build
 
 Compile BearSSL objects for the SecureOS freestanding i386 target:
@@ -39,3 +49,9 @@ applications automatically by `build_user_app.sh`.
 ## License
 
 BearSSL is licensed under the MIT license.  See `BearSSL/LICENSE.txt`.
+
+MIT attribution for released SecureOS images is carried in the release
+compliance bundle (alongside the TinyCC LGPL artifacts) at
+`artifacts/release/compliance/ATTRIBUTION.md` — produced by
+`build/scripts/build_release_compliance_bundle.sh`. See
+[`docs/legal/lgpl-compliance.md`](../../docs/legal/lgpl-compliance.md).

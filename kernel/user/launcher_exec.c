@@ -27,6 +27,7 @@
  */
 
 #include "launcher_exec.h"
+#include "app_native_heap.h"
 
 #include <stdint.h>
 
@@ -359,13 +360,12 @@ static int g_native_exit_status = 0;
  * the bootstrap mapping is widened or the pool is moved to a per-
  * process arena window.
  */
-#define APP_NATIVE_HEAP_BYTES (4u * 1024u * 1024u)
-static uint8_t g_native_heap_pool[APP_NATIVE_HEAP_BYTES] __attribute__((aligned(16)));
-static size_t  g_native_heap_break = 0; /* current break offset within pool */
-
-static void app_native_heap_reset(void) {
-  g_native_heap_break = 0;
-}
+/* M7-TOOLCHAIN-001 (#421): per-app heap pool + sbrk-shape extension
+ * moved to kernel/user/app_native_heap.{c,h} for the #495 round-trip
+ * peer. The launcher continues to wire `bridge->mem_brk` to the
+ * extern `app_native_mem_brk` and reset on every fresh top-level
+ * bridge install via `app_native_heap_reset()`.
+ */
 
 
 typedef int (*app_native_entry_fn)(void);
@@ -1513,53 +1513,13 @@ static int app_native_process_spawn(const char *path,
 }
 
 /*
- * M7-TOOLCHAIN-001 slice 2 (#421). sbrk-shape heap extension. Returns
- * a kernel-side os_status_t cast to int (0 = OK, 1 = DENIED, 3 =
- * ERROR). Never panics on out-of-arena growth — the contract is a
- * clean deny so userland allocators (clib_malloc) can fail the
- * originating malloc/realloc cleanly.
+ * M7-TOOLCHAIN-001 slice 2 (#421). Per-process userland heap pool +
+ * sbrk-shape extension live in kernel/user/app_native_heap.c so the
+ * production path can be link-time exercised end-to-end by the QEMU
+ * round-trip peer (`tests/mem_brk_qemu_test.c`, #495) without
+ * dragging the launcher_exec dependency surface into the host test
+ * build. See app_native_heap.h for the contract.
  */
-static int app_native_mem_brk(int delta, void **out_prev_break) {
-  size_t prev;
-  size_t new_break;
-
-  if (out_prev_break == 0) {
-    return 3; /* OS_STATUS_ERROR */
-  }
-
-  prev = g_native_heap_break;
-
-  if (delta == 0) {
-    *out_prev_break = (void *)&g_native_heap_pool[prev];
-    return 0;
-  }
-
-  if (delta > 0) {
-    size_t udelta = (size_t)delta;
-    /* Overflow guard: prev + udelta must stay representable AND inside
-     * the pool window. The first comparison catches arithmetic wrap
-     * before it confuses the bounds check. */
-    if (udelta > APP_NATIVE_HEAP_BYTES - prev) {
-      *out_prev_break = (void *)&g_native_heap_pool[prev];
-      return 1; /* OS_STATUS_DENIED — out-of-arena */
-    }
-    new_break = prev + udelta;
-  } else {
-    size_t udelta = (size_t)(-(long)delta);
-    if (udelta > prev) {
-      /* Cannot shrink below the pool base — deny cleanly. */
-      *out_prev_break = (void *)&g_native_heap_pool[prev];
-      return 1;
-    }
-    new_break = prev - udelta;
-  }
-
-  g_native_heap_break = new_break;
-  /* Per sbrk(2): on success, return the *previous* break (i.e. the
-   * address of the first freshly-committed byte on positive delta). */
-  *out_prev_break = (void *)&g_native_heap_pool[prev];
-  return 0;
-}
 
 static int app_native_video_blit(int x, int y, int w, int h,
                                  const unsigned char *pixels) {

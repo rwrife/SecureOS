@@ -59,6 +59,12 @@ TEST_TARGETS=(
     scheduler
     sof_format
     sof_verify_at_rest
+    # M7-TOOLCHAIN-006 sub-slice (issue #409): host-only check that
+    # `user/libs/sofpack` emits byte-identical bytes to `sof_build()`
+    # for the same parameters and that the bytes round-trip through
+    # `sof_parse()`. Pure host-side, no env deps. Same orphan-from-
+    # TEST_TARGETS gate shape as the other M7 host-side slices.
+    sofpack_wrap
     tls
     https
     fs_service
@@ -104,6 +110,28 @@ TEST_TARGETS=(
     # bundle to FAIL instead of landing green on `main`.
     console_svc_port_alloc
     fs_svc_port_alloc
+    # Launcher host gates (issue #512): the launcher is the single
+    # trust-boundary every M2/M3/M4/M5/M7 slice mounts onto (console,
+    # fs, broker, spawn handoff, HAL callsite migration, arena clamp).
+    # All six host tests pass on main and are dispatched by
+    # build/scripts/test.sh, but were orphan from TEST_TARGETS so a
+    # regression in launcher revoke-restores-deny / invalid-app /
+    # reset-clears-state (launcher_console), fs bypass-unregistered-
+    # denied / invalid-inputs (launcher_fs), spawn-handoff destroy /
+    # invalid-manifest (launcher_spawn_handoff), console-video HAL
+    # callsite allow/deny-drops-silently (launcher_hal_callsite_migration),
+    # broker spawn handoff gate + revoke-on-destroy
+    # (launcher_broker_spawn_handoff), or fs spawn handoff read/write +
+    # revoke-on-destroy (launcher_fs_spawn_handoff) would otherwise land
+    # green. Same orphan-from-TEST_TARGETS shape as
+    # #129 / #366 / #384 / #401 / #414 / #469 / #482 / #487 / #489 /
+    # #490 / #491 / #492 / #503.
+    launcher_console
+    launcher_fs
+    launcher_spawn_handoff
+    launcher_hal_callsite_migration
+    launcher_broker_spawn_handoff
+    launcher_fs_spawn_handoff
     # M4 capability-broker substrate (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side broker_svc
     # checks + the three `_qemu` peers (slices 003/004) are all green on
@@ -186,6 +214,12 @@ TEST_TARGETS=(
     sosh_cap_cat_ls
     sosh_cap_write_append
     sosh_cap_export
+    # sosh fall-through to os_process_spawn for external binaries
+    # (issue #493, sub-slice of #410 depending on #422). Closes the
+    # gap where `sosh> hello` silently no-op'd. Host smoke drives
+    # the embedder helper (probe + spawn mocks) so deny/allow/unknown
+    # are covered without a live bridge.
+    sosh_external_exec
     # sosh contract ↔ capability-registry drift guard (PR #361). Pure
     # static check that every `CAP_*` cited in the contract still
     # exists in `docs/abi/capability-registry.json`.
@@ -208,6 +242,14 @@ TEST_TARGETS=(
     # in `docs/abi/*.md` does not predate the file's last content
     # commit. Cheap to run, no env deps.
     abi_stamps_drift
+    # Issue #470 co-scope (sibling of #479's --strict-no-skip):
+    # canary that the validator's placeholder-stamp gate behaves under
+    # all three orthogonal arms (default SKIP, --strict-no-placeholder
+    # FAIL, --exempt short-circuit). Wired here on the same
+    # orphan-from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414 /
+    # #469 caught for peer host gates, so future placeholder regressions
+    # cannot land silently.
+    abi_stamps_strict_no_placeholder
     # Capability-registry contract guards (umbrella #234, issue #482).
     # `validate_capability_registry` pins the `capability_id_t` enum ↔
     # `docs/abi/capability-registry.json` bijection, deny-marker shape,
@@ -297,6 +339,18 @@ TEST_TARGETS=(
     # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
     # #401 / #414 / #426 / #432.
     clib_os_brk
+    # M7-TOOLCHAIN-001 `_qemu` peer (issue #495, follow-up to #421 /
+    # PR #455): end-to-end round-trip on the `os_mem_brk` bridge
+    # slot. Links the production `app_native_mem_brk` body
+    # (extracted into `kernel/user/app_native_heap.c` for this slice)
+    # directly and drives grow / shrink / over-cap-deny / arena-reset
+    # against the live arena — the same code the launcher wires into
+    # `bridge->mem_brk`. Closes the deferred slice flagged by
+    # `docs/abi/syscalls.md` §`os_mem_brk` and the
+    # `toolchain_heap_isolation` acceptance marker. Same
+    # orphan-from-TEST_TARGETS lineage as #129 / #366 / #384 / #401 /
+    # #414 / #426 / #432.
+    mem_brk_qemu
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired
@@ -522,6 +576,16 @@ TEST_TARGETS=(
     # the validator is real, mirroring #213 / #234 / #297 / #351.
     validate_m7_markers
     m7_markers_drift
+    # Issue #523: LGPL-2.1 compliance bundle gate. SKIP-pinned
+    # (`awaiting_408`) until M7-TOOLCHAIN-005 Phase 3 actually links
+    # libtcc into the shipped image. Even SKIP-pinned, the wrapper
+    # exercises build_release_compliance_bundle.sh end-to-end and
+    # asserts bundle layout + byte-identity against the vendor license
+    # texts, so the scaffold cannot silently drift before the gating
+    # slice lands. Mirrors the SKIP-with-real-shape discipline used by
+    # tests/m7_toolchain/. Normative contract:
+    # docs/legal/lgpl-compliance.md.
+    release_compliance_bundle
     # M7-TOOLCHAIN-004 slice 5 (issue #407): freestanding `<errno.h>`
     # nucleus in `user/libs/clib` — writable `int errno;` global plus
     # the pinned EPERM/ENOENT/ENOMEM/EINVAL/ERANGE/... macro family and

@@ -53,7 +53,8 @@ run_script() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|clib_malloc|clib_ctype|clib_string|clib_qsort|clib_iso646|clib_bsearch|clib_stdlib|clib_errno|clib_stdarg|clib_stdio|clib_setjmp|clib_assert|clib_os_assert|clib_limits|clib_stdbool|clib_stddef|clib_stdint|clib_inttypes|clib_stdalign|clib_float|clib_stdnoreturn|clib_symbol_drift|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|broker_svc_step3_5_session_teardown|session_manager_first_for_subject|session_manager_subject_for_session|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_arena_bytes|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|m5_owner_delete_cascade_deny_qemu|m5_owner_delete_cascade_window_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|process_exit_wrapper|process_spawn_wrapper|mem_brk_wrapper|clib_os_brk|sdk_abi_pin|sdk_libos_link|validate_sdk_no_kernel_includes|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|manifest_ownership_role_enum|manifest_owner_kind_enum|manifest_arena_bytes_range|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|abi_stamps_strict_no_skip|parity|harness_defense|canary_must_fail|sosh_cap_allow|sosh_cap_deny|sosh_cap_source_exec|sosh_cap_exists|sosh_cap_cat_ls|sosh_cap_write_append|sosh_cap_export|win_gfx_gates|win_gfx_callsite|win_gfx_hal_allow_qemu|win_gfx_hal_deny_qemu|launcher_hal_callsite_migration|validate_sosh_capability_contract|sosh_contract_registry_drift|in_os_toolchain_dev_dir|toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_heap_isolation|tinycc_config_secureos|validate_m7_markers|m7_markers_drift]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|clib_malloc|clib_ctype|clib_string|clib_qsort|clib_iso646|clib_bsearch|clib_stdlib|clib_errno|clib_stdarg|clib_stdio|clib_setjmp|clib_assert|clib_os_assert|clib_limits|clib_stdbool|clib_stddef|clib_stdint|clib_inttypes|clib_stdalign|clib_float|clib_stdnoreturn|clib_symbol_drift|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|broker_svc_step3_5_session_teardown|session_manager_first_for_subject|session_manager_subject_for_session|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_arena_bytes|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|m5_owner_delete_cascade_deny_qemu|m5_owner_delete_cascade_window_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|process_exit_wrapper|process_spawn_wrapper|mem_brk_wrapper|clib_os_brk|mem_brk_qemu|sdk_abi_pin|sdk_libos_link|validate_sdk_no_kernel_includes|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|manifest_ownership_role_enum|manifest_owner_kind_enum|manifest_arena_bytes_range|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|abi_stamps_strict_no_skip|abi_stamps_strict_no_placeholder|parity|harness_defense|canary_must_fail|sosh_cap_allow|sosh_cap_deny|sosh_cap_source_exec|sosh_cap_exists|sosh_cap_cat_ls|sosh_cap_write_append|sosh_cap_export|sosh_external_exec|win_gfx_gates|win_gfx_callsite|win_gfx_hal_allow_qemu|win_gfx_hal_deny_qemu|launcher_hal_callsite_migration|validate_sosh_capability_contract|sosh_contract_registry_drift|release_compliance_bundle|in_os_toolchain_dev_dir|toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_heap_isolation|validate_m7_markers|m7_markers_drift|tinycc_config_secureos|sofpack_wrap]
+
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
 the executable bit is not required. Harness errors (missing/unreadable
@@ -349,6 +350,16 @@ case "$TEST_NAME" in
   sof_format)
     run_script "$ROOT_DIR/build/scripts/test_sof_format.sh"
     ;;
+  sofpack_wrap)
+    # M7-TOOLCHAIN-006 sub-slice (issue #409, plan
+    # plans/2026-05-28-in-os-toolchain-self-hosting.md Phase 5):
+    # `user/libs/sofpack` is the freestanding userland-callable factoring
+    # of `sof_build()` (kernel/format/sof.c) the future in-OS `cc` driver
+    # will call instead of pulling kernel + crypto headers into userland.
+    # Host test pins byte-for-byte wire equivalence with sof_build and
+    # round-trip parse acceptance via sof_parse.
+    run_script "$ROOT_DIR/build/scripts/test_sofpack_wrap.sh"
+    ;;
   ed25519)
     run_script "$ROOT_DIR/build/scripts/test_ed25519.sh"
     ;;
@@ -451,6 +462,9 @@ case "$TEST_NAME" in
   sosh_cap_export)
     run_script "$ROOT_DIR/build/scripts/test_sosh_cap_export.sh"
     ;;
+  sosh_external_exec)
+    run_script "$ROOT_DIR/build/scripts/test_sosh_external_exec.sh"
+    ;;
   win_gfx_callsite)
     run_script "$ROOT_DIR/build/scripts/test_win_gfx_callsite.sh"
     ;;
@@ -527,6 +541,20 @@ case "$TEST_NAME" in
     # clean out-of-arena fallback. End-to-end QEMU growth coverage
     # is the deferred `clib_brk_growth_qemu` peer per the issue body.
     run_script "$ROOT_DIR/build/scripts/test_clib_os_brk.sh"
+    ;;
+  mem_brk_qemu)
+    # Issue #495 (M7-TOOLCHAIN-001 `_qemu` peer): end-to-end
+    # round-trip on the `os_mem_brk` bridge slot. Drives the
+    # production `app_native_mem_brk` body (extracted into
+    # `kernel/user/app_native_heap.c`) directly so the test exercises
+    # the same code the launcher wires into `bridge->mem_brk`,
+    # without the host-unreachable bridge mapping. Asserts grow /
+    # shrink / over-cap-deny / arena-reset sub-markers + the
+    # `toolchain_heap_isolation` half of the M7-TOOLCHAIN-001
+    # acceptance contract called out in `docs/abi/syscalls.md`
+    # §`os_mem_brk` ("end-to-end QEMU growth round-trip is a
+    # deliberate follow-up slice").
+    run_script "$ROOT_DIR/build/scripts/test_mem_brk_qemu.sh"
     ;;
   sdk_abi_pin)
     # Issue #369 (M6-SDK-001): SDK header `sdk/include/os/abi.h`
@@ -707,6 +735,18 @@ case "$TEST_NAME" in
     # discipline from #213 / #234 / #297.
     run_script "$ROOT_DIR/tests/harness/abi_stamps_strict_no_skip_test.sh"
     ;;
+  abi_stamps_strict_no_placeholder)
+    # Issue #470 co-scope (sibling of #479's --strict-no-skip):
+    # negative-canary self-test that proves
+    # tools/validate_abi_stamps.py --strict-no-placeholder promotes a
+    # placeholder-shape `Last verified against commit: HEAD` line
+    # (#463 shape) from `ABI_STAMP:SKIP:<file>:placeholder:<token>` to
+    # `ABI_STAMP:FAIL:<file>:placeholder:<token>` (exit 1), default
+    # mode is unchanged, the flag does not over-reach into the
+    # `no_stamp_line` arm (that's #479's job), and `--exempt` still
+    # short-circuits before the placeholder gate fires.
+    run_script "$ROOT_DIR/tests/harness/abi_stamps_strict_no_placeholder_test.sh"
+    ;;
   validate_sosh_capability_contract)
     # Issue #351 (drift validator slice): cross-check that every CAP_*
     # cited in §4 of docs/abi/sosh-capability-contract.md round-trips
@@ -722,6 +762,14 @@ case "$TEST_NAME" in
     # SOSH_CONTRACT:FAIL:cap_missing_from_registry:<cap_id> marker fires.
     # Mirrors the canary discipline from #213 / #234 / #297.
     run_script "$ROOT_DIR/tests/harness/sosh_contract_registry_drift_test.sh"
+    ;;
+  release_compliance_bundle)
+    # Issue #523: LGPL-2.1 compliance bundle gate. SKIP-pinned
+    # (`awaiting_408`) until M7-TOOLCHAIN-005 Phase 3 statically links
+    # libtcc into the shipped image; layout + license byte-identity
+    # checks run today so the scaffold cannot silently drift. See
+    # docs/legal/lgpl-compliance.md.
+    run_script "$ROOT_DIR/build/scripts/test_release_compliance_bundle.sh"
     ;;
   parity)
     run_script "$ROOT_DIR/build/scripts/test_shell_parity.sh"
