@@ -581,6 +581,15 @@ TEST_TARGETS=(
     toolchain_large_output_persisted
     toolchain_compile_error_reported
     toolchain_heap_isolation
+    # M7-TOOLCHAIN-005 sub-slice (issue #408 Phase 2): freestanding TinyCC
+    # config header at `vendor/tinycc/config-secureos.h` — encodes the
+    # porting note 1 / 3 knobs (TCC_TARGET_X86_64 + ELF default,
+    # CONFIG_TCC_BACKTRACE/BCHECK disabled, ONE_SOURCE=0, VFS-pinned
+    # sysinclude/lib/crt/tccdir paths) that the Phase 3 freestanding
+    # libtcc build will -include in place of upstream's autoconf-
+    # generated config.h. Companion to PR #516's vendor-surface drift
+    # gate (`tinycc_vendor_gate`); both run host-side, no kernel build.
+    tinycc_config_secureos
     # Issue #494: drift gate for the markers.json source-of-truth file
     # above. validate_m7_markers cross-checks that every marker is wired
     # through this TEST_TARGETS block + the case arms in test.sh + the
