@@ -23,6 +23,12 @@ changes are deliberate and reviewable rather than emergent.
   Frozen at `OS_ABI_VERSION = 0` ([#233](https://github.com/rwrife/SecureOS/issues/233)).
 - [manifest.md](manifest.md) — Launcher manifest schema: how an app declares
   the capabilities it needs and how the launcher mediates grants today.
+- [sof-format.md](sof-format.md) — SecureOS File Format (SOF) container
+  wire layout: 36-byte header, metadata TLV section, ELF payload, and
+  optional Ed25519 signature trailer. Pinned at `format_version = 1`
+  under `OS_ABI_VERSION = 0`. Pinned across the kernel parser/builder
+  (`kernel/format/sof.c`), the host signed packer (`tools/sof_wrap/`),
+  and the userland freestanding encoder (`user/libs/sofpack/`).
 - [ipc-wire.md](ipc-wire.md) — IPC wire format (`ipc_msg_v0`) + error
   model (`ipc_result_t`) for `OS_ABI_VERSION = 0`. Specified by #194;
   implementation tracked by the M1 sync-IPC plan (#180 / #185).
