@@ -91,6 +91,8 @@ ever drifts, that arm flips the bundle red.
   2. invoke `tcc_compile()` to emit an in-memory ELF,
   3. call `sofpack_wrap()` to produce the SOF container,
   4. write the result via `os_fs_*`.
-- **On-target build target** — once the `cc` driver app exists, wire
-  `libsofpack.a` into its link step (today the only consumer is the host
-  test).
+- **On-target build target** — `build/scripts/build_user_lib.sh sofpack`
+  (wired into `build.sh build_libs()`'s archive-only branch) produces
+  `artifacts/user/libs/libsofpack.a` next to the existing SOF-wrapped
+  libs. The future `cc` driver app (#409) will pick it up from there;
+  today the only consumer is the host link-pin test.

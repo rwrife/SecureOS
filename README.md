@@ -107,3 +107,13 @@ For graphics mode with the VGA display:
 
 See `CONTRIBUTING.md` for full contributor guidance.
 
+## Distributing SecureOS images
+
+Released SecureOS images that statically link TinyCC (LGPL-2.1) must
+ship with a compliance bundle produced by
+`build/scripts/build_release_compliance_bundle.sh`. The bundle's layout
+and obligations are documented in
+[`docs/legal/lgpl-compliance.md`](docs/legal/lgpl-compliance.md) and
+verified by the `release_compliance_bundle` host test (SKIP-pinned
+until #408 Phase 3 lands TinyCC into the image).
+
