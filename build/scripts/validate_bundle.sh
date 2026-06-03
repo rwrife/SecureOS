@@ -52,6 +52,22 @@ TEST_TARGETS=(
   cap_broker
   cap_deny_marker_shape
   bearssl_compile
+  # M7-TOOLCHAIN-005 (#408): vendor-surface drift gate for the
+  # `vendor/tinycc/` slice — mirrors the BearSSL `bearssl_compile` gate
+  # (#117) for the in-OS toolchain's second vendored dependency. Pins
+  # `vendor/tinycc/Makefile.secureos` (no globbing, in-scope source list
+  # >= the documented 9-file minimum, deliberately-excluded surfaces
+  # like `tccrun.c` / `tcc.c` / non-x86_64 backends absent),
+  # `vendor/tinycc/VERSION` (40-hex `Commit:` line), and — when the
+  # submodule is initialized — cross-checks the pin SHA against the
+  # live submodule commit and the existence of every listed source.
+  # Same orphan-from-TEST_TARGETS shape as #129 / #366 / #384 / #401 /
+  # #414 / #469 / #482 / #487 / #489 / #490 / #491 / #492 — wiring the
+  # gate here so a future vendor-surface drift (e.g. an accidental
+  # `tccrun.c` JIT pull-in or a pin SHA that no longer matches the
+  # submodule) flips the bundle to FAIL before the freestanding port
+  # (#408) starts compiling against the surface.
+  tinycc_vendor_gate
   broker_share_allow
   broker_share_deny
   broker_share_revoke
@@ -269,6 +285,13 @@ TEST_TARGETS=(
     # ABI_STAMP:FAIL:<file>:no_stamp_line. Pure host-side check, no env
     # deps.
     abi_stamps_strict_no_skip
+    # Issue #470 (wrapper-flip slice): canary pinning the strict-mode
+    # default of build/scripts/validate_abi_stamps.sh. Asserts the
+    # wrapper now FAILs on an unstamped docs/abi/*.md without any env
+    # var, that STRICT_STAMPS=0 reverts to the legacy SKIP-tolerant
+    # mode, and that STRICT_STAMPS=1 still works as an explicit-strict
+    # path. Forces a regression of the default flip to flip the bundle.
+    abi_stamps_wrapper_default_strict
     # In-OS toolchain Phase 1 (plan
     # plans/2026-05-28-in-os-toolchain-self-hosting.md): host-only check that
     # the /apps/dev developer directory + hello.c sample stage onto the disk
