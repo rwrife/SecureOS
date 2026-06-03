@@ -59,6 +59,20 @@ TCC_ALL_SRCS = \
 #     os_fs_* (fopen/fread/fwrite/fclose/fprintf). TinyCC's error path uses
 #     setjmp/longjmp, so that pair must be real, not stubs.
 #
+#     Phase 2 (issue #408 sub-slice): the libc symbol surface for this
+#     step is pinned in `vendor/tinycc/libc-deps.json` and verified by
+#     the host gate `tinycc_libc_deps`
+#     (build/scripts/test_tinycc_libc_deps.sh). The manifest enumerates
+#     every libc symbol the pinned TCC_ALL_SRCS source set calls,
+#     partitions them into clib-provided vs. not-yet-provided (with the
+#     `clib_provider` header named per symbol), and the gate cross-checks
+#     the partition against `user/libs/clib/include/clib/*.h`. Phase 3
+#     should close the remaining gaps under the `clib_provider: null`
+#     entries (POSIX fd shim, realloc/free plain-name aliasing,
+#     deterministic time()/localtime(), exit() shim over
+#     os_process_exit, sprintf fallback, dlopen/dlsym #ifdef-out) and
+#     update the manifest as each lands.
+#
 #  3. Replace TinyCC's filesystem and "find include/library" logic with the
 #     SecureOS VFS paths (sysincludes default to /apps/dev/include).
 #
