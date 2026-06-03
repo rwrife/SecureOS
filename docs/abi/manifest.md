@@ -2,7 +2,7 @@
 
 > **Owner:** launcher / user-runtime
 > **Status:** draft `v0` — on-disk schema not yet load-bearing
-> **Last reviewed:** 2026-05-29
+> **Last reviewed:** 2026-06-02
 > **Applies to:** `OS_ABI_VERSION = 0`
 > **Tracking issues:** [#82](https://github.com/rwrife/SecureOS/issues/82), [#83](https://github.com/rwrife/SecureOS/issues/83)
 
@@ -162,28 +162,44 @@ Field semantics we are committing to at v0:
 - `provides[]` lists IPC endpoints the app exposes (see
   [`ipc-wire.md`](./ipc-wire.md)). Endpoint names use a narrow
   reverse-DNS-ish pattern.
-- `owner.kind` is an optional enum (`"internal"` | `"external"`)
+- `owner.kind` is an optional enum (`"internal"` | `"external"` |
+  `"local"`)
   that marks the origin of the module (BUILD_ROADMAP §5.6, plan
   `plans/2026-05-15-public-sdk-external-app-template.md`
-  §"Manifest Schema (additions)", issue #396). The default is
+  §"Manifest Schema (additions)", issue #396; the additive
+  `"local"` enumerator for in-OS-built apps lands in the
+  M7-TOOLCHAIN-006 schema sub-slice, issue #522, refs #409 /
+  #410). The default is
   `"internal"`, which preserves today's behavior exactly: the
   module is shipped in-tree and the launcher applies its existing
   trust/policy path unchanged. `"external"` marks a module produced
   via the public SDK toolchain (`os-cc` / `os-pack`) by a
   third-party author; downstream M6 slices may use this marker
-  to apply stricter signing or cap-grant policy. Like
+  to apply stricter signing or cap-grant policy. `"local"` marks a
+  module produced **on-target** by the in-OS toolchain
+  (#403 / M7-TOOLCHAIN-006); its trust origin is the runtime uid
+  at the SecureOS shell rather than a host-side reproducible build
+  pipeline (which is what `"internal"` records) and rather than an
+  off-target signed SDK invocation (which is what `"external"`
+  records). The Tier-1 unsigned-run flow (#410) uses this third
+  enumerator to keep local-built and external-imported binaries
+  distinguishable in the capability-audit log without forcing
+  either of them to mis-label as `"external"`. Like
   `capabilities.persistence`, `capabilities.broker_role`, and
   `capabilities.ownership_role`, this field is schema-only at v0 —
   the runtime wiring (M6-SDK-003 wrappers and the
-  `sdk_external_build_isolation` acceptance test) lands in later
-  M6-SDK slices and is gated on the A/B design decision tracked
-  in #396. Because the field is **optional**, has a non-default
-  value only when explicitly declared, and `"internal"` exactly
+  `sdk_external_build_isolation` acceptance test, plus the
+  M7-TOOLCHAIN-006/007 in-OS `cc` driver and unsigned-run flow)
+  lands in later slices and is gated on the A/B design decision
+  tracked in #396 / the unsigned-run flow tracked in #410. Because
+  the field is **optional**, has a non-default value only when
+  explicitly declared, and `"internal"` exactly
   preserves the current launcher path, adding it is additive and
   does **not** bump `OS_ABI_VERSION` (same precedent as
   `capabilities.persistence` in #285/#286,
   `capabilities.broker_role` in #312, and
-  `capabilities.ownership_role` in #368, and `owner.kind` in #396).
+  `capabilities.ownership_role` in #368, and the introduction of
+  `owner.kind` itself in #396).
 - `runtime.arena_bytes` is an optional integer field that declares a
   per-app userland arena ceiling in bytes (BUILD_ROADMAP §5.7 and
   plan `plans/2026-05-28-in-os-toolchain-self-hosting.md` §P1,
@@ -331,6 +347,14 @@ list while still being a stable target for the regression test.
   same as `helloapp.json` but with `owner.kind: "internal"`
   (explicit form of today's default; behaves identically to
   omitting the field).
+- **Owner local (in-OS toolchain)** —
+  [`helloapp.owner_kind_local.json`](../../manifests/examples/helloapp.owner_kind_local.json):
+  same as `helloapp.json` but with `owner.kind: "local"`. Added
+  by the M7-TOOLCHAIN-006 schema sub-slice (issue #522) so the
+  in-OS `cc` driver (#409) can synthesise a manifest for a binary
+  it just compiled on-target without having to mis-label it as
+  `"external"`. Runtime semantics (Tier-1 unsigned-run flow,
+  audit-log marker) land with #410.
 - **Owner omitted (back-compat)** — the bundled
   `helloapp.json`, `helloapp.deny.json`, `helloapp.persistent.json`,
   `helloapp.broker_provider.json`, `helloapp.broker_consumer.json`,
@@ -359,6 +383,8 @@ list while still being a stable target for the regression test.
 | Sub-marker | Status |
 | --- | --- |
 | `manifest_owner_kind_enum` (positive) | enforced (PR for #396 schema sub-slice) |
+| `manifest_owner_kind_enum:local_accepted` | enforced (PR for #522 schema sub-slice) |
+| `manifest_owner_kind_enum:local_near_miss_rejected` | enforced (PR for #522 schema sub-slice) |
 | `manifest_owner_kind_enum:negative_rejected` | enforced (PR for #396 schema sub-slice) |
 | `manifest_owner_kind_enum:default_when_omitted` | enforced (PR for #396 schema sub-slice) |
 
@@ -464,4 +490,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 40836340d47fdf133d1dc44cadbbc8875d90aa8a
+Last verified against commit: 3befdfe1676621d7d69c1489a880289fbb7851a9
