@@ -12,6 +12,43 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="$ROOT_DIR/artifacts/lib"
 LIB_NAME="${1:-envlib}"
 
+# build_user_archive_inner: archive-only freestanding userland libraries.
+#
+# Some libs (e.g. `sofpack`, issue #521 sub-slice of #409) have no `main.c`
+# and are not SOF-wrapped. They're plain `ar`-archives that future on-target
+# apps (e.g. the in-OS `cc` driver, #409) link against. Sources live under
+# `user/libs/<name>/src/*.c` with public headers under
+# `user/libs/<name>/include/`. Mirrors the freestanding cflags used by the
+# SOF-lib path so the archive is link-compatible with on-target apps.
+build_user_archive_inner() {
+  LIB_DIR="user/libs/$LIB_NAME"
+  local src_path
+  local object_path
+  local object_files=""
+  local user_cflags="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone"
+  user_cflags="$user_cflags -I $LIB_DIR/include -I user/include"
+  local archive_dir="artifacts/user/libs"
+  local archive_path="$archive_dir/lib${LIB_NAME}.a"
+  mkdir -p "$archive_dir"
+
+  for src_path in "$LIB_DIR"/src/*.c; do
+    [ -f "$src_path" ] || continue
+    object_path="$archive_dir/${LIB_NAME}_$(basename "$src_path" .c).o"
+    clang $user_cflags -c "$src_path" -o "$object_path"
+    object_files="$object_files $object_path"
+  done
+
+  if [ -z "$object_files" ]; then
+    echo "BUILD_USER_LIB:FAIL:$LIB_NAME:no_sources_under_src"
+    return 1
+  fi
+
+  rm -f "$archive_path"
+  llvm-ar rcs "$archive_path" $object_files 2>/dev/null \
+    || ar rcs "$archive_path" $object_files
+  echo "Built $archive_path"
+}
+
 build_user_lib_inner() {
   LIB_DIR="user/libs/$LIB_NAME"
   local src_path
@@ -76,5 +113,11 @@ build_user_lib_inner() {
 }
 
 mkdir -p "$OUT_DIR"
-build_user_lib_inner
-echo "PASS: user lib build ($LIB_NAME)"
+if [ ! -f "user/libs/$LIB_NAME/main.c" ] && compgen -G "user/libs/$LIB_NAME/src/*.c" >/dev/null; then
+  # Archive-only freestanding lib (no SOF wrap, no main.c). E.g. sofpack (#521).
+  build_user_archive_inner
+  echo "PASS: user archive build ($LIB_NAME)"
+else
+  build_user_lib_inner
+  echo "PASS: user lib build ($LIB_NAME)"
+fi
