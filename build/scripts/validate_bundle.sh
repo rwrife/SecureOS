@@ -112,6 +112,16 @@ TEST_TARGETS=(
     process_table
     process_find_aspace_by_subject
     process_create_table_full_deny_marker
+    # Issue #532: pins the canonical CAP:DENY:<sid>:app_exec:<resource>
+    # marker emitted by `app_native_process_spawn`
+    # (kernel/user/launcher_exec.c, M7-TOOLCHAIN-003 #422 / PR #427) when
+    # the calling subject lacks CAP_APP_EXEC. This is the load-bearing
+    # `launch.denied` marker plan #403 P4 / BUILD_ROADMAP §5.2 and
+    # #410's `toolchain_unsigned_prompt_enforced` acceptance lean on;
+    # without bundle gating a refactor that drops the emit would land
+    # green on main — same orphan-from-TEST_TARGETS shape #487 / #503 /
+    # #508 / #512 / #514 closed for other substrate subsystems.
+    app_native_process_spawn_deny_marker
     # M2 console-svc / M3 fs-svc well-known-port allocator host gates
     # (umbrella #299, plan plans/2026-05-25-m4-broker-on-m1-substrate.md).
     # Both pin the IPC port_table seeding contract that the boot-order
