@@ -27,6 +27,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Init submodules (full-depth)
+        # See iso-vm-build.yml: checkout@v4's `submodules: recursive`
+        # uses --depth=1 which fails against bearssl.org (server only
+        # advertises tip, not pinned commits). A plain `git submodule
+        # update --init --recursive` does a full clone and resolves the
+        # pinned SHAs. Refs #520 (pre-emptive for #408 Phase 3).
+        run: git submodule update --init --recursive
+
       - name: Ensure build scripts are executable
         # Defensive chmod, mirroring pr-build.yml. Several validator
         # scripts have repeatedly landed on `main` without the `+x`
