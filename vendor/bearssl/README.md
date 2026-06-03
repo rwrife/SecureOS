@@ -39,3 +39,9 @@ applications automatically by `build_user_app.sh`.
 ## License
 
 BearSSL is licensed under the MIT license.  See `BearSSL/LICENSE.txt`.
+
+MIT attribution for released SecureOS images is carried in the release
+compliance bundle (alongside the TinyCC LGPL artifacts) at
+`artifacts/release/compliance/ATTRIBUTION.md` — produced by
+`build/scripts/build_release_compliance_bundle.sh`. See
+[`docs/legal/lgpl-compliance.md`](../../docs/legal/lgpl-compliance.md).
