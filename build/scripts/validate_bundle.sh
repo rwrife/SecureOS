@@ -600,6 +600,18 @@ TEST_TARGETS=(
     # generated config.h. Companion to PR #516's vendor-surface drift
     # gate (`tinycc_vendor_gate`); both run host-side, no kernel build.
     tinycc_config_secureos
+    # M7-TOOLCHAIN-005 sub-slice (issue #408 Phase 2): freestanding TinyCC
+    # libc dependency surface pinned at `vendor/tinycc/libc-deps.json`
+    # and verified by `tinycc_libc_deps`. Encodes porting note 2 of
+    # `vendor/tinycc/Makefile.secureos`: every libc symbol the pinned
+    # TCC_ALL_SRCS source set calls is partitioned into clib-provided
+    # vs. not-yet-provided, with the partition cross-checked against
+    # `user/libs/clib/include/clib/*.h` so a silent change to either
+    # side (TinyCC submodule bump, clib slice landing) flips this gate
+    # before Phase 3 build wiring quietly drifts. Third leg of the
+    # tinycc_vendor_gate (sources) / tinycc_config_secureos (config) /
+    # tinycc_libc_deps (libc surface) audit triangle.
+    tinycc_libc_deps
     # Issue #494: drift gate for the markers.json source-of-truth file
     # above. validate_m7_markers cross-checks that every marker is wired
     # through this TEST_TARGETS block + the case arms in test.sh + the
