@@ -234,4 +234,4 @@ surface. Values are stable for the lifetime of `format_version = 1`:
 - [`versioning.md`](versioning.md) — `OS_ABI_VERSION` / format-version
   bump policy.
 
-Last verified against commit: 94231e5dada9f654065aa5cc1a8c080a23d449f2
+Last verified against commit: 8b4124007023626cf4d784620ed130dd3950e246
