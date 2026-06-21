@@ -457,6 +457,53 @@ M6-SDK-003 sub-slices once the A/B design question in #396 is
 resolved. This sub-slice intentionally introduces no runtime
 behavior change.
 
+### §5.8 in-OS minimal-manifest synthesiser (M7-TOOLCHAIN-006 sub-slice)
+
+`user/libs/manifestgen` ships the canonical helper the in-OS `cc`
+driver (#409) uses to emit a `<binary>.manifest.json` alongside the
+SOF container it just produced on-target (plan
+`plans/2026-05-28-in-os-toolchain-self-hosting.md` §"In-OS
+packaging"). The synthesiser writes a deterministic v0 manifest
+conforming to the schema documented above:
+
+- `manifest_version`: `0` (locked).
+- `os_abi_version`: the running `OS_ABI_VERSION_MAJOR` (synthesised
+  by the caller, typically the in-OS `cc` driver).
+- `app.{id, version, subject_id, binary}`: caller-supplied; the
+  synthesiser enforces the schema's required-field and range
+  constraints (`subject_id ∈ [1, 7]`, non-empty strings) before
+  writing.
+- `capabilities.request`: `[]` (in-OS-built apps start un-privileged;
+  capability requests are an explicit follow-up tracked by #409 /
+  #410).
+- `owner.kind`: one of `"internal"`, `"external"`, or `"local"`. The
+  `"local"` enumerator is the additive arm landing via #522; the
+  synthesiser already accepts it so the in-OS `cc` driver does not
+  require a follow-up source change when #522 merges.
+
+Determinism (byte-identical bytes for identical params) and a schema
+round-trip via `tools/validate_manifests.py` are pinned by
+`tests/manifest_default_synthesise_test.c`, dispatched by
+`build/scripts/test_manifest_default_synthesise.sh`
+(`manifest_default_synthesise` target, wired into
+`build/scripts/validate_bundle.sh` `TEST_TARGETS` so a regression
+flips the release bundle to FAIL — same orphan-from-`TEST_TARGETS`
+discipline as `sofpack_wrap`).
+
+| Sub-marker | Status |
+| --- | --- |
+| `manifest_default_synthesise:happy_path` | enforced (PR for #533) |
+| `manifest_default_synthesise:determinism` | enforced (PR for #533) |
+| `manifest_default_synthesise:negatives` | enforced (PR for #533) |
+| `manifest_default_synthesise:buffer_too_small` | enforced (PR for #533) |
+| `manifest_default_synthesise:local_kind_emits_local` | enforced (PR for #533) |
+| `manifest_default_synthesise:roundtrip:internal` | enforced (PR for #533) |
+| `manifest_default_synthesise:roundtrip:external` | enforced (PR for #533) |
+| `manifest_default_synthesise:roundtrip:local` | SKIP-pinned `:awaiting_522` until #522 lands |
+
+No `OS_ABI_VERSION` change — additive userland helper that produces
+documents conforming to the existing v0 schema. No kernel change.
+
 ## Compatibility policy
 
 `manifest_version` and `os_abi_version` are two intentionally separate
