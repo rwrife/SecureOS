@@ -28,6 +28,7 @@
 
 #include "launcher_exec.h"
 #include "app_native_heap.h"
+#include "app_native_spawn.h"
 
 #include <stdint.h>
 
@@ -1438,39 +1439,11 @@ static int app_native_process_spawn(const char *path,
    * marker here (rather than relying on `process_run` to fail later)
    * mirrors the `proc_emit_table_full_deny_marker` shape and gives
    * the audit-ring scanner a stable `app_exec:<resource>` line for
-   * the `launch.denied` invariant (plan #403 P4). */
-  if (!app_require_capability(subject_id, CAP_APP_EXEC)) {
-    char marker[CAP_DENY_MARKER_MAX];
-    char resource[CAP_DENY_RESOURCE_MAX + 1u];
-    size_t i;
-    /* Sanitize: cap_deny_marker_format rejects ':' / newline / non-
-     * printable bytes in the resource field. Truncate at the
-     * resource cap and replace any forbidden byte with '_' so a
-     * pathological path can still produce a parseable marker. */
-    for (i = 0u; i < CAP_DENY_RESOURCE_MAX && path[i] != '\0'; ++i) {
-      unsigned char c = (unsigned char)path[i];
-      if (c == ':' || c == '\n' || c < 0x20u || c > 0x7Eu) {
-        resource[i] = '_';
-      } else {
-        resource[i] = (char)c;
-      }
-    }
-    if (i == 0u) {
-      resource[i++] = '_';
-    }
-    resource[i] = '\0';
-    {
-      int n = cap_deny_marker_format(subject_id, CAP_APP_EXEC,
-                                     resource, marker, sizeof(marker));
-#if __STDC_HOSTED__
-      if (n > 0) {
-        (void)fwrite(marker, 1u, (size_t)n, stdout);
-      }
-#else
-      (void)n;
-      (void)marker;
-#endif
-    }
+   * the `launch.denied` invariant (plan #403 P4). Body lives in
+   * `app_native_spawn.c` so #532 can host-link pin the marker shape
+   * without dragging launcher_exec's HAL/IPC/crypto surface into the
+   * unit-test build (same extraction pattern as PR #495 / #421). */
+  if (app_native_spawn_cap_check(subject_id, path) != 0) {
     return 1;
   }
 

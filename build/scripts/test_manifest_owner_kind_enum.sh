@@ -53,6 +53,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WRAPPER="$ROOT_DIR/build/scripts/validate_manifests.sh"
 POS_EXTERNAL="$ROOT_DIR/manifests/examples/helloapp.owner_external.json"
 POS_INTERNAL="$ROOT_DIR/manifests/examples/helloapp.owner_internal.json"
+POS_LOCAL="$ROOT_DIR/manifests/examples/helloapp.owner_kind_local.json"
 POS_OMITTED="$ROOT_DIR/manifests/examples/helloapp.json"
 NEG_FIXTURE="$ROOT_DIR/manifests/examples/invalid/helloapp.owner_kind_invalid.json"
 
@@ -60,7 +61,7 @@ if [[ ! -r "$WRAPPER" ]]; then
   echo "TEST:FAIL:harness_missing_script:$WRAPPER" >&2
   exit 78
 fi
-for f in "$POS_EXTERNAL" "$POS_INTERNAL" "$POS_OMITTED" "$NEG_FIXTURE"; do
+for f in "$POS_EXTERNAL" "$POS_INTERNAL" "$POS_LOCAL" "$POS_OMITTED" "$NEG_FIXTURE"; do
   if [[ ! -r "$f" ]]; then
     echo "TEST:FAIL:harness_missing_positive_example:$f" >&2
     exit 78
@@ -103,7 +104,13 @@ check_positive() {
 
 check_positive "external_example" "$POS_EXTERNAL"
 check_positive "internal_example" "$POS_INTERNAL"
+check_positive "local_example" "$POS_LOCAL"
 check_positive "omitted_field_backcompat" "$POS_OMITTED"
+
+# Spelled-out positive sub-marker for the M7-TOOLCHAIN-006 'local'
+# enumerator (issue #522, refs #409 / #410); parity with the
+# `:default_when_omitted` / `:negative_rejected` sub-markers.
+echo "TEST:PASS:manifest_owner_kind_enum:local_accepted"
 
 # --- Default-when-omitted sub-marker (parity with §5.3/§5.4/§5.5). ---
 # The omitted-field case above already passed; explicitly emit the
@@ -194,5 +201,64 @@ fi
 
 # Negative-path sub-marker (parity with §5.3/§5.4/§5.5).
 echo "TEST:PASS:manifest_owner_kind_enum:negative_rejected"
+
+# --- Additional negatives for the 'local' enumerator added by #522.
+# Assert that case-variant ('LOCAL') and near-miss ('local-shipped')
+# values are still rejected — the enum is case-sensitive and exact,
+# matching the precedent set by 'external' / 'internal'.
+for BAD_VAL in "LOCAL" "local-shipped"; do
+  BAD_PATH="$TMP/owner_kind_${BAD_VAL//\//_}.json"
+  cat >"$BAD_PATH" <<EOF
+{
+  "manifest_version": 0,
+  "os_abi_version": 0,
+  "app": {
+    "id": "helloapp",
+    "version": "0.1.0",
+    "subject_id": 2,
+    "binary": "apps/helloapp.bin",
+    "signer_key_id": "secureos-dev-key-1"
+  },
+  "capabilities": {
+    "request": ["CAP_CONSOLE_WRITE"],
+    "optional": []
+  },
+  "owner": {
+    "kind": "${BAD_VAL}"
+  },
+  "provides": [],
+  "launcher": {
+    "auto_grant_at_launch": ["CAP_CONSOLE_WRITE"],
+    "require_user_confirm": []
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "signer_key_id": "secureos-dev-key-1",
+    "signature_path": "apps/helloapp.bin.sig"
+  }
+}
+EOF
+  LOCAL_NEG_OUT="$TMP/local_neg_${BAD_VAL//\//_}.log"
+  set +e
+  bash "$WRAPPER" "$BAD_PATH" >"$LOCAL_NEG_OUT" 2>&1
+  LOCAL_NEG_RC=$?
+  set -e
+  if [[ "$LOCAL_NEG_RC" -eq 0 ]]; then
+    echo "TEST:FAIL:manifest_owner_kind_enum:local_near_miss_accepted:${BAD_VAL}" >&2
+    sed 's/^/  | /' "$LOCAL_NEG_OUT" >&2
+    exit 1
+  fi
+  if ! grep -Eq "MANIFEST_VALIDATE:(ERROR|FAIL)" "$LOCAL_NEG_OUT"; then
+    echo "TEST:FAIL:manifest_owner_kind_enum:local_near_miss_missing_marker:${BAD_VAL}" >&2
+    sed 's/^/  | /' "$LOCAL_NEG_OUT" >&2
+    exit 1
+  fi
+  if ! grep -Eq "owner|kind" "$LOCAL_NEG_OUT"; then
+    echo "TEST:FAIL:manifest_owner_kind_enum:local_near_miss_field_name_not_in_error:${BAD_VAL}" >&2
+    sed 's/^/  | /' "$LOCAL_NEG_OUT" >&2
+    exit 1
+  fi
+done
+echo "TEST:PASS:manifest_owner_kind_enum:local_near_miss_rejected"
 
 echo "TEST:PASS:manifest_owner_kind_enum"

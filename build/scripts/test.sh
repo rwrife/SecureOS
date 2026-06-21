@@ -53,7 +53,7 @@ run_script() {
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|clib_malloc|clib_ctype|clib_string|clib_qsort|clib_iso646|clib_bsearch|clib_stdlib|clib_errno|clib_stdarg|clib_stdio|clib_setjmp|clib_assert|clib_os_assert|clib_limits|clib_stdbool|clib_stddef|clib_stdint|clib_inttypes|clib_stdalign|clib_float|clib_stdnoreturn|clib_symbol_drift|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|broker_svc_step3_5_session_teardown|session_manager_first_for_subject|session_manager_subject_for_session|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_arena_bytes|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|tinycc_vendor_gate|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|m5_owner_delete_cascade_deny_qemu|m5_owner_delete_cascade_window_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|process_exit_wrapper|process_spawn_wrapper|mem_brk_wrapper|clib_os_brk|mem_brk_qemu|sdk_abi_pin|sdk_libos_link|validate_sdk_no_kernel_includes|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|manifest_ownership_role_enum|manifest_owner_kind_enum|manifest_arena_bytes_range|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|abi_stamps_strict_no_skip|abi_stamps_strict_no_placeholder|abi_stamps_wrapper_default_strict|parity|harness_defense|canary_must_fail|sosh_cap_allow|sosh_cap_deny|sosh_cap_source_exec|sosh_cap_exists|sosh_cap_cat_ls|sosh_cap_write_append|sosh_cap_export|sosh_external_exec|win_gfx_gates|win_gfx_callsite|win_gfx_hal_allow_qemu|win_gfx_hal_deny_qemu|launcher_hal_callsite_migration|validate_sosh_capability_contract|sosh_contract_registry_drift|release_compliance_bundle|in_os_toolchain_dev_dir|toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_heap_isolation|validate_m7_markers|m7_markers_drift|sofpack_wrap|manifest_default_synthesise]
+Usage: $(basename "$0") [hello_boot|hello_boot_negative|harness_negative|cap_api_contract|capability_table|cap_table_skeleton|cap_handle_repr|cap_handle_revoke_subject|cap_handle_revoke_subtree|process_table|process_create_table_full_deny_marker|app_native_process_spawn_deny_marker|process_find_aspace_by_subject|proc_sched|proc_sched_aspace_invariant|aspace_carve|clib_malloc|clib_ctype|clib_string|clib_qsort|clib_iso646|clib_bsearch|clib_stdlib|clib_errno|clib_stdarg|clib_stdio|clib_setjmp|clib_assert|clib_os_assert|clib_limits|clib_stdbool|clib_stddef|clib_stdint|clib_inttypes|clib_stdalign|clib_float|clib_stdnoreturn|clib_symbol_drift|aspace_bounds|aspace_invariant|capability_gate|console_svc_port_alloc|fs_svc_port_alloc|broker_svc_port_alloc|broker_svc_delete_owner_authority_check|broker_svc_cascade_revokes_minted_handle|broker_svc_step3_5_session_teardown|session_manager_first_for_subject|session_manager_subject_for_session|capability_audit|capability_audit_fixture|capability_audit_log|cap_broker|cap_deny_marker_shape|broker_share_allow|broker_share_deny|broker_share_revoke|workflow_rule|launcher_console|launcher_spawn_handoff|launcher_arena_bytes|launcher_fs_spawn_handoff|launcher_broker_spawn_handoff|event_bus|scheduler|sof_format|sof_verify_at_rest|ed25519|cert_chain|codesign|tls|https|netlib_url_scheme|bearssl_compile|tinycc_vendor_gate|fs_service|launcher_fs|fs_service_persist_allow|fs_service_persist_deny|fs_service_ephemeral_reset|m3_fs_persist_allow_qemu|m3_fs_persist_deny_qemu|m3_fs_ephemeral_reset_qemu|m4_broker_share_allow_qemu|m4_broker_share_deny_qemu|m4_broker_share_revoke_qemu|m5_owner_delete_cascade_allow_qemu|m5_owner_delete_cascade_deny_qemu|m5_owner_delete_cascade_window_qemu|app_runtime|helloapp_allow|helloapp_deny|m2_helloapp_allow_qemu|m2_helloapp_deny_qemu|m2_launcher_console_qemu|kernel_console|kernel_filedemo|kernel_persistence|kernel_sessions|validator_report|abi_version|process_exit_wrapper|process_spawn_wrapper|mem_brk_wrapper|clib_os_brk|mem_brk_qemu|sdk_abi_pin|sdk_libos_link|validate_sdk_no_kernel_includes|validate_manifests_abi_major|manifest_required_fields|manifest_persistence_enum|manifest_broker_role_enum|manifest_ownership_role_enum|manifest_owner_kind_enum|manifest_arena_bytes_range|ipc_sync_v0|ipc_port_lifecycle|ipc_handle_gate|ipc_bounds|m1_ipc_demo|syscall_entry_stub|validate_capability_registry|capability_registry_drift|validate_abi_stamps|abi_stamps_drift|abi_stamps_strict_no_skip|abi_stamps_strict_no_placeholder|abi_stamps_wrapper_default_strict|parity|harness_defense|canary_must_fail|sosh_cap_allow|sosh_cap_deny|sosh_cap_source_exec|sosh_cap_exists|sosh_cap_cat_ls|sosh_cap_write_append|sosh_cap_export|sosh_external_exec|win_gfx_gates|win_gfx_callsite|win_gfx_hal_allow_qemu|win_gfx_hal_deny_qemu|launcher_hal_callsite_migration|validate_sosh_capability_contract|sosh_contract_registry_drift|release_compliance_bundle|in_os_toolchain_dev_dir|toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_heap_isolation|validate_m7_markers|m7_markers_drift|tinycc_config_secureos|tinycc_libc_deps|sofpack_wrap|manifest_default_synthesise]
 
 
 Runs SecureOS test targets. Subordinate scripts are dispatched via bash so
@@ -138,6 +138,19 @@ case "$TEST_NAME" in
     # `CAP:DENY:*:app_exec:*` greps pick up both policy and
     # exhaustion denies under one shape.
     run_script "$ROOT_DIR/build/scripts/test_process_create_table_full_deny_marker.sh"
+    ;;
+  app_native_process_spawn_deny_marker)
+    # Issue #532: pins the canonical CAP:DENY:<sid>:app_exec:<resource>
+    # marker emitted by `app_native_process_spawn` (M7-TOOLCHAIN-003
+    # #422 / PR #427) when the calling subject lacks CAP_APP_EXEC.
+    # Marker is the load-bearing audit-ring line `launch.denied` (plan
+    # #403 P4 / BUILD_ROADMAP §5.2) and #410's
+    # `toolchain_unsigned_prompt_enforced` acceptance leans on.
+    # Same orphan-from-TEST_TARGETS shape #487 / #503 / #508 / #512 /
+    # #514 fixed for other substrate subsystems. Exercises the body via
+    # the `app_native_spawn_cap_check` seam (kernel/user/app_native_spawn.c),
+    # same fixture-seam pattern PR #495 used for `app_native_mem_brk`.
+    run_script "$ROOT_DIR/build/scripts/test_app_native_process_spawn_deny_marker.sh"
     ;;
   process_find_aspace_by_subject)
     run_script "$ROOT_DIR/build/scripts/test_process_find_aspace_by_subject.sh"
@@ -393,8 +406,14 @@ case "$TEST_NAME" in
   bearssl_compile)
     run_script "$ROOT_DIR/build/scripts/test_bearssl_compile.sh"
     ;;
+  tinycc_config_secureos)
+    run_script "$ROOT_DIR/build/scripts/test_tinycc_config_secureos.sh"
+    ;;
   tinycc_vendor_gate)
     run_script "$ROOT_DIR/build/scripts/test_tinycc_vendor_gate.sh"
+    ;;
+  tinycc_libc_deps)
+    run_script "$ROOT_DIR/build/scripts/test_tinycc_libc_deps.sh"
     ;;
   netlib_url_scheme)
     run_script "$ROOT_DIR/build/scripts/test_netlib_url_scheme.sh"

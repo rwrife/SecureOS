@@ -203,6 +203,38 @@ Expected return: `OS_STATUS_DENIED`. No grant entry appears in either
 subject's capability table; no `CAP_AUDIT_OP_GRANT` event is recorded
 (only the `CAP_AUDIT_OP_CHECK` deny event from §6).
 
+### 7.4 `app_exec` deny (launcher spawn pre-check, drives #410 / #532)
+
+Setup: app subject id 5 lacks `CAP_APP_EXEC` and invokes the
+`app_native_process_spawn` bridge slot
+(`kernel/user/launcher_exec.c`, M7-TOOLCHAIN-003 #422 / PR #427) with
+path `/apps/hello.bin`. The launcher emits the canonical deny marker
+*before* `process_run` touches the filesystem so the audit-ring
+scanner sees a stable `app_exec:<resource>` line for the
+`launch.denied` invariant in plan #403 P4 (BUILD_ROADMAP §5.2) even
+for non-existent binaries.
+
+Expected serial:
+
+```
+CAP:DENY:5:app_exec:/apps/hello.bin
+TEST:PASS:app_native_process_spawn_deny_marker_canonical_shape
+```
+
+The `<resource>` field is the requested path. Any byte that
+`cap_deny_marker_format` would reject (`:`, `\n`, non-printable, or
+non-ASCII) is rewritten to `_` by the launcher pre-check so a
+pathological path still produces a parseable marker; the sanitizer is
+pinned by `tests/app_native_process_spawn_deny_marker_test.c`. The
+emission shares the `app_exec:<resource>` shape used by
+`proc_emit_table_full_deny_marker` (§7 in `kernel/proc/process.c`,
+`resource=proc_table_full`) so a single `CAP:DENY:*:app_exec:*` grep
+picks up both policy and exhaustion denies.
+
+Expected return: bridge slot returns `1` (mapped to
+`PROCESS_ERR_CAPABILITY` by the userland `os_process_spawn` wrapper);
+no child process is created.
+
 ## 8. Conformance checklist (for slice authors)
 
 A service satisfies this contract when:
@@ -260,4 +292,4 @@ above are unstable: additive changes (new fields appended after
 bumping `OS_ABI_VERSION`. A grammar change MUST update §4 and §7 in the
 same PR.
 
-Last verified against commit: 9349706d49eb81a08f2b480d9b803d18fc9ebca8
+Last verified against commit: 9767ef5668
