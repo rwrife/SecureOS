@@ -42,6 +42,10 @@ changes are deliberate and reviewable rather than emergent.
   [`manifest.md`](manifest.md), and the deny-marker formatter in
   `kernel/cap/cap_deny_marker.c`. Originally specified by
   [#164](https://github.com/rwrife/SecureOS/issues/164).
+- [audit-markers.md](audit-markers.md) — registry/index of audit marker
+  families (`CAP:DENY`, launcher auth markers, launch decision markers,
+  and toolchain marker families) with links to each authoritative contract
+  and its gating issue.
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
 - [clib-symbols.md](clib-symbols.md) — Public symbol surface of
