@@ -70,13 +70,13 @@ CAP_AUDIT:seq=<n>:op=GRANT:actor=<actor_sid>:subject=<subject_sid>:cap=<capabili
 Source-of-truth emit/format sites in `kernel/cap/` (line ranges as of this
 file's verification stamp):
 
-- [`kernel/cap/capability.c`](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c)
-  - [`cap_grant_as_for_tests` (`L210-L243`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c#L210-L243) — admin-gated grant path.
-  - [`cap_grant_for_tests` (`L183-L187`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c#L183-L187) — direct test-helper grant path.
-  - [`cap_audit_format_event` (`L389-L414`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c#L389-L414) — canonical serialized line shape.
-- [`kernel/cap/cap_broker.c`](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/cap_broker.c)
-  - [`cap_broker_approve` (`L147-L177`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/cap_broker.c#L147-L177) — broker-mediated grant (`cap_audit_emit(CAP_AUDIT_OP_GRANT, ...)`).
-  - [`cap_broker_deny` (`L179-L205`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/cap_broker.c#L179-L205) — denied broker grant request still records `op=GRANT` with deny-class `result`.
+- [`kernel/cap/capability.c`](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c)
+  - [`cap_grant_as_for_tests` (`L210-L243`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c#L210-L243) — admin-gated grant path.
+  - [`cap_grant_for_tests` (`L183-L187`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c#L183-L187) — direct test-helper grant path.
+  - [`cap_audit_format_event` (`L389-L414`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c#L389-L414) — canonical serialized line shape.
+- [`kernel/cap/cap_broker.c`](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/cap_broker.c)
+  - [`cap_broker_approve` (`L147-L177`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/cap_broker.c#L147-L177) — broker-mediated grant (`cap_audit_emit(CAP_AUDIT_OP_GRANT, ...)`).
+  - [`cap_broker_deny` (`L179-L205`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/cap_broker.c#L179-L205) — denied broker grant request still records `op=GRANT` with deny-class `result`.
 
 Pinned fields for the `cap.grant` family:
 
@@ -98,12 +98,12 @@ CAP_AUDIT:seq=<n>:op=REVOKE:actor=<actor_sid>:subject=<subject_sid>:cap=<capabil
 Source-of-truth emit/format sites in `kernel/cap/` (line ranges as of this
 file's verification stamp):
 
-- [`kernel/cap/capability.c`](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c)
-  - [`cap_revoke_as_for_tests` (`L245-L265`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c#L245-L265) — admin-gated revoke path.
-  - [`cap_revoke_for_tests` (`L189-L193`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c#L189-L193) — direct test-helper revoke path.
-  - [`cap_audit_format_event` (`L389-L414`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/capability.c#L389-L414) — canonical serialized line shape.
-- [`kernel/cap/cap_broker.c`](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/cap_broker.c)
-  - [`cap_broker_revoke` (`L207-L235`)](https://github.com/rwrife/SecureOS/blob/3d035f1dc0cf1ef22659a23d0801f5615fb57ca4/kernel/cap/cap_broker.c#L207-L235) — broker-owner or recipient self-revoke path.
+- [`kernel/cap/capability.c`](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c)
+  - [`cap_revoke_as_for_tests` (`L245-L265`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c#L245-L265) — admin-gated revoke path.
+  - [`cap_revoke_for_tests` (`L189-L193`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c#L189-L193) — direct test-helper revoke path.
+  - [`cap_audit_format_event` (`L389-L414`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/capability.c#L389-L414) — canonical serialized line shape.
+- [`kernel/cap/cap_broker.c`](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/cap_broker.c)
+  - [`cap_broker_revoke` (`L207-L235`)](https://github.com/rwrife/SecureOS/blob/6305aea4f0eaee1547ed0e4c2be022688af3c9cf/kernel/cap/cap_broker.c#L207-L235) — broker-owner or recipient self-revoke path.
 
 Pinned fields for the `cap.revoke` family:
 
@@ -132,4 +132,4 @@ PR checklist (minimum):
 - [ ] Consumer/test surface documented (or issue linked).
 - [ ] `Last verified against commit` lines refreshed.
 
-Last verified against commit: 3d035f1dc0cf1ef22659a23d0801f5615fb57ca4
+Last verified against commit: 6305aea4f0eaee1547ed0e4c2be022688af3c9cf
