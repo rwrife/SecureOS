@@ -136,6 +136,10 @@ the capability but degrade (none today) must document that explicitly.
   `cap_revoke_as_for_tests` (test names — the runtime path is the same code
   behind a sealed entry). Every mutation requires an `actor_subject_id`
   that itself holds `CAP_CAPABILITY_ADMIN`.
+- The canonical capability-mutation audit marker families (`cap.grant` /
+  `cap.revoke`, serialized as `CAP_AUDIT:...:op=GRANT|REVOKE:...`) are
+  indexed in [`audit-markers.md`](audit-markers.md) §4.1–§4.2, including
+  the v0 `resource` rule (`-`) and callsite-derived `cause` taxonomy.
 - `CAP_CAPABILITY_ADMIN` is **non-delegable** (CAP-014): only the bootstrap
   root subject `0` may hold it, and attempts to grant it to any other
   subject return `CAP_ERR_MISSING` against the actor.
@@ -178,4 +182,4 @@ fixture or fail this test loudly with a per-line diff. Updating the
 fixture is allowed only under an explicit audit-ABI bump per
 BUILD_ROADMAP §7.
 
-Last verified against commit: ee4426283a858573fac6004df2e65aa067e13b56
+Last verified against commit: 3d035f1dc0cf1ef22659a23d0801f5615fb57ca4
