@@ -84,6 +84,13 @@ case "$TEST_NAME" in
     # /apps/dev developer directory + sample are staged onto the disk image.
     run_script "$ROOT_DIR/build/scripts/test_in_os_toolchain_dev_dir.sh"
     ;;
+  dev_hello_c_pin)
+    # Issue #636: source-drift pin for the canonical in-OS compiler sample
+    # (`dev/hello.c`). Recomputes SHA-256 and compares to
+    # tests/host/pins/dev_hello_c.sha256 so input drift is explicit before it
+    # cascades into M7 SOF/toolchain goldens.
+    run_script "$ROOT_DIR/build/scripts/validate_dev_hello_c.sh"
+    ;;
   toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_heap_isolation)
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance

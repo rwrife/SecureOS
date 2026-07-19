@@ -1,0 +1,3 @@
+# SHA-256 pin for dev/hello.c (issue #636).
+# Update this hash intentionally alongside any approved edit to dev/hello.c.
+a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30  dev/hello.c
