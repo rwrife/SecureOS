@@ -1,7 +1,7 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-07-18T21:06:16Z
+- 2026-07-19T21:15:34Z
 
 ## Open PR snapshot
 - Open PR count at run start: **0**
@@ -52,23 +52,25 @@
     https://github.com/rwrife/SecureOS/issues/625
 
 ## PRs merged this run
-- https://github.com/rwrife/SecureOS/pull/649
+- _none_
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/635
+- https://github.com/rwrife/SecureOS/issues/636
 
 ## Issues newly created this run
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `docs/audit-markers-cap-grant-revoke-635` (remote branch deleted after merge)
-- PR: https://github.com/rwrife/SecureOS/pull/649 (merged)
+- Branch: `feature/dev-hello-c-sha-pin-636`
+- PR: https://github.com/rwrife/SecureOS/pull/651
 
 ## Blockers / notes
-- Merge sweep at run start found zero open PRs.
-- Implemented #635 because it directly strengthens consent/audit traceability in the capability subsystem: the ABI audit-marker registry now documents capability grant/revoke mutation records and cross-links broker + sosh-facing docs.
+- Merge sweep at run start found zero open PRs, so no PRs were eligible for merge/auto-merge actions.
+- Selected #636 because it hardens a load-bearing M7 input (`dev/hello.c`) used across the in-OS compiler validation path and prevents silent drift from invalidating downstream SOF/toolchain goldens.
+- Implemented a deterministic source-hash drift gate (`dev_hello_c_pin`) wired through `test.sh` and `validate_bundle.sh`, added the pin file, and documented the update workflow in `CONTRIBUTING.md`.
 - Validation executed in the implementation worktree:
-  - `STRICT_STAMPS=1 ./build/scripts/validate_abi_stamps.sh`
-  - `./build/scripts/validate_sosh_capability_contract.sh`
-  - `./build/scripts/test.sh capability_audit_fixture`
-- `gh pr merge --auto --squash --delete-branch` merged PR #649 but failed local branch cleanup due the branch being checked out in an active worktree; remote branch deletion was completed manually with `git push origin --delete docs/audit-markers-cap-grant-revoke-635`.
+  - `./build/scripts/validate_dev_hello_c.sh`
+  - `./build/scripts/test.sh dev_hello_c_pin`
+  - `./build/scripts/test.sh in_os_toolchain_dev_dir`
+  - `./build/scripts/lint.sh`
+- `gh pr create` initially produced a corrupted PR body due shell command substitution inside backticks; corrected by patching PR #651 body via REST (`gh api -X PATCH repos/rwrife/SecureOS/pulls/651 --input ...`).
