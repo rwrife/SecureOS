@@ -1,18 +1,23 @@
-/*
- * hello.c — SecureOS in-OS compiler validation sample.
+/**
+ * @file hello.c
+ * @brief Canonical in-OS compiler validation sample for SecureOS.
  *
- * This is the "hello world" you compile from *inside* a running SecureOS
- * instance to confirm the in-OS toolchain works end to end:
+ * Purpose:
+ *   This is the single reference "hello world" source compiled inside a
+ *   running SecureOS instance to validate the in-OS toolchain path:
  *
- *     cc /apps/dev/hello.c -o /apps/hello.bin
- *     hello
+ *       cc /apps/dev/hello.c -o /apps/hello.bin
+ *       hello
  *
- * Expected output on the console:
+ *   Expected output:
  *
- *     hello from inside SecureOS
+ *       hello from inside SecureOS
  *
- * Notes
- * -----
+ * Attribution / reuse:
+ *   SecureOS project sample source intended for permissive reuse in local
+ *   validation, tutorials, and compatibility tests.
+ *
+ * Notes:
  *   - `secureos_api.h` is the public syscall surface. The in-OS compiler
  *     ships it on its default include path (/apps/dev/include), so a bare
  *     #include resolves without any -I flag.

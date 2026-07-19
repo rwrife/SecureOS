@@ -314,6 +314,10 @@ TEST_TARGETS=(
     # image and round-trip byte-identically. Guards the disk-staging wiring so
     # a regression that drops /apps/dev flips the bundle to FAIL.
     in_os_toolchain_dev_dir
+    # Issue #636: source-drift pin for the canonical in-OS toolchain sample
+    # (`dev/hello.c`). Keeps the validation input SHA-locked so edits are
+    # intentional and reviewed before they fan out to downstream M7 goldens.
+    dev_hello_c_pin
     # M7 in-OS toolchain (umbrella #403, plan
     # `plans/2026-05-28-in-os-toolchain-self-hosting.md` P1). `clib_malloc`
     # is the freestanding userland heap allocator (issue #404,

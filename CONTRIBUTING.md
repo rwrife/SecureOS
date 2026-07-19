@@ -231,6 +231,7 @@ Project-specific expectations include:
   asymmetries belong in `build/scripts/.shell_parity_allowlist` with a comment
   explaining the exemption (see issue #156 / `plans/2026-05-16-shell-script-parity.md`).
 - Add plan documents under the top-level `plans/` directory (canonical, single location — not `docs/plans/`) using the naming convention `YYYY-MM-DD-<slug>.md` for major implementation work; index and grouping in `plans/README.md`
+- `dev/hello.c` is SHA-pinned (`tests/host/pins/dev_hello_c.sha256`). Any intentional edit to `dev/hello.c` must update that pin and re-run `./build/scripts/test.sh dev_hello_c_pin` (plus the #619 hello-SOF golden refresh workflow when that gate is in use).
 - Keep hardware access behind HAL abstractions
 - Commit any new `build/scripts/*.sh` validator/build script with the executable bit set (`git update-index --chmod=+x <path>`). The CI validator bundle invokes these scripts directly; a missing exec bit silently fails the run with `Permission denied`. See issue #90.
 - Run `build/scripts/lint.sh` (or `build/scripts/lint.ps1` on Windows) before pushing. This covers BUILD_ROADMAP §6.1 stage 1 (clang-format, shellcheck, `.sh` ↔ `.ps1` parity) and is enforced in the `Lint` CI workflow.
