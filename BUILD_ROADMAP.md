@@ -15,6 +15,8 @@ This roadmap turns the product vision into an execution sequence with concrete d
 
 - Host-independent, deterministic builds in containerized toolchain.
 - x86 target in QEMU first (BIOS + Multiboot2 or Limine-compatible handoff).
+- Multi-arch readiness is tracked by the operational audit + drift gate in
+  [`docs/architecture/multi-arch-readiness.md`](docs/architecture/multi-arch-readiness.md).
 - Serial log is source of truth for CI and agent validation.
 
 ## 2.2 Proposed repo structure
