@@ -616,6 +616,15 @@ case "$TEST_NAME" in
     # internal-only types into the public contract.
     run_script "$ROOT_DIR/build/scripts/validate_sdk_no_kernel_includes.sh"
     ;;
+  validate_no_arch_macros_outside_arch_tree)
+    # Issue #623: multi-architecture readiness drift gate. Forbid direct
+    # `__x86_64__` / `__i386__` / `__amd64__` / `__aarch64__` /
+    # `__arm__` preprocessor branches under kernel non-arch trees so
+    # architecture-specific conditionals stay confined to
+    # `kernel/arch/<arch>/` (or an explicit allowlist exception linked in
+    # docs/architecture/multi-arch-readiness.md).
+    run_script "$ROOT_DIR/build/scripts/validate_no_arch_macros_outside_arch_tree.sh"
+    ;;
   validate_manifests_abi_major)
     # Issue #227: cross-check that --require-abi-major{,-from-header}
     # wiring rejects examples whose os_abi_version drifts from the

@@ -269,6 +269,12 @@ TEST_TARGETS=(
     sdk_abi_pin
     sdk_libos_link
     validate_sdk_no_kernel_includes
+    # Issue #623: portability drift gate for the kernel non-arch tree.
+    # Fails when direct architecture preprocessor macros
+    # (`__x86_64__`, `__i386__`, `__amd64__`, `__aarch64__`, `__arm__`)
+    # leak outside `kernel/arch/**` (except explicit, documented
+    # allowlist paths). Keeps "x86 first, multi-arch ready" enforceable.
+    validate_no_arch_macros_outside_arch_tree
     # `docs/abi/` Last-verified-stamp freshness guard (PR #298 / #297).
     # Pure static check that every `Last verified against commit:` line
     # in `docs/abi/*.md` does not predate the file's last content

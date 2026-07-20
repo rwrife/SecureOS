@@ -1,0 +1,9 @@
+# Paths exempted from validate_no_arch_macros_outside_arch_tree.
+#
+# One repo-relative path per line (for example:
+#   kernel/core/example.c
+# ).
+#
+# Every exemption must be documented in
+# docs/architecture/multi-arch-readiness.md §2 with a TODO(port): #<issue>
+# breadcrumb and rationale.

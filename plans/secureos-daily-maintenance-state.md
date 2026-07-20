@@ -1,14 +1,14 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-07-19T21:15:34Z
+- 2026-07-20T21:06:20Z
 
 ## Open PR snapshot
 - Open PR count at run start: **0**
 - Snapshot: _none_
 
 ## Open issue snapshot
-- Open issue count: **119**
+- Open issue count: **118**
 - Most recently updated open issues (top 20):
   - #645 — Daily review: 2026-07-17  
     https://github.com/rwrife/SecureOS/issues/645
@@ -28,8 +28,6 @@
     https://github.com/rwrife/SecureOS/issues/638
   - #637 — test(qemu): pre-#409 SKIP-pinned harness for cc_version_and_help_text_pinned — golden stdout for `cc --version` and `cc --help` (complements #552, sibling of #567 #572)  
     https://github.com/rwrife/SecureOS/issues/637
-  - #636 — test(host): dev/hello.c source SHA-pin + license header — stabilise the M7 validation input (companion to #619 SOF pin + #574 host-compile canary)  
-    https://github.com/rwrife/SecureOS/issues/636
   - #634 — M7-TOOLCHAIN: cc driver auto-invokes libmanifestgen when no sidecar/--manifest present (integration slice, refs #533 #535 #540 #607)  
     https://github.com/rwrife/SecureOS/issues/634
   - #633 — Daily review: 2026-07-12  
@@ -48,6 +46,8 @@
     https://github.com/rwrife/SecureOS/issues/627
   - #626 — process(triage): ready-now issue index — surface open issues with no open dependencies (unstall companion to #620 #622 #625)  
     https://github.com/rwrife/SecureOS/issues/626
+  - #621 — Daily review: 2026-07-03  
+    https://github.com/rwrife/SecureOS/issues/621
   - #625 — docs(contrib): stale-issue triage cadence — decision rule for daily-review cron + human triager when SKIP-pinned harnesses accumulate against a stalled gating slice (refs #620 #603 #616, BUILD_ROADMAP §9)  
     https://github.com/rwrife/SecureOS/issues/625
 
@@ -55,22 +55,20 @@
 - _none_
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/636
+- https://github.com/rwrife/SecureOS/issues/623
 
 ## Issues newly created this run
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `feature/dev-hello-c-sha-pin-636`
-- PR: https://github.com/rwrife/SecureOS/pull/651
+- Branch: `feature/multi-arch-readiness-gate-623`
+- PR: https://github.com/rwrife/SecureOS/pull/652
 
 ## Blockers / notes
 - Merge sweep at run start found zero open PRs, so no PRs were eligible for merge/auto-merge actions.
-- Selected #636 because it hardens a load-bearing M7 input (`dev/hello.c`) used across the in-OS compiler validation path and prevents silent drift from invalidating downstream SOF/toolchain goldens.
-- Implemented a deterministic source-hash drift gate (`dev_hello_c_pin`) wired through `test.sh` and `validate_bundle.sh`, added the pin file, and documented the update workflow in `CONTRIBUTING.md`.
+- Selected #623 because it directly advances the project objective of x86-first execution with a disciplined path to additional architectures through HAL boundaries and explicit drift gates.
+- Implemented a portability drift gate (`validate_no_arch_macros_outside_arch_tree`) with shell + PowerShell wrappers, an allowlist file, and a Python validator; wired it into `build/scripts/test.sh` and `build/scripts/validate_bundle.sh`.
+- Added architecture documentation artifacts: `docs/architecture/multi-arch-readiness.md`, `docs/architecture/README.md`, and a `BUILD_ROADMAP.md` §2.1 cross-link to the audit.
 - Validation executed in the implementation worktree:
-  - `./build/scripts/validate_dev_hello_c.sh`
-  - `./build/scripts/test.sh dev_hello_c_pin`
-  - `./build/scripts/test.sh in_os_toolchain_dev_dir`
-  - `./build/scripts/lint.sh`
-- `gh pr create` initially produced a corrupted PR body due shell command substitution inside backticks; corrected by patching PR #651 body via REST (`gh api -X PATCH repos/rwrife/SecureOS/pulls/651 --input ...`).
+  - `python3 tools/validate_no_arch_macros_outside_arch_tree.py --root . --allowlist build/scripts/.arch_macro_allowlist`
+  - `./build/scripts/test.sh validate_no_arch_macros_outside_arch_tree`
