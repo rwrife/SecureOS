@@ -52,7 +52,7 @@
     https://github.com/rwrife/SecureOS/issues/625
 
 ## PRs merged this run
-- _none_
+- https://github.com/rwrife/SecureOS/pull/652
 
 ## Issue selected for implementation
 - https://github.com/rwrife/SecureOS/issues/623
@@ -61,14 +61,15 @@
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `feature/multi-arch-readiness-gate-623`
-- PR: https://github.com/rwrife/SecureOS/pull/652
+- Branch: `feature/multi-arch-readiness-gate-623` (merged; remote + local branch deleted)
+- PR: https://github.com/rwrife/SecureOS/pull/652 (merged)
 
 ## Blockers / notes
 - Merge sweep at run start found zero open PRs, so no PRs were eligible for merge/auto-merge actions.
 - Selected #623 because it directly advances the project objective of x86-first execution with a disciplined path to additional architectures through HAL boundaries and explicit drift gates.
 - Implemented a portability drift gate (`validate_no_arch_macros_outside_arch_tree`) with shell + PowerShell wrappers, an allowlist file, and a Python validator; wired it into `build/scripts/test.sh` and `build/scripts/validate_bundle.sh`.
 - Added architecture documentation artifacts: `docs/architecture/multi-arch-readiness.md`, `docs/architecture/README.md`, and a `BUILD_ROADMAP.md` §2.1 cross-link to the audit.
+- `gh pr merge --auto --squash --delete-branch` merged PR #652 immediately (repo policy allowed merge while checks were still in progress), then returned a non-fatal local cleanup error because the branch was attached to a worktree; remote branch deletion was completed manually with `git push origin --delete feature/multi-arch-readiness-gate-623`.
 - Validation executed in the implementation worktree:
   - `python3 tools/validate_no_arch_macros_outside_arch_tree.py --root . --allowlist build/scripts/.arch_macro_allowlist`
   - `./build/scripts/test.sh validate_no_arch_macros_outside_arch_tree`
