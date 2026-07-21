@@ -12,7 +12,7 @@ image. This plan covers the path to doing the compile **on the target**.
 Concretely, the end state is:
 
 ```
-sosh> cc /home/hello.c -o /apps/hello.bin
+sosh> cc /apps/dev/hello.c -o /apps/hello.bin
 sosh> hello
 hello from inside SecureOS
 ```
@@ -192,9 +192,9 @@ user/libs/sofpack/        # SOF container builder callable from userland
 Flow:
 
 ```
-sosh> cc /home/hello.c -o /apps/hello.bin
+sosh> cc /apps/dev/hello.c -o /apps/hello.bin
   cc/main.c
-    ├─ os_fs_read_file("/home/hello.c")        [CAP_FS_READ]   (P2: multi-KB)
+    ├─ os_fs_read_file("/apps/dev/hello.c")    [CAP_FS_READ]   (P2: multi-KB)
     ├─ tcc_compile(src) -> ELF image in heap   (P1 heap, P3 libc)
     ├─ sofpack_wrap(elf, manifest) -> SOF blob
     └─ os_fs_write_file("/apps/hello.bin", …)  [CAP_FS_WRITE]  (P2: multi-KB)
@@ -245,9 +245,14 @@ recorded but not yet load-bearing, since nothing links TinyCC yet.
 Follow the `TEST:PASS:` / JSON-report contract (#110) under
 `tests/m7_toolchain/`. QEMU tests boot the deterministic image.
 
+Canonical sample source path for acceptance is `/apps/dev/hello.c` (finalized
+by the Phase-1 disk-staging slice in `build/scripts/build_disk_image.sh`), not
+`/home/hello.c`. For on-device invocation constraints (including 8.3 filename
+rules), see `dev/building.txt`.[^sosh-probe-order]
+
 ### `toolchain_compiles_hello_in_os`
-- Stage `/home/hello.c` (prints a known string) on the disk image.
-- Boot, run `cc /home/hello.c -o /apps/hello.bin`.
+- Stage `/apps/dev/hello.c` (prints a known string) on the disk image.
+- Boot, run `cc /apps/dev/hello.c -o /apps/hello.bin`.
 - Assert: `cc` exits 0; `/apps/hello.bin` exists and parses as a valid
   SOF wrapping a well-formed x86_64 ELF.
 
@@ -276,6 +281,11 @@ Follow the `TEST:PASS:` / JSON-report contract (#110) under
 - Two sequential `cc` runs in one boot.
 - Assert: the second run's allocations do not see the first's state
   (arena reset on process teardown); no leak panics.
+
+[^sosh-probe-order]: `sosh` bare-name exec probes `/apps/<cmd>`, then
+  `/apps/dev/<cmd>`, then literal `<cmd>` (see
+  `user/apps/sosh/sosh_exec_external.c`). There is no `/home/` probe, so plan
+  acceptance tests must not depend on `/home/hello.c`.
 
 ## Out of scope
 
