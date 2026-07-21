@@ -8,7 +8,7 @@ can compile to confirm the toolchain works.
     hello.c        A "hello world" sample to validate the compiler.
     building.txt   This guide.
     cc             The in-OS C compiler.            (coming in a later phase)
-    include/       Public headers (secureos_api.h). (coming in a later phase)
+    include/       Public headers (secureos_api.h + namespaced library headers).
 
 QUICK START
 -----------
@@ -23,6 +23,9 @@ WRITING YOUR OWN APP
 --------------------
   - Every app defines `int main(void)` (or `int main(int argc, char **argv)`).
   - Include the public API:  #include "secureos_api.h"
+  - Library headers keep their namespace prefix when staged under
+    /apps/dev/include (for example: #include <sofpack/sofpack.h> and
+    #include <manifestgen/manifest_default.h>).
   - Print with:              os_console_write("...");
   - Return 0 from main on success; the value becomes the shell's $? .
 

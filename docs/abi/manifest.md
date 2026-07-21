@@ -17,6 +17,9 @@ capability set. The kernel capability gates do the enforcement, but the
 launcher decides whether a given app subject ever gets a grant in the
 first place.
 
+For the staged `/apps/dev/include/` header-surface contract that interacts with
+manifest/toolchain work, see [`apps-dev-layout.md`](apps-dev-layout.md).
+
 ## In-code surface (today)
 
 From [`kernel/user/launcher.h`](../../kernel/user/launcher.h):
@@ -537,4 +540,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: ecb35630416dc5964aaebf21b7fc883130343966
+Last verified against commit: 82e0cf22b0b8b57a617b70b8340feb9c66068f73
