@@ -31,4 +31,4 @@ Do **not** add flat aliases like `/apps/dev/include/sofpack.h` or
 `/apps/dev/include/manifestgen.h` without a dedicated ABI-change issue. Flat
 aliases change include-surface expectations and can mask namespace collisions.
 
-Last verified against commit: 7f6102b7f801ff0ef5eaa84dce6087b1dd128309
+Last verified against commit: 82e0cf22b0b8b57a617b70b8340feb9c66068f73
