@@ -1,0 +1,3 @@
+TODO: populate at #409 flip
+# Placeholder golden for `cc --version` stdout.
+# Keep deterministic: no host paths, no build timestamps.

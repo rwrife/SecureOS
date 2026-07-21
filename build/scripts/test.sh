@@ -91,7 +91,7 @@ case "$TEST_NAME" in
     # cascades into M7 SOF/toolchain goldens.
     run_script "$ROOT_DIR/build/scripts/validate_dev_hello_c.sh"
     ;;
-  toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_heap_isolation)
+  toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_cc_version_and_help_text_pinned|toolchain_heap_isolation)
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
     # tests"). Each script is a SKIP-pinned stub today; the gating execute
