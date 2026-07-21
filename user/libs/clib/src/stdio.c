@@ -26,6 +26,7 @@
 
 #include "../include/clib/stdio.h"
 
+#include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -530,6 +531,15 @@ int printf(const char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
   int r = vfprintf(stdout, fmt, ap);
+  va_end(ap);
+  return r;
+}
+
+int sprintf(char *buf, const char *fmt, ...) {
+  if (buf == 0) return -1;
+  va_list ap;
+  va_start(ap, fmt);
+  int r = vsnprintf(buf, (size_t)INT_MAX, fmt, ap);
   va_end(ap);
   return r;
 }

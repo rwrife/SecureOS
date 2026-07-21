@@ -20,6 +20,7 @@
 #   - snprintf_exact_fit                 : size == strlen+1
 #   - snprintf_null_fmt_returns_negative : NULL fmt → -1
 #   - vsnprintf_matches_snprintf         : va_list path mirrors variadic
+#   - sprintf_basic                      : sprintf formatting + return count pin
 #   - symbol_set_pinned              : drift guard
 #
 # Compiled with `-fno-builtin` so the assertions exercise OUR
@@ -62,6 +63,7 @@ grep -q "TEST:PASS:clib_stdio:snprintf_size_zero_sizing_probe" "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:snprintf_exact_fit"            "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:snprintf_null_fmt_returns_negative" "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:vsnprintf_matches_snprintf"    "$LOG_PATH"
+grep -q "TEST:PASS:clib_stdio:sprintf_basic"                 "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio:symbol_set_pinned"             "$LOG_PATH"
 grep -q "TEST:PASS:clib_stdio$"                              "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"

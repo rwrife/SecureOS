@@ -261,6 +261,7 @@ a recorder shim.
 | `fprintf`            | `int fprintf(FILE *fp, const char *fmt, ...)`                                   | minimal printf spec set |
 | `vfprintf`           | `int vfprintf(FILE *fp, const char *fmt, va_list ap)`                           | 1 KiB stack buffer; returns full requested length |
 | `printf`             | `int printf(const char *fmt, ...)`                                              | forwards to `vfprintf(stdout, ...)` |
+| `sprintf`            | `int sprintf(char *buf, const char *fmt, ...)`                                  | thin `vsnprintf(..., INT_MAX, ...)` shim for TinyCC scratch buffers |
 | `snprintf`           | `int snprintf(char *buf, size_t size, const char *fmt, ...)`                    | C11 §7.21.6.5; NUL-terminates at `min(size-1, written)`; returns full required length |
 | `vsnprintf`          | `int vsnprintf(char *buf, size_t size, const char *fmt, va_list ap)`            | C11 §7.21.6.13; shares the `vfprintf` walker — identical spec set |
 | `feof`               | `int feof(FILE *fp)`                                                            |  |
@@ -359,6 +360,7 @@ memset
 printf
 qsort
 snprintf
+sprintf
 stderr
 stdin
 stdout

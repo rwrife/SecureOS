@@ -15,7 +15,10 @@
  *   - `fopen` / `fclose` / `fread` / `fwrite` / `fflush`
  *   - `fputs` / `fputc`
  *   - `fprintf` / `vfprintf` / `printf`
- *   - `snprintf` / `vsnprintf` (C11 §7.21.6.5 / §7.21.6.13)
+ *   - `sprintf` / `snprintf` / `vsnprintf`
+ *       (`sprintf`: C11 §7.21.6.6,
+ *        `snprintf`: C11 §7.21.6.5,
+ *        `vsnprintf`: C11 §7.21.6.13)
  *   - format specifiers TinyCC and `cc` actually emit:
  *       `%s %d %u %x %p %c %%`
  *       `%ld %lu` for `long` ints
@@ -183,6 +186,7 @@ int    fputc(int c, FILE *fp);
 int    fprintf(FILE *fp, const char *fmt, ...);
 int    vfprintf(FILE *fp, const char *fmt, va_list ap);
 int    printf(const char *fmt, ...);
+int    sprintf(char *buf, const char *fmt, ...);
 
 /*
  * `snprintf` / `vsnprintf` (C11 §7.21.6.5 / §7.21.6.13).
