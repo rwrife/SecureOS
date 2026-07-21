@@ -12,7 +12,7 @@ Scaffold (this directory): [#423](https://github.com/rwrife/SecureOS/issues/423)
 
 ## Status
 
-All nine markers are SKIP-pinned. Each test script in this directory is a
+All ten markers are SKIP-pinned. Each test script in this directory is a
 deterministic stub that emits the canonical `TEST:SKIP:<marker>:awaiting_<n>`
 line per the project's SKIP discipline (mirrors #344 / #389 / #392), then
 rolls up a `TEST:PASS:<target>` so the bundle gate stays green while the
@@ -37,6 +37,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | `toolchain_cc_manifest_sidecar_written_on_link` | [#634] | qemu harness pin for sidecar synthesis write-on-link when no `--manifest` or sidecar exists |
 | `toolchain_cc_version_and_help_text_pinned` | [#409] | `cc --version` / `cc --help` stdout goldens are byte-stable and deterministic (no host paths/timestamps) |
 | `toolchain_heap_isolation`          | [#410]       | two sequential `cc` runs in one boot don't see each other's arena state (kernel `os_mem_brk` + per-process arena reset shipped in #421 via PR #432/#455 and per-spawn arena clamp via PR #454; remaining gate is `cc` driver #409 + acceptance-suite wiring #410) |
+| `toolchain_launch_audit_owner_kind_field_emitted` | [#410] | launch audit contract pin: both `launch.granted` and `launch.denied` records include `owner_kind=<internal|external|local>` (normative contract in `docs/abi/audit-markers.md`, row tracked by #554) |
 | `toolchain_libc_deps_phase3_complete` | [#538] + [#539] | TinyCC Phase-3 libc-deps completion marker; stays SKIP until both sub-slices close, then must flip off `awaiting_*` |
 
 [#409]: https://github.com/rwrife/SecureOS/issues/409
@@ -45,6 +46,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 [#422]: https://github.com/rwrife/SecureOS/issues/422
 [#538]: https://github.com/rwrife/SecureOS/issues/538
 [#539]: https://github.com/rwrife/SecureOS/issues/539
+[#554]: https://github.com/rwrife/SecureOS/issues/554
 [#634]: https://github.com/rwrife/SecureOS/issues/634
 
 ## Running

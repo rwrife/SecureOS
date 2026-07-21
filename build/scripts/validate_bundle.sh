@@ -654,6 +654,7 @@ TEST_TARGETS=(
     toolchain_cc_manifest_sidecar_written_on_link
     toolchain_cc_version_and_help_text_pinned
     toolchain_heap_isolation
+    toolchain_launch_audit_owner_kind_field_emitted
     toolchain_libc_deps_phase3_complete
     # M7-TOOLCHAIN-005 sub-slice (issue #408 Phase 2): freestanding TinyCC
     # config header at `vendor/tinycc/config-secureos.h` — encodes the
