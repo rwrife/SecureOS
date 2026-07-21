@@ -653,7 +653,7 @@ TEST_TARGETS=(
     clib_os_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
-    # tests"). All fifteen markers are SKIP-pinned today — each subordinate
+    # tests"). All sixteen markers are SKIP-pinned today — each subordinate
     # script in tests/m7_toolchain/ emits TEST:SKIP:<marker>:awaiting_<n>
     # then rolls up TEST:PASS:<marker> so the bundle stays green. Wiring
     # them here freezes the marker spellings as a single source of truth:
@@ -675,6 +675,7 @@ TEST_TARGETS=(
     toolchain_launcher_owner_kind_cache_isolation
     toolchain_launcher_sidecar_caps_required_mismatch
     toolchain_launcher_sidecar_size_and_malformed_json
+    toolchain_missing_manifest_sidecar
     toolchain_libc_deps_phase3_complete
     # M7-TOOLCHAIN-005 sub-slice (issue #408 Phase 2): freestanding TinyCC
     # config header at `vendor/tinycc/config-secureos.h` — encodes the
