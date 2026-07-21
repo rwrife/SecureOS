@@ -19,6 +19,7 @@
  *   - fopen_invalid_mode_returns_null
  *   - defensive_no_backend           : no backend → fopen("r") returns NULL
  *   - shutdown_resets_pool           : after shutdown, full pool available
+ *   - sprintf_basic                  : plain sprintf forwarding contract
  *   - symbol_set_pinned              : drift guard
  *
  * Roll-up: TEST:PASS:clib_stdio (only on zero TEST:FAIL: lines).
@@ -74,6 +75,7 @@ int          fputs (const char *s, clib_FILE_t *fp) __asm__("fputs");
 int          fputc (int c, clib_FILE_t *fp) __asm__("fputc");
 int          fprintf(clib_FILE_t *fp, const char *fmt, ...) __asm__("fprintf");
 int          printf (const char *fmt, ...) __asm__("printf");
+int          sprintf(char *buf, const char *fmt, ...) __asm__("sprintf");
 int          snprintf(char *buf, size_t size, const char *fmt, ...) __asm__("snprintf");
 int          vsnprintf(char *buf, size_t size, const char *fmt, va_list ap) __asm__("vsnprintf");
 int          feof  (clib_FILE_t *fp) __asm__("feof");
@@ -469,6 +471,18 @@ static void test_vsnprintf_forwarding(void) {
   if (ok) PASS("vsnprintf_matches_snprintf");
 }
 
+static void test_sprintf_basic(void) {
+  /* sprintf is intentionally a vsnprintf(INT_MAX)-backed shim in clib. */
+  char out[64];
+  for (size_t i = 0; i < sizeof out; ++i) out[i] = 0x7f;
+  int n = sprintf(out, "%s:%d:%08x", "ok", 42, 0xabu);
+  int ok = (n == 14)
+        && (memcmp(out, "ok:42:000000ab", 14) == 0)
+        && (out[14] == '\0');
+  CHECK(ok, "sprintf_basic");
+  if (ok) PASS("sprintf_basic");
+}
+
 static void test_symbol_set_pinned(void) {
   /* Drift guard — take the address of every public symbol through a
    * function pointer table. If any signature changes or any symbol is
@@ -486,6 +500,7 @@ static void test_symbol_set_pinned(void) {
     (void *)(uintptr_t)&fputc,
     (void *)(uintptr_t)&fprintf,
     (void *)(uintptr_t)&printf,
+    (void *)(uintptr_t)&sprintf,
     (void *)(uintptr_t)&snprintf,
     (void *)(uintptr_t)&vsnprintf,
     (void *)(uintptr_t)&feof,
@@ -513,6 +528,7 @@ int main(void) {
   test_shutdown_resets_pool();
   test_snprintf_basic_and_truncation();
   test_vsnprintf_forwarding();
+  test_sprintf_basic();
   test_symbol_set_pinned();
 
   if (!g_fail) hprintf("TEST:PASS:clib_stdio\n");

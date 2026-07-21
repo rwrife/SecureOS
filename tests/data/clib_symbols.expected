@@ -76,6 +76,7 @@ memset
 printf
 qsort
 snprintf
+sprintf
 stderr
 stdin
 stdout

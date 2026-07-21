@@ -96,7 +96,7 @@
     "localtime":  { "tus": ["tccpp.c"],                                                                                        "clib_provider": null, "note": "Paired with time(); ditto deterministic constant." },
     "realloc":    { "tus": ["libtcc.c"],                                                                                       "clib_provider": null, "note": "clib exposes clib_realloc (malloc.h); Phase 3 needs a plain-name `realloc` alias or `-Drealloc=clib_realloc` shim. Same shape as the planned malloc/free aliasing for hosted-API expectations." },
     "free":       { "tus": ["libtcc.c"],                                                                                       "clib_provider": null, "note": "clib exposes clib_free; same plain-name aliasing as `realloc` above." },
-    "sprintf":    { "tus": ["tccasm.c", "tccgen.c"],                                                                           "clib_provider": null, "note": "Not in clib stdio.h yet — TinyCC uses it for tiny known-size scratch buffers. Phase 3 adds a snprintf-backed sprintf (bounded by INT_MAX, matches glibc behavior for these call sites) or migrates the two call sites to snprintf as part of porting note 2." },
+    "sprintf":    { "tus": ["tccasm.c", "tccgen.c"],                                                                           "clib_provider": "user/libs/clib/include/clib/stdio.h",   "note": "Provided as a thin `vsnprintf(..., INT_MAX, ...)`-backed shim in `user/libs/clib/src/stdio.c`; keeps TinyCC scratch-buffer call sites in-tree while reusing the existing formatter." },
     "exit":       { "tus": ["libtcc.c", "tccpp.c"],                                                                            "clib_provider": null, "note": "Hard fatal path. Phase 3 wires to os_process_exit (#406, in flight) via a clib `exit()` shim. TinyCC's other error path uses setjmp/longjmp already (provided)." },
     "realpath":   { "tus": ["libtcc.c"],                                                                                       "clib_provider": null, "note": "Used only by TinyCC's `#include` path resolution. Phase 3 either (a) returns the input unchanged (SecureOS VFS is already canonical) or (b) provides a tiny resolver against the pinned CONFIG_TCC_SYSINCLUDEPATHS from config-secureos.h." },
     "dlopen":     { "tus": ["libtcc.c"],                                                                                       "clib_provider": null, "note": "Used only by upstream's optional -run/JIT path. The freestanding port drops -run (porting note 1, enforced by config-secureos.h), so Phase 3 either #ifdefs the dlopen call site out (via TCC_IS_NATIVE / CONFIG_TCC_BACKTRACE guards) or provides a stub returning NULL. NOT a real runtime dependency." },
@@ -105,7 +105,7 @@
   "summary": {
     "_comment": "Pinned summary counts. The drift gate enforces these against the live scan to catch a TinyCC submodule bump that silently grows or shrinks the libc surface. Both the union (`required`) and the partitioned counts (`provided` / `missing`) are pinned.",
     "totalRequired": 47,
-    "providedByClib": 31,
-    "notYetProvided": 16
+    "providedByClib": 32,
+    "notYetProvided": 15
   }
 }
