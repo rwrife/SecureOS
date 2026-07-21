@@ -6,6 +6,7 @@ This folder (/apps/dev) holds the on-device developer sample content.
   Files here (currently staged on main):
     hello.c        Canonical validation sample source.
     building.txt   This on-device quick-start guide.
+    include/secureos_api.h   Public SecureOS API header for in-OS builds.
 
 QUICK START (planned — gated on #408/#409/#410)
 ------------------------------------------------
@@ -22,6 +23,7 @@ QUICK START (planned — gated on #408/#409/#410)
 WRITING YOUR OWN APP (planned until #408/#409/#410)
 ----------------------------------------------------
   - Every app defines `int main(void)` (or `int main(int argc, char **argv)`).
+  - Public headers are staged under: /apps/dev/include/
   - Include the public API:  #include "secureos_api.h"
   - Print with:              os_console_write("...");
   - Return 0 from main on success; the value becomes the shell's $? .

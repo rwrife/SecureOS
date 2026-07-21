@@ -29,7 +29,7 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | `/apps/dev/hello.c`       | Validation sample — compile it to test the toolchain |
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
 | `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
-| `/apps/dev/include/` *(planned)* | Public headers (`secureos_api.h`, `os/*.h`)   |
+| `/apps/dev/include/` | Public headers (currently `secureos_api.h`; namespaced library headers are tracked separately) |
 
 The repo source that gets staged to `/apps/dev` lives in the top-level
 [`dev/`](../../dev) directory (analogous to how `scripts/` is staged to

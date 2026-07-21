@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WRAPPER="$ROOT_DIR/build/scripts/validate_apps_dev_staging.sh"
-CANONICAL_SKIP="SKIP:#541,#545,#548,#550,#531"
+CANONICAL_SKIP="SKIP:#541,#545,#548,#550"
 
 if [[ ! -r "$WRAPPER" ]]; then
   echo "TEST:FAIL:harness_missing_script:$WRAPPER" >&2

@@ -8,7 +8,7 @@ manifest and asserts that every required /apps/dev path from
 SKIP policy:
 - While any gating issue from the pin is OPEN (or issue state is unknown),
   missing paths emit the canonical marker from the pin (currently
-  `SKIP:#541,#545,#548,#550,#531`) and the validator exits 0.
+  `SKIP:#541,#545,#548,#550`) and the validator exits 0.
 - Once all gating issues are CLOSED, any missing required path is a FAIL.
 """
 

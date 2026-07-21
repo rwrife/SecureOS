@@ -120,7 +120,8 @@ build_disk_image_inner() {
 		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
-	# Deploy in-OS developer tools to /apps/dev (sample + on-device guide).
+	# Deploy in-OS developer tools to /apps/dev (sample, on-device guide,
+	# and public header surface for in-OS builds).
 	# Source of truth is the repo-level dev/ directory; the in-OS compiler
 	# itself is staged here in a later phase (see
 	# plans/2026-05-28-in-os-toolchain-self-hosting.md).
@@ -130,6 +131,9 @@ build_disk_image_inner() {
 	fi
 	if [ -f "$ROOT_DIR/dev/building.txt" ]; then
 		dev_mappings+=("dev/building.txt=/apps/dev/building.txt")
+	fi
+	if [ -f "$ROOT_DIR/user/include/secureos_api.h" ]; then
+		dev_mappings+=("user/include/secureos_api.h=/apps/dev/include/secureos_api.h")
 	fi
 
 	# Deploy root certificate to /certs for runtime signature validation

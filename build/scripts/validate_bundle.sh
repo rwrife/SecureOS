@@ -101,13 +101,13 @@ TEST_TARGETS=(
     # `/apps/dev/cc`, `/apps/dev/lib/{libclib.a,libsofpack.a}`,
     # `/apps/dev/include/secureos_api.h`, and `/apps/dev/tcc/libtcc1.a`.
     # Uses tests/disk_image/apps_dev_manifest.json as the single expected-file
-    # pin and emits canonical `SKIP:#541,#545,#548,#550,#531` while those
+    # pin and emits canonical `SKIP:#541,#545,#548,#550` while those
     # staging dependencies remain open.
     apps_dev_staging
     # Issue #615: canonical `/apps/dev/include` header-set drift gate.
     # Uses tests/disk_image/apps_dev_include_set.json to pin include-surface
     # membership (secureos_api + namespaced sofpack/manifestgen headers) with
-    # per-header pending gates tied to #531/#613.
+    # per-header pending gates tied to #613.
     apps_dev_include_set
     # Issue #618: on-device guide drift gate for dev/building.txt.
     # Validates "Files here" parity against /apps/dev staging mappings,
