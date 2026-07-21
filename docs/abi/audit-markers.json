@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "markers": [
+    {
+      "prefix": "CAP:DENY:<sid>:<cap>:<resource>",
+      "family": "capability-deny",
+      "shape": "CAP:DENY:<sid>:<cap>:<resource>",
+      "emitter": "kernel/cap/ + gated syscall/service deny paths",
+      "authoritative_doc": "docs/abi/capability-deny-contract.md",
+      "consumer_tests": [
+        "tests/app_native_process_spawn_deny_marker_test.c",
+        "tests/cap_deny_marker_shape_test.c"
+      ],
+      "gating_issue": null
+    },
+    {
+      "prefix": "CAP_AUDIT:...:op=GRANT:...",
+      "family": "capability-audit-grant",
+      "shape": "CAP_AUDIT:seq=<n>:op=GRANT:actor=<sid>:subject=<sid>:cap=<capability_id>:result=<cap_result>:outcome=<audit_outcome>",
+      "emitter": "kernel/cap/capability.c + kernel/cap/cap_broker.c",
+      "authoritative_doc": "docs/abi/capabilities.md",
+      "consumer_tests": [
+        "tests/capability_audit_fixture_test.c",
+        "tests/broker_share_allow_test.c"
+      ],
+      "gating_issue": null
+    },
+    {
+      "prefix": "CAP_AUDIT:...:op=REVOKE:...",
+      "family": "capability-audit-revoke",
+      "shape": "CAP_AUDIT:seq=<n>:op=REVOKE:actor=<sid>:subject=<sid>:cap=<capability_id>:result=<cap_result>:outcome=<audit_outcome>",
+      "emitter": "kernel/cap/capability.c + kernel/cap/cap_broker.c",
+      "authoritative_doc": "docs/abi/capabilities.md",
+      "consumer_tests": [
+        "tests/capability_audit_fixture_test.c",
+        "tests/broker_share_revoke_test.c"
+      ],
+      "gating_issue": null
+    },
+    {
+      "prefix": "AUTH_TYPE_UNSIGNED_BIN",
+      "family": "unsigned-binary-auth",
+      "shape": "AUTH_TYPE_UNSIGNED_BIN[:allow|:deny|:cached]",
+      "emitter": "launcher unsigned-binary authorization path",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/m7_toolchain/toolchain_unsigned_prompt_enforced.sh"
+      ],
+      "gating_issue": 542
+    },
+    {
+      "prefix": "launch.granted",
+      "family": "launcher-exec-decision",
+      "shape": "launch.granted:owner_kind=<owner_kind>",
+      "emitter": "kernel/user/launcher_exec.c",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/launcher_spawn_handoff_test.c"
+      ],
+      "gating_issue": 554
+    },
+    {
+      "prefix": "launch.denied",
+      "family": "launcher-exec-decision",
+      "shape": "launch.denied:<subject>:<reason>",
+      "emitter": "kernel/user/launcher_exec.c",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/app_native_process_spawn_deny_marker_test.c"
+      ],
+      "gating_issue": 554
+    },
+    {
+      "prefix": "cc.compile.start",
+      "family": "in-os-toolchain-compile",
+      "shape": "cc.compile.start:<unit>",
+      "emitter": "user/apps/cc/",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/m7_toolchain/toolchain_compiles_hello_in_os.sh"
+      ],
+      "gating_issue": 571
+    },
+    {
+      "prefix": "cc.compile.success",
+      "family": "in-os-toolchain-compile",
+      "shape": "cc.compile.success:<unit>",
+      "emitter": "user/apps/cc/",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/m7_toolchain/toolchain_compiles_hello_in_os.sh"
+      ],
+      "gating_issue": 571
+    },
+    {
+      "prefix": "cc.compile.fail",
+      "family": "in-os-toolchain-compile",
+      "shape": "cc.compile.fail:<unit>:<reason>",
+      "emitter": "user/apps/cc/",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/m7_toolchain/toolchain_compile_error_reported.sh"
+      ],
+      "gating_issue": 571
+    }
+  ]
+}

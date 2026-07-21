@@ -126,6 +126,10 @@ TEST_TARGETS=(
     ipc_handle_gate
     proc_sched
     m1_ipc_demo
+    # Issue #591: docs/abi audit marker markdown<->json parity gate plus
+    # negative canary proving synthetic divergence fails deterministically.
+    audit_markers_drift
+    audit_markers_drift_canary
     validate_abi_stamps
     # Issue #624: docs/development pickup-guide stamp freshness gate
     # (Last-verified SHA exists + is not older than last content edit).

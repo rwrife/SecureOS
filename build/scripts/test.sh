@@ -781,6 +781,18 @@ case "$TEST_NAME" in
     # Mirrors the canary discipline from #213 / #177.
     run_script "$ROOT_DIR/tests/harness/capability_registry_drift_test.sh"
     ;;
+  audit_markers_drift)
+    # Issue #591: drift gate for docs/abi audit marker registry parity.
+    # Cross-checks docs/abi/audit-markers.md §3 marker-prefix rows against
+    # docs/abi/audit-markers.json; optional gh issue-state checks can be
+    # enabled via AUDIT_MARKERS_WITH_GH=1.
+    run_script "$ROOT_DIR/build/scripts/test_audit_markers_drift.sh"
+    ;;
+  audit_markers_drift_canary)
+    # Issue #591: negative-canary self-test proving markdown/json marker
+    # divergence fails with deterministic missing_in_json diagnostics.
+    run_script "$ROOT_DIR/tests/harness/audit_markers_drift_test.sh"
+    ;;
   validate_abi_stamps)
     # Issue #297: fails if any docs/abi/*.md `Last verified against
     # commit:` stamp predates the file's most recent content-changing
