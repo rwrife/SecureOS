@@ -154,6 +154,16 @@
       "description": "Pre-#410 SKIP pin for launcher deny semantics when sidecar `.manifest.json` is oversize, truncated, malformed, trailing-garbage, or empty, with canonical CAP:DENY launch evidence."
     },
     {
+      "id": "toolchain_missing_manifest_sidecar",
+      "name": "toolchain_missing_manifest_sidecar",
+      "harnessPath": "tests/m7_toolchain/toolchain_missing_manifest_sidecar.sh",
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-596",
+      "description": "Pre-#410 SKIP pin for launcher deny semantics when a local SOF is staged without a `<binary>.manifest.json` sidecar, with canonical `reason=missing_manifest_sidecar` CAP:DENY launch evidence."
+    },
+    {
       "id": "toolchain_libc_deps_phase3_complete",
       "name": "toolchain_libc_deps_phase3_complete",
       "harnessPath": "tests/m7_toolchain/toolchain_libc_deps_phase3_complete.sh",
