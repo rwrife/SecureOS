@@ -398,6 +398,12 @@ case "$TEST_NAME" in
     # against the staged app manifest from #540.
     run_script "$ROOT_DIR/build/scripts/test_apps_dev_cc_manifest.sh"
     ;;
+  apps_dev_staging)
+    # Issue #570: unifying /apps/dev disk-image staging presence gate over
+    # the #531/#541/#545/#548/#550 sub-slices, with canonical SKIP marker
+    # discipline while those staging issues remain open.
+    run_script "$ROOT_DIR/build/scripts/test_apps_dev_staging.sh"
+    ;;
   cc_manifest_resolution_precedence)
     # Issue #634 (M7-TOOLCHAIN integration slice): host table-driven pin for
     # manifest source precedence in the `cc` driver wiring
