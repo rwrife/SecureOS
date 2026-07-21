@@ -131,6 +131,12 @@ build_disk_image_inner() {
 	if [ -f "$ROOT_DIR/dev/building.txt" ]; then
 		dev_mappings+=("dev/building.txt=/apps/dev/building.txt")
 	fi
+	if [ -f "$ROOT_DIR/dev/lib/README.md" ]; then
+		dev_mappings+=("dev/lib/README.md=/apps/dev/lib/README.md")
+	fi
+	if [ -f "$ROOT_DIR/dev/tcc/README.md" ]; then
+		dev_mappings+=("dev/tcc/README.md=/apps/dev/tcc/README.md")
+	fi
 
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""

@@ -4,8 +4,10 @@ SecureOS — Building Apps Inside the OS
 This folder (/apps/dev) holds the on-device developer sample content.
 
   Files here (currently staged on main):
-    hello.c        Canonical validation sample source.
-    building.txt   This on-device quick-start guide.
+    hello.c          Canonical validation sample source.
+    building.txt     This on-device quick-start guide.
+    lib/README.md    Placeholder for TinyCC linker/crt runtime archives.
+    tcc/README.md    Placeholder for TinyCC runtime helper archive root.
 
 QUICK START (planned — gated on #408/#409/#410)
 ------------------------------------------------

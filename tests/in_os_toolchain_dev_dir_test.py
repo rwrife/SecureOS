@@ -6,7 +6,8 @@ image correctly (Phase 1 of plans/2026-05-28-in-os-toolchain-self-hosting.md).
 Asserts that:
   - the default disk layout creates /apps/dev,
   - nested file targets under /apps/dev are written via auto-created parents,
-  - the staged sample + guide round-trip byte-identically.
+  - /apps/dev/lib and /apps/dev/tcc are created when staging placeholder files,
+  - staged sample/guide/placeholder files round-trip byte-identically.
 
 Runs purely on the host (no QEMU, no toolchain): it drives the same
 tools/populate_disk_image.py the real disk build uses, then reads the FAT
@@ -95,11 +96,19 @@ def main() -> int:
     fresh.mkdir("/apps")
     hello_src = (ROOT / "dev" / "hello.c").read_bytes()
     guide_src = (ROOT / "dev" / "building.txt").read_bytes()
+    lib_readme_src = (ROOT / "dev" / "lib" / "README.md").read_bytes()
+    tcc_readme_src = (ROOT / "dev" / "tcc" / "README.md").read_bytes()
     fresh.write_file("/apps/dev/hello.c", hello_src)
     fresh.write_file("/apps/dev/building.txt", guide_src)
+    fresh.write_file("/apps/dev/lib/README.md", lib_readme_src)
+    fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
 
     if not is_directory(fresh, "/apps/dev"):
         failures.append("write_file did not auto-create /apps/dev parent")
+    if not is_directory(fresh, "/apps/dev/lib"):
+        failures.append("write_file did not auto-create /apps/dev/lib parent")
+    if not is_directory(fresh, "/apps/dev/tcc"):
+        failures.append("write_file did not auto-create /apps/dev/tcc parent")
 
     # 3. Staged content round-trips byte-identically.
     got_hello = read_file(fresh, "/apps/dev/hello.c")
@@ -114,6 +123,20 @@ def main() -> int:
         failures.append(
             f"/apps/dev/building.txt mismatch: wrote {len(guide_src)} bytes, "
             f"read {len(got_guide)} bytes"
+        )
+
+    got_lib_readme = read_file(fresh, "/apps/dev/lib/README.md")
+    if got_lib_readme != lib_readme_src:
+        failures.append(
+            f"/apps/dev/lib/README.md mismatch: wrote {len(lib_readme_src)} bytes, "
+            f"read {len(got_lib_readme)} bytes"
+        )
+
+    got_tcc_readme = read_file(fresh, "/apps/dev/tcc/README.md")
+    if got_tcc_readme != tcc_readme_src:
+        failures.append(
+            f"/apps/dev/tcc/README.md mismatch: wrote {len(tcc_readme_src)} bytes, "
+            f"read {len(got_tcc_readme)} bytes"
         )
 
     # 4. The sample is a non-trivial source file and includes the public API.
