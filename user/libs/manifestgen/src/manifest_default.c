@@ -22,6 +22,9 @@
  *     "capabilities": {
  *       "request": []
  *     },
+ *     "runtime": {
+ *       "arena_bytes": 65536
+ *     },
  *     "owner": {
  *       "kind": "<internal|external|local>"
  *     }
@@ -205,6 +208,12 @@ manifest_default_result_t manifest_default_synthesise(
 
   mg_emit_raw(&w, "  \"capabilities\": {\n");
   mg_emit_raw(&w, "    \"request\": []\n");
+  mg_emit_raw(&w, "  },\n");
+
+  mg_emit_raw(&w, "  \"runtime\": {\n");
+  mg_emit_raw(&w, "    \"arena_bytes\": ");
+  mg_emit_u32(&w, (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES);
+  mg_emit_raw(&w, "\n");
   mg_emit_raw(&w, "  },\n");
 
   mg_emit_raw(&w, "  \"owner\": {\n");

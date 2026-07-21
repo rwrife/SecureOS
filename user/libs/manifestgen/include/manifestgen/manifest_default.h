@@ -8,6 +8,7 @@
  *   says the in-OS `cc` driver must synthesise a minimal manifest for the
  *   binary it just compiled on-target:
  *     - `owner.kind = "local"` (the third enumerator landing via #522)
+ *     - `runtime.arena_bytes = 65536` (pinned default policy, #595)
  *     - `abi.version` = the running `OS_ABI_VERSION`
  *     - `capabilities.request` = empty (capability grants are an explicit
  *       follow-up; in-OS builds start un-privileged)
@@ -57,6 +58,12 @@ extern "C" {
  * Mirrors docs/abi/manifest.md §5.8 "Sidecar filename convention". */
 #define MANIFEST_SIDECAR_SUFFIX ".manifest.json"
 
+/* Canonical default arena ceiling emitted by libmanifestgen when synthesis is
+ * selected (i.e. no explicit `cc --manifest <path>` override and no valid
+ * adjacent sidecar). Mirrors docs/abi/manifest.md §5.8 "Default
+ * `runtime.arena_bytes` policy". */
+#define MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES 65536u
+
 /* ---- owner.kind enumerator -------------------------------------------- */
 /* Mirrors the on-disk `manifests/schema/v0.json` `owner.kind` enum. The
  * third arm (`LOCAL`) lands additively in #522; this header pre-declares
@@ -105,8 +112,8 @@ typedef struct {
  *
  * The output is deterministic: two calls with identical parameters emit
  * byte-identical bytes. Key order matches the schema's documented order
- * (manifest_version, os_abi_version, app, capabilities, owner). Whitespace
- * is fixed (2-space indent, '\n' newlines).
+ * (manifest_version, os_abi_version, app, capabilities, runtime, owner).
+ * Whitespace is fixed (2-space indent, '\n' newlines).
  *
  * The output is constructed to validate cleanly against
  * `manifests/schema/v0.json` when `owner_kind` is INTERNAL or EXTERNAL.

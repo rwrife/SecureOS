@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "issue": 595,
+  "repo": "rwrife/SecureOS",
+  "constants": {
+    "runtime_arena_bytes_default": 65536
+  },
+  "symbol": "MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES",
+  "docSection": "docs/abi/manifest.md §5.8 Default runtime.arena_bytes policy"
+}

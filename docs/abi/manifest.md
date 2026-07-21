@@ -544,6 +544,27 @@ Cross-source invariant:
   launch is denied with the canonical marker
   `CAP:DENY:<sid>:launch:caps_required_mismatch` (issue #605).
 
+#### Default `runtime.arena_bytes` policy
+
+When branch 3 (synthesis via `libmanifestgen`) is selected, the generated
+manifest MUST include:
+
+- `runtime.arena_bytes: 65536` (64 KiB), pinned by
+  `MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES` in
+  `user/libs/manifestgen/include/manifestgen/manifest_default.h`.
+
+Rationale: this value is intentionally scoped to a hello-class app footprint,
+not the in-OS compiler's own working-set sizing (tracked separately by #543).
+It keeps synthesized local manifests explicit and deterministic while matching
+the launcher floor already codified in schema range checks.
+
+Override precedence remains strict and winner-takes-all:
+
+- explicit `cc --manifest <path>` (branch 1) **wins** over synthesis defaults;
+- existing valid sidecar `<binary>.manifest.json` (branch 2) **wins** over
+  synthesis defaults;
+- synthesis defaults apply only when both higher-precedence sources are absent.
+
 - `manifest_version`: `0` (locked).
 - `os_abi_version`: the running `OS_ABI_VERSION_MAJOR` (synthesised
   by the caller, typically the in-OS `cc` driver).
@@ -554,6 +575,8 @@ Cross-source invariant:
 - `capabilities.request`: `[]` (in-OS-built apps start un-privileged;
   capability requests are an explicit follow-up tracked by #409 /
   #410).
+- `runtime.arena_bytes`: `65536` (pinned default for synthesized manifests;
+  explicit override and sidecar precedence remain as specified above).
 - `owner.kind`: one of `"internal"`, `"external"`, or `"local"`. The
   `"local"` enumerator is the additive arm landing via #522; the
   synthesiser already accepts it so the in-OS `cc` driver does not
@@ -615,4 +638,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 99ae65d37daaa9d5dbffe2889ba64f2005946b94
+Last verified against commit: 8b6336e529cd066de403896349a96d8443f4b996
