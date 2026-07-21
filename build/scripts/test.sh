@@ -791,6 +791,17 @@ case "$TEST_NAME" in
     # (including the unpinned bucket) are computed correctly.
     run_script "$ROOT_DIR/tests/harness/skip_backlog_report_fixture_test.sh"
     ;;
+  skip_backlog_cap_fixture)
+    # Issue #641: fixture coverage for tools/check_skip_backlog_cap.py.
+    # Proves OPEN issue over-cap failures, grandfathered overage PASS,
+    # grandfathered ceiling enforcement, and stale-allowlist rejection.
+    run_script "$ROOT_DIR/tests/harness/skip_backlog_cap_fixture_test.sh"
+    ;;
+  skip_backlog_cap)
+    # Issue #641: cap SKIP-pinned M7 harness markers per OPEN gating
+    # issue (default cap=12) with a remove-only grandfather allowlist.
+    run_script "$ROOT_DIR/build/scripts/check_skip_backlog_cap.sh"
+    ;;
   abi_stamps_strict_no_skip)
     # Issue #470: negative-canary self-test for --strict-no-skip mode.
     # Builds a sandbox repo with an unstamped docs/abi/*.md and asserts

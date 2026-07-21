@@ -28,7 +28,11 @@ If any of these issue numbers are superseded, update this doc first so cron beha
    - If an existing sub-slice can absorb the work, comment there instead of opening a new issue.
 
 3. **Respect harness-cap backpressure**
-   - Check #641 and any referenced cap-state artifacts.
+   - Run `python3 tools/check_skip_backlog_cap.py --root .` (or consult its
+     latest CI result) to determine current cap state.
+   - Cap policy: default **12** SKIP-pinned markers per **OPEN** `gatingIssue`
+     in `tests/m7_toolchain/markers.json`, with remove-only grandfathered
+     exceptions in `tests/m7_toolchain/skip_backlog_cap_allowlist.json`.
    - Do not open a new pre-gating harness against a gating issue that is already at cap.
 
 4. **Throttle issue creation while stall is unchanged**

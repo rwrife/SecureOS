@@ -239,6 +239,24 @@ Project-specific expectations include:
   durable invariant, add an ADR under `docs/architecture/decisions/`
   (see that directory's `README.md` for the template and cadence)
 
+### SKIP-pinned harness cap policy (issue #641)
+
+For M7 toolchain scaffolding entries in
+`tests/m7_toolchain/markers.json`, SecureOS enforces a per-open-gating-issue
+cap on SKIP-pinned harness count.
+
+- Run `./build/scripts/test.sh skip_backlog_cap` (or
+  `python3 tools/check_skip_backlog_cap.py --root .`) before opening PRs that
+  add or retarget M7 markers.
+- Default cap is **12** markers per **OPEN** `gatingIssue`.
+- Legacy overages are grandfathered only through
+  `tests/m7_toolchain/skip_backlog_cap_allowlist.json`.
+- The allowlist is **remove-only**: entries should be deleted as counts fall to
+  cap; do not add entries for fresh overages.
+- Escape hatch: if you need to raise the cap, first comment on the referenced
+  gating issue naming the concrete sub-slice that will bring the count back
+  down, then update policy in the same PR.
+
 ## Daily Review Cron
 
 If you operate or tune the `secureos-daily-roadmap-review` cron, use
