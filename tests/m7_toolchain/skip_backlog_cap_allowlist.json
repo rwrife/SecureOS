@@ -1,0 +1,7 @@
+{
+  "_comment": "Issue #641 grandfathered over-cap entries for tests/m7_toolchain/markers.json. Remove-only list: entries may be deleted as counts drop to cap, but not added for fresh overages.",
+  "schemaVersion": 1,
+  "defaultCap": 12,
+  "removeOnly": true,
+  "grandfatheredOverages": []
+}
