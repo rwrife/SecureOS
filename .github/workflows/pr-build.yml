@@ -65,10 +65,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu-system-x86 python3-jsonschema
 
-      - name: Manifest schema validate (issue #195, #227)
-        # Re-validates every in-tree app manifest under manifests/examples/
-        # against manifests/schema/v0.json on every PR so the schema and the
-        # worked examples cannot silently drift (BUILD_ROADMAP §7 / #187).
+      - name: Manifest schema validate (issue #195, #227, #581)
+        # Re-validates schema examples under manifests/examples/ plus
+        # in-tree app manifests under samples/** and apps/** against
+        # manifests/schema/v0.json on every PR so the schema and app
+        # fixtures cannot silently drift (BUILD_ROADMAP §7 / #187).
         # Also cross-checks each manifest's os_abi_version against the
         # OS_ABI_VERSION_MAJOR constant in user/include/secureos_abi.h
         # (issue #227) so a header bump fails CI on stale examples
