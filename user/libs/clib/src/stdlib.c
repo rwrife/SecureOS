@@ -41,6 +41,13 @@
 #include "../include/clib/errno.h"
 #include "../../../include/secureos_api.h"
 
+/*
+ * Host-side unit tests that only exercise freestanding parse helpers may link
+ * stdlib.c without the runtime bridge objects. Mark the syscall forwarder weak
+ * so those harnesses still link; `exit()` checks availability at runtime.
+ */
+__attribute__((weak)) os_status_t os_process_exit(int status);
+
 #include <limits.h>
 #include <stddef.h>
 
@@ -157,12 +164,14 @@ static int s_strip_prefix(const char **p, int *base) {
 /* --- public API --------------------------------------------------------- */
 
 void exit(int status) {
-  /* SecureOS bridge contract: this should terminate the current process
-   * and never return when the launcher bridge is attached. */
-  (void)os_process_exit(status);
+  /* SecureOS bridge contract: terminate through os_process_exit when
+   * the launcher bridge is present. */
+  if (os_process_exit != 0) {
+    (void)os_process_exit(status);
+  }
 
-  /* Host/no-bridge fallback: if the stub path returned, preserve the
-   * noreturn contract by spinning rather than returning to caller. */
+  /* Host/no-bridge fallback (or a bridge that returned unexpectedly):
+   * preserve the noreturn contract by spinning rather than returning. */
   for (;;) {
   }
 }
