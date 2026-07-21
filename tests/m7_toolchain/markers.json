@@ -76,6 +76,16 @@
       "description": "Pre-#409 SKIP pin for libmanifestgen + libsofpack integration: synth manifest, pack ELF+manifest into SOF, then re-parse and assert manifest bytes round-trip unchanged."
     },
     {
+      "id": "toolchain_launcher_manifest_ownership_role_enforced",
+      "name": "toolchain_launcher_manifest_ownership_role_enforced",
+      "harnessPath": "tests/m7_toolchain/launcher_ownership_role_enforced_test.c",
+      "gatingIssue": 585,
+      "reason": "awaiting_585",
+      "skipReason": "pre-585",
+      "addedIn": "issue-597",
+      "description": "Pre-#585 SKIP pin for launcher allow/deny enforcement of capabilities.ownership_role: valid enum grants launch, missing/invalid enum denies with canonical ownership_role-invalid reason evidence."
+    },
+    {
       "id": "toolchain_cc_manifest_override_precedence",
       "name": "toolchain_cc_manifest_override_precedence",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_override_precedence.sh",
