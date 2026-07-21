@@ -148,6 +148,9 @@ on-target. Two sub-pieces:
    `abi.version` = the running `OS_ABI_VERSION`, `capabilities.required`
    = empty (hello world needs only console write, which it requests at
    runtime). A `--manifest <path>` flag lets the author supply a real one.
+   The user-facing CLI grammar/flag contract is pinned in
+   [`docs/in-os-toolchain/cc-cli.md`](../docs/in-os-toolchain/cc-cli.md)
+   (issue #552).
 
 ## Trust model — the central question
 

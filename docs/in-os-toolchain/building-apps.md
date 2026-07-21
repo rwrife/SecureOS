@@ -20,6 +20,11 @@ sosh> hello
 hello from inside SecureOS
 ```
 
+For the full v0 compiler command-line contract (canonical invocation,
+flag grammar, diagnostics, and capability surface), see
+[`docs/in-os-toolchain/cc-cli.md`](./cc-cli.md)
+(issue [#552](https://github.com/rwrife/SecureOS/issues/552)).
+
 ## Where the tools live
 
 Everything for on-device development is under **`/apps/dev`** on the disk:
