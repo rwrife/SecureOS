@@ -25,6 +25,7 @@
  *   TEST:PASS:sosh_external_exec:allow_argv_passes_command_and_args
  *   TEST:PASS:sosh_external_exec:deny_returns_nonzero_no_swallow
  *   TEST:PASS:sosh_external_exec:deny_marker_owner_is_kernel
+ *   TEST:PASS:sosh_external_exec:deny_bare_name_preserves_cap_deny_marker
  *   TEST:PASS:sosh_external_exec:unknown_no_spawn_attempt
  *   TEST:PASS:sosh_external_exec:unknown_returns_not_found_sentinel
  *   TEST:PASS:sosh_external_exec:absolute_path_single_probe
@@ -75,6 +76,8 @@ typedef struct {
   unsigned int last_flags;
   os_status_t return_status;
   int return_exit;
+  int emit_cap_deny_line;
+  int deny_sid;
 } spawn_ctx_t;
 
 static os_status_t mock_spawn(const char *path,
@@ -100,6 +103,10 @@ static os_status_t mock_spawn(const char *path,
   if (c->return_status == OS_STATUS_OK && out_exit_status) {
     *out_exit_status = c->return_exit;
   }
+  if (c->return_status == OS_STATUS_DENIED && c->emit_cap_deny_line) {
+    const char *resource = (path && path[0]) ? path : "-";
+    printf("CAP:DENY:%d:app_exec:%s\n", c->deny_sid, resource);
+  }
   return c->return_status;
 }
 
@@ -109,6 +116,7 @@ static void reset_probe(probe_ctx_t *p) {
 static void reset_spawn(spawn_ctx_t *s) {
   memset(s, 0, sizeof(*s));
   s->return_status = OS_STATUS_OK;
+  s->deny_sid = 4242;
 }
 
 int main(void) {
@@ -186,7 +194,30 @@ int main(void) {
   if (SOSH_EXEC_RC_DENIED == 0) die("deny_sentinel_collides_with_ok");
   printf("TEST:PASS:sosh_external_exec:deny_marker_owner_is_kernel\n");
 
-  /* === Scenario 3: unknown — no probe matches, no spawn attempt === */
+  /* === Scenario 3: deny on bare-name fallback preserves CAP:DENY === */
+  reset_probe(&p);
+  reset_spawn(&s);
+  /* Only the literal command exists; /apps and /apps/dev probes miss. */
+  p.present_paths[0] = "hello";
+  s.return_status = OS_STATUS_DENIED;
+  s.emit_cap_deny_line = 1;
+
+  exit_rc = 0;
+  r = sosh_try_exec_external("hello", NULL,
+                             mock_probe, &p,
+                             mock_spawn, &s,
+                             &exit_rc);
+  if (r != SOSH_EXTERNAL_RAN) die("deny_bare_not_ran");
+  if (s.call_count != 1) die("deny_bare_spawn_not_called_once");
+  if (strcmp(s.last_path, "hello") != 0) die("deny_bare_spawn_wrong_path");
+  if (exit_rc != SOSH_EXEC_RC_DENIED) die("deny_bare_wrong_sentinel");
+  if (p.probe_count != 3) die("deny_bare_probe_count_wrong");
+  if (strcmp(p.probes[0], "/apps/hello") != 0) die("deny_bare_probe0_wrong");
+  if (strcmp(p.probes[1], "/apps/dev/hello") != 0) die("deny_bare_probe1_wrong");
+  if (strcmp(p.probes[2], "hello") != 0) die("deny_bare_probe2_wrong");
+  printf("TEST:PASS:sosh_external_exec:deny_bare_name_preserves_cap_deny_marker\n");
+
+  /* === Scenario 4: unknown — no probe matches, no spawn attempt === */
   reset_probe(&p);
   reset_spawn(&s);
   /* No present paths. */
@@ -214,7 +245,7 @@ int main(void) {
   if (strcmp(p.probes[1], "/apps/dev/nosuch") != 0) die("unknown_probe1_wrong");
   if (strcmp(p.probes[2], "nosuch") != 0) die("unknown_probe2_wrong");
 
-  /* === Scenario 4: absolute path — single probe, no prefixing === */
+  /* === Scenario 5: absolute path — single probe, no prefixing === */
   reset_probe(&p);
   reset_spawn(&s);
   p.present_paths[0] = "/opt/bin/runme";
