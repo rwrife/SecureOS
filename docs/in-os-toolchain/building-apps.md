@@ -99,6 +99,26 @@ This contract is pinned by issue [#607](https://github.com/rwrife/SecureOS/issue
 and is intentionally deterministic so launcher policy/audit behavior cannot
 silently drift.
 
+### Canonical compiler-class app manifest
+
+The canonical manifest contract for the staged in-OS compiler app (`/apps/dev/cc`)
+is pinned at [`manifests/apps_dev_cc.json`](../../manifests/apps_dev_cc.json).
+It records the expected `owner.kind`, capability request set, and
+`runtime.arena_bytes` value for this compiler-class binary.
+
+Highlights of that pin:
+- `owner.kind = "internal"` (the `cc` app itself ships in-image).
+- Capability request scope is intentionally minimal (`CAP_FS_READ` +
+  `CAP_FS_WRITE`) and explicitly excludes `CAP_APP_EXEC` / network capability.
+- `runtime.arena_bytes` is pinned as an upper-bound placeholder until
+  [#543](https://github.com/rwrife/SecureOS/issues/543) lands a measured value.
+
+Host drift gate:
+`build/scripts/test.sh apps_dev_cc_manifest` (wired into
+`build/scripts/validate_bundle.sh`) compares the canonical pin above with the
+staged app manifest (`user/apps/cc/manifest.json`) and fails on divergence once
+`#540` lands the app skeleton.
+
 TinyCC is used (not GCC/Clang) because it compiles, assembles, and links in a
 single process — SecureOS cannot spawn separate `as`/`ld` stages. TinyCC is
 vendored as a pinned git submodule under

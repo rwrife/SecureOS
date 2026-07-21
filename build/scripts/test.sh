@@ -392,6 +392,12 @@ case "$TEST_NAME" in
     # lands.
     run_script "$ROOT_DIR/build/scripts/test_manifest_default_synthesise.sh"
     ;;
+  apps_dev_cc_manifest)
+    # Issue #573: canonical /apps/dev/cc manifest pin (owner.kind +
+    # minimal cap request set + runtime.arena_bytes) and host drift gate
+    # against the staged app manifest from #540.
+    run_script "$ROOT_DIR/build/scripts/test_apps_dev_cc_manifest.sh"
+    ;;
   cc_manifest_resolution_precedence)
     # Issue #634 (M7-TOOLCHAIN integration slice): host table-driven pin for
     # manifest source precedence in the `cc` driver wiring

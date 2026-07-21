@@ -87,6 +87,12 @@ TEST_TARGETS=(
     # `owner.kind="local"` arm until #522's additive enum lands. Same
     # orphan-from-TEST_TARGETS gate shape as sofpack_wrap above.
     manifest_default_synthesise
+    # Issue #573: canonical /apps/dev/cc manifest pin (owner.kind + minimal
+    # CAP_FS_READ/CAP_FS_WRITE request set + runtime.arena_bytes) and drift
+    # gate against the staged app manifest from #540. While #540 is still
+    # open this target SKIP-pins with `:awaiting_540`; once the staged
+    # manifest exists it flips to strict drift-FAIL mode.
+    apps_dev_cc_manifest
     # Issue #634: host-side precedence pin for `cc` manifest resolution
     # (`--manifest` > sidecar > synth) and hard-fail semantics when an
     # explicit override is unreadable/invalid.
