@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "_comment": "Host SOF golden pin for dev/hello.c (issue #619). If this drift is intentional, run `python3 tools/validate_hello_golden.py --refresh` in the same PR and audit the diff.",
+  "toolchain": {
+    "lockPath": "build/toolchain.lock",
+    "imageTag": "secureos/toolchain:bookworm-2026-02-12",
+    "lockSha256": "8c64b3244916fb0b5c6ce8aefc22009e774204c2cb1ed9807ee8f34081cb24a1"
+  },
+  "recipe": {
+    "builder": "build_user_app.sh-compatible host path",
+    "target": "x86_64-unknown-none-elf",
+    "sofWrapDate": "1970-01-01",
+    "outputPath": "/apps/hello.bin"
+  },
+  "inputs": {
+    "dev_hello_c": {
+      "path": "dev/hello.c",
+      "sha256": "a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30"
+    },
+    "secureos_api_h": {
+      "path": "user/include/secureos_api.h",
+      "sha256": "553d60da5787f7b86ce6ff1d97fded1fbc25ec25fc1d513bbc40b9bfe4b4bf01"
+    },
+    "crt0_c": {
+      "path": "sdk/lib/crt0.c",
+      "sha256": "083fdc27e7d8fd56823fb8158707d455e856e4dd17adb3275c32a0aabee5069f"
+    },
+    "secureos_api_stubs_c": {
+      "path": "user/runtime/secureos_api_stubs.c",
+      "sha256": "32a4e211d9dcb99913e2135ae8420976c8c7bd2aa0f6aed4328c878ab233a85b"
+    }
+  },
+  "outputs": {
+    "hello_bin": {
+      "path": "/apps/hello.bin",
+      "sha256": "9d95d5c34e1c6fa27d082f7fc761c83f73aef5ecf6e62e98fca86d725bb9490a"
+    }
+  }
+}
