@@ -56,6 +56,16 @@
       "gatingIssue": 410,
       "reason": "awaiting_410",
       "description": "Two sequential `cc` runs in one boot must not see each other's arena state. Kernel half (os_mem_brk + per-process arena reset) landed: syscall + native-bridge slot in #421 via PR #432 (af8ece8), clib_os_brk forwarder via PR #455 (30d6443), launcher per-spawn runtime.arena_bytes enforcement via PR #454 (d6ae05a, closes #448). Remaining gates are the `cc` driver app (#409) that lets us actually invoke `cc` twice in one boot and the unsigned-run/acceptance-suite wiring tracked by #410."
+    },
+    {
+      "name": "toolchain_libc_deps_phase3_complete",
+      "gatingIssue": 539,
+      "gatingIssues": [
+        538,
+        539
+      ],
+      "reason": "awaiting_538_539",
+      "description": "TinyCC Phase-3 libc-deps completion marker. Stays SKIP while either #538 (POSIX-fd nucleus) or #539 (remaining 11 gaps) is OPEN; must flip off awaiting_* once both close."
     }
   ]
 }

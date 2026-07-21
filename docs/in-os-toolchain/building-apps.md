@@ -168,4 +168,17 @@ python3 tests/in_os_toolchain_dev_dir_test.py
 | 5     | Unsigned-run wiring; `cc` output runs via the launcher   | planned  |
 | 6     | `sosh` integration + acceptance test suite               | planned  |
 
+### libc-deps Phase-3 completion gate
+
+`tests/m7_toolchain/markers.json` includes the marker
+`toolchain_libc_deps_phase3_complete` to pin the TinyCC libc-deps Phase-3
+completion contract.
+
+- While either [#538](https://github.com/rwrife/SecureOS/issues/538) or
+  [#539](https://github.com/rwrife/SecureOS/issues/539) is open, the marker is
+  intentionally SKIP-pinned (`awaiting_538_539`).
+- Once both close, `tools/validate_m7_markers.py` fails CI until the marker is
+  flipped off `awaiting_*` (real PASS assertion or explicit retarget), so the
+  Phase-3 completion cannot silently remain deferred.
+
 See the plan for the per-phase acceptance tests that gate each step.

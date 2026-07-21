@@ -10,6 +10,12 @@
     "410": {
       "state": "OPEN"
     },
+    "538": {
+      "state": "OPEN"
+    },
+    "539": {
+      "state": "OPEN"
+    },
     "634": {
       "state": "CLOSED",
       "replacedBy": 409,
