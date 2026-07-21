@@ -66,6 +66,20 @@
       "description": "When `cc` links with no `--manifest` and no pre-existing sidecar, it synthesises a manifest via libmanifestgen and writes `<output>.manifest.json`."
     },
     {
+      "id": "toolchain_cc_manifest_override_precedence",
+      "name": "toolchain_cc_manifest_override_precedence",
+      "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_override_precedence.sh",
+      "gatingIssue": 409,
+      "gatingIssues": [
+        409,
+        410
+      ],
+      "reason": "awaiting_409_410",
+      "skipReason": "pre-409",
+      "addedIn": "issue-609",
+      "description": "Pre-#409/#410 SKIP pin for manifest precedence: when `--manifest <path>` and `<output>.manifest.json` sidecar both exist, CLI override must win and emit `manifest.synth.skipped`/equivalent `reason=cli_override` evidence."
+    },
+    {
       "id": "toolchain_cc_version_and_help_text_pinned",
       "name": "toolchain_cc_version_and_help_text_pinned",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_version_and_help_text_pinned.sh",
