@@ -429,6 +429,9 @@ case "$TEST_NAME" in
   tinycc_libc_deps)
     run_script "$ROOT_DIR/build/scripts/test_tinycc_libc_deps.sh"
     ;;
+  tinycc_arena_drift)
+    run_script "$ROOT_DIR/build/scripts/test_tinycc_arena_drift.sh"
+    ;;
   netlib_url_scheme)
     run_script "$ROOT_DIR/build/scripts/test_netlib_url_scheme.sh"
     ;;

@@ -1,0 +1,24 @@
+{
+  "_comment": "Issue #543 TinyCC compile-time arena pin. Placeholder mode is intentional while #408 Phase 3 remains OPEN and Makefile.secureos is still scaffold-only. Once Phase 3 lands, replace `status` with `measured`, populate per-TU `peak_bytes`, and keep `pinned_arena_bytes` as ceil(max_peak * 1.5, 64KiB).",
+  "schemaVersion": 1,
+  "issue": 543,
+  "gatingIssue": 408,
+  "status": "awaiting_408_phase3",
+  "threshold_percent": 5.0,
+  "measurements": [
+    {
+      "tu": "tests/m7_toolchain/fixtures/dev/hello.c",
+      "sha256": "a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30",
+      "peak_bytes": null,
+      "status": "awaiting_408_phase3"
+    }
+  ],
+  "estimated_peak_bytes": 2621440,
+  "pinned_arena_bytes": 3932160,
+  "pinned_arena_derivation": {
+    "mode": "placeholder",
+    "formula": "ceil(estimated_peak_bytes * 1.5, 64KiB)",
+    "note": "Planning estimate source: plans/2026-05-28-in-os-toolchain-self-hosting.md (TinyCC needs several MB; runtime.arena_bytes cap is 16MiB)."
+  },
+  "status_detail": "awaiting_408_phase3"
+}

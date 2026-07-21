@@ -294,7 +294,8 @@ Follow the `TEST:PASS:` / JSON-report contract (#110) under
    window. Recommend manifest-declared to avoid bloating every process.
 2. **TCC memory ceiling.** What's the largest TU TCC can compile inside
    the chosen arena? The execute issue should measure and document a hard
-   cap, failing cleanly (not OOM-panicking) past it.
+   cap, failing cleanly (not OOM-panicking) past it. Source-of-truth pin:
+   `vendor/tinycc/arena-measurements.json` (issue #543).
 3. **libc surface freeze.** Which exact symbols does `libclib.a` export?
    Recommend deriving the set empirically from TCC's link errors, then
    freezing it as an ABI-adjacent contract.
