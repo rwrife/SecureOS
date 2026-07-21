@@ -87,6 +87,10 @@ TEST_TARGETS=(
     # `owner.kind="local"` arm until #522's additive enum lands. Same
     # orphan-from-TEST_TARGETS gate shape as sofpack_wrap above.
     manifest_default_synthesise
+    # Issue #634: host-side precedence pin for `cc` manifest resolution
+    # (`--manifest` > sidecar > synth) and hard-fail semantics when an
+    # explicit override is unreadable/invalid.
+    cc_manifest_resolution_precedence
     tls
     https
     fs_service
@@ -600,7 +604,7 @@ TEST_TARGETS=(
     clib_os_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
-    # tests"). All seven markers are SKIP-pinned today — each subordinate
+    # tests"). All eight markers are SKIP-pinned today — each subordinate
     # script in tests/m7_toolchain/ emits TEST:SKIP:<marker>:awaiting_<n>
     # then rolls up TEST:PASS:<marker> so the bundle stays green. Wiring
     # them here freezes the marker spellings as a single source of truth:
@@ -613,6 +617,7 @@ TEST_TARGETS=(
     toolchain_unsigned_prompt_enforced
     toolchain_large_output_persisted
     toolchain_compile_error_reported
+    toolchain_cc_manifest_sidecar_written_on_link
     toolchain_cc_version_and_help_text_pinned
     toolchain_heap_isolation
     # M7-TOOLCHAIN-005 sub-slice (issue #408 Phase 2): freestanding TinyCC

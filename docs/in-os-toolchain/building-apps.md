@@ -90,6 +90,15 @@ cc /apps/dev/hello.c -o /apps/hello.bin
   └─ write output         os_fs_write_file()        [CAP_FS_WRITE]
 ```
 
+### Manifest resolution precedence *(planned)*
+
+When `cc` resolves the manifest paired with an output binary, precedence is:
+`--manifest <path>` (explicit override) > co-located
+`<output>.manifest.json` sidecar > synthesis via `libmanifestgen`.
+This contract is pinned by issue [#607](https://github.com/rwrife/SecureOS/issues/607)
+and is intentionally deterministic so launcher policy/audit behavior cannot
+silently drift.
+
 TinyCC is used (not GCC/Clang) because it compiles, assembles, and links in a
 single process — SecureOS cannot spawn separate `as`/`ld` stages. TinyCC is
 vendored as a pinned git submodule under

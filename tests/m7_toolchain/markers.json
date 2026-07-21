@@ -36,6 +36,14 @@
       "description": "cc exits non-zero on syntax error, prints a diagnostic, and writes no output file."
     },
     {
+      "name": "toolchain_cc_manifest_sidecar_written_on_link",
+      "gatingIssue": 634,
+      "reason": "awaiting_634",
+      "skipReason": "pre-#634 manifest precedence wiring not yet executed through qemu compile/link path",
+      "harnessPath": "tests/m7_toolchain/qemu/cc_manifest_sidecar_written_on_link.sh",
+      "description": "When `cc` links with no `--manifest` and no pre-existing sidecar, it synthesises a manifest via libmanifestgen and writes `<output>.manifest.json`."
+    },
+    {
       "name": "toolchain_cc_version_and_help_text_pinned",
       "gatingIssue": 409,
       "reason": "awaiting_409",
