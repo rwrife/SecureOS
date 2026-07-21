@@ -435,9 +435,8 @@ case "$TEST_NAME" in
     ;;
   apps_dev_include_set)
     # Issue #615: canonical /apps/dev/include header-set drift gate.
-    # Enforces strict set parity once #531/#613 staging slices close,
-    # and emits canonical SKIP marker while pending headers are still
-    # gated by open issues.
+    # #613 headers are strict-required; emits canonical SKIP marker only
+    # while #531 (secureos_api.h staging) remains open.
     run_script "$ROOT_DIR/build/scripts/test_apps_dev_include_set.sh"
     ;;
   dev_building_txt_drift)

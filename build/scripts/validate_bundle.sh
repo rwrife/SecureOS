@@ -114,8 +114,8 @@ TEST_TARGETS=(
     apps_dev_sha
     # Issue #615: canonical `/apps/dev/include` header-set drift gate.
     # Uses tests/disk_image/apps_dev_include_set.json to pin include-surface
-    # membership (secureos_api + namespaced sofpack/manifestgen headers) with
-    # per-header pending gates tied to #531/#613.
+    # membership (secureos_api + namespaced sofpack/manifestgen headers).
+    # #613 headers are strict-required; only #531 remains pending-gated.
     apps_dev_include_set
     # Issue #618: on-device guide drift gate for dev/building.txt.
     # Validates "Files here" parity against /apps/dev staging mappings,

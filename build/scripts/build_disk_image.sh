@@ -137,6 +137,15 @@ build_disk_image_inner() {
 	if [ -f "$ROOT_DIR/dev/tcc/README.md" ]; then
 		dev_mappings+=("dev/tcc/README.md=/apps/dev/tcc/README.md")
 	fi
+	# Issue #613: stage public freestanding library headers for in-OS cc
+	# consumption. Keep namespaced include prefixes (sofpack/, manifestgen/)
+	# per docs/abi/apps-dev-layout.md.
+	if [ -f "$ROOT_DIR/user/libs/sofpack/include/sofpack/sofpack.h" ]; then
+		dev_mappings+=("user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h")
+	fi
+	if [ -f "$ROOT_DIR/user/libs/manifestgen/include/manifestgen/manifest_default.h" ]; then
+		dev_mappings+=("user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifestgen/manifest_default.h")
+	fi
 	# Issue #545: stage freestanding user archives used by in-OS `cc` link
 	# (when present in the host artifacts tree).
 	if [ -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ]; then
