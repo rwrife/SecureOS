@@ -110,6 +110,9 @@ TEST_TARGETS=(
     proc_sched
     m1_ipc_demo
     validate_abi_stamps
+    # Issue #624: docs/development pickup-guide stamp freshness gate
+    # (Last-verified SHA exists + is not older than last content edit).
+    docs_pickup_guide_m7_stamp
     # M1 substrate process-table host gates (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side checks
     # that pin the `process_*` table contract every M2/M3/M4/M5 slice

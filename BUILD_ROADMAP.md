@@ -517,6 +517,14 @@ Validate:
   (`samples/hello-from-sdk/`).
 - manifest capability declarations enforced by launcher/broker.
 
+## 5.7 M7: In-OS toolchain self-hosting
+
+The current M7 execution frontier is tracked by umbrella issue #403 with
+#408 (TinyCC freestanding port) as the active gate before #409 and #410.
+Contributors picking up M7 work should start with
+[`docs/development/pickup-guide-m7.md`](docs/development/pickup-guide-m7.md)
+for the smallest currently-executable slices and stall-safe fallback work.
+
 ## 6) CI/CD and Test Matrix Strategy
 
 ## 6.1 CI stages
@@ -602,6 +610,7 @@ in the same change that introduces it.
   - Mitigation: keep first slice tiny, use proven boot protocol, rely on serial-first debugging.
 - **Risk: agent drift / inconsistent task completion**
   - Mitigation: validator-only completion with command-output-backed criteria.
+  - Triage-cadence rule for queue-level drift: `CONTRIBUTING.md` §"Stale-Issue Triage Cadence".
 - **Risk: ABI churn breaks modules**
   - Mitigation: publish ABI docs early and version every interface change.
 - **Risk: non-deterministic tests**

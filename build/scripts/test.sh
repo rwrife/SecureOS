@@ -767,6 +767,12 @@ case "$TEST_NAME" in
     # cannot silently recur.
     run_script "$ROOT_DIR/build/scripts/validate_abi_stamps.sh"
     ;;
+  docs_pickup_guide_m7_stamp)
+    # Issue #624: enforce stamp freshness for
+    # docs/development/pickup-guide-m7.md using the shared
+    # validate_abi_stamps.py engine against docs/development scope.
+    run_script "$ROOT_DIR/build/scripts/validate_docs_pickup_guide_m7_stamp.sh"
+    ;;
   abi_stamps_drift)
     # Issue #297: negative-canary self-test — builds a sandbox repo
     # whose docs/abi/syscalls.md stamp is older than its last content
