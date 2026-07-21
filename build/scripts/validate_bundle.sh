@@ -507,6 +507,10 @@ TEST_TARGETS=(
     # reserved-flag / bad-arg early-reject contract flips the
     # bundle to FAIL.
     process_spawn_wrapper
+    # Issue #546: dynamic bridge-backed host gate for spawn argv
+    # marshalling + `out_exit_status` propagation. Pins the current
+    # v0 space-join wire format before #409/#410 consume it.
+    process_spawn_argv_roundtrip
     # Issue #508: kernel-side capability workflow-rule layer (PR #209,
     # closes #77). Host-side dispatcher exists and is documented in the
     # test.sh usage banner, but was never added to TEST_TARGETS, so a
