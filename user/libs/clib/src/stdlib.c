@@ -3,7 +3,10 @@
  * Freestanding stdlib subset (M7-TOOLCHAIN-004 slice 4, issue #407).
  *
  * Implementation notes:
- *   - Freestanding: no libc, no syscalls.
+ *   - Numeric parse + integer helpers are freestanding (no libc).
+ *   - `exit()` is the one runtime-wired symbol in this TU: it forwards
+ *     to `os_process_exit(status)` so TinyCC's fatal paths can terminate
+ *     through the SecureOS user bridge.
  *   - We reproduce just enough of <ctype.h> inline (the isspace test
  *     used by atoi/strtol/strtoul) so this translation unit has zero
  *     intra-clib dependencies on the ctype slice — keeps the link of
@@ -36,6 +39,7 @@
 
 #include "../include/clib/stdlib.h"
 #include "../include/clib/errno.h"
+#include "../../../include/secureos_api.h"
 
 #include <limits.h>
 #include <stddef.h>
@@ -151,6 +155,17 @@ static int s_strip_prefix(const char **p, int *base) {
 }
 
 /* --- public API --------------------------------------------------------- */
+
+void exit(int status) {
+  /* SecureOS bridge contract: this should terminate the current process
+   * and never return when the launcher bridge is attached. */
+  (void)os_process_exit(status);
+
+  /* Host/no-bridge fallback: if the stub path returned, preserve the
+   * noreturn contract by spinning rather than returning to caller. */
+  for (;;) {
+  }
+}
 
 long strtol(const char *nptr, char **endptr, int base) {
   const char *p              = nptr;

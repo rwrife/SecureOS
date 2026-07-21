@@ -431,6 +431,7 @@ static void test_symbol_set_pinned(void) {
     (void *)strtoull,
     (void *)abs,
     (void *)labs,
+    (void *)exit,
   };
   for (size_t i = 0; i < sizeof syms / sizeof syms[0]; i++) {
     if (syms[i] == NULL) {
@@ -442,8 +443,8 @@ static void test_symbol_set_pinned(void) {
   /* Pin the count: any future slice that adds/removes a symbol MUST
    * update this number and the symbol_set list above in lockstep, the
    * same way slices 1/2/3 pin their families. */
-  if (sizeof syms / sizeof syms[0] != 7) {
-    printf("TEST:FAIL:clib_stdlib:symbol_set_pinned: expected 7 symbols\n");
+  if (sizeof syms / sizeof syms[0] != 8) {
+    printf("TEST:FAIL:clib_stdlib:symbol_set_pinned: expected 8 symbols\n");
     g_fails++;
   }
   PASS("symbol_set_pinned");

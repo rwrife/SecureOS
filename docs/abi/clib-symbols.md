@@ -209,6 +209,7 @@ are locked down by `clib_os_brk` (build/scripts/test_clib_os_brk.sh).
 | `strtoull`| `unsigned long long strtoull(const char *s, char **end, int base)` | slice 11 / PR #444; overflow clamps to `ULLONG_MAX` |
 | `abs`     | `int abs(int x)`                                                   | INT_MIN UB-safe (input == INT_MIN saturates to INT_MAX) |
 | `labs`    | `long labs(long x)`                                                | LONG_MIN UB-safe |
+| `exit`    | `void exit(int status) __attribute__((noreturn))`                 | forwards to `os_process_exit(status)`; spins if bridge absent |
 
 ### `clib/string.h` (slice 1 / PR #416)
 
@@ -326,6 +327,7 @@ clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
 errno
+exit
 fclose
 feof
 ferror

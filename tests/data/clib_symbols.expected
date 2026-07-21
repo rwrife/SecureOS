@@ -42,6 +42,7 @@ clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
 errno
+exit
 fclose
 feof
 ferror
