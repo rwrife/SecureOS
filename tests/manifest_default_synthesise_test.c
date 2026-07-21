@@ -14,6 +14,9 @@
  *      (i.e. is a real v0 manifest, not just an arbitrary JSON blob).
  *      Driven from the .sh peer; this C test only writes the synthesised
  *      bytes to a path the driver passes in via argv[1].
+ *   3.5 Default runtime arena pin: happy-path output includes
+ *      `runtime.arena_bytes` and equals
+ *      `MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES`.
  *   4. Negative: NULL params / NULL out_buf / NULL out_len rejected with
  *      INVALID_ARG; empty required-string / out-of-range subject_id
  *      rejected with INVALID_FIELD.
@@ -61,6 +64,7 @@ static void fill_default_params(manifest_default_params_t *p) {
 static void test_signature_pin(void) {
   manifest_default_params_t p;
   char  out[1024];
+  char  runtime_expected[64];
   size_t out_len = 0u;
   manifest_default_result_t rc;
 
@@ -80,6 +84,10 @@ static void test_signature_pin(void) {
   CHECK(strstr(out, "\"subject_id\": 2") != NULL, "happy_path_subject_id_key");
   CHECK(strstr(out, "\"binary\": \"apps/helloapp.bin\"") != NULL, "happy_path_binary_key");
   CHECK(strstr(out, "\"request\": []") != NULL, "happy_path_caps_empty");
+  (void)snprintf(runtime_expected, sizeof(runtime_expected),
+                 "\"arena_bytes\": %u",
+                 (unsigned)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES);
+  CHECK(strstr(out, runtime_expected) != NULL, "happy_path_runtime_arena_default");
   CHECK(strstr(out, "\"kind\": \"internal\"") != NULL, "happy_path_owner_kind");
 
   fprintf(stdout, "TEST:PASS:manifest_default_synthesise:happy_path\n");

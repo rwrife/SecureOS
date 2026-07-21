@@ -409,6 +409,12 @@ case "$TEST_NAME" in
     # lands.
     run_script "$ROOT_DIR/build/scripts/test_manifest_default_synthesise.sh"
     ;;
+  manifestgen_default_arena)
+    # Issue #595: pin the default `runtime.arena_bytes` emitted by
+    # `libmanifestgen` when synthesis is selected (no explicit override
+    # manifest source branch).
+    run_script "$ROOT_DIR/build/scripts/test_manifestgen_default_arena.sh"
+    ;;
   manifest_sidecar_suffix)
     # Issue #580: drift gate for the canonical `<binary>.manifest.json`
     # sidecar naming rule in docs/abi/manifest.md §5.8 and
