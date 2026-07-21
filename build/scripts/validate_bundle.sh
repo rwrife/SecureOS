@@ -119,6 +119,11 @@ TEST_TARGETS=(
     # Issue #624: docs/development pickup-guide stamp freshness gate
     # (Last-verified SHA exists + is not older than last content edit).
     docs_pickup_guide_m7_stamp
+    # Issue #593: plan sub-section token -> issue linkage drift gate.
+    # Scans plans/*.md for canonical M*-style slice tokens and requires
+    # each token to resolve to an OPEN/CLOSED issue unless explicitly
+    # allowlisted in plans/.unticketed-allowlist.
+    plan_sections_drift
     # M1 substrate process-table host gates (umbrella #299, plan
     # plans/2026-05-25-m4-broker-on-m1-substrate.md): host-side checks
     # that pin the `process_*` table contract every M2/M3/M4/M5 slice

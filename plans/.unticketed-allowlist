@@ -1,0 +1,6 @@
+# plans/.unticketed-allowlist
+#
+# Format: <TOKEN><TAB><one-line rationale>
+#
+# Tokens listed here are accepted as intentionally unticketed by
+# tools/validate_plan_sections.py (issue #593).
