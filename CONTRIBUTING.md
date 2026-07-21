@@ -265,6 +265,11 @@ For drift-gate authoring conventions (JSON pin + validator +
 [`docs/development/drift-gate-authoring.md`](docs/development/drift-gate-authoring.md)
 (issue #616, with SKIP-pinned sibling guidance in #608).
 
+For TinyCC vendor pin updates, follow
+[`docs/vendor/tinycc-bump-procedure.md`](docs/vendor/tinycc-bump-procedure.md)
+(issue #576) and include its PR-template drift summary (old/new SHA,
+object-count delta, total-size delta, libc-deps/config/LGPL evidence).
+
 For drift-gate backlog visibility, run `python3 tools/summarize_m7_backlog.py`
 during the daily-review cron pass and again before merging key M7 gating slices
 (especially #410). The script emits `artifacts/m7-backlog/summary-<date>.json`
