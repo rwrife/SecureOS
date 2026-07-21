@@ -61,4 +61,7 @@ TRUST / SIGNING
 MORE
 ----
   This file is the on-device companion to
-  docs/in-os-toolchain/building-apps.md. Keep both docs in sync.
+  docs/in-os-toolchain/building-apps.md.
+
+  For the live phase status / roadmap table, see that in-tree doc rather than
+  duplicating phase-by-phase state here.
