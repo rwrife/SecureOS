@@ -106,6 +106,7 @@ For graphics mode with the VGA display:
 ## Contributing
 
 See `CONTRIBUTING.md` for full contributor guidance.
+For the M7 in-OS toolchain execution frontier, start with [`docs/development/pickup-guide-m7.md`](docs/development/pickup-guide-m7.md).
 
 ## Distributing SecureOS images
 
