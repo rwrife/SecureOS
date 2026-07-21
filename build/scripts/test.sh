@@ -797,13 +797,13 @@ case "$TEST_NAME" in
     run_script "$ROOT_DIR/tests/harness/abi_stamps_drift_test.sh"
     ;;
   validate_m7_markers)
-    # Issue #494: drift gate cross-checking that every marker in
+    # Issues #494 + #590: drift gate cross-checking that every marker in
     # tests/m7_toolchain/markers.json is wired through the case arms in
     # this file AND TEST_TARGETS in validate_bundle.sh AND has a stub
     # script under tests/m7_toolchain/ that emits the canonical
-    # TEST:PASS:<marker> line. Also fetches each gatingIssue via gh to
-    # FAIL if it has been closed while reason= is still awaiting_<n>
-    # (use --allow-offline in air-gapped CI). Mirrors #234 / #297 / #351.
+    # TEST:PASS:<marker> line. Gating issue state is resolved via online
+    # gh lookup or the checked-in offline cache
+    # tests/m7_toolchain/issue_state.cache.json.
     run_script "$ROOT_DIR/build/scripts/validate_m7_markers.sh"
     ;;
   m7_markers_drift)
@@ -813,6 +813,12 @@ case "$TEST_NAME" in
     # and M7_MARKER:FAIL:<marker>:orphan_* markers fire. Mirrors the
     # canary discipline from #213 / #234 / #297 / #351.
     run_script "$ROOT_DIR/tests/harness/m7_markers_drift_test.sh"
+    ;;
+  m7_markers_issue_state_cache)
+    # Issue #590: cache-mode canary proving CLOSED gating issues fail
+    # while reason=awaiting_<closed_id>, and pass once reason is
+    # retargeted away from the closed issue (including replacedBy hint).
+    run_script "$ROOT_DIR/tests/harness/m7_markers_issue_state_cache_test.sh"
     ;;
   skip_backlog_report_fixture)
     # Issue #631: synthetic fixture for tools/report_skip_backlog.py.

@@ -662,15 +662,17 @@ TEST_TARGETS=(
     # vendor/tinycc/arena-measurements.json so silent drift is caught before
     # the live allocator-instrumented measurement path lands.
     tinycc_arena_drift
-    # Issue #494: drift gate for the markers.json source-of-truth file
-    # above. validate_m7_markers cross-checks that every marker is wired
-    # through this TEST_TARGETS block + the case arms in test.sh + the
-    # stub scripts in tests/m7_toolchain/, and (when gh is reachable)
-    # that no gatingIssue has closed while reason= is still
-    # awaiting_<n>. m7_markers_drift is the negative canary that proves
-    # the validator is real, mirroring #213 / #234 / #297 / #351.
+    # Issue #494 + #590: drift gate for the markers.json source-of-truth
+    # file above. validate_m7_markers cross-checks that every marker is
+    # wired through this TEST_TARGETS block + the case arms in test.sh +
+    # the stub scripts in tests/m7_toolchain/, and resolves gatingIssue
+    # state via online gh lookup or the checked-in offline cache
+    # tests/m7_toolchain/issue_state.cache.json. m7_markers_drift and
+    # m7_markers_issue_state_cache are negative canaries proving wiring
+    # drift + closed-issue stale-awaiting failures.
     validate_m7_markers
     m7_markers_drift
+    m7_markers_issue_state_cache
     # Issue #631: synthetic fixture coverage for
     # tools/report_skip_backlog.py (source-scan count + per-gating-issue
     # bucket accounting, including unpinned markers).
