@@ -236,7 +236,25 @@ Project-specific expectations include:
 - Commit any new `build/scripts/*.sh` validator/build script with the executable bit set (`git update-index --chmod=+x <path>`). The CI validator bundle invokes these scripts directly; a missing exec bit silently fails the run with `Permission denied`. See issue #90.
 - Run `build/scripts/lint.sh` (or `build/scripts/lint.ps1` on Windows) before pushing. This covers BUILD_ROADMAP §6.1 stage 1 (clang-format, shellcheck, `.sh` ↔ `.ps1` parity) and is enforced in the `Lint` CI workflow.
 
-For drift-gate backlog visibility (sibling practice to the drift-gate authoring guide work tracked in #616), run `python3 tools/summarize_m7_backlog.py` during the daily-review cron pass and again before merging key M7 gating slices (especially #410). The script emits `artifacts/m7-backlog/summary-<date>.json` and a one-screen markdown summary so triage can see which harnesses would flip when each gate closes.
+### Breaking a merge stall
+
+When #620-style velocity reporting shows `days_since_last_merge > 14`, prefer
+landing an already-ready issue before opening another backlog item.
+
+1. Run `python3 tools/list_ready_now_issues.py`.
+2. Pick from the surfaced candidates (no open dependency refs, docs/CI/stamp slices).
+3. Optionally apply a triage label with
+   `python3 tools/list_ready_now_issues.py --apply-label --apply-limit 5`.
+
+Reference: issue #626 (ready-now index) and
+`docs/development/list-ready-now-issues.md`.
+
+For drift-gate backlog visibility (sibling practice to the drift-gate
+authoring guide work tracked in #616), run
+`python3 tools/summarize_m7_backlog.py` during the daily-review cron pass and
+again before merging key M7 gating slices (especially #410). The script emits
+`artifacts/m7-backlog/summary-<date>.json` and a one-screen markdown summary so
+triage can see which harnesses would flip when each gate closes.
 
 - For decisions that pin a wire format, ABI, boot/loader contract, or other
   durable invariant, add an ADR under `docs/architecture/decisions/`
