@@ -73,10 +73,11 @@
     {
       "prefix": "cc.compile.start",
       "family": "in-os-toolchain-compile",
-      "shape": "cc.compile.start:<unit>",
+      "shape": "cc.compile.start:<sid>:<input_path>:<arena_bytes>",
       "emitter": "user/apps/cc/",
       "authoritative_doc": "docs/abi/audit-markers.md",
       "consumer_tests": [
+        "tests/m7_toolchain/toolchain_cc_audit_markers.sh",
         "tests/m7_toolchain/toolchain_compiles_hello_in_os.sh"
       ],
       "gating_issue": 571
@@ -84,10 +85,11 @@
     {
       "prefix": "cc.compile.success",
       "family": "in-os-toolchain-compile",
-      "shape": "cc.compile.success:<unit>",
+      "shape": "cc.compile.success:<sid>:<input_path>:<output_sof_sha256>:<bytes>",
       "emitter": "user/apps/cc/",
       "authoritative_doc": "docs/abi/audit-markers.md",
       "consumer_tests": [
+        "tests/m7_toolchain/toolchain_cc_audit_markers.sh",
         "tests/m7_toolchain/toolchain_compiles_hello_in_os.sh"
       ],
       "gating_issue": 571
@@ -95,11 +97,13 @@
     {
       "prefix": "cc.compile.fail",
       "family": "in-os-toolchain-compile",
-      "shape": "cc.compile.fail:<unit>:<reason>",
+      "shape": "cc.compile.fail:<sid>:<input_path>:<exit_code>:<reason_tag>",
       "emitter": "user/apps/cc/",
       "authoritative_doc": "docs/abi/audit-markers.md",
       "consumer_tests": [
-        "tests/m7_toolchain/toolchain_compile_error_reported.sh"
+        "tests/m7_toolchain/toolchain_cc_audit_markers.sh",
+        "tests/m7_toolchain/toolchain_compile_error_reported.sh",
+        "tests/m7_toolchain/cc_arena_exhaustion_audit.c"
       ],
       "gating_issue": 571
     }

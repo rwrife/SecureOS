@@ -59,6 +59,25 @@ For CLI grammar purposes, the class contract is:
 - manifest read/parse/validation failures map to a non-zero `cc.compile.fail`
   class and produce no output binary
 
+## Compile audit-marker contract
+
+Issue [#571](https://github.com/rwrife/SecureOS/issues/571) pins the compile
+marker grammar consumed by M7 harnesses. Runtime emission remains gated on
+[#409](https://github.com/rwrife/SecureOS/issues/409) and
+[#410](https://github.com/rwrife/SecureOS/issues/410), but once emitted the
+shapes are fixed:
+
+```text
+cc.compile.start:<sid>:<input_path>:<arena_bytes>
+cc.compile.success:<sid>:<input_path>:<output_sof_sha256>:<bytes>
+cc.compile.fail:<sid>:<input_path>:<exit_code>:<reason_tag>
+```
+
+Normative field semantics live in
+[`docs/abi/audit-markers.md`](../abi/audit-markers.md#31-cccompile-marker-grammar-issue-571)
+and the exit-code mapping in
+[`building-apps.md`](./building-apps.md#cc-exit-codes-v0-contract-pin).
+
 ## Diagnostic format (v0)
 
 For compile-class diagnostics, stderr is line-oriented and deterministic:
@@ -91,4 +110,4 @@ No network capability is required by the v0 compile path.
 - Manifest schema: [`docs/abi/manifest.md`](../abi/manifest.md)
 - Marker scaffold: [`tests/m7_toolchain/markers.json`](../../tests/m7_toolchain/markers.json)
 
-Last verified against commit: `c65d593`
+Last verified against commit: `8856055`
