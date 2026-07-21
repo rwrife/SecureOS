@@ -87,6 +87,10 @@ TEST_TARGETS=(
     # `owner.kind="local"` arm until #522's additive enum lands. Same
     # orphan-from-TEST_TARGETS gate shape as sofpack_wrap above.
     manifest_default_synthesise
+    # Issue #580: canonical `<binary>.manifest.json` sidecar filename pin
+    # across docs/abi/manifest.md §5.8 and
+    # user/libs/manifestgen/include/manifestgen/manifest_default.h.
+    manifest_sidecar_suffix
     # Issue #573: canonical /apps/dev/cc manifest pin (owner.kind + minimal
     # CAP_FS_READ/CAP_FS_WRITE request set + runtime.arena_bytes) and drift
     # gate against the staged app manifest from #540. While #540 is still
