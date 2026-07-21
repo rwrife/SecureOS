@@ -101,6 +101,17 @@ deterministic message — mirroring [#213] /
 `capability_registry_drift` ([#234]) /
 `sosh_contract_registry_drift` ([#351]).
 
+Issue [#619] adds a sibling host drift gate
+[`tools/validate_hello_golden.py`](../../tools/validate_hello_golden.py)
+(`hello_sof_golden` in `build/scripts/test.sh`, wired in
+`build/scripts/validate_bundle.sh`) that pins the canonical `dev/hello.c`
+reference output (`/apps/hello.bin`) and the key input SHAs
+(`dev/hello.c`, `secureos_api.h`, `crt0.c`, `secureos_api_stubs.c`, plus
+`build/toolchain.lock`) via
+[`tests/m7_toolchain/hello_golden.json`](./hello_golden.json). This closes
+"does it still build to the same bytes?" drift that a compile-only canary
+cannot catch.
+
 Issue [#604] adds a sibling gate
 [`tools/validate_m7_marker_harnesses.py`](../../tools/validate_m7_marker_harnesses.py)
 (`validate_m7_marker_harnesses` in `build/scripts/test.sh`, wired in bundle

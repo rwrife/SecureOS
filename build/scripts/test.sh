@@ -91,6 +91,12 @@ case "$TEST_NAME" in
     # cascades into M7 SOF/toolchain goldens.
     run_script "$ROOT_DIR/build/scripts/validate_dev_hello_c.sh"
     ;;
+  hello_sof_golden)
+    # Issue #619: host-side SOF golden pin for dev/hello.c. Rebuilds the
+    # canonical sample through the build_user_app-compatible path and compares
+    # source + output hashes against tests/m7_toolchain/hello_golden.json.
+    run_script "$ROOT_DIR/build/scripts/test_hello_golden.sh"
+    ;;
   toolchain_compiles_hello_in_os|toolchain_runs_compiled_binary|toolchain_unsigned_prompt_enforced|toolchain_large_output_persisted|toolchain_compile_error_reported|toolchain_cc_manifest_sidecar_written_on_link|toolchain_cc_version_and_help_text_pinned|toolchain_heap_isolation|toolchain_launch_audit_owner_kind_field_emitted|toolchain_launcher_owner_kind_cache_isolation|toolchain_libc_deps_phase3_complete)
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance

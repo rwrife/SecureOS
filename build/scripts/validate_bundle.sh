@@ -375,6 +375,11 @@ TEST_TARGETS=(
     # (`dev/hello.c`). Keeps the validation input SHA-locked so edits are
     # intentional and reviewed before they fan out to downstream M7 goldens.
     dev_hello_c_pin
+    # Issue #619: host-side SOF golden for dev/hello.c. Rebuilds the canonical
+    # sample and compares source + output hashes against
+    # tests/m7_toolchain/hello_golden.json so drift in hello.c, staged headers,
+    # runtime stubs, toolchain lock, or packed binary bytes flips the bundle.
+    hello_sof_golden
     # M7 in-OS toolchain (umbrella #403, plan
     # `plans/2026-05-28-in-os-toolchain-self-hosting.md` P1). `clib_malloc`
     # is the freestanding userland heap allocator (issue #404,
