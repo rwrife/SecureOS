@@ -214,6 +214,17 @@ After successful builds, key outputs include:
 - `artifacts/user/**/*.bin`
 - `artifacts/lib/*.lib`
 
+## CI stages
+
+SecureOS runs multiple CI workflows with distinct scope:
+
+- **Lint** (`.github/workflows/lint.yml`): fast stage-1 checks (format/shell/static parity) on PRs and pushes to `main`.
+- **PR Build Validation** (`.github/workflows/pr-build.yml`): full validation bundle for pull requests.
+- **ISO Build And VM Smoke Test** (`.github/workflows/iso-vm-build.yml`): boot/build smoke on PRs and pushes/tags.
+- **Scheduled Drift Gates** (`.github/workflows/scheduled-drift-gates.yml`): weekly Monday 12:00 UTC + manual dispatch run of lint + host drift validators against `main` during merge stalls.
+
+The scheduled drift-gate workflow is observability-only and does **not** gate PR merges.
+
 ## Coding and Planning Expectations
 
 Before opening a PR, review:
