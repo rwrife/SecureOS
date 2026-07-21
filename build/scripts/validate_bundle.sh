@@ -710,6 +710,13 @@ TEST_TARGETS=(
     # tinycc_vendor_gate (sources) / tinycc_config_secureos (config) /
     # tinycc_libc_deps (libc surface) audit triangle.
     tinycc_libc_deps
+    # Issue #548: TinyCC runtime-helper (`libtcc1.a`) TU partition pin.
+    # Verifies vendor/tinycc/libtcc1-srcs.json accounts for every
+    # compilable TU under vendor/tinycc/tinycc/lib (*.c/*.S) as either
+    # required-for-SecureOS or explicitly excluded with reason, so an
+    # upstream TinyCC bump cannot silently change the runtime-helper
+    # archive surface consumed by #408 Phase 3.
+    tinycc_libtcc1_srcs
     # Issue #543: TinyCC compile-time arena pin (Phase 4 measurement task,
     # refs #408/#409/#424). While #408 Phase 3 is still open, this target
     # is intentionally SKIP-pinned (`awaiting_408_phase3`) but still validates

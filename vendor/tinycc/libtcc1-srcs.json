@@ -1,0 +1,90 @@
+{
+  "_comment": "Pinned TinyCC runtime-helper TU partition for SecureOS x86_64 freestanding builds (issue #548, umbrella #408 / #403). Companion to vendor/tinycc/Makefile.secureos porting note 2 and vendor/tinycc/libc-deps.json. This manifest explicitly partitions vendor/tinycc/tinycc/lib/*.{c,S} into the files we intentionally compile into libtcc1.a for SecureOS (`required`) and the files we intentionally exclude (`excluded`) with one-line reasons. The host drift gate `tinycc_libtcc1_srcs` fails when upstream adds/removes/renames a TU without this file being updated.",
+  "schemaVersion": 1,
+  "issue": 548,
+  "umbrella": 408,
+  "vendorSurfacePin": "vendor/tinycc/Makefile.secureos",
+  "sourceDir": "vendor/tinycc/tinycc/lib",
+  "target": "x86_64-elf-secureos",
+  "required": [
+    {
+      "path": "libtcc1.c",
+      "reason": "Core runtime helper implementations consumed by x86_64 ELF output."
+    },
+    {
+      "path": "va_list.c",
+      "reason": "x86_64 va_list ABI companion object used by TinyCC runtime support."
+    },
+    {
+      "path": "builtin.c",
+      "reason": "Compiler builtins/runtime helper entrypoints used by generated code."
+    },
+    {
+      "path": "stdatomic.c",
+      "reason": "Runtime support for __atomic builtins expected by TinyCC output."
+    },
+    {
+      "path": "atomic.S",
+      "reason": "Assembly atomic helpers paired with stdatomic.c."
+    },
+    {
+      "path": "alloca.S",
+      "reason": "Stack-allocation helper required by runtime helper set."
+    },
+    {
+      "path": "alloca-bt.S",
+      "reason": "Backtrace-compatible alloca variant referenced by TinyCC runtime make rules."
+    },
+    {
+      "path": "dsohandle.c",
+      "reason": "Unix ELF dsohandle helper included by TinyCC x86_64 Linux object set."
+    }
+  ],
+  "excluded": [
+    {
+      "path": "armeabi.c",
+      "reason": "ARM EABI helper TU; not part of SecureOS x86_64 target."
+    },
+    {
+      "path": "armflush.c",
+      "reason": "ARM cache/flush helper; not used by x86_64 target."
+    },
+    {
+      "path": "lib-arm64.c",
+      "reason": "AArch64 runtime helper TU; excluded from x86_64 builds."
+    },
+    {
+      "path": "pic86.S",
+      "reason": "i386-specific PIC helper; excluded from x86_64 SecureOS target."
+    },
+    {
+      "path": "bcheck.c",
+      "reason": "Bounds-check runtime (CONFIG_TCC_BCHECK) is intentionally disabled."
+    },
+    {
+      "path": "bt-exe.c",
+      "reason": "Backtrace runtime TU; CONFIG_TCC_BACKTRACE is disabled in SecureOS config."
+    },
+    {
+      "path": "bt-dll.c",
+      "reason": "Windows DLL backtrace runtime TU; irrelevant for SecureOS target."
+    },
+    {
+      "path": "bt-log.c",
+      "reason": "Backtrace log helper TU; excluded with backtrace feature."
+    },
+    {
+      "path": "runmain.c",
+      "reason": "Native/JIT run-entry helper; SecureOS uses file-output flow (no -run path)."
+    },
+    {
+      "path": "tcov.c",
+      "reason": "Test coverage runtime helper; not part of SecureOS runtime-helper archive."
+    }
+  ],
+  "summary": {
+    "totalCompilableTus": 18,
+    "requiredTus": 8,
+    "excludedTus": 10
+  }
+}
