@@ -66,6 +66,7 @@ back to its design doc should start here.
 - `2026-05-25-docker-toolchain-consolidation.md`
 - `2026-05-28-in-os-toolchain-self-hosting.md`
 - `2026-07-16-m7-unblock-decomposition.md`
+- `2026-07-16-libc-deps-phase3-landing-order.md`
 
 ### Console, launcher, capabilities (M2–M4)
 
