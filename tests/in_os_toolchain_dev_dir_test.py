@@ -8,8 +8,8 @@ Asserts that:
   - nested file targets under /apps/dev are written via auto-created parents,
   - /apps/dev/lib and /apps/dev/tcc are created when staging placeholder files,
   - staged sample/guide/placeholder files round-trip byte-identically,
-  - optional host-built /apps/dev/lib archives (`libclib.a`, `libsofpack.a`) are
-    staged byte-identically when source artifacts are present.
+  - optional host-built /apps/dev archives (`libclib.a`, `libsofpack.a`,
+    `libtcc1.a`) are staged byte-identically when source artifacts are present.
 
 Runs purely on the host (no QEMU, no toolchain): it drives the same
 tools/populate_disk_image.py the real disk build uses, then reads the FAT
@@ -103,10 +103,12 @@ def main() -> int:
 
     libclib_artifact = ROOT / "artifacts" / "user" / "libs" / "libclib.a"
     libsofpack_artifact = ROOT / "artifacts" / "user" / "libs" / "libsofpack.a"
+    libtcc1_artifact = ROOT / "artifacts" / "user" / "libs" / "libtcc1.a"
     libclib_src = libclib_artifact.read_bytes() if libclib_artifact.is_file() else None
     libsofpack_src = (
         libsofpack_artifact.read_bytes() if libsofpack_artifact.is_file() else None
     )
+    libtcc1_src = libtcc1_artifact.read_bytes() if libtcc1_artifact.is_file() else None
 
     fresh.write_file("/apps/dev/hello.c", hello_src)
     fresh.write_file("/apps/dev/building.txt", guide_src)
@@ -116,6 +118,8 @@ def main() -> int:
         fresh.write_file("/apps/dev/lib/libclib.a", libclib_src)
     if libsofpack_src is not None:
         fresh.write_file("/apps/dev/lib/libsofpack.a", libsofpack_src)
+    if libtcc1_src is not None:
+        fresh.write_file("/apps/dev/tcc/libtcc1.a", libtcc1_src)
 
     if not is_directory(fresh, "/apps/dev"):
         failures.append("write_file did not auto-create /apps/dev parent")
@@ -167,6 +171,14 @@ def main() -> int:
             failures.append(
                 f"/apps/dev/lib/libsofpack.a mismatch: wrote {len(libsofpack_src)} bytes, "
                 f"read {len(got_libsofpack)} bytes"
+            )
+
+    if libtcc1_src is not None:
+        got_libtcc1 = read_file(fresh, "/apps/dev/tcc/libtcc1.a")
+        if got_libtcc1 != libtcc1_src:
+            failures.append(
+                f"/apps/dev/tcc/libtcc1.a mismatch: wrote {len(libtcc1_src)} bytes, "
+                f"read {len(got_libtcc1)} bytes"
             )
 
     # 4. The sample is a non-trivial source file and includes the public API.

@@ -36,7 +36,7 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
 | `/apps/dev/include/` *(planned)* | Public headers (`secureos_api.h`, `os/*.h`)   |
 | `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships placeholder README plus staged `libclib.a`/`libsofpack.a` when host artifacts exist) |
-| `/apps/dev/tcc/` *(planned)*     | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder today) |
+| `/apps/dev/tcc/`                 | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder README plus staged `libtcc1.a` when host artifact exists) |
 
 The repo source that gets staged to `/apps/dev` lives in the top-level
 [`dev/`](../../dev) directory (analogous to how `scripts/` is staged to
@@ -45,7 +45,9 @@ The repo source that gets staged to `/apps/dev` lives in the top-level
 
 When present in `artifacts/user/libs/`, the freestanding archives
 `libclib.a` and `libsofpack.a` are staged to `/apps/dev/lib/` and become
-part of the in-OS `cc` link search surface.
+part of the in-OS `cc` link search surface. `libtcc1.a` is staged to
+`/apps/dev/tcc/` as the TinyCC runtime-helper archive resolved by
+`tcc_add_runtime()`.
 
 `dev/building.txt` is user-facing runtime docs; this in-tree guide is the
 source-level companion. Keep both in sync so staged `/apps/dev` reality,

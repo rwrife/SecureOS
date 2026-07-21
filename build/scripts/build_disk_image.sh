@@ -145,6 +145,11 @@ build_disk_image_inner() {
 	if [ -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]; then
 		dev_mappings+=("artifacts/user/libs/libsofpack.a=/apps/dev/lib/libsofpack.a")
 	fi
+	# Issue #550: stage TinyCC runtime helper archive used by
+	# tcc_add_runtime() (when present in host artifacts).
+	if [ -f "$ROOT_DIR/artifacts/user/libs/libtcc1.a" ]; then
+		dev_mappings+=("artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a")
+	fi
 
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""
