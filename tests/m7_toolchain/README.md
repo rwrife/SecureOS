@@ -12,7 +12,7 @@ Scaffold (this directory): [#423](https://github.com/rwrife/SecureOS/issues/423)
 
 ## Status
 
-All seventeen markers are SKIP-pinned. Each test script in this directory is a
+All eighteen markers are SKIP-pinned. Each test script in this directory is a
 deterministic stub that emits the canonical `TEST:SKIP:<marker>:awaiting_<n>`
 line per the project's SKIP discipline (mirrors #344 / #389 / #392), then
 rolls up a `TEST:PASS:<target>` so the bundle gate stays green while the
@@ -35,6 +35,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | `toolchain_large_output_persisted`  | [#409]       | `cc` emits a >1 KB binary; FS path stays byte-identical  |
 | `toolchain_compile_error_reported`  | [#409]       | `cc` exits non-zero on syntax error with no output file  |
 | `toolchain_cc_manifest_sidecar_written_on_link` | [#634] | qemu harness pin for sidecar synthesis write-on-link when no `--manifest` or sidecar exists |
+| `toolchain_sofpack_plus_manifestgen_roundtrip` | [#600] | integration pin for `libmanifestgen` + `libsofpack`: synth manifest, wrap ELF into SOF, re-parse manifest byte-identically |
 | `toolchain_cc_manifest_override_precedence` | [#409] + [#410] | precedence pin: `cc --manifest <path>` must override co-located sidecar values (`caps_required`, `runtime.arena_bytes`) with explicit `reason=cli_override` evidence |
 | `toolchain_cc_version_and_help_text_pinned` | [#409] | `cc --version` / `cc --help` stdout goldens are byte-stable and deterministic (no host paths/timestamps) |
 | `toolchain_cc_exit_codes_match_v0_table` | [#410] | runtime `cc` exit codes match the six-slot v0 table pinned in docs ([#589]); harness stays SKIP until toolchain execute slices land |
@@ -61,6 +62,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 [#596]: https://github.com/rwrife/SecureOS/issues/596
 [#589]: https://github.com/rwrife/SecureOS/issues/589
 [#634]: https://github.com/rwrife/SecureOS/issues/634
+[#600]: https://github.com/rwrife/SecureOS/issues/600
 
 ## Running
 

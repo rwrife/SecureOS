@@ -66,6 +66,16 @@
       "description": "When `cc` links with no `--manifest` and no pre-existing sidecar, it synthesises a manifest via libmanifestgen and writes `<output>.manifest.json`."
     },
     {
+      "id": "toolchain_sofpack_plus_manifestgen_roundtrip",
+      "name": "toolchain_sofpack_plus_manifestgen_roundtrip",
+      "harnessPath": "tests/m7_toolchain/sofpack_manifestgen_roundtrip_test.c",
+      "gatingIssue": 409,
+      "reason": "awaiting_409",
+      "skipReason": "pre-409",
+      "addedIn": "issue-600",
+      "description": "Pre-#409 SKIP pin for libmanifestgen + libsofpack integration: synth manifest, pack ELF+manifest into SOF, then re-parse and assert manifest bytes round-trip unchanged."
+    },
+    {
       "id": "toolchain_cc_manifest_override_precedence",
       "name": "toolchain_cc_manifest_override_precedence",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_override_precedence.sh",
