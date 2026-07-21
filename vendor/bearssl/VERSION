@@ -11,3 +11,6 @@ The exact commit pinned above is the only revision SecureOS builds, audits,
 and tests against. Bumping this pin requires a new vendor-bump PR that
 re-runs `build/scripts/test.sh bearssl_compile` and records any object-count
 or total-size drift in the PR description (see issue #117).
+
+For the analogous TinyCC vendor-bump checklist/template, see
+`docs/vendor/tinycc-bump-procedure.md` (issue #576).

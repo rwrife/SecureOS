@@ -9,10 +9,12 @@ License:   LGPL-2.1 (see vendor/tinycc/tinycc/COPYING; partial MIT
            relicensing consent recorded in vendor/tinycc/tinycc/RELICENSING)
 
 The exact commit pinned above is the only revision SecureOS builds, audits,
-and tests against. Bumping this pin requires a new vendor-bump PR that
-re-runs the in-OS toolchain test suite and records any object-count or
-total-size drift in the PR description (mirrors the BearSSL discipline,
-issue #117).
+and tests against.
+
+Bumping this pin requires following
+`docs/vendor/tinycc-bump-procedure.md` (issue #576): use the PR-body
+template, run the gate matrix in order, and record object-count / total-size
+and dependency-surface drift in the PR description.
 
 This pin is the foundation of the in-OS toolchain effort
 (plans/2026-05-28-in-os-toolchain-self-hosting.md). TinyCC is used because it
