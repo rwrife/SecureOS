@@ -10,6 +10,7 @@ This folder (/apps/dev) holds the on-device developer sample content.
     lib/libclib.a        Freestanding libc archive staged when host artifact exists.
     lib/libsofpack.a     Freestanding SOF packer archive staged when host artifact exists.
     tcc/README.md        Placeholder for TinyCC runtime helper archive root.
+    tcc/libtcc1.a        TinyCC runtime helper archive staged when host artifact exists.
 
 QUICK START (planned — gated on #408/#409/#410)
 ------------------------------------------------
