@@ -71,4 +71,4 @@ For a sub-slice PR, prove your changed marker/contract moved from intended state
 
 If your slice changes acceptance semantics, update both the human-facing doc and the machine-checked validator target in the same PR.
 
-Last verified against commit: a6e22c1cc557127b3f70eae66019786b684d0b63
+Last verified against commit: 45316d51a4dfc47e6ffa528d6cafc8b7b5195d38
