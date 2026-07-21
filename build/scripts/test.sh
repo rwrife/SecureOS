@@ -409,6 +409,12 @@ case "$TEST_NAME" in
     # lands.
     run_script "$ROOT_DIR/build/scripts/test_manifest_default_synthesise.sh"
     ;;
+  manifestgen_schema_valid)
+    # Issue #588: semantic JSON-schema validity gate for libmanifestgen
+    # outputs across minimal/default, explicit runtime, and local-owner
+    # scenarios.
+    run_script "$ROOT_DIR/build/scripts/test_manifestgen_schema_valid.sh"
+    ;;
   manifestgen_default_arena)
     # Issue #595: pin the default `runtime.arena_bytes` emitted by
     # `libmanifestgen` when synthesis is selected (no explicit override

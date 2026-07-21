@@ -64,6 +64,10 @@ extern "C" {
  * `runtime.arena_bytes` policy". */
 #define MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES 65536u
 
+/* Hard upper bound mirrored from manifests/schema/v0.json runtime.arena_bytes
+ * maximum (PROC_ARENA_BYTES_MAX). */
+#define MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX 16777216u
+
 /* ---- owner.kind enumerator -------------------------------------------- */
 /* Mirrors the on-disk `manifests/schema/v0.json` `owner.kind` enum. The
  * third arm (`LOCAL`) lands additively in #522; this header pre-declares
@@ -99,6 +103,11 @@ typedef struct {
   const char           *app_version;     /* required; non-empty */
   uint8_t               subject_id;      /* required; 1..7 at v0 */
   const char           *binary_path;     /* required; non-empty */
+  uint32_t              runtime_arena_bytes;
+  /* Optional explicit runtime arena value. 0 means "use
+   * MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES". Non-zero values must satisfy
+   * [MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES,
+   *  MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX]. */
 } manifest_default_params_t;
 
 /* ---- Public API -------------------------------------------------------- */
@@ -127,7 +136,9 @@ typedef struct {
  *                                           or any required string is NULL
  *   - MANIFEST_DEFAULT_ERR_INVALID_FIELD    required string empty, or
  *                                           subject_id outside [1, 7], or
- *                                           owner_kind outside the enum
+ *                                           owner_kind outside the enum, or
+ *                                           runtime_arena_bytes outside
+ *                                           [default, max] when non-zero
  *   - MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL out_cap too small for the
  *                                           produced JSON (including the
  *                                           trailing NUL terminator)

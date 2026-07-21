@@ -32,6 +32,7 @@
 #
 # Markers emitted on this script's own success path:
 #   TEST:PASS:manifest_default_synthesise:happy_path
+#   TEST:PASS:manifest_default_synthesise:explicit_runtime_arena
 #   TEST:PASS:manifest_default_synthesise:determinism
 #   TEST:PASS:manifest_default_synthesise:negatives
 #   TEST:PASS:manifest_default_synthesise:buffer_too_small
@@ -62,6 +63,7 @@ LOG_PATH="$OUT_DIR/manifest_default_synthesise_test.log"
 
 # Pin the C-side sub-markers we expect.
 grep -q "TEST:PASS:manifest_default_synthesise:happy_path$" "$LOG_PATH"
+grep -q "TEST:PASS:manifest_default_synthesise:explicit_runtime_arena$" "$LOG_PATH"
 grep -q "TEST:PASS:manifest_default_synthesise:determinism$" "$LOG_PATH"
 grep -q "TEST:PASS:manifest_default_synthesise:negatives$" "$LOG_PATH"
 grep -q "TEST:PASS:manifest_default_synthesise:buffer_too_small$" "$LOG_PATH"

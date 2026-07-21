@@ -160,6 +160,7 @@ manifest_default_result_t manifest_default_synthesise(
 
   mg_writer_t w;
   const char *owner_str;
+  uint32_t runtime_arena_bytes;
 
   if (params == 0 || out_buf == 0 || out_len == 0 || out_cap == 0u) {
     return MANIFEST_DEFAULT_ERR_INVALID_ARG;
@@ -177,6 +178,13 @@ manifest_default_result_t manifest_default_synthesise(
   }
   owner_str = mg_owner_kind_str(params->owner_kind);
   if (owner_str == 0) {
+    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+  runtime_arena_bytes = params->runtime_arena_bytes;
+  if (runtime_arena_bytes == 0u) {
+    runtime_arena_bytes = (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES;
+  } else if (runtime_arena_bytes < (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES
+             || runtime_arena_bytes > (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX) {
     return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
   }
 
@@ -212,7 +220,7 @@ manifest_default_result_t manifest_default_synthesise(
 
   mg_emit_raw(&w, "  \"runtime\": {\n");
   mg_emit_raw(&w, "    \"arena_bytes\": ");
-  mg_emit_u32(&w, (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES);
+  mg_emit_u32(&w, runtime_arena_bytes);
   mg_emit_raw(&w, "\n");
   mg_emit_raw(&w, "  },\n");
 

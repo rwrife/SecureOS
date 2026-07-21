@@ -17,6 +17,8 @@
  *   3.5 Default runtime arena pin: happy-path output includes
  *      `runtime.arena_bytes` and equals
  *      `MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES`.
+ *   3.6 Explicit runtime override: caller-provided
+ *      `runtime_arena_bytes` in-range is emitted verbatim.
  *   4. Negative: NULL params / NULL out_buf / NULL out_len rejected with
  *      INVALID_ARG; empty required-string / out-of-range subject_id
  *      rejected with INVALID_FIELD.
@@ -38,6 +40,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "../user/libs/manifestgen/include/manifestgen/manifest_default.h"
 
@@ -91,6 +94,23 @@ static void test_signature_pin(void) {
   CHECK(strstr(out, "\"kind\": \"internal\"") != NULL, "happy_path_owner_kind");
 
   fprintf(stdout, "TEST:PASS:manifest_default_synthesise:happy_path\n");
+}
+
+static void test_explicit_runtime_arena(void) {
+  manifest_default_params_t p;
+  char out[1024];
+  size_t out_len = 0u;
+  manifest_default_result_t rc;
+
+  fill_default_params(&p);
+  p.runtime_arena_bytes = 131072u;
+
+  rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
+  CHECK(rc == MANIFEST_DEFAULT_OK, "explicit_runtime_ok");
+  CHECK(strstr(out, "\"arena_bytes\": 131072") != NULL,
+        "explicit_runtime_emits_override");
+
+  fprintf(stdout, "TEST:PASS:manifest_default_synthesise:explicit_runtime_arena\n");
 }
 
 static void test_determinism(void) {
@@ -160,6 +180,20 @@ static void test_negatives(void) {
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
   CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD, "neg_bogus_owner_kind");
 
+  /* runtime_arena_bytes below schema minimum rejected. */
+  fill_default_params(&p);
+  p.runtime_arena_bytes = MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES - 1u;
+  rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
+  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD,
+        "neg_runtime_arena_below_default");
+
+  /* runtime_arena_bytes above schema maximum rejected. */
+  fill_default_params(&p);
+  p.runtime_arena_bytes = MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX + 1u;
+  rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
+  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD,
+        "neg_runtime_arena_above_max");
+
   fprintf(stdout, "TEST:PASS:manifest_default_synthesise:negatives\n");
 }
 
@@ -225,7 +259,8 @@ static void test_local_kind(void) {
  * happy-path synthesised JSON bytes to that file and exit. This lets the
  * .sh peer get the bytes onto disk without re-implementing the
  * synthesiser. argv[2] (optional) selects an owner_kind override: one of
- * "internal", "external", "local". */
+ * "internal", "external", "local". argv[3] (optional) is an explicit
+ * decimal runtime.arena_bytes override. */
 static int driver_mode(int argc, char **argv) {
   if (argc < 2) {
     return 0;
@@ -250,6 +285,19 @@ static int driver_mode(int argc, char **argv) {
               argv[2]);
       return 2;
     }
+  }
+  if (argc >= 4) {
+    char *end = NULL;
+    unsigned long parsed;
+    errno = 0;
+    parsed = strtoul(argv[3], &end, 10);
+    if (errno != 0 || end == argv[3] || *end != '\0' || parsed > 0xFFFFFFFFul) {
+      fprintf(stderr,
+              "TEST:FAIL:manifest_default_synthesise:driver_bad_runtime_arena:%s\n",
+              argv[3]);
+      return 2;
+    }
+    p.runtime_arena_bytes = (uint32_t)parsed;
   }
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
   if (rc != MANIFEST_DEFAULT_OK) {
@@ -280,6 +328,7 @@ int main(int argc, char **argv) {
     return driver_mode(argc, argv);
   }
   test_signature_pin();
+  test_explicit_runtime_arena();
   test_determinism();
   test_negatives();
   test_buffer_too_small();
