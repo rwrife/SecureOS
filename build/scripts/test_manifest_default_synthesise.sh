@@ -86,15 +86,25 @@ fi
 
 if [[ -f "$ARCHIVE_PATH" ]]; then
   # `libmanifestgen.a` is built freestanding/non-PIE. On distros where host
-  # gcc defaults to PIE, force non-PIE for this archive-link smoke binary.
-  if ! cc -std=c11 -Wall -Wextra -Werror -no-pie \
+  # toolchains default to PIE (gcc/clang), force non-PIE in both compile and
+  # link phases so static archive relocation remains valid.
+  set +e
+  cc -std=c11 -Wall -Wextra -Werror -fno-pie -no-pie \
     "$ROOT_DIR/tests/manifest_default_synthesise_test.c" \
     "$ARCHIVE_PATH" \
-    -o "$OUT_DIR/manifest_default_synthesise_test_archive"; then
-    cc -std=c11 -Wall -Wextra -Werror -Wl,-no-pie \
+    -o "$OUT_DIR/manifest_default_synthesise_test_archive"
+  LINK_RC=$?
+  if [[ "$LINK_RC" -ne 0 ]]; then
+    cc -std=c11 -Wall -Wextra -Werror -fno-pie -Wl,-no-pie \
       "$ROOT_DIR/tests/manifest_default_synthesise_test.c" \
       "$ARCHIVE_PATH" \
       -o "$OUT_DIR/manifest_default_synthesise_test_archive"
+    LINK_RC=$?
+  fi
+  set -e
+  if [[ "$LINK_RC" -ne 0 ]]; then
+    echo "TEST:FAIL:manifest_default_synthesise:archive_link_smoke:link_failed" >&2
+    exit 1
   fi
 
   ARCHIVE_LOG_PATH="$OUT_DIR/manifest_default_synthesise_test_archive.log"
