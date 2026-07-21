@@ -1,0 +1,5 @@
+{
+  "_comment": "Allowlist for tests/m7_toolchain marker names that intentionally do not own a local <marker>.sh or <marker>.c harness file (issue #604). Keep this list small and justified.",
+  "schemaVersion": 1,
+  "entries": []
+}

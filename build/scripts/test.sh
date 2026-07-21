@@ -818,6 +818,17 @@ case "$TEST_NAME" in
     # tests/m7_toolchain/issue_state.cache.json.
     run_script "$ROOT_DIR/build/scripts/validate_m7_markers.sh"
     ;;
+  validate_m7_marker_harnesses)
+    # Issue #604: every tests/m7_toolchain/markers.json row must have a
+    # sibling harness on disk (`<marker>.sh` or `<marker>.c`) unless
+    # explicitly allowlisted with justification.
+    run_script "$ROOT_DIR/build/scripts/validate_m7_marker_harnesses.sh"
+    ;;
+  m7_marker_harnesses_drift)
+    # Issue #604: negative-canary self-test proving the harness-presence
+    # validator fails with deterministic missing-path diagnostics.
+    run_script "$ROOT_DIR/tests/harness/m7_marker_harnesses_drift_test.sh"
+    ;;
   m7_markers_drift)
     # Issue #494: negative-canary self-test — builds a sandbox repo
     # whose markers.json rename has drifted away from test.sh /

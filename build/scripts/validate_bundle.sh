@@ -685,6 +685,12 @@ TEST_TARGETS=(
     validate_m7_markers
     m7_markers_drift
     m7_markers_issue_state_cache
+    # Issue #604: every markers.json row must have a sibling harness file
+    # (`tests/m7_toolchain/<marker>.sh` or `.c`) unless explicitly
+    # allowlisted with justification. Includes a negative canary proving
+    # deterministic missing-path diagnostics for a synthetic missing harness.
+    validate_m7_marker_harnesses
+    m7_marker_harnesses_drift
     # Issue #631: synthetic fixture coverage for
     # tools/report_skip_backlog.py (source-scan count + per-gating-issue
     # bucket accounting, including unpinned markers).
