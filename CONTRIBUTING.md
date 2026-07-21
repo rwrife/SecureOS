@@ -239,6 +239,13 @@ Project-specific expectations include:
   durable invariant, add an ADR under `docs/architecture/decisions/`
   (see that directory's `README.md` for the template and cadence)
 
+## Daily Review Cron
+
+If you operate or tune the `secureos-daily-roadmap-review` cron, use
+[`docs/development/daily-review-cron-prompt.md`](docs/development/daily-review-cron-prompt.md)
+as the canonical prompt/rules source. The cron guidance is intentionally
+versioned in-repo so anti-duplication and backlog-cap controls are reviewable.
+
 ## Boundaries & conventions
 
 SecureOS enforces strict layering between the kernel, modules, user libraries,
