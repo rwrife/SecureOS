@@ -202,7 +202,9 @@ Field semantics we are committing to at v0:
   `capabilities.persistence` in #285/#286,
   `capabilities.broker_role` in #312, and
   `capabilities.ownership_role` in #368, and the introduction of
-  `owner.kind` itself in #396).
+  `owner.kind` itself in #396). See
+  [`versioning.md` §Manifest schema evolution policy](./versioning.md#manifest-schema-evolution-policy)
+  for the normative additive/breaking/incompatible bump rules.
 - `runtime.arena_bytes` is an optional integer field that declares a
   per-app userland arena ceiling in bytes (BUILD_ROADMAP §5.7 and
   plan `plans/2026-05-28-in-os-toolchain-self-hosting.md` §P1,
@@ -230,6 +232,8 @@ Field semantics we are committing to at v0:
   (same precedent as `capabilities.persistence` in #285/#286,
   `capabilities.broker_role` in #312,
   `capabilities.ownership_role` in #368, and `owner.kind` in #396).
+  See [`versioning.md` §Manifest schema evolution policy](./versioning.md#manifest-schema-evolution-policy)
+  for the normative additive/breaking/incompatible bump rules.
 - `launcher.auto_grant_at_launch` is the subset the launcher grants
   unconditionally at startup. It MUST be disjoint from
   `launcher.require_user_confirm`; both MUST be subsets of
