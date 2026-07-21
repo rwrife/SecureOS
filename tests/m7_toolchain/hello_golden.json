@@ -33,7 +33,7 @@
   "outputs": {
     "hello_bin": {
       "path": "/apps/hello.bin",
-      "sha256": "TO_BE_FILLED_BY_VALIDATOR_REFRESH"
+      "sha256": "9d95d5c34e1c6fa27d082f7fc761c83f73aef5ecf6e62e98fca86d725bb9490a"
     }
   }
 }
