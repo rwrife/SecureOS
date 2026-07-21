@@ -39,7 +39,7 @@
  *   - atof / strtod (floating point; TinyCC reads no float command-line
  *     args today).
  *   - rand / srand (PRNG; no consumer yet).
- *   - getenv / system / exit (require runtime wiring beyond this slice).
+ *   - getenv / system (require runtime wiring beyond this slice).
  *   - bsearch (no consumer yet; qsort already shipped in slice 3).
  *
  * Naming:
@@ -88,11 +88,13 @@ extern "C" {
  *     detectable.
  *
  * Value choices match the glibc / musl / newlib / TinyCC convention
- * (0 / 1). No header on the freestanding side exposes the `exit()`
- * function itself; the macros are usable purely as integer constants.
+ * (0 / 1). `exit()` is declared below and implemented as an
+ * `os_process_exit` forwarder in `src/stdlib.c`.
  */
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
+
+void exit(int status) __attribute__((noreturn));
 
 /* --- numeric parse ------------------------------------------------------ */
 

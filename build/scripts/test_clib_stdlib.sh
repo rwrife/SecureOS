@@ -18,8 +18,10 @@ OUT_DIR="$ROOT_DIR/artifacts/tests"
 mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror -fno-builtin \
+  -I"$ROOT_DIR/user/include" \
   "$ROOT_DIR/user/libs/clib/src/stdlib.c" \
   "$ROOT_DIR/user/libs/clib/src/errno.c" \
+  "$ROOT_DIR/user/runtime/secureos_api_stubs.c" \
   "$ROOT_DIR/tests/clib_stdlib_test.c" \
   -o "$OUT_DIR/clib_stdlib_test"
 

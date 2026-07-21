@@ -209,6 +209,7 @@ are locked down by `clib_os_brk` (build/scripts/test_clib_os_brk.sh).
 | `strtoull`| `unsigned long long strtoull(const char *s, char **end, int base)` | slice 11 / PR #444; overflow clamps to `ULLONG_MAX` |
 | `abs`     | `int abs(int x)`                                                   | INT_MIN UB-safe (input == INT_MIN saturates to INT_MAX) |
 | `labs`    | `long labs(long x)`                                                | LONG_MIN UB-safe |
+| `exit`    | `void exit(int status) __attribute__((noreturn))`                 | forwards to `os_process_exit(status)`; spins if bridge absent |
 
 ### `clib/string.h` (slice 1 / PR #416)
 
@@ -326,6 +327,7 @@ clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
 errno
+exit
 fclose
 feof
 ferror
@@ -411,4 +413,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: c1ff16d6a9e17ba99197633ff950f1ee099e0d14
+Last verified against commit: 9bc2740aaaef645b793def37df211e33b165f252

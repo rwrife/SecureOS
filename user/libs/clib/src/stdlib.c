@@ -3,7 +3,10 @@
  * Freestanding stdlib subset (M7-TOOLCHAIN-004 slice 4, issue #407).
  *
  * Implementation notes:
- *   - Freestanding: no libc, no syscalls.
+ *   - Numeric parse + integer helpers are freestanding (no libc).
+ *   - `exit()` is the one runtime-wired symbol in this TU: it forwards
+ *     to `os_process_exit(status)` so TinyCC's fatal paths can terminate
+ *     through the SecureOS user bridge.
  *   - We reproduce just enough of <ctype.h> inline (the isspace test
  *     used by atoi/strtol/strtoul) so this translation unit has zero
  *     intra-clib dependencies on the ctype slice — keeps the link of
@@ -36,6 +39,14 @@
 
 #include "../include/clib/stdlib.h"
 #include "../include/clib/errno.h"
+#include "../../../include/secureos_api.h"
+
+/*
+ * Host-side unit tests that only exercise freestanding parse helpers may link
+ * stdlib.c without the runtime bridge objects. Mark the syscall forwarder weak
+ * so those harnesses still link; `exit()` checks availability at runtime.
+ */
+__attribute__((weak)) os_status_t os_process_exit(int status);
 
 #include <limits.h>
 #include <stddef.h>
@@ -151,6 +162,19 @@ static int s_strip_prefix(const char **p, int *base) {
 }
 
 /* --- public API --------------------------------------------------------- */
+
+void exit(int status) {
+  /* SecureOS bridge contract: terminate through os_process_exit when
+   * the launcher bridge is present. */
+  if (os_process_exit != 0) {
+    (void)os_process_exit(status);
+  }
+
+  /* Host/no-bridge fallback (or a bridge that returned unexpectedly):
+   * preserve the noreturn contract by spinning rather than returning. */
+  for (;;) {
+  }
+}
 
 long strtol(const char *nptr, char **endptr, int base) {
   const char *p              = nptr;
