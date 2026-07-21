@@ -109,6 +109,12 @@ TEST_TARGETS=(
     # membership (secureos_api + namespaced sofpack/manifestgen headers) with
     # per-header pending gates tied to #531/#613.
     apps_dev_include_set
+    # Issue #618: on-device guide drift gate for dev/building.txt.
+    # Validates "Files here" parity against /apps/dev staging mappings,
+    # enforces explicit #408/#409/#410 gate labels while compile/run markers
+    # are awaiting, and requires cross-reference parity with
+    # docs/in-os-toolchain/building-apps.md.
+    dev_building_txt_drift
     # Issue #634: host-side precedence pin for `cc` manifest resolution
     # (`--manifest` > sidecar > synth) and hard-fail semantics when an
     # explicit override is unreadable/invalid.

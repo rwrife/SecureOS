@@ -417,6 +417,14 @@ case "$TEST_NAME" in
     # gated by open issues.
     run_script "$ROOT_DIR/build/scripts/test_apps_dev_include_set.sh"
     ;;
+  dev_building_txt_drift)
+    # Issue #618: on-device guide drift gate for dev/building.txt.
+    # Enforces parity between the guide's "Files here" claims and
+    # build_disk_image /apps/dev staging, plus explicit #408/#409/#410
+    # gate-labeling while m7_toolchain compile/run markers are still
+    # SKIP-pinned.
+    run_script "$ROOT_DIR/build/scripts/test_dev_building_txt_drift.sh"
+    ;;
   cc_manifest_resolution_precedence)
     # Issue #634 (M7-TOOLCHAIN integration slice): host table-driven pin for
     # manifest source precedence in the `cc` driver wiring
