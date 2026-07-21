@@ -44,9 +44,10 @@
       "emitter": "launcher unsigned-binary authorization path",
       "authoritative_doc": "docs/abi/audit-markers.md",
       "consumer_tests": [
+        "build/scripts/test_console_unsigned_bin_auth_marker.sh",
         "tests/m7_toolchain/toolchain_unsigned_prompt_enforced.sh"
       ],
-      "gating_issue": 542
+      "gating_issue": 410
     },
     {
       "prefix": "launch.granted",
