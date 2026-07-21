@@ -301,6 +301,13 @@ TEST_TARGETS=(
     # capability-registry contract flips the bundle to FAIL.
     validate_capability_registry
     capability_registry_drift
+    # Issue #630: docs/abi/README.md index drift gate + negative canary.
+    # `validate_abi_index` enforces that every docs/abi/*.md is linked
+    # from README and that README has no dangling docs/abi links;
+    # `abi_index_drift` proves the validator fails on unlinked/dangling
+    # fixture input.
+    validate_abi_index
+    abi_index_drift
     # Issue #470: negative canary for --strict-no-skip mode. Asserts that
     # default mode still SKIPs an unstamped docs/abi/*.md while
     # --strict-no-skip + the STRICT_STAMPS=1 wrapper path both FAIL with

@@ -734,6 +734,18 @@ case "$TEST_NAME" in
     # resolves under plans/.
     run_script "$ROOT_DIR/build/scripts/validate_capability_registry.sh"
     ;;
+  validate_abi_index)
+    # Issue #630: docs/abi/README.md index drift gate. Every docs/abi/*.md
+    # (except README.md itself) must be linked from the index, and the
+    # index must not reference missing docs/abi/*.md files.
+    python3 "$ROOT_DIR/tools/validate_abi_index.py" --root "$ROOT_DIR"
+    ;;
+  abi_index_drift)
+    # Issue #630: negative-canary self-test proving validate_abi_index
+    # fails when a docs/abi/*.md file exists but is unlinked and when a
+    # README entry points at a missing file.
+    run_script "$ROOT_DIR/tests/harness/abi_index_drift_test.sh"
+    ;;
   capability_registry_drift)
     # Issue #234: negative-canary self-test — adds a fake CAP_* to a
     # sandboxed capability.h copy and asserts the registry validator
