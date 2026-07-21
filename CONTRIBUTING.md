@@ -260,12 +260,16 @@ landing an already-ready issue before opening another backlog item.
 Reference: issue #626 (ready-now index) and
 `docs/development/list-ready-now-issues.md`.
 
-For drift-gate backlog visibility (sibling practice to the drift-gate
-authoring guide work tracked in #616), run
-`python3 tools/summarize_m7_backlog.py` during the daily-review cron pass and
-again before merging key M7 gating slices (especially #410). The script emits
-`artifacts/m7-backlog/summary-<date>.json` and a one-screen markdown summary so
-triage can see which harnesses would flip when each gate closes.
+For drift-gate authoring conventions (JSON pin + validator +
+`validate_bundle.sh` `TEST_TARGETS` wire-up), see
+[`docs/development/drift-gate-authoring.md`](docs/development/drift-gate-authoring.md)
+(issue #616, with SKIP-pinned sibling guidance in #608).
+
+For drift-gate backlog visibility, run `python3 tools/summarize_m7_backlog.py`
+during the daily-review cron pass and again before merging key M7 gating slices
+(especially #410). The script emits `artifacts/m7-backlog/summary-<date>.json`
+and a one-screen markdown summary so triage can see which harnesses would flip
+when each gate closes.
 
 - For decisions that pin a wire format, ABI, boot/loader contract, or other
   durable invariant, add an ADR under `docs/architecture/decisions/`
