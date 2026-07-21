@@ -179,4 +179,4 @@ PR checklist (minimum):
 - [ ] Consumer/test surface documented (or issue linked).
 - [ ] `Last verified against commit` lines refreshed.
 
-Last verified against commit: 8856055801f1d8382f111a49f6d6e2330f17fc08
+Last verified against commit: 607d4d0d40
