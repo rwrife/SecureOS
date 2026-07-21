@@ -97,7 +97,17 @@ deterministic message — mirroring [#213] /
 `capability_registry_drift` ([#234]) /
 `sosh_contract_registry_drift` ([#351]).
 
+Issue [#604] adds a sibling gate
+[`tools/validate_m7_marker_harnesses.py`](../../tools/validate_m7_marker_harnesses.py)
+(`validate_m7_marker_harnesses` in `build/scripts/test.sh`, wired in bundle
+`TEST_TARGETS`) that enforces harness presence for every marker row:
+`tests/m7_toolchain/<marker>.sh` or `<marker>.c` must exist unless the marker
+is explicitly listed in `tests/m7_toolchain/marker_harness_allowlist.json`
+with a non-empty justification. The `m7_marker_harnesses_drift` target is the
+negative canary for this gate.
+
 [#494]: https://github.com/rwrife/SecureOS/issues/494
+[#604]: https://github.com/rwrife/SecureOS/issues/604
 [#129]: https://github.com/rwrife/SecureOS/issues/129
 [#213]: https://github.com/rwrife/SecureOS/issues/213
 [#234]: https://github.com/rwrife/SecureOS/issues/234
