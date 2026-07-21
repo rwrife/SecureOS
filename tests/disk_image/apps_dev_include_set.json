@@ -1,0 +1,29 @@
+{
+  "_comment": "Issue #615: canonical /apps/dev/include header-set pin for disk-image staging. pending=true entries defer strict presence checks until their gating issues close.",
+  "schemaVersion": 1,
+  "issue": 615,
+  "repo": "rwrife/SecureOS",
+  "manifestSource": "build/scripts/build_disk_image.sh",
+  "skipMarker": "SKIP:#531,#613",
+  "gatingIssues": [
+    531,
+    613
+  ],
+  "headers": [
+    {
+      "path": "/apps/dev/include/secureos_api.h",
+      "pending": true,
+      "gatingIssue": 531
+    },
+    {
+      "path": "/apps/dev/include/sofpack/sofpack.h",
+      "pending": true,
+      "gatingIssue": 613
+    },
+    {
+      "path": "/apps/dev/include/manifestgen/manifest_default.h",
+      "pending": true,
+      "gatingIssue": 613
+    }
+  ]
+}
