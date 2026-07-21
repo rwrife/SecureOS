@@ -193,13 +193,18 @@ python3 tests/in_os_toolchain_dev_dir_test.py
 
 ## Roadmap
 
+For the live acceptance-marker state (including which M7 markers are still
+SKIP-pinned vs PASS), see
+[`tests/m7_toolchain/markers.json`](../../tests/m7_toolchain/markers.json).
+Treat that file as the canonical marker-status source of truth.
+
 | Phase | Deliverable                                              | State    |
 |-------|---------------------------------------------------------|----------|
-| 1     | `/apps/dev` layout, `hello.c`, docs, TinyCC submodule   | **this** |
-| 2     | Userland heap (`os_mem_*`) + freestanding libc          | planned  |
-| 3     | Freestanding TinyCC (`libtcc`) build                     | planned  |
-| 4     | `cc` driver + SOF packer (`libsofpack`)                  | planned  |
-| 5     | Unsigned-run wiring; `cc` output runs via the launcher   | planned  |
+| 1     | `/apps/dev` layout, `hello.c`, docs, TinyCC submodule   | shipped |
+| 2     | Userland heap (`os_mem_*`) + freestanding libc          | shipped ([#421](https://github.com/rwrife/SecureOS/issues/421), [#424](https://github.com/rwrife/SecureOS/issues/424), [#495](https://github.com/rwrife/SecureOS/issues/495)) |
+| 3     | Freestanding TinyCC (`libtcc`) build                     | in progress ([#408](https://github.com/rwrife/SecureOS/issues/408), [#538](https://github.com/rwrife/SecureOS/issues/538), [#539](https://github.com/rwrife/SecureOS/issues/539)) |
+| 4     | `cc` driver + SOF packer (`libsofpack`)                  | scaffolded ([#521](https://github.com/rwrife/SecureOS/issues/521), [#522](https://github.com/rwrife/SecureOS/issues/522), [#533](https://github.com/rwrife/SecureOS/issues/533), [#540](https://github.com/rwrife/SecureOS/issues/540)) |
+| 5     | Unsigned-run wiring; `cc` output runs via the launcher   | planned (gated on [#410](https://github.com/rwrife/SecureOS/issues/410)) |
 | 6     | `sosh` integration + acceptance test suite               | planned  |
 
 ### libc-deps Phase-3 completion gate
