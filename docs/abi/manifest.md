@@ -491,6 +491,55 @@ Rationale: this mirrors existing adjacency patterns
 in the sidecar filename, which reduces prefix-confusion risk for
 trust-origin classification (`owner.kind`, refs #522 / #410).
 
+#### Sidecar resolution precedence
+
+Manifest source resolution for in-OS `cc` output is pinned to this exact,
+ordered chain (no ties, no merge):
+
+1. explicit `--manifest <path>`
+2. co-located `<binary>.manifest.json` sidecar
+3. synthesis via `libmanifestgen`
+
+Branch contract:
+
+- **Branch 1 (`--manifest` explicit override)**
+  - Selected whenever `--manifest <path>` is present.
+  - Provenance tag is `cli` (from `cc_manifest_resolve`).
+  - If the path is missing, unreadable, or schema-invalid, this is a
+    **hard deny** for the compile invocation: `cc` fails and writes no output;
+    the resolver MUST NOT silently fall back to sidecar or synthesis.
+  - Marker coordination: this branch emits normal compile-path markers
+    (`cc.compile.start|success|fail`, issue #571). It does **not** emit
+    `manifest.synth.ok`/`manifest.synth.fail` because no synthesis occurred.
+
+- **Branch 2 (existing sidecar)**
+  - Selected only when no `--manifest` override was provided and a canonical
+    adjacent sidecar exists at `<binary>.manifest.json`.
+  - Provenance tag is `sidecar`.
+  - Unreadable or schema-invalid sidecar is a **hard deny** (compile fails,
+    no synthesis fallback).
+  - Marker coordination: same compile-path markers as branch 1; no
+    `manifest.synth.*` marker should fire in this branch.
+
+- **Branch 3 (`libmanifestgen` synthesis fallback)**
+  - Selected only when **both**: (a) no `--manifest` override and (b) no
+    canonical sidecar exists.
+  - Provenance tag is `synth`.
+  - Successful synthesis records the synth success marker token
+    `manifest.synth.ok` (current helper surface), with the structured marker
+    shape tracked in #594 / #587.
+  - Synthesis failure or sidecar-write failure is a **hard deny** (compile
+    fails; no partial/merged manifest output).
+
+Cross-source invariant:
+
+- Resolution is winner-takes-all: bytes come from exactly one source branch.
+  The resolver MUST NOT merge fields from override+sidecar+synth outputs.
+- Launcher deny semantics remain source-agnostic. In particular, if the
+  resolved manifest `caps_required` disagrees with the SOF declaration,
+  launch is denied with the canonical marker
+  `CAP:DENY:<sid>:launch:caps_required_mismatch` (issue #605).
+
 - `manifest_version`: `0` (locked).
 - `os_abi_version`: the running `OS_ABI_VERSION_MAJOR` (synthesised
   by the caller, typically the in-OS `cc` driver).
@@ -562,4 +611,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 85b4f257fc156c30608a6370f636de204c6d91f3
+Last verified against commit: 5723920ad178c8391adae6d54ea568affd160e76
