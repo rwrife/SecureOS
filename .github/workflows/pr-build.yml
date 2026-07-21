@@ -78,6 +78,12 @@ jobs:
         # identical in CI and on a contributor's box.
         run: ./build/scripts/validate_manifests.sh --require-abi-major-from-header user/include/secureos_abi.h
 
+      - name: Plans index drift validate (issue #582)
+        # Ensures every plans/*.md file is represented exactly once in
+        # plans/README.md (and catches stale index entries) so the plans index
+        # remains canonical as new design docs land.
+        run: ./build/scripts/validate_plans_index.sh
+
       - name: Kernel entry build
         # Go through the host-side wrapper which docker-runs the
         # container-internal build.sh. The bare runner no longer has
