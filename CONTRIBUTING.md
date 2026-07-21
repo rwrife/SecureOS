@@ -306,3 +306,43 @@ boundaries doc.
 - Relevant tests pass for your change
 - New commands include help resources where applicable
 - Documentation is updated for behavior changes
+
+## Stale-Issue Triage Cadence
+
+### 1) Trigger (machine-copyable)
+
+Apply this cadence when both conditions are true:
+
+- `days_since_last_merge_to_main >= 14`
+- `new_skip_pinned_harness_issues_since_last_merge > 5`
+
+Where "SKIP-pinned harness issues" are issues whose acceptance criteria include
+`SKIP-pinned harness` language or add markers tied to an existing `gatingIssue`.
+
+### 2) Daily-review cron behavior when triggered
+
+- Prefer **not** filing another SKIP-pinned harness against the same stalled
+  gating issue when it adds no new immediate executable value.
+- Prefer filing a fully unblocked slice (docs, drift-gate, portability,
+  tooling) that can merge during the stall.
+- Prefer updating a rolling backlog/velocity issue instead of creating a new
+  near-duplicate issue.
+
+### 3) Human triager behavior when triggered
+
+- Inspect the gating issue first (for example #408/#409/#410 in M7).
+- If the gate is concretely blocked, prioritize the blocker.
+- If the gate is not blocked, split the gate into smaller executable slices and
+  prioritize those over additional deferred harness prework.
+
+### 4) Explicitly acceptable during a stall
+
+- Zero-gate drift catchers (hash pins, symbol drift gates).
+- Docs pins with `Last verified against commit: <sha>` freshness stamps.
+- Orientation docs that reduce contributor spin-up time.
+
+### 5) Non-goal
+
+This cadence is **not** a merge-policy change, branch-protection change, or
+issue-label taxonomy change. It is a shared triage decision rule for
+human + automation authorship cadence.

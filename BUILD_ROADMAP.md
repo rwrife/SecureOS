@@ -610,6 +610,7 @@ in the same change that introduces it.
   - Mitigation: keep first slice tiny, use proven boot protocol, rely on serial-first debugging.
 - **Risk: agent drift / inconsistent task completion**
   - Mitigation: validator-only completion with command-output-backed criteria.
+  - Triage-cadence rule for queue-level drift: `CONTRIBUTING.md` §"Stale-Issue Triage Cadence".
 - **Risk: ABI churn breaks modules**
   - Mitigation: publish ABI docs early and version every interface change.
 - **Risk: non-deterministic tests**
