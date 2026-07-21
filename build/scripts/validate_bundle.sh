@@ -637,6 +637,10 @@ TEST_TARGETS=(
     # the validator is real, mirroring #213 / #234 / #297 / #351.
     validate_m7_markers
     m7_markers_drift
+    # Issue #631: synthetic fixture coverage for
+    # tools/report_skip_backlog.py (source-scan count + per-gating-issue
+    # bucket accounting, including unpinned markers).
+    skip_backlog_report_fixture
     # Issue #523: LGPL-2.1 compliance bundle gate. SKIP-pinned
     # (`awaiting_408`) until M7-TOOLCHAIN-005 Phase 3 actually links
     # libtcc into the shipped image. Even SKIP-pinned, the wrapper

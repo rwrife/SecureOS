@@ -773,6 +773,12 @@ case "$TEST_NAME" in
     # canary discipline from #213 / #234 / #297 / #351.
     run_script "$ROOT_DIR/tests/harness/m7_markers_drift_test.sh"
     ;;
+  skip_backlog_report_fixture)
+    # Issue #631: synthetic fixture for tools/report_skip_backlog.py.
+    # Asserts TEST:SKIP source-scan totals + per-gating-issue counts
+    # (including the unpinned bucket) are computed correctly.
+    run_script "$ROOT_DIR/tests/harness/skip_backlog_report_fixture_test.sh"
+    ;;
   abi_stamps_strict_no_skip)
     # Issue #470: negative-canary self-test for --strict-no-skip mode.
     # Builds a sandbox repo with an unstamped docs/abi/*.md and asserts

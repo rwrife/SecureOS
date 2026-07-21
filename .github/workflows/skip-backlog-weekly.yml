@@ -1,0 +1,38 @@
+name: Skip Backlog Weekly Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly cadence companion to #622.
+    - cron: "0 8 * * 1"
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  report-skip-backlog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate weekly skip-backlog report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 tools/report_skip_backlog.py --root . --repo rwrife/SecureOS
+
+      - name: Add markdown report to workflow summary
+        run: |
+          set -euo pipefail
+          REPORT_WEEK="$(date -u +%G-W%V)"
+          cat "artifacts/reports/skip-backlog/${REPORT_WEEK}.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload skip backlog report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: skip-backlog-weekly-report
+          path: artifacts/reports/skip-backlog/
+          if-no-files-found: error
