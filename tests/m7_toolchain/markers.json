@@ -76,6 +76,16 @@
       "description": "Pre-#409 SKIP-pinned golden contract for `cc --version` and `cc --help` stdout bytes, exit code 0, and empty stderr."
     },
     {
+      "id": "toolchain_cc_exit_codes_match_v0_table",
+      "name": "toolchain_cc_exit_codes_match_v0_table",
+      "harnessPath": "tests/m7_toolchain/toolchain_cc_exit_codes_match_v0_table.sh",
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-599",
+      "description": "Pre-#410 SKIP-pinned contract for runtime `cc` numeric exit-code conformance to docs v0 table from #589 (`success`, `usage`, `compile-error`, `link-error`, `io-error`, `internal`)."
+    },
+    {
       "id": "toolchain_heap_isolation",
       "name": "toolchain_heap_isolation",
       "harnessPath": "tests/m7_toolchain/toolchain_heap_isolation.sh",
