@@ -14,7 +14,8 @@ Usage:
 Defaults:
     --schema  manifests/schema/v0.json
     --root    repository root (parent of `tools/`)
-    GLOB(s)   manifests/examples/*.json
+    GLOB(s)   manifests/examples/*.json, samples/**/manifest.json,
+              apps/**/manifest.json
 
 Exit codes:
     0  — every manifest validated against the schema
@@ -101,7 +102,8 @@ def main(argv: list[str]) -> int:
         "globs",
         nargs="*",
         help="Glob(s) for manifests to validate "
-        "(default: manifests/examples/*.json).",
+        "(default: manifests/examples/*.json, "
+        "samples/**/manifest.json, apps/**/manifest.json).",
     )
     parser.add_argument(
         "--require-abi-major",
@@ -169,7 +171,12 @@ def main(argv: list[str]) -> int:
 
     validator = Draft202012Validator(schema)
 
-    globs = args.globs or [str(root / "manifests" / "examples" / "*.json")]
+    default_globs = [
+        str(root / "manifests" / "examples" / "*.json"),
+        str(root / "samples" / "**" / "manifest.json"),
+        str(root / "apps" / "**" / "manifest.json"),
+    ]
+    globs = args.globs or default_globs
 
     matched: list[Path] = []
     seen: set[Path] = set()
