@@ -211,11 +211,11 @@ sosh> hello
 |-------|-------------|----------|--------|
 | 0 | This plan | — | **done** |
 | 1 | Scaffolding: TinyCC submodule (`vendor/tinycc/`), `/apps/dev` disk layout, `hello.c` sample, on-device + in-tree docs, disk-staging wiring + host test | — | **done** |
-| 2 | P1 heap + P2 large writes + P4 exit/spawn syscalls | ABI minor bump, `docs/abi` | pending |
-| 3 | P3 `libclib.a` freestanding libc | P2 | pending |
-| 4 | `vendor/tinycc/` freestanding port: compiles a `.c` to ELF in memory | P2, P3 | pending |
-| 5 | `user/libs/sofpack/` + `user/apps/cc/`: ELF→SOF→disk, staged to `/apps/dev/cc` | P4, SOF refactor | pending |
-| 6 | Unsigned-binary run path wired to `cc` output (Tier 1 trust) + acceptance suite | P5, existing auth flow | pending |
+| 2 | P1 heap + P2 large writes + P4 exit/spawn syscalls | ABI minor bump, `docs/abi` | **done** (#421, #495, #422, #406) |
+| 3 | P3 `libclib.a` freestanding libc | P2 | **done** (#407) |
+| 4 | `vendor/tinycc/` freestanding port: compiles a `.c` to ELF in memory | P2, P3 | pending (#408) |
+| 5 | `user/libs/sofpack/` + `user/apps/cc/`: ELF→SOF→disk, staged to `/apps/dev/cc` | P4, SOF refactor | pending (manifestgen slice #533 merged; driver execution slices #409 + #540 still open) |
+| 6 | Unsigned-binary run path wired to `cc` output (Tier 1 trust) + acceptance suite | P5, existing auth flow | pending (#410) |
 
 ### Phase 1 — what landed (this branch)
 
@@ -239,7 +239,6 @@ sosh> hello
 Phase 1 ships **no functional compiler** — `cc` and the runtime primitives it
 needs are Phases 2–6. The LGPL decision (see `vendor/tinycc/LICENSE`) is
 recorded but not yet load-bearing, since nothing links TinyCC yet.
-| 6 | `sosh` integration + hello-world acceptance suite | all above |
 
 ## Acceptance tests
 
