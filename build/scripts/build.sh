@@ -42,14 +42,14 @@ build_libs() {
         # Header/src-only libs like `clib` (issue #404) are linked into
         # apps via the SDK path, not packed as a standalone .lib.
         # Exception: explicit archive-only freestanding libs that ship
-        # sources under `src/` (e.g. `sofpack`, #521 sub-slice of #409)
+        # sources under `src/` (e.g. `sofpack` #521 and `manifestgen` #579)
         # — these get built into `artifacts/user/libs/lib<name>.a` for
         # future on-target apps (the in-OS `cc` driver, #409) to link
         # against. Opt-in list so SDK-path libs like `clib` keep their
         # existing build flow.
         if [[ ! -f "$lib_path/main.c" ]]; then
           case "$lib_name" in
-            sofpack)
+            sofpack|manifestgen)
               "$ROOT_DIR/build/scripts/build_user_lib.sh" "$lib_name"
               ;;
           esac
