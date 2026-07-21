@@ -51,7 +51,7 @@ which is normative.
 | `CAP_AUDIT:...:op=GRANT:...` / `CAP_AUDIT:...:op=REVOKE:...` | Capability mutation audit markers (`cap.grant` / `cap.revoke` registry aliases) | Capability table mutation paths (`kernel/cap/capability.c`) + broker-mediated mutation paths (`kernel/cap/cap_broker.c`) | Capability audit fixture + broker share tests (`capability_audit_fixture`, `broker_share_*`) | [`capabilities.md`](capabilities.md), §4.1–§4.2 in this registry | [#635](https://github.com/rwrife/SecureOS/issues/635) |
 | `AUTH_TYPE_UNSIGNED_BIN` (allow/deny/cached flow markers) | Unsigned local-binary authorization flow | Launcher unsigned-binary authorization path (M7/M6 trust model) | Unsigned-run prompt/decision harnesses (planned) | Pending contract landing tracked in [#542](https://github.com/rwrife/SecureOS/issues/542) | [#542](https://github.com/rwrife/SecureOS/issues/542) |
 | `launch.granted` / `launch.denied` (`owner_kind=...`) | Launcher execution-decision audit | Launcher execute/deny decision path (`kernel/user/launcher_exec.c`) | Launch allow/deny audit assertions (planned + existing launch tests) | Pending owner-kind contract tracked in [#554](https://github.com/rwrife/SecureOS/issues/554) | [#554](https://github.com/rwrife/SecureOS/issues/554) |
-| `cc.compile.start` / `cc.compile.success` / `cc.compile.fail` | In-OS toolchain compile markers | In-OS `cc` driver (`user/apps/cc/`, planned M7 slices) | `tests/m7_toolchain/*` compile-path harnesses (planned) | Pending contract tracked in [#571](https://github.com/rwrife/SecureOS/issues/571) | [#571](https://github.com/rwrife/SecureOS/issues/571) |
+| `cc.compile.start` / `cc.compile.success` / `cc.compile.fail` | In-OS toolchain compile markers | In-OS `cc` driver (`user/apps/cc/`, planned M7 slices) | `tests/m7_toolchain/*` compile-path harnesses; includes SKIP-pinned `toolchain_cc_arena_exhaustion_audit_marker` for the `reason=arena_exhausted` join contract (`CAP:DENY:<sid>:mem_brk:arena_bytes` + internal-exit classification) | Pending base contract tracked in [#571](https://github.com/rwrife/SecureOS/issues/571); arena-exhaustion subtype pin tracked in [#610](https://github.com/rwrife/SecureOS/issues/610) | [#571](https://github.com/rwrife/SecureOS/issues/571), [#610](https://github.com/rwrife/SecureOS/issues/610) |
 
 ## 4. Capability mutation family population (#635)
 
@@ -132,4 +132,4 @@ PR checklist (minimum):
 - [ ] Consumer/test surface documented (or issue linked).
 - [ ] `Last verified against commit` lines refreshed.
 
-Last verified against commit: b7a4f8eb967496d3f8fbf07f94a78febca566246
+Last verified against commit: 14faac625c7738bc75740d529376bf3766347877

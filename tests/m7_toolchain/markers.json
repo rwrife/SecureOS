@@ -120,6 +120,21 @@
       "description": "Pre-#410 SKIP-pinned contract for runtime `cc` numeric exit-code conformance to docs v0 table from #589 (`success`, `usage`, `compile-error`, `link-error`, `io-error`, `internal`)."
     },
     {
+      "id": "toolchain_cc_arena_exhaustion_audit_marker",
+      "name": "toolchain_cc_arena_exhaustion_audit_marker",
+      "harnessPath": "tests/m7_toolchain/cc_arena_exhaustion_audit.c",
+      "gatingIssue": 409,
+      "gatingIssues": [
+        404,
+        409,
+        410
+      ],
+      "reason": "awaiting_409_410",
+      "skipReason": "pre-409",
+      "addedIn": "issue-610",
+      "description": "Pre-#409/#410 SKIP pin for arena exhaustion join-contract: when cc exceeds runtime.arena_bytes, emit both CAP:DENY:<sid>:mem_brk:arena_bytes and cc.compile.fail reason=arena_exhausted with internal-exit classification (issue #610, refs #558/#571/#589)."
+    },
+    {
       "id": "toolchain_heap_isolation",
       "name": "toolchain_heap_isolation",
       "harnessPath": "tests/m7_toolchain/toolchain_heap_isolation.sh",

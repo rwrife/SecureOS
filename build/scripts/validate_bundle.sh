@@ -661,7 +661,7 @@ TEST_TARGETS=(
     clib_os_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
-    # tests"). All nineteen markers are SKIP-pinned today — each subordinate
+    # tests"). All twenty markers are SKIP-pinned today — each subordinate
     # script in tests/m7_toolchain/ emits TEST:SKIP:<marker>:awaiting_<n>
     # then rolls up TEST:PASS:<marker> so the bundle stays green. Wiring
     # them here freezes the marker spellings as a single source of truth:
@@ -680,6 +680,7 @@ TEST_TARGETS=(
     toolchain_cc_manifest_override_precedence
     toolchain_cc_version_and_help_text_pinned
     toolchain_cc_exit_codes_match_v0_table
+    toolchain_cc_arena_exhaustion_audit_marker
     toolchain_heap_isolation
     toolchain_launch_audit_owner_kind_field_emitted
     toolchain_launcher_owner_kind_cache_isolation
