@@ -57,6 +57,28 @@ Each known source of non-determinism gets its **own** follow-up issue
 fixed, the `continue-on-error: true` flag is removed and the check
 becomes a release-candidate gate per BUILD_ROADMAP §6.3.
 
+### Known sources (live punchlist)
+
+Current baseline (2026-07-21): **no divergent regions observed** in the
+most recent `Image determinism check` on `main`
+([Actions run 29791737944](https://github.com/rwrife/SecureOS/actions/runs/29791737944),
+artifact `runs-artifacts`, ID `8480538133`).
+
+Classification table from that run:
+
+| Root-cause class | Regions observed | Tracking issue |
+| --- | --- | --- |
+| `grub_timestamp` | 0 | _none_ |
+| `fat_mtime` | 0 | _none_ |
+| `embedded_build_path` | 0 | _none_ |
+| `unsorted_dir_entries` | 0 | _none_ |
+| `random_padding` | 0 | _none_ |
+| `other:*` | 0 | _none_ |
+
+When this check regresses, open one sibling issue per distinct root cause
+using the naming convention `determinism: fix <root-cause> — <artifact>:<offset-range>`
+and link those issues here.
+
 ## Local usage
 
 ```bash
