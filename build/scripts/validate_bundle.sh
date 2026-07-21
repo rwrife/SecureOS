@@ -93,6 +93,13 @@ TEST_TARGETS=(
     # open this target SKIP-pins with `:awaiting_540`; once the staged
     # manifest exists it flips to strict drift-FAIL mode.
     apps_dev_cc_manifest
+    # Issue #570: unifying /apps/dev disk-image staging presence gate for
+    # `/apps/dev/cc`, `/apps/dev/lib/{libclib.a,libsofpack.a}`,
+    # `/apps/dev/include/secureos_api.h`, and `/apps/dev/tcc/libtcc1.a`.
+    # Uses tests/disk_image/apps_dev_manifest.json as the single expected-file
+    # pin and emits canonical `SKIP:#541,#545,#548,#550,#531` while those
+    # staging dependencies remain open.
+    apps_dev_staging
     # Issue #634: host-side precedence pin for `cc` manifest resolution
     # (`--manifest` > sidecar > synth) and hard-fail semantics when an
     # explicit override is unreadable/invalid.

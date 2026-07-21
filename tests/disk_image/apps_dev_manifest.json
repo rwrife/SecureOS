@@ -1,0 +1,22 @@
+{
+  "_comment": "Issue #570: canonical expected /apps/dev staging manifest for the in-OS toolchain disk-image gate. Keep this list as the single source of truth for required staged paths.",
+  "schemaVersion": 1,
+  "issue": 570,
+  "repo": "rwrife/SecureOS",
+  "manifestSource": "build/scripts/build_disk_image.sh",
+  "skipMarker": "SKIP:#541,#545,#548,#550,#531",
+  "gatingIssues": [
+    541,
+    545,
+    548,
+    550,
+    531
+  ],
+  "requiredPaths": [
+    "/apps/dev/cc",
+    "/apps/dev/lib/libclib.a",
+    "/apps/dev/lib/libsofpack.a",
+    "/apps/dev/include/secureos_api.h",
+    "/apps/dev/tcc/libtcc1.a"
+  ]
+}
