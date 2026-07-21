@@ -12,7 +12,7 @@ Scaffold (this directory): [#423](https://github.com/rwrife/SecureOS/issues/423)
 
 ## Status
 
-All fourteen markers are SKIP-pinned. Each test script in this directory is a
+All fifteen markers are SKIP-pinned. Each test script in this directory is a
 deterministic stub that emits the canonical `TEST:SKIP:<marker>:awaiting_<n>`
 line per the project's SKIP discipline (mirrors #344 / #389 / #392), then
 rolls up a `TEST:PASS:<target>` so the bundle gate stays green while the
@@ -42,6 +42,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | `toolchain_launch_audit_owner_kind_field_emitted` | [#410] | launch audit contract pin: both `launch.granted` and `launch.denied` records include `owner_kind=<internal|external|local>` (normative contract in `docs/abi/audit-markers.md`, row tracked by #554) |
 | `toolchain_launcher_owner_kind_cache_isolation` | [#410] + [#522] | unsigned-run cache isolation pin: cached `AUTH_TYPE_UNSIGNED_BIN` decisions must not cross `owner.kind` boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554 |
 | `toolchain_launcher_sidecar_caps_required_mismatch` | [#410] | launcher deny-path pin for sidecar-vs-SOF `caps_required` disagreement (subset/superset/disjoint) with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #605 |
+| `toolchain_launcher_sidecar_size_and_malformed_json` | [#410] | launcher deny-path pin for oversize/truncated/malformed/empty sidecar `.manifest.json` inputs with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #602 |
 | `toolchain_libc_deps_phase3_complete` | [#538] + [#539] | TinyCC Phase-3 libc-deps completion marker; stays SKIP until both sub-slices close, then must flip off `awaiting_*` |
 
 [#409]: https://github.com/rwrife/SecureOS/issues/409
@@ -52,6 +53,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 [#538]: https://github.com/rwrife/SecureOS/issues/538
 [#539]: https://github.com/rwrife/SecureOS/issues/539
 [#554]: https://github.com/rwrife/SecureOS/issues/554
+[#602]: https://github.com/rwrife/SecureOS/issues/602
 [#605]: https://github.com/rwrife/SecureOS/issues/605
 [#589]: https://github.com/rwrife/SecureOS/issues/589
 [#634]: https://github.com/rwrife/SecureOS/issues/634

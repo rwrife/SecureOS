@@ -144,6 +144,16 @@
       "description": "Pre-#410 SKIP pin for launcher deny semantics when SOF-declared caps_required and sidecar `.manifest.json` caps_required disagree (subset, superset, or disjoint), with canonical CAP:DENY launch evidence."
     },
     {
+      "id": "toolchain_launcher_sidecar_size_and_malformed_json",
+      "name": "toolchain_launcher_sidecar_size_and_malformed_json",
+      "harnessPath": "tests/m7_toolchain/toolchain_launcher_sidecar_size_and_malformed_json.sh",
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-602",
+      "description": "Pre-#410 SKIP pin for launcher deny semantics when sidecar `.manifest.json` is oversize, truncated, malformed, trailing-garbage, or empty, with canonical CAP:DENY launch evidence."
+    },
+    {
       "id": "toolchain_libc_deps_phase3_complete",
       "name": "toolchain_libc_deps_phase3_complete",
       "harnessPath": "tests/m7_toolchain/toolchain_libc_deps_phase3_complete.sh",
