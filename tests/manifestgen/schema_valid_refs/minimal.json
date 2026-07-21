@@ -1,0 +1,19 @@
+{
+  "manifest_version": 0,
+  "os_abi_version": 0,
+  "app": {
+    "id": "helloapp",
+    "version": "0.1.0",
+    "subject_id": 2,
+    "binary": "apps/helloapp.bin"
+  },
+  "capabilities": {
+    "request": []
+  },
+  "runtime": {
+    "arena_bytes": 65536
+  },
+  "owner": {
+    "kind": "internal"
+  }
+}

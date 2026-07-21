@@ -91,6 +91,9 @@ TEST_TARGETS=(
     # `owner.kind="local"` arm until #522's additive enum lands. Same
     # orphan-from-TEST_TARGETS gate shape as sofpack_wrap above.
     manifest_default_synthesise
+    # Issue #588: semantic JSON-Schema gate for representative
+    # libmanifestgen output scenarios.
+    manifestgen_schema_valid
     # Issue #595: default runtime.arena_bytes policy pin for libmanifestgen.
     # Verifies emitted default bytes + JSON pin/doc/header consistency.
     manifestgen_default_arena
