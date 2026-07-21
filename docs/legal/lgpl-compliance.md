@@ -141,9 +141,27 @@ host test (§5) SKIPs with reason `awaiting_408`.
 - Today the gate emits `TEST:SKIP:release_compliance_bundle:awaiting_408`
   and rolls up `TEST:PASS:release_compliance_bundle` (same SKIP discipline
   as `tests/m7_toolchain/`), so the bundle stays green until `#408`
-  Phase 3 actually links TinyCC into a shipped image. Once Phase 3 lands,
-  the SKIP is removed and the gate becomes required-PASS — a release that
-  forgets to build the compliance bundle then flips the bundle to FAIL.
+  Phase 3 actually links TinyCC into a shipped image.
+
+### 5.1 SKIP marker tracking + flip protocol
+
+| Marker | Tracked by | Current policy |
+| --- | --- | --- |
+| `TEST:SKIP:release_compliance_bundle:awaiting_408` | [#553](https://github.com/rwrife/SecureOS/issues/553) | Allowed only while #408 Phase 3 is open |
+
+Flip protocol (must happen in the same PR that lands #408 Phase 3, or an
+immediate follow-up):
+
+1. Remove `TEST:SKIP:release_compliance_bundle:awaiting_408` from
+   `build/scripts/test_release_compliance_bundle.sh`.
+2. Update this section to remove `awaiting_408` wording.
+3. Run `build/scripts/test_release_compliance_bundle_skip_pinned.sh`
+   with `--strict-no-skip` (or
+   `RELEASE_COMPLIANCE_BUNDLE_STRICT_NO_SKIP=1`) so stale SKIP markers in
+   either script or docs fail the gate.
+
+After the flip, `release_compliance_bundle` is required-PASS — any release
+that forgets to build the compliance bundle flips the bundle to FAIL.
 
 ## 6. Out of scope
 
