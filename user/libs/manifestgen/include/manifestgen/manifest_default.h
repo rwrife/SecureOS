@@ -90,6 +90,22 @@ typedef enum {
   MANIFEST_DEFAULT_ERR_INVALID_FIELD    = 3,
 } manifest_default_result_t;
 
+/* ---- Audit-marker helpers --------------------------------------------- */
+/* Issue #594 pins the marker grammar for manifest synthesis:
+ *   manifest.synth.ok:<sid>:<sof_sha_prefix>:<owner_kind>:<arena_bytes>
+ *   manifest.synth.fail:<sid>:<reason_enum>
+ *
+ * These helpers are format-only (no runtime emission side effects). They let
+ * host tests pin marker shape against docs/abi/audit-markers.md while keeping
+ * libmanifestgen freestanding and deterministic. */
+
+/* Largest marker payload this helper emits including trailing NUL.
+ * Kept intentionally small and deterministic for stack callers. */
+#define MANIFEST_SYNTH_AUDIT_MARKER_MAX 160u
+
+/* Canonical `sof_sha_prefix` width used in marker examples and tests. */
+#define MANIFEST_SYNTH_AUDIT_SHA_PREFIX_HEX 12u
+
 /* ---- Synthesise parameters -------------------------------------------- */
 /* The schema-required `app` fields (`id`, `version`, `subject_id`,
  * `binary`) are caller-supplied: the in-OS `cc` driver derives them from
@@ -148,6 +164,37 @@ manifest_default_result_t manifest_default_synthesise(
     char                            *out_buf,
     size_t                           out_cap,
     size_t                          *out_len);
+
+/* Returns the canonical owner.kind spelling for marker formatting, or NULL
+ * when `owner_kind` is outside the declared enum.
+ */
+const char *manifest_default_owner_kind_tag(manifest_owner_kind_t owner_kind);
+
+/* Maps a synth failure result to a stable reason token for
+ * `manifest.synth.fail:<sid>:<reason_enum>` markers.
+ */
+const char *manifest_default_audit_fail_reason(
+    manifest_default_result_t        rc,
+    const manifest_default_params_t *params);
+
+/* Format helper for `manifest.synth.ok` marker lines. */
+manifest_default_result_t manifest_default_format_audit_marker_ok(
+    uint32_t             sid,
+    const char          *sof_sha_prefix,
+    manifest_owner_kind_t owner_kind,
+    uint32_t             arena_bytes,
+    char                *out_buf,
+    size_t               out_cap,
+    size_t              *out_len);
+
+/* Format helper for `manifest.synth.fail` marker lines. */
+manifest_default_result_t manifest_default_format_audit_marker_fail(
+    uint32_t                       sid,
+    manifest_default_result_t      rc,
+    const manifest_default_params_t *params,
+    char                           *out_buf,
+    size_t                          out_cap,
+    size_t                         *out_len);
 
 #ifdef __cplusplus
 }

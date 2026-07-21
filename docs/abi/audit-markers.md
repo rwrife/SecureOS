@@ -52,6 +52,7 @@ which is normative.
 | `AUTH_TYPE_UNSIGNED_BIN` (allow/deny/cached flow markers) | Unsigned local-binary authorization flow | Launcher unsigned-binary authorization path (`console_authorize_unsigned_binary`, `kernel/core/console.c`) | `console_unsigned_bin_auth_marker` (host-source literal pin) + `toolchain_unsigned_prompt_enforced` (runtime acceptance) | Marker grammar + target mapping locked in this registry row (issue #542) | [#410](https://github.com/rwrife/SecureOS/issues/410) |
 | `launch.granted` / `launch.denied` (`owner_kind=...`) | Launcher execution-decision audit | Launcher execute/deny decision path (`kernel/user/launcher_exec.c`) | Launch allow/deny audit assertions (planned + existing launch tests) | Pending owner-kind contract tracked in [#554](https://github.com/rwrife/SecureOS/issues/554) | [#554](https://github.com/rwrife/SecureOS/issues/554) |
 | `cc.compile.start` / `cc.compile.success` / `cc.compile.fail` | In-OS toolchain compile markers | In-OS `cc` driver (`user/apps/cc/`, planned M7 slices) | `tests/m7_toolchain/*` compile-path harnesses, including SKIP-pinned grammar contract target `toolchain_cc_audit_markers` (#571) and arena-exhaustion subtype pin `toolchain_cc_arena_exhaustion_audit_marker` (#610) | Base marker grammar contract in §3.1 below; arena-exhaustion subtype pin tracked in [#610](https://github.com/rwrife/SecureOS/issues/610) | [#571](https://github.com/rwrife/SecureOS/issues/571), [#610](https://github.com/rwrife/SecureOS/issues/610) |
+| `manifest.synth.ok` / `manifest.synth.fail` | In-OS manifest-synthesis outcome markers | `libmanifestgen` helper surface (`user/libs/manifestgen`) consumed by `cc` manifest resolution branch-3 (`synth`) path | `tests/manifestgen_audit_marker_format_test.c` (`manifestgen_audit_marker_format`) + `tests/m7_toolchain/cc_manifest_resolution_precedence_test.c` (`manifest.synth.ok` token pin) | Marker grammar contract in §3.2 below | [#594](https://github.com/rwrife/SecureOS/issues/594) |
 
 ### 3.1 `cc.compile.*` marker grammar (issue #571)
 
@@ -99,6 +100,56 @@ Harness ownership:
   `toolchain_compile_error_reported`, `toolchain_cc_exit_codes_match_v0_table`,
   `toolchain_cc_arena_exhaustion_audit_marker`) consume these fields once the
   compiler driver slice lands.
+
+### 3.2 `manifest.synth.*` marker grammar (issue #594)
+
+This subsection pins the v0 marker grammar for manifest synthesis outcomes.
+These markers are emitted only on the synthesis branch of manifest source
+resolution (branch 3 in `docs/abi/manifest.md` sidecar precedence): explicit
+`--manifest` and existing-sidecar branches MUST NOT emit `manifest.synth.*`.
+
+```text
+manifest.synth.ok:<sid>:<sof_sha_prefix>:<owner_kind>:<arena_bytes>
+manifest.synth.fail:<sid>:<reason_enum>
+```
+
+Field contract:
+
+- `<sid>`: decimal launcher/session id for the compile invocation.
+- `<sof_sha_prefix>`: lowercase hex prefix of the compiled SOF hash (v0 pin
+  uses 12 hex chars).
+- `<owner_kind>`: one of `internal`, `external`, `local`.
+- `<arena_bytes>`: decimal runtime arena bytes selected for the synthesized
+  manifest.
+- `<reason_enum>`: stable machine-parseable synthesis-failure class.
+
+Pinned v0 `reason_enum` vocabulary:
+
+- `bad_args`
+- `bad_required_fields`
+- `bad_owner_kind`
+- `bad_arena_bytes`
+- `bad_subject_id`
+- `output_too_small`
+- `invalid_field`
+- `internal_error`
+
+Cross-contract requirements:
+
+- `manifest.synth.ok` implies branch-3 (synthesis) won precedence and the
+  synthesized sidecar write succeeded.
+- `manifest.synth.fail` implies synthesis branch selected and compile path
+  returns failure (no successful synth marker for the same invocation).
+- Marker emission remains additive: these markers complement (not replace)
+  compile-path `cc.compile.*` markers.
+
+Harness ownership:
+
+- `tests/manifestgen_audit_marker_format_test.c` is the host-format pin for
+  the exact marker grammar and v0 reason-enum vocabulary.
+- `tests/m7_toolchain/cc_manifest_resolution_precedence_test.c` pins that only
+  the synth branch reports `manifest.synth.ok` and non-synth branches leave the
+  synth marker unset.
 
 ## 4. Capability mutation family population (#635)
 

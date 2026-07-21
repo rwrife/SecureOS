@@ -107,6 +107,29 @@
         "tests/m7_toolchain/cc_arena_exhaustion_audit.c"
       ],
       "gating_issue": 571
+    },
+    {
+      "prefix": "manifest.synth.ok",
+      "family": "manifest-synthesis",
+      "shape": "manifest.synth.ok:<sid>:<sof_sha_prefix>:<owner_kind>:<arena_bytes>",
+      "emitter": "user/libs/manifestgen",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/manifestgen_audit_marker_format_test.c",
+        "tests/m7_toolchain/cc_manifest_resolution_precedence_test.c"
+      ],
+      "gating_issue": 594
+    },
+    {
+      "prefix": "manifest.synth.fail",
+      "family": "manifest-synthesis",
+      "shape": "manifest.synth.fail:<sid>:<reason_enum>",
+      "emitter": "user/libs/manifestgen",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": [
+        "tests/manifestgen_audit_marker_format_test.c"
+      ],
+      "gating_issue": 594
     }
   ]
 }
