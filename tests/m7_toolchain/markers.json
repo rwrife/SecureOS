@@ -6,65 +6,97 @@
   "scaffoldIssue": 423,
   "markers": [
     {
+      "id": "toolchain_compiles_hello_in_os",
       "name": "toolchain_compiles_hello_in_os",
+      "harnessPath": "tests/m7_toolchain/toolchain_compiles_hello_in_os.sh",
       "gatingIssue": 409,
       "reason": "awaiting_409",
+      "skipReason": "pre-409",
+      "addedIn": "issue-423",
       "description": "cc driver app produces a SOF-wrapped ELF on-target."
     },
     {
+      "id": "toolchain_runs_compiled_binary",
       "name": "toolchain_runs_compiled_binary",
+      "harnessPath": "tests/m7_toolchain/toolchain_runs_compiled_binary.sh",
       "gatingIssue": 410,
       "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-423",
       "description": "End-to-end run of cc output: os_process_spawn (#422) merged via PR #427; remaining gates are the cc driver (#409) producing a binary on-target and the launcher unsigned-run wiring (#410) that actually executes it."
     },
     {
+      "id": "toolchain_unsigned_prompt_enforced",
       "name": "toolchain_unsigned_prompt_enforced",
+      "harnessPath": "tests/m7_toolchain/toolchain_unsigned_prompt_enforced.sh",
       "gatingIssue": 410,
       "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-423",
       "description": "Unsigned-run wiring through the launcher auth flow (Tier 1 trust, AUTH_TYPE_UNSIGNED_BIN)."
     },
     {
+      "id": "toolchain_large_output_persisted",
       "name": "toolchain_large_output_persisted",
+      "harnessPath": "tests/m7_toolchain/toolchain_large_output_persisted.sh",
       "gatingIssue": 409,
       "reason": "awaiting_409",
+      "skipReason": "pre-409",
+      "addedIn": "issue-423",
       "description": "cc emits a >1 KB binary; FS path (M7-TOOLCHAIN-002, closed #405) stays byte-identical."
     },
     {
+      "id": "toolchain_compile_error_reported",
       "name": "toolchain_compile_error_reported",
+      "harnessPath": "tests/m7_toolchain/toolchain_compile_error_reported.sh",
       "gatingIssue": 409,
       "reason": "awaiting_409",
+      "skipReason": "pre-409",
+      "addedIn": "issue-423",
       "description": "cc exits non-zero on syntax error, prints a diagnostic, and writes no output file."
     },
     {
+      "id": "toolchain_cc_manifest_sidecar_written_on_link",
       "name": "toolchain_cc_manifest_sidecar_written_on_link",
+      "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_sidecar_written_on_link.sh",
       "gatingIssue": 409,
       "reason": "awaiting_409",
-      "skipReason": "manifest precedence landed in #634; in-OS cc driver compile/link execution gate remains in #409",
-      "harnessPath": "tests/m7_toolchain/qemu/cc_manifest_sidecar_written_on_link.sh",
+      "skipReason": "pre-409",
+      "addedIn": "issue-634",
       "description": "When `cc` links with no `--manifest` and no pre-existing sidecar, it synthesises a manifest via libmanifestgen and writes `<output>.manifest.json`."
     },
     {
+      "id": "toolchain_cc_version_and_help_text_pinned",
       "name": "toolchain_cc_version_and_help_text_pinned",
+      "harnessPath": "tests/m7_toolchain/toolchain_cc_version_and_help_text_pinned.sh",
       "gatingIssue": 409,
       "reason": "awaiting_409",
-      "skipReason": "pre-#409 in-OS cc driver not yet emitting version/help",
-      "harnessPath": "tests/m7_toolchain/qemu/cc_version_and_help_text_pinned.sh",
+      "skipReason": "pre-409",
+      "addedIn": "issue-637",
       "description": "Pre-#409 SKIP-pinned golden contract for `cc --version` and `cc --help` stdout bytes, exit code 0, and empty stderr."
     },
     {
+      "id": "toolchain_heap_isolation",
       "name": "toolchain_heap_isolation",
+      "harnessPath": "tests/m7_toolchain/toolchain_heap_isolation.sh",
       "gatingIssue": 410,
       "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-423",
       "description": "Two sequential `cc` runs in one boot must not see each other's arena state. Kernel half (os_mem_brk + per-process arena reset) landed: syscall + native-bridge slot in #421 via PR #432 (af8ece8), clib_os_brk forwarder via PR #455 (30d6443), launcher per-spawn runtime.arena_bytes enforcement via PR #454 (d6ae05a, closes #448). Remaining gates are the `cc` driver app (#409) that lets us actually invoke `cc` twice in one boot and the unsigned-run/acceptance-suite wiring tracked by #410."
     },
     {
+      "id": "toolchain_libc_deps_phase3_complete",
       "name": "toolchain_libc_deps_phase3_complete",
+      "harnessPath": "tests/m7_toolchain/toolchain_libc_deps_phase3_complete.sh",
       "gatingIssue": 539,
       "gatingIssues": [
         538,
         539
       ],
       "reason": "awaiting_538_539",
+      "skipReason": "deferred",
+      "addedIn": "issue-539",
       "description": "TinyCC Phase-3 libc-deps completion marker. Stays SKIP while either #538 (POSIX-fd nucleus) or #539 (remaining 11 gaps) is OPEN; must flip off awaiting_* once both close."
     }
   ]

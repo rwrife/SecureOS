@@ -687,6 +687,10 @@ TEST_TARGETS=(
     # m7_markers_issue_state_cache are negative canaries proving wiring
     # drift + closed-issue stale-awaiting failures.
     validate_m7_markers
+    # Issue #611: schema drift validator for markers.json row shape
+    # (id/harnessPath/gatingIssue/skipReason/addedIn + legacy compatibility fields).
+    validate_m7_markers_schema
+    m7_markers_schema_drift
     m7_markers_drift
     m7_markers_issue_state_cache
     # Issue #604: every markers.json row must have a sibling harness file

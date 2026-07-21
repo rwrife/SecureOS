@@ -830,6 +830,17 @@ case "$TEST_NAME" in
     # tests/m7_toolchain/issue_state.cache.json.
     run_script "$ROOT_DIR/build/scripts/validate_m7_markers.sh"
     ;;
+  validate_m7_markers_schema)
+    # Issue #611: schema drift gate for tests/m7_toolchain/markers.json
+    # rows (id/harnessPath/gatingIssue/skipReason/addedIn + legacy
+    # compatibility fields). Runs alongside validate_m7_markers.
+    run_script "$ROOT_DIR/build/scripts/validate_m7_markers_schema.sh"
+    ;;
+  m7_markers_schema_drift)
+    # Issue #611: negative canary proving schema violations (missing/extra
+    # keys, bad enum values, non-integer gatingIssue) fail deterministically.
+    run_script "$ROOT_DIR/tests/harness/m7_markers_schema_drift_test.sh"
+    ;;
   validate_m7_marker_harnesses)
     # Issue #604: every tests/m7_toolchain/markers.json row must have a
     # sibling harness on disk (`<marker>.sh` or `<marker>.c`) unless

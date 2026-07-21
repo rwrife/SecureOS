@@ -106,12 +106,23 @@ is explicitly listed in `tests/m7_toolchain/marker_harness_allowlist.json`
 with a non-empty justification. The `m7_marker_harnesses_drift` target is the
 negative canary for this gate.
 
+Issue [#611] adds a schema drift gate
+[`tools/validate_m7_markers_schema.py`](../../tools/validate_m7_markers_schema.py)
+(`validate_m7_markers_schema` in `build/scripts/test.sh`, wired in bundle
+`TEST_TARGETS`) that enforces row-level metadata shape in `markers.json`
+(`id`, `harnessPath`, `gatingIssue`/`gatingIssues`, `skipReason`, `addedIn`,
+and legacy compatibility fields). `m7_markers_schema_drift` is the negative
+canary proving schema violations fail deterministically.
+
 For canonical SKIP-pinned harness authoring workflow, see
 [`docs/contributing/skip-pinned-harness-guide.md`](../../docs/contributing/skip-pinned-harness-guide.md)
 (issue [#608]).
+For the pinned schema contract itself, see
+[`docs/contrib/m7-markers-schema.md`](../../docs/contrib/m7-markers-schema.md).
 
 [#494]: https://github.com/rwrife/SecureOS/issues/494
 [#604]: https://github.com/rwrife/SecureOS/issues/604
+[#611]: https://github.com/rwrife/SecureOS/issues/611
 [#129]: https://github.com/rwrife/SecureOS/issues/129
 [#213]: https://github.com/rwrife/SecureOS/issues/213
 [#234]: https://github.com/rwrife/SecureOS/issues/234
