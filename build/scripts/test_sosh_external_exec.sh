@@ -28,9 +28,14 @@ for marker in \
   "TEST:PASS:sosh_external_exec:allow_argv_passes_command_and_args" \
   "TEST:PASS:sosh_external_exec:deny_returns_nonzero_no_swallow" \
   "TEST:PASS:sosh_external_exec:deny_marker_owner_is_kernel" \
+  "TEST:PASS:sosh_external_exec:deny_bare_name_preserves_cap_deny_marker" \
   "TEST:PASS:sosh_external_exec:unknown_no_spawn_attempt" \
   "TEST:PASS:sosh_external_exec:unknown_returns_not_found_sentinel" \
   "TEST:PASS:sosh_external_exec:absolute_path_single_probe" \
   "TEST:PASS:sosh_external_exec"; do
   grep -q "$marker" "$LOG_PATH"
 done
+
+# Issue #575 canary: bare-name fallback deny path must preserve the
+# kernel CAP:DENY line on the captured output stream.
+grep -q "CAP:DENY:4242:app_exec:hello" "$LOG_PATH"
