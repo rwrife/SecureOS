@@ -37,9 +37,9 @@
     },
     {
       "name": "toolchain_cc_manifest_sidecar_written_on_link",
-      "gatingIssue": 634,
-      "reason": "awaiting_634",
-      "skipReason": "pre-#634 manifest precedence wiring not yet executed through qemu compile/link path",
+      "gatingIssue": 409,
+      "reason": "awaiting_409",
+      "skipReason": "manifest precedence landed in #634; in-OS cc driver compile/link execution gate remains in #409",
       "harnessPath": "tests/m7_toolchain/qemu/cc_manifest_sidecar_written_on_link.sh",
       "description": "When `cc` links with no `--manifest` and no pre-existing sidecar, it synthesises a manifest via libmanifestgen and writes `<output>.manifest.json`."
     },

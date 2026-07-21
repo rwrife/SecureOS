@@ -1,0 +1,19 @@
+{
+  "_comment": "Offline cache for tools/validate_m7_markers.py issue-state resolution (issue #590). Refreshed by CI automation in a follow-up workflow.",
+  "schemaVersion": 1,
+  "repo": "rwrife/SecureOS",
+  "generatedAt": "2026-07-21T01:00:00Z",
+  "issues": {
+    "409": {
+      "state": "OPEN"
+    },
+    "410": {
+      "state": "OPEN"
+    },
+    "634": {
+      "state": "CLOSED",
+      "replacedBy": 409,
+      "note": "Manifest precedence landed under #634; remaining compile/link execution gate is tracked under #409."
+    }
+  }
+}
