@@ -186,6 +186,13 @@ TEST_TARGETS=(
     # green on main — same orphan-from-TEST_TARGETS shape #487 / #503 /
     # #508 / #512 / #514 closed for other substrate subsystems.
     app_native_process_spawn_deny_marker
+    # Issue #542: host-source marker pin for the unsigned-binary
+    # authorization console flow in `console_authorize_unsigned_binary`
+    # (`[codesign] ... decision=allow|deny[ (cached)]`) plus
+    # `AUTH_TYPE_UNSIGNED_BIN == 1` in secureos_api.h. Wires the target
+    # into the bundle so marker drift cannot land green before #410's
+    # runtime unsigned-run path consumes the same strings.
+    console_unsigned_bin_auth_marker
     # M2 console-svc / M3 fs-svc well-known-port allocator host gates
     # (umbrella #299, plan plans/2026-05-25-m4-broker-on-m1-substrate.md).
     # Both pin the IPC port_table seeding contract that the boot-order
