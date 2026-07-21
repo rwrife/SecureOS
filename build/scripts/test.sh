@@ -782,6 +782,13 @@ case "$TEST_NAME" in
     # validate_abi_stamps.py engine against docs/development scope.
     run_script "$ROOT_DIR/build/scripts/validate_docs_pickup_guide_m7_stamp.sh"
     ;;
+  plan_sections_drift)
+    # Issue #593: plan sub-section token -> issue linkage drift gate.
+    # Scans plans/*.md for M*-style slice tokens and cross-checks each
+    # token against GitHub issue search results. Unticketed slices must
+    # be explicitly allowlisted in plans/.unticketed-allowlist.
+    run_script "$ROOT_DIR/build/scripts/test_plan_sections_drift.sh"
+    ;;
   abi_stamps_drift)
     # Issue #297: negative-canary self-test — builds a sandbox repo
     # whose docs/abi/syscalls.md stamp is older than its last content
