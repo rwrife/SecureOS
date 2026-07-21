@@ -36,6 +36,14 @@
       "description": "cc exits non-zero on syntax error, prints a diagnostic, and writes no output file."
     },
     {
+      "name": "toolchain_cc_version_and_help_text_pinned",
+      "gatingIssue": 409,
+      "reason": "awaiting_409",
+      "skipReason": "pre-#409 in-OS cc driver not yet emitting version/help",
+      "harnessPath": "tests/m7_toolchain/qemu/cc_version_and_help_text_pinned.sh",
+      "description": "Pre-#409 SKIP-pinned golden contract for `cc --version` and `cc --help` stdout bytes, exit code 0, and empty stderr."
+    },
+    {
       "name": "toolchain_heap_isolation",
       "gatingIssue": 410,
       "reason": "awaiting_410",
