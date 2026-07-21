@@ -7,7 +7,9 @@ Asserts that:
   - the default disk layout creates /apps/dev,
   - nested file targets under /apps/dev are written via auto-created parents,
   - /apps/dev/lib and /apps/dev/tcc are created when staging placeholder files,
-  - staged sample/guide/placeholder files round-trip byte-identically.
+  - staged sample/guide/placeholder files round-trip byte-identically,
+  - optional host-built /apps/dev/lib archives (`libclib.a`, `libsofpack.a`) are
+    staged byte-identically when source artifacts are present.
 
 Runs purely on the host (no QEMU, no toolchain): it drives the same
 tools/populate_disk_image.py the real disk build uses, then reads the FAT
@@ -98,10 +100,22 @@ def main() -> int:
     guide_src = (ROOT / "dev" / "building.txt").read_bytes()
     lib_readme_src = (ROOT / "dev" / "lib" / "README.md").read_bytes()
     tcc_readme_src = (ROOT / "dev" / "tcc" / "README.md").read_bytes()
+
+    libclib_artifact = ROOT / "artifacts" / "user" / "libs" / "libclib.a"
+    libsofpack_artifact = ROOT / "artifacts" / "user" / "libs" / "libsofpack.a"
+    libclib_src = libclib_artifact.read_bytes() if libclib_artifact.is_file() else None
+    libsofpack_src = (
+        libsofpack_artifact.read_bytes() if libsofpack_artifact.is_file() else None
+    )
+
     fresh.write_file("/apps/dev/hello.c", hello_src)
     fresh.write_file("/apps/dev/building.txt", guide_src)
     fresh.write_file("/apps/dev/lib/README.md", lib_readme_src)
     fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
+    if libclib_src is not None:
+        fresh.write_file("/apps/dev/lib/libclib.a", libclib_src)
+    if libsofpack_src is not None:
+        fresh.write_file("/apps/dev/lib/libsofpack.a", libsofpack_src)
 
     if not is_directory(fresh, "/apps/dev"):
         failures.append("write_file did not auto-create /apps/dev parent")
@@ -138,6 +152,22 @@ def main() -> int:
             f"/apps/dev/tcc/README.md mismatch: wrote {len(tcc_readme_src)} bytes, "
             f"read {len(got_tcc_readme)} bytes"
         )
+
+    if libclib_src is not None:
+        got_libclib = read_file(fresh, "/apps/dev/lib/libclib.a")
+        if got_libclib != libclib_src:
+            failures.append(
+                f"/apps/dev/lib/libclib.a mismatch: wrote {len(libclib_src)} bytes, "
+                f"read {len(got_libclib)} bytes"
+            )
+
+    if libsofpack_src is not None:
+        got_libsofpack = read_file(fresh, "/apps/dev/lib/libsofpack.a")
+        if got_libsofpack != libsofpack_src:
+            failures.append(
+                f"/apps/dev/lib/libsofpack.a mismatch: wrote {len(libsofpack_src)} bytes, "
+                f"read {len(got_libsofpack)} bytes"
+            )
 
     # 4. The sample is a non-trivial source file and includes the public API.
     if b"#include \"secureos_api.h\"" not in hello_src:
