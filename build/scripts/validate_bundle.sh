@@ -104,6 +104,11 @@ TEST_TARGETS=(
     # pin and emits canonical `SKIP:#541,#545,#548,#550,#531` while those
     # staging dependencies remain open.
     apps_dev_staging
+    # Issue #615: canonical `/apps/dev/include` header-set drift gate.
+    # Uses tests/disk_image/apps_dev_include_set.json to pin include-surface
+    # membership (secureos_api + namespaced sofpack/manifestgen headers) with
+    # per-header pending gates tied to #531/#613.
+    apps_dev_include_set
     # Issue #634: host-side precedence pin for `cc` manifest resolution
     # (`--manifest` > sidecar > synth) and hard-fail semantics when an
     # explicit override is unreadable/invalid.

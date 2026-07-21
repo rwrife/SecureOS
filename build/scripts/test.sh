@@ -410,6 +410,13 @@ case "$TEST_NAME" in
     # discipline while those staging issues remain open.
     run_script "$ROOT_DIR/build/scripts/test_apps_dev_staging.sh"
     ;;
+  apps_dev_include_set)
+    # Issue #615: canonical /apps/dev/include header-set drift gate.
+    # Enforces strict set parity once #531/#613 staging slices close,
+    # and emits canonical SKIP marker while pending headers are still
+    # gated by open issues.
+    run_script "$ROOT_DIR/build/scripts/test_apps_dev_include_set.sh"
+    ;;
   cc_manifest_resolution_precedence)
     # Issue #634 (M7-TOOLCHAIN integration slice): host table-driven pin for
     # manifest source precedence in the `cc` driver wiring
