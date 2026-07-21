@@ -12,7 +12,7 @@ Scaffold (this directory): [#423](https://github.com/rwrife/SecureOS/issues/423)
 
 ## Status
 
-All sixteen markers are SKIP-pinned. Each test script in this directory is a
+All seventeen markers are SKIP-pinned. Each test script in this directory is a
 deterministic stub that emits the canonical `TEST:SKIP:<marker>:awaiting_<n>`
 line per the project's SKIP discipline (mirrors #344 / #389 / #392), then
 rolls up a `TEST:PASS:<target>` so the bundle gate stays green while the
@@ -41,6 +41,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | `toolchain_heap_isolation`          | [#410]       | two sequential `cc` runs in one boot don't see each other's arena state (kernel `os_mem_brk` + per-process arena reset shipped in #421 via PR #432/#455 and per-spawn arena clamp via PR #454; remaining gate is `cc` driver #409 + acceptance-suite wiring #410) |
 | `toolchain_launch_audit_owner_kind_field_emitted` | [#410] | launch audit contract pin: both `launch.granted` and `launch.denied` records include `owner_kind=<internal|external|local>` (normative contract in `docs/abi/audit-markers.md`, row tracked by #554) |
 | `toolchain_launcher_owner_kind_cache_isolation` | [#410] + [#522] | unsigned-run cache isolation pin: cached `AUTH_TYPE_UNSIGNED_BIN` decisions must not cross `owner.kind` boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554 |
+| `toolchain_launcher_sidecar_owner_kind_mismatch` | [#410] | launcher deny-path pin for SOF vs sidecar `.manifest.json` `owner.kind` mismatch with canonical owner-kind mismatch evidence; SKIP scaffold tracked by #601 |
 | `toolchain_launcher_sidecar_caps_required_mismatch` | [#410] | launcher deny-path pin for sidecar-vs-SOF `caps_required` disagreement (subset/superset/disjoint) with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #605 |
 | `toolchain_launcher_sidecar_size_and_malformed_json` | [#410] | launcher deny-path pin for oversize/truncated/malformed/empty sidecar `.manifest.json` inputs with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #602 |
 | `toolchain_missing_manifest_sidecar` | [#410] | launcher deny-path pin for local SOF launch attempts with no `<binary>.manifest.json` sidecar; SKIP scaffold tracked by #596 |
@@ -56,6 +57,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 [#554]: https://github.com/rwrife/SecureOS/issues/554
 [#602]: https://github.com/rwrife/SecureOS/issues/602
 [#605]: https://github.com/rwrife/SecureOS/issues/605
+[#601]: https://github.com/rwrife/SecureOS/issues/601
 [#596]: https://github.com/rwrife/SecureOS/issues/596
 [#589]: https://github.com/rwrife/SecureOS/issues/589
 [#634]: https://github.com/rwrife/SecureOS/issues/634
