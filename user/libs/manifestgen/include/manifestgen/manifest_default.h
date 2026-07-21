@@ -53,6 +53,10 @@
 extern "C" {
 #endif
 
+/* Canonical sidecar suffix for `<binary>.manifest.json` companion manifests.
+ * Mirrors docs/abi/manifest.md §5.8 "Sidecar filename convention". */
+#define MANIFEST_SIDECAR_SUFFIX ".manifest.json"
+
 /* ---- owner.kind enumerator -------------------------------------------- */
 /* Mirrors the on-disk `manifests/schema/v0.json` `owner.kind` enum. The
  * third arm (`LOCAL`) lands additively in #522; this header pre-declares

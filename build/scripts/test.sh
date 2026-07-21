@@ -392,6 +392,12 @@ case "$TEST_NAME" in
     # lands.
     run_script "$ROOT_DIR/build/scripts/test_manifest_default_synthesise.sh"
     ;;
+  manifest_sidecar_suffix)
+    # Issue #580: drift gate for the canonical `<binary>.manifest.json`
+    # sidecar naming rule in docs/abi/manifest.md §5.8 and
+    # MANIFEST_SIDECAR_SUFFIX in libmanifestgen's public header.
+    run_script "$ROOT_DIR/build/scripts/test_manifest_sidecar_suffix.sh"
+    ;;
   apps_dev_cc_manifest)
     # Issue #573: canonical /apps/dev/cc manifest pin (owner.kind +
     # minimal cap request set + runtime.arena_bytes) and host drift gate

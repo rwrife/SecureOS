@@ -469,6 +469,28 @@ SOF container it just produced on-target (plan
 packaging"). The synthesiser writes a deterministic v0 manifest
 conforming to the schema documented above:
 
+#### Sidecar filename convention
+
+The launcher / in-OS toolchain sidecar discovery contract is pinned to
+the following normative rules:
+
+- The companion manifest filename is exactly `<binary>.manifest.json`:
+  append the literal suffix `.manifest.json` to the full binary path
+  (including its `.bin` / SOF extension).
+- Filename matching is case-sensitive. The suffix bytes are the literal
+  ASCII sequence `".manifest.json"` (no locale or Unicode
+  normalisation).
+- The sidecar lives in the same directory as the SOF binary. The
+  launcher MUST NOT search parent/ancestor directories.
+- If the sidecar is absent at the canonical adjacent path, discovery
+  records the stable audit reason `MANIFEST_DISCOVERY_NOT_FOUND`
+  (deny-by-default launch decision / no kernel panic).
+
+Rationale: this mirrors existing adjacency patterns
+(`<binary>.sig` / `<binary>.sha256`) and preserves full binary identity
+in the sidecar filename, which reduces prefix-confusion risk for
+trust-origin classification (`owner.kind`, refs #522 / #410).
+
 - `manifest_version`: `0` (locked).
 - `os_abi_version`: the running `OS_ABI_VERSION_MAJOR` (synthesised
   by the caller, typically the in-OS `cc` driver).
