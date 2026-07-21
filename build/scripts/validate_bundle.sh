@@ -371,6 +371,10 @@ TEST_TARGETS=(
     # image and round-trip byte-identically. Guards the disk-staging wiring so
     # a regression that drops /apps/dev flips the bundle to FAIL.
     in_os_toolchain_dev_dir
+    # Issue #574: host-side compile canary for dev/hello.c using
+    # freestanding-oriented compile flags. Catches sample/header drift before
+    # M7 QEMU acceptance markers consume the same source.
+    dev_hello_c_host_compiles
     # Issue #636: source-drift pin for the canonical in-OS toolchain sample
     # (`dev/hello.c`). Keeps the validation input SHA-locked so edits are
     # intentional and reviewed before they fan out to downstream M7 goldens.
