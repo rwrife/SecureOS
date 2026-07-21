@@ -51,7 +51,54 @@ which is normative.
 | `CAP_AUDIT:...:op=GRANT:...` / `CAP_AUDIT:...:op=REVOKE:...` | Capability mutation audit markers (`cap.grant` / `cap.revoke` registry aliases) | Capability table mutation paths (`kernel/cap/capability.c`) + broker-mediated mutation paths (`kernel/cap/cap_broker.c`) | Capability audit fixture + broker share tests (`capability_audit_fixture`, `broker_share_*`) | [`capabilities.md`](capabilities.md), §4.1–§4.2 in this registry | [#635](https://github.com/rwrife/SecureOS/issues/635) |
 | `AUTH_TYPE_UNSIGNED_BIN` (allow/deny/cached flow markers) | Unsigned local-binary authorization flow | Launcher unsigned-binary authorization path (M7/M6 trust model) | Unsigned-run prompt/decision harnesses (planned) | Pending contract landing tracked in [#542](https://github.com/rwrife/SecureOS/issues/542) | [#542](https://github.com/rwrife/SecureOS/issues/542) |
 | `launch.granted` / `launch.denied` (`owner_kind=...`) | Launcher execution-decision audit | Launcher execute/deny decision path (`kernel/user/launcher_exec.c`) | Launch allow/deny audit assertions (planned + existing launch tests) | Pending owner-kind contract tracked in [#554](https://github.com/rwrife/SecureOS/issues/554) | [#554](https://github.com/rwrife/SecureOS/issues/554) |
-| `cc.compile.start` / `cc.compile.success` / `cc.compile.fail` | In-OS toolchain compile markers | In-OS `cc` driver (`user/apps/cc/`, planned M7 slices) | `tests/m7_toolchain/*` compile-path harnesses; includes SKIP-pinned `toolchain_cc_arena_exhaustion_audit_marker` for the `reason=arena_exhausted` join contract (`CAP:DENY:<sid>:mem_brk:arena_bytes` + internal-exit classification) | Pending base contract tracked in [#571](https://github.com/rwrife/SecureOS/issues/571); arena-exhaustion subtype pin tracked in [#610](https://github.com/rwrife/SecureOS/issues/610) | [#571](https://github.com/rwrife/SecureOS/issues/571), [#610](https://github.com/rwrife/SecureOS/issues/610) |
+| `cc.compile.start` / `cc.compile.success` / `cc.compile.fail` | In-OS toolchain compile markers | In-OS `cc` driver (`user/apps/cc/`, planned M7 slices) | `tests/m7_toolchain/*` compile-path harnesses, including SKIP-pinned grammar contract target `toolchain_cc_audit_markers` (#571) and arena-exhaustion subtype pin `toolchain_cc_arena_exhaustion_audit_marker` (#610) | Base marker grammar contract in §3.1 below; arena-exhaustion subtype pin tracked in [#610](https://github.com/rwrife/SecureOS/issues/610) | [#571](https://github.com/rwrife/SecureOS/issues/571), [#610](https://github.com/rwrife/SecureOS/issues/610) |
+
+### 3.1 `cc.compile.*` marker grammar (issue #571)
+
+This subsection is the normative v0 grammar for compile-path audit markers.
+The in-OS `cc` runtime implementation remains gated by
+[#409](https://github.com/rwrife/SecureOS/issues/409) and
+[#410](https://github.com/rwrife/SecureOS/issues/410), but once emitted,
+markers MUST match these shapes exactly.
+
+```text
+cc.compile.start:<sid>:<input_path>:<arena_bytes>
+cc.compile.success:<sid>:<input_path>:<output_sof_sha256>:<bytes>
+cc.compile.fail:<sid>:<input_path>:<exit_code>:<reason_tag>
+```
+
+Field contract:
+
+- `<sid>`: decimal launcher/session id for the compile invocation.
+- `<input_path>`: canonical source path string passed to `cc` (for example
+  `/apps/dev/hello.c`), no surrounding quotes.
+- `<arena_bytes>`: decimal `runtime.arena_bytes` budget for this compile run.
+- `<output_sof_sha256>`: lowercase 64-hex SHA-256 of the emitted SOF bytes.
+- `<bytes>`: decimal byte length of the emitted SOF output.
+- `<exit_code>`: numeric `cc` exit code from
+  [`docs/in-os-toolchain/building-apps.md`](../in-os-toolchain/building-apps.md#cc-exit-codes-v0-contract-pin).
+- `<reason_tag>`: stable, machine-parseable failure class (`usage_error`,
+  `compile_error`, `link_error`, `io_error`, `arena_exhausted`,
+  `internal_error`; additive future tags allowed only via docs + harness
+  updates in lockstep).
+
+Cross-contract requirements:
+
+- `cc.compile.success` implies `exit_code=0` and a valid `<output_sof_sha256>`
+  / `<bytes>` pair for the on-disk output artifact.
+- `cc.compile.fail` implies non-zero `<exit_code>` and no success marker for
+  the same compile unit.
+- `reason_tag=arena_exhausted` joins with the capability-deny marker
+  `CAP:DENY:<sid>:mem_brk:arena_bytes` (issue [#610](https://github.com/rwrife/SecureOS/issues/610)).
+
+Harness ownership:
+
+- `tests/m7_toolchain/toolchain_cc_audit_markers.sh` is the pre-#409/#410
+  SKIP-pinned grammar contract harness for this section.
+- Runtime execute harnesses (`toolchain_compiles_hello_in_os`,
+  `toolchain_compile_error_reported`, `toolchain_cc_exit_codes_match_v0_table`,
+  `toolchain_cc_arena_exhaustion_audit_marker`) consume these fields once the
+  compiler driver slice lands.
 
 ## 4. Capability mutation family population (#635)
 
@@ -132,4 +179,4 @@ PR checklist (minimum):
 - [ ] Consumer/test surface documented (or issue linked).
 - [ ] `Last verified against commit` lines refreshed.
 
-Last verified against commit: 92298d9122b2f0493784727273723ee1f64a6a5b
+Last verified against commit: 8856055801f1d8382f111a49f6d6e2330f17fc08

@@ -56,6 +56,20 @@
       "description": "cc exits non-zero on syntax error, prints a diagnostic, and writes no output file."
     },
     {
+      "id": "toolchain_cc_audit_markers",
+      "name": "toolchain_cc_audit_markers",
+      "harnessPath": "tests/m7_toolchain/toolchain_cc_audit_markers.sh",
+      "gatingIssue": 409,
+      "gatingIssues": [
+        409,
+        410
+      ],
+      "reason": "awaiting_409_410",
+      "skipReason": "pre-409",
+      "addedIn": "issue-571",
+      "description": "Pre-#409/#410 SKIP pin for `cc.compile.start|success|fail` marker grammar: start=<sid,input_path,arena_bytes>; success=<sid,input_path,output_sof_sha256,bytes>; fail=<sid,input_path,exit_code,reason_tag>."
+    },
+    {
       "id": "toolchain_cc_manifest_sidecar_written_on_link",
       "name": "toolchain_cc_manifest_sidecar_written_on_link",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_sidecar_written_on_link.sh",

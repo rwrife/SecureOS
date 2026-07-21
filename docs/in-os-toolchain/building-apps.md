@@ -181,6 +181,24 @@ Notes:
   [#410](https://github.com/rwrife/SecureOS/issues/410).
 - New reasons may be added later, but existing numeric assignments above are
   stable once this table ships.
+- Marker grammar is pinned in
+  [`docs/abi/audit-markers.md`](../abi/audit-markers.md#31-cccompile-marker-grammar-issue-571)
+  and consumed by `tests/m7_toolchain/toolchain_cc_audit_markers.sh`.
+
+## `cc.compile.*` marker grammar cross-reference
+
+For deterministic compile telemetry parsing, SecureOS pins these line shapes:
+
+```text
+cc.compile.start:<sid>:<input_path>:<arena_bytes>
+cc.compile.success:<sid>:<input_path>:<output_sof_sha256>:<bytes>
+cc.compile.fail:<sid>:<input_path>:<exit_code>:<reason_tag>
+```
+
+Field-level semantics and subtype constraints are normative in
+[`docs/abi/audit-markers.md`](../abi/audit-markers.md#31-cccompile-marker-grammar-issue-571)
+(issue [#571](https://github.com/rwrife/SecureOS/issues/571)); this document
+owns only the numeric exit-code mapping table above.
 
 ## Building the disk image (host side)
 

@@ -12,7 +12,7 @@ Scaffold (this directory): [#423](https://github.com/rwrife/SecureOS/issues/423)
 
 ## Status
 
-All twenty markers are SKIP-pinned. Each test script in this directory is a
+All twenty-one markers are SKIP-pinned. Each test script in this directory is a
 deterministic stub that emits the canonical `TEST:SKIP:<marker>:awaiting_<n>`
 line per the project's SKIP discipline (mirrors #344 / #389 / #392), then
 rolls up a `TEST:PASS:<target>` so the bundle gate stays green while the
@@ -34,6 +34,7 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 | `toolchain_unsigned_prompt_enforced`| [#410]       | unsigned-run wiring through the launcher auth flow       |
 | `toolchain_large_output_persisted`  | [#409]       | `cc` emits a >1 KB binary; FS path stays byte-identical  |
 | `toolchain_compile_error_reported`  | [#409]       | `cc` exits non-zero on syntax error with no output file  |
+| `toolchain_cc_audit_markers`        | [#409] + [#410] | `cc.compile.start|success|fail` marker grammar contract pinned (`sid`, `input_path`, `arena_bytes` / `output_sof_sha256`, `bytes` / `exit_code`, `reason_tag`) |
 | `toolchain_cc_manifest_sidecar_written_on_link` | [#634] | qemu harness pin for sidecar synthesis write-on-link when no `--manifest` or sidecar exists |
 | `toolchain_sofpack_plus_manifestgen_roundtrip` | [#600] | integration pin for `libmanifestgen` + `libsofpack`: synth manifest, wrap ELF into SOF, re-parse manifest byte-identically |
 | `toolchain_launcher_manifest_ownership_role_enforced` | [#585] | launcher enforcement pin for `capabilities.ownership_role`: valid enum grants launch; invalid/missing role denies with canonical reason |
