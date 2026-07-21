@@ -85,6 +85,29 @@ The gate is wired into `build/scripts/validate_bundle.sh`'s `TEST_TARGETS`,
 so any silent surface change (vendor scope creep, pin/submodule
 mismatch, missing source) flips the bundle to FAIL.
 
+## Arena measurement pin (`tinycc_arena_drift`)
+
+Issue [#543](https://github.com/rwrife/SecureOS/issues/543) adds
+`vendor/tinycc/arena-measurements.json` as the source of truth for TinyCC
+compile-time arena sizing inputs consumed by the future `cc` manifest work
+(#409). The companion host gate is:
+
+```bash
+bash build/scripts/test.sh tinycc_arena_drift
+```
+
+Current state is intentionally SKIP-pinned (`awaiting_408_phase3`) while
+`Makefile.secureos` remains scaffold-only and #408 Phase 3 has not landed.
+Even in SKIP mode, the gate validates fixture TU hashes and the pinned
+recommendation document so drift stays explicit. After each TinyCC vendor bump
+(or once Phase 3 lands and live measurements are available), regenerate/update
+`vendor/tinycc/arena-measurements.json` via:
+
+```bash
+python3 tools/measure_tinycc_arena.py --root . \
+  --output vendor/tinycc/arena-measurements.json
+```
+
 ## License
 
 TinyCC is licensed under **LGPL-2.1** (see `tinycc/COPYING`). This is a more

@@ -650,6 +650,13 @@ TEST_TARGETS=(
     # tinycc_vendor_gate (sources) / tinycc_config_secureos (config) /
     # tinycc_libc_deps (libc surface) audit triangle.
     tinycc_libc_deps
+    # Issue #543: TinyCC compile-time arena pin (Phase 4 measurement task,
+    # refs #408/#409/#424). While #408 Phase 3 is still open, this target
+    # is intentionally SKIP-pinned (`awaiting_408_phase3`) but still validates
+    # the pinned TU sha256 set and placeholder recommendation document at
+    # vendor/tinycc/arena-measurements.json so silent drift is caught before
+    # the live allocator-instrumented measurement path lands.
+    tinycc_arena_drift
     # Issue #494: drift gate for the markers.json source-of-truth file
     # above. validate_m7_markers cross-checks that every marker is wired
     # through this TEST_TARGETS block + the case arms in test.sh + the
