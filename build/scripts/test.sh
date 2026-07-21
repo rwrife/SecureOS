@@ -434,6 +434,11 @@ case "$TEST_NAME" in
     # manifest source branch).
     run_script "$ROOT_DIR/build/scripts/test_manifestgen_default_arena.sh"
     ;;
+  manifestgen_negative)
+    # Issue #592: negative-input contract for libmanifestgen error codes,
+    # reason tokens, and no-partial-write behavior.
+    run_script "$ROOT_DIR/build/scripts/test_manifestgen_negative.sh"
+    ;;
   manifest_sidecar_suffix)
     # Issue #580: drift gate for the canonical `<binary>.manifest.json`
     # sidecar naming rule in docs/abi/manifest.md §5.8 and

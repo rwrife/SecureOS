@@ -71,6 +71,12 @@ static void mg_emit_byte(mg_writer_t *w, char c) {
   if (w->overflow) {
     return;
   }
+  if (w->buf == 0) {
+    /* Count-only pass used to preflight required output size before writing
+     * into caller memory (pins no-partial-write contract on errors). */
+    w->pos += 1u;
+    return;
+  }
   /* +1 leaves room for the trailing NUL terminator. */
   if (w->pos + 1u >= w->cap) {
     w->overflow = 1;
@@ -214,15 +220,62 @@ static manifest_default_result_t mg_append_u32(
 
 /* ---- Public API -------------------------------------------------------- */
 
+static void mg_emit_manifest_json(
+    mg_writer_t *w,
+    const manifest_default_params_t *params,
+    const char *owner_str,
+    uint32_t runtime_arena_bytes) {
+  mg_emit_raw(w, "{\n");
+  mg_emit_raw(w, "  \"manifest_version\": 0,\n");
+  mg_emit_raw(w, "  \"os_abi_version\": ");
+  mg_emit_u32(w, params->abi_version);
+  mg_emit_raw(w, ",\n");
+
+  mg_emit_raw(w, "  \"app\": {\n");
+  mg_emit_raw(w, "    \"id\": ");
+  mg_emit_escaped_string(w, params->app_id);
+  mg_emit_raw(w, ",\n");
+  mg_emit_raw(w, "    \"version\": ");
+  mg_emit_escaped_string(w, params->app_version);
+  mg_emit_raw(w, ",\n");
+  mg_emit_raw(w, "    \"subject_id\": ");
+  mg_emit_u32(w, (uint32_t)params->subject_id);
+  mg_emit_raw(w, ",\n");
+  mg_emit_raw(w, "    \"binary\": ");
+  mg_emit_escaped_string(w, params->binary_path);
+  mg_emit_raw(w, "\n");
+  mg_emit_raw(w, "  },\n");
+
+  mg_emit_raw(w, "  \"capabilities\": {\n");
+  mg_emit_raw(w, "    \"request\": []\n");
+  mg_emit_raw(w, "  },\n");
+
+  mg_emit_raw(w, "  \"runtime\": {\n");
+  mg_emit_raw(w, "    \"arena_bytes\": ");
+  mg_emit_u32(w, runtime_arena_bytes);
+  mg_emit_raw(w, "\n");
+  mg_emit_raw(w, "  },\n");
+
+  mg_emit_raw(w, "  \"owner\": {\n");
+  mg_emit_raw(w, "    \"kind\": ");
+  mg_emit_escaped_string(w, owner_str);
+  mg_emit_raw(w, "\n");
+  mg_emit_raw(w, "  }\n");
+
+  mg_emit_raw(w, "}\n");
+}
+
 manifest_default_result_t manifest_default_synthesise(
     const manifest_default_params_t *params,
     char                            *out_buf,
     size_t                           out_cap,
     size_t                          *out_len) {
 
-  mg_writer_t w;
+  mg_writer_t counter;
+  mg_writer_t writer;
   const char *owner_str;
   uint32_t runtime_arena_bytes;
+  size_t required_len;
 
   if (params == 0 || out_buf == 0 || out_len == 0 || out_cap == 0u) {
     return MANIFEST_DEFAULT_ERR_INVALID_ARG;
@@ -230,76 +283,59 @@ manifest_default_result_t manifest_default_synthesise(
   if (params->app_id == 0 || params->app_version == 0 || params->binary_path == 0) {
     return MANIFEST_DEFAULT_ERR_INVALID_ARG;
   }
-  if (mg_strlen(params->app_id) == 0u
-      || mg_strlen(params->app_version) == 0u
-      || mg_strlen(params->binary_path) == 0u) {
+  if (mg_strlen(params->app_id) == 0u || mg_strlen(params->app_version) == 0u) {
     return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+  if (mg_strlen(params->binary_path) == 0u) {
+    return MANIFEST_DEFAULT_ERR_PATH_INVALID;
   }
   if (params->subject_id < 1u || params->subject_id > 7u) {
     return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
   }
+
   owner_str = manifest_default_owner_kind_tag(params->owner_kind);
   if (owner_str == 0) {
-    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+    return MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID;
   }
+
   runtime_arena_bytes = params->runtime_arena_bytes;
   if (runtime_arena_bytes == 0u) {
     runtime_arena_bytes = (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES;
   } else if (runtime_arena_bytes < (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES
              || runtime_arena_bytes > (uint32_t)MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX) {
-    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+    return MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE;
   }
 
-  w.buf      = out_buf;
-  w.cap      = out_cap;
-  w.pos      = 0u;
-  w.overflow = 0;
+  if (params->caps_required_count > MANIFEST_DEFAULT_CAPS_REQUIRED_MAX) {
+    return MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY;
+  }
 
-  mg_emit_raw(&w, "{\n");
-  mg_emit_raw(&w, "  \"manifest_version\": 0,\n");
-  mg_emit_raw(&w, "  \"os_abi_version\": ");
-  mg_emit_u32(&w, params->abi_version);
-  mg_emit_raw(&w, ",\n");
-
-  mg_emit_raw(&w, "  \"app\": {\n");
-  mg_emit_raw(&w, "    \"id\": ");
-  mg_emit_escaped_string(&w, params->app_id);
-  mg_emit_raw(&w, ",\n");
-  mg_emit_raw(&w, "    \"version\": ");
-  mg_emit_escaped_string(&w, params->app_version);
-  mg_emit_raw(&w, ",\n");
-  mg_emit_raw(&w, "    \"subject_id\": ");
-  mg_emit_u32(&w, (uint32_t)params->subject_id);
-  mg_emit_raw(&w, ",\n");
-  mg_emit_raw(&w, "    \"binary\": ");
-  mg_emit_escaped_string(&w, params->binary_path);
-  mg_emit_raw(&w, "\n");
-  mg_emit_raw(&w, "  },\n");
-
-  mg_emit_raw(&w, "  \"capabilities\": {\n");
-  mg_emit_raw(&w, "    \"request\": []\n");
-  mg_emit_raw(&w, "  },\n");
-
-  mg_emit_raw(&w, "  \"runtime\": {\n");
-  mg_emit_raw(&w, "    \"arena_bytes\": ");
-  mg_emit_u32(&w, runtime_arena_bytes);
-  mg_emit_raw(&w, "\n");
-  mg_emit_raw(&w, "  },\n");
-
-  mg_emit_raw(&w, "  \"owner\": {\n");
-  mg_emit_raw(&w, "    \"kind\": ");
-  mg_emit_escaped_string(&w, owner_str);
-  mg_emit_raw(&w, "\n");
-  mg_emit_raw(&w, "  }\n");
-
-  mg_emit_raw(&w, "}\n");
-
-  if (w.overflow) {
+  /* First pass (count-only): determine required JSON payload length exactly,
+   * then refuse undersized buffers before any caller-memory write.
+   */
+  counter.buf = 0;
+  counter.cap = 0u;
+  counter.pos = 0u;
+  counter.overflow = 0;
+  mg_emit_manifest_json(&counter, params, owner_str, runtime_arena_bytes);
+  required_len = counter.pos;
+  if (out_cap <= required_len) {
     return MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL;
   }
-  /* Always NUL-terminate; capacity guarded by mg_emit_byte's `pos+1 >= cap`. */
-  w.buf[w.pos] = '\0';
-  *out_len = w.pos;
+
+  /* Second pass: emit once into caller memory with guaranteed capacity. */
+  writer.buf = out_buf;
+  writer.cap = out_cap;
+  writer.pos = 0u;
+  writer.overflow = 0;
+  mg_emit_manifest_json(&writer, params, owner_str, runtime_arena_bytes);
+
+  if (writer.overflow) {
+    return MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL;
+  }
+
+  writer.buf[writer.pos] = '\0';
+  *out_len = writer.pos;
   return MANIFEST_DEFAULT_OK;
 }
 
@@ -312,27 +348,30 @@ const char *manifest_default_audit_fail_reason(
   if (rc == MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL) {
     return "output_too_small";
   }
+  if (rc == MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID) {
+    return "bad_owner_kind";
+  }
+  if (rc == MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE) {
+    return "bad_arena_bytes";
+  }
+  if (rc == MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY) {
+    return "bad_caps_required_count";
+  }
+  if (rc == MANIFEST_DEFAULT_ERR_PATH_INVALID) {
+    return "bad_output_path";
+  }
   if (rc != MANIFEST_DEFAULT_ERR_INVALID_FIELD) {
     return "internal_error";
   }
   if (params == 0) {
     return "invalid_field";
   }
-  if (params->app_id == 0 || params->app_version == 0 || params->binary_path == 0
-      || mg_strlen(params->app_id) == 0u || mg_strlen(params->app_version) == 0u
-      || mg_strlen(params->binary_path) == 0u) {
+  if (params->app_id == 0 || params->app_version == 0
+      || mg_strlen(params->app_id) == 0u || mg_strlen(params->app_version) == 0u) {
     return "bad_required_fields";
   }
   if (params->subject_id < 1u || params->subject_id > 7u) {
     return "bad_subject_id";
-  }
-  if (manifest_default_owner_kind_tag(params->owner_kind) == 0) {
-    return "bad_owner_kind";
-  }
-  if (params->runtime_arena_bytes != 0u
-      && (params->runtime_arena_bytes < MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES
-          || params->runtime_arena_bytes > MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX)) {
-    return "bad_arena_bytes";
   }
   return "invalid_field";
 }

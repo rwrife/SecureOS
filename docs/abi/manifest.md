@@ -584,6 +584,31 @@ Override precedence remains strict and winner-takes-all:
   `"local"` enumerator is the additive arm landing via #522; the
   synthesiser already accepts it so the in-OS `cc` driver does not
   require a follow-up source change when #522 merges.
+- `caps_required_count`: optional caller-side count guard used by
+  `libmanifestgen` validation. v0 synthesis still emits
+  `"capabilities": {"request": []}`; non-empty capability synthesis is a
+  later slice. For now, values greater than `64`
+  (`MANIFEST_DEFAULT_CAPS_REQUIRED_MAX`) are rejected so malformed
+  callers fail deterministically before this surface is user-reachable.
+
+Negative-input contract (issue #592):
+
+- `manifest_default_synthesise()` returns stable non-zero codes for malformed
+  inputs and guarantees **no partial write** to `out_buf` on any non-zero
+  return (`*out_len` remains unchanged):
+
+  | Condition | Return code |
+  | --- | --- |
+  | `owner_kind` outside enum | `MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID` |
+  | `runtime_arena_bytes` outside allowed range (when non-zero) | `MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE` |
+  | `caps_required_count > 64` | `MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY` |
+  | empty `binary_path` | `MANIFEST_DEFAULT_ERR_PATH_INVALID` |
+  | output buffer too small | `MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL` |
+
+- `manifest_default_audit_fail_reason()` maps those failures to stable reason
+  tags consumed by `manifest.synth.fail:<sid>:<reason_enum>` markers:
+  `bad_owner_kind`, `bad_arena_bytes`, `bad_caps_required_count`,
+  `bad_output_path`, and `output_too_small`.
 
 Determinism (byte-identical bytes for identical params) and a schema
 round-trip via `tools/validate_manifests.py` are pinned by

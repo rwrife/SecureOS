@@ -100,6 +100,8 @@ TEST_TARGETS=(
     # Issue #595: default runtime.arena_bytes policy pin for libmanifestgen.
     # Verifies emitted default bytes + JSON pin/doc/header consistency.
     manifestgen_default_arena
+    # Issue #592: negative-input contract pin for libmanifestgen.
+    manifestgen_negative
     # Issue #580: canonical `<binary>.manifest.json` sidecar filename pin
     # across docs/abi/manifest.md §5.8 and
     # user/libs/manifestgen/include/manifestgen/manifest_default.h.

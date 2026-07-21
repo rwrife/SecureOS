@@ -68,6 +68,13 @@ extern "C" {
  * maximum (PROC_ARENA_BYTES_MAX). */
 #define MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX 16777216u
 
+/* Upper bound for caller-supplied `caps_required` vector length used by
+ * libmanifestgen's negative-path guardrails (issue #592). The synthesiser
+ * still emits an empty `request: []` vector at v0; this limit pins reject
+ * behavior for malformed future call sites before they become user-reachable.
+ */
+#define MANIFEST_DEFAULT_CAPS_REQUIRED_MAX 64u
+
 /* ---- owner.kind enumerator -------------------------------------------- */
 /* Mirrors the on-disk `manifests/schema/v0.json` `owner.kind` enum. The
  * third arm (`LOCAL`) lands additively in #522; this header pre-declares
@@ -84,11 +91,27 @@ typedef enum {
 /* Same naming shape as `sofpack_result_t` so the `cc` driver can compose
  * the two without inventing a third result-code vocabulary. */
 typedef enum {
-  MANIFEST_DEFAULT_OK                   = 0,
-  MANIFEST_DEFAULT_ERR_INVALID_ARG      = 1,
-  MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL = 2,
-  MANIFEST_DEFAULT_ERR_INVALID_FIELD    = 3,
+  MANIFEST_DEFAULT_OK                        = 0,
+  MANIFEST_DEFAULT_ERR_INVALID_ARG           = 1,
+  MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL      = 2,
+  MANIFEST_DEFAULT_ERR_INVALID_FIELD         = 3,
+  MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID    = 4,
+  MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE    = 5,
+  MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY         = 6,
+  MANIFEST_DEFAULT_ERR_PATH_INVALID          = 7,
 } manifest_default_result_t;
+
+/* Alias vocabulary requested by issue #592 (reads naturally in negative
+ * contract tests) while preserving existing `MANIFEST_DEFAULT_*` call sites.
+ */
+#define MANIFESTGEN_OK                     MANIFEST_DEFAULT_OK
+#define MANIFESTGEN_ERR_INVALID_ARG        MANIFEST_DEFAULT_ERR_INVALID_ARG
+#define MANIFESTGEN_ERR_OUTPUT_TOO_SMALL   MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL
+#define MANIFESTGEN_ERR_INVALID_FIELD      MANIFEST_DEFAULT_ERR_INVALID_FIELD
+#define MANIFESTGEN_ERR_OWNER_KIND_INVALID MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID
+#define MANIFESTGEN_ERR_ARENA_OUT_OF_RANGE MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE
+#define MANIFESTGEN_ERR_CAPS_TOO_MANY      MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY
+#define MANIFESTGEN_ERR_PATH_INVALID       MANIFEST_DEFAULT_ERR_PATH_INVALID
 
 /* ---- Audit-marker helpers --------------------------------------------- */
 /* Issue #594 pins the marker grammar for manifest synthesis:
@@ -118,12 +141,17 @@ typedef struct {
   const char           *app_id;          /* required; v0 schema pattern */
   const char           *app_version;     /* required; non-empty */
   uint8_t               subject_id;      /* required; 1..7 at v0 */
-  const char           *binary_path;     /* required; non-empty */
+  const char           *binary_path;     /* required output path; non-empty */
   uint32_t              runtime_arena_bytes;
   /* Optional explicit runtime arena value. 0 means "use
    * MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES". Non-zero values must satisfy
    * [MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES,
    *  MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX]. */
+  uint32_t              caps_required_count;
+  /* Optional caller-supplied capability-request vector length. v0 synthesis
+   * still emits `request: []`; this value is validated only to pin the
+   * negative-path contract before non-empty capability synthesis is wired.
+   * Must be <= MANIFEST_DEFAULT_CAPS_REQUIRED_MAX. */
 } manifest_default_params_t;
 
 /* ---- Public API -------------------------------------------------------- */
@@ -134,6 +162,11 @@ typedef struct {
  * On success, writes the produced bytes (NUL-terminated for caller
  * convenience; the terminator is NOT counted in `*out_len`) into
  * `out_buf` and sets `*out_len` to the byte count of the JSON document.
+ *
+ * On any non-zero return code, this function guarantees:
+ *   - no partial write to `out_buf`
+ *   - `*out_len` is left unchanged
+ *   - no dynamic allocation (freestanding, allocation-free implementation)
  *
  * The output is deterministic: two calls with identical parameters emit
  * byte-identical bytes. Key order matches the schema's documented order
@@ -147,17 +180,20 @@ typedef struct {
  * NOT change once #522 merges — only the test promotes SKIP to PASS).
  *
  * Returns:
- *   - MANIFEST_DEFAULT_OK                   on success
- *   - MANIFEST_DEFAULT_ERR_INVALID_ARG      params/out_buf/out_len NULL,
- *                                           or any required string is NULL
- *   - MANIFEST_DEFAULT_ERR_INVALID_FIELD    required string empty, or
- *                                           subject_id outside [1, 7], or
- *                                           owner_kind outside the enum, or
- *                                           runtime_arena_bytes outside
- *                                           [default, max] when non-zero
- *   - MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL out_cap too small for the
- *                                           produced JSON (including the
- *                                           trailing NUL terminator)
+ *   - MANIFEST_DEFAULT_OK                     on success
+ *   - MANIFEST_DEFAULT_ERR_INVALID_ARG        params/out_buf/out_len NULL,
+ *                                             or any required string is NULL
+ *   - MANIFEST_DEFAULT_ERR_INVALID_FIELD      required app id/version empty,
+ *                                             or subject_id outside [1, 7]
+ *   - MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID owner_kind outside the enum
+ *   - MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE runtime_arena_bytes outside
+ *                                             [default, max] when non-zero
+ *   - MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY      caps_required_count >
+ *                                             MANIFEST_DEFAULT_CAPS_REQUIRED_MAX
+ *   - MANIFEST_DEFAULT_ERR_PATH_INVALID       binary_path empty
+ *   - MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL   out_cap too small for the
+ *                                             produced JSON (including the
+ *                                             trailing NUL terminator)
  */
 manifest_default_result_t manifest_default_synthesise(
     const manifest_default_params_t *params,
