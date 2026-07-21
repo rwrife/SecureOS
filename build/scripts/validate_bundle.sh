@@ -91,6 +91,9 @@ TEST_TARGETS=(
     # `owner.kind="local"` arm until #522's additive enum lands. Same
     # orphan-from-TEST_TARGETS gate shape as sofpack_wrap above.
     manifest_default_synthesise
+    # Issue #594: format-contract gate for libmanifestgen synthesis
+    # markers (`manifest.synth.ok` and `manifest.synth.fail`).
+    manifestgen_audit_marker_format
     # Issue #588: semantic JSON-Schema gate for representative
     # libmanifestgen output scenarios.
     manifestgen_schema_valid

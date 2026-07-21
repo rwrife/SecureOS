@@ -416,6 +416,12 @@ case "$TEST_NAME" in
     # lands.
     run_script "$ROOT_DIR/build/scripts/test_manifest_default_synthesise.sh"
     ;;
+  manifestgen_audit_marker_format)
+    # Issue #594: format-contract pin for
+    # `manifest.synth.ok` / `manifest.synth.fail` marker grammar emitted by
+    # libmanifestgen helper surfaces.
+    run_script "$ROOT_DIR/build/scripts/test_manifestgen_audit_marker_format.sh"
+    ;;
   manifestgen_schema_valid)
     # Issue #588: semantic JSON-schema validity gate for libmanifestgen
     # outputs across minimal/default, explicit runtime, and local-owner

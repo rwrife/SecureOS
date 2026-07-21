@@ -529,9 +529,12 @@ Branch contract:
   - Selected only when **both**: (a) no `--manifest` override and (b) no
     canonical sidecar exists.
   - Provenance tag is `synth`.
-  - Successful synthesis records the synth success marker token
-    `manifest.synth.ok` (current helper surface), with the structured marker
-    shape tracked in #594 / #587.
+  - Successful synthesis records
+    `manifest.synth.ok:<sid>:<sof_sha_prefix>:<owner_kind>:<arena_bytes>`.
+  - Synthesis failures record
+    `manifest.synth.fail:<sid>:<reason_enum>` with stable reason tags.
+  - Canonical grammar + reason vocabulary are pinned in
+    `docs/abi/audit-markers.md` §3.2 (issue #594).
   - Synthesis failure or sidecar-write failure is a **hard deny** (compile
     fails; no partial/merged manifest output).
 
@@ -638,4 +641,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 84b356036fce2a019c1ba20b8c661a58666a23d9
+Last verified against commit: de3a00e5dadafd3299adb711e5fb486ce5ba21b9

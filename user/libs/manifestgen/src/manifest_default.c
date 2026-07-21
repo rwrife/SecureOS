@@ -141,13 +141,75 @@ static void mg_emit_u32(mg_writer_t *w, uint32_t v) {
   }
 }
 
-static const char *mg_owner_kind_str(manifest_owner_kind_t k) {
+const char *manifest_default_owner_kind_tag(manifest_owner_kind_t k) {
   switch (k) {
     case MANIFEST_OWNER_KIND_INTERNAL: return "internal";
     case MANIFEST_OWNER_KIND_EXTERNAL: return "external";
     case MANIFEST_OWNER_KIND_LOCAL:    return "local";
     default:                           return 0;
   }
+}
+
+static int mg_is_lower_hex(char c) {
+  return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+}
+
+static manifest_default_result_t mg_append_byte(
+    char *out_buf,
+    size_t out_cap,
+    size_t *pos,
+    char c) {
+  if (*pos + 1u >= out_cap) {
+    return MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL;
+  }
+  out_buf[*pos] = c;
+  *pos += 1u;
+  return MANIFEST_DEFAULT_OK;
+}
+
+static manifest_default_result_t mg_append_str(
+    char *out_buf,
+    size_t out_cap,
+    size_t *pos,
+    const char *src) {
+  size_t i;
+  size_t n;
+  if (src == 0) {
+    return MANIFEST_DEFAULT_ERR_INVALID_ARG;
+  }
+  n = mg_strlen(src);
+  for (i = 0u; i < n; ++i) {
+    manifest_default_result_t st = mg_append_byte(out_buf, out_cap, pos, src[i]);
+    if (st != MANIFEST_DEFAULT_OK) {
+      return st;
+    }
+  }
+  return MANIFEST_DEFAULT_OK;
+}
+
+static manifest_default_result_t mg_append_u32(
+    char *out_buf,
+    size_t out_cap,
+    size_t *pos,
+    uint32_t v) {
+  char tmp[11];
+  int i = 0;
+  if (v == 0u) {
+    return mg_append_byte(out_buf, out_cap, pos, '0');
+  }
+  while (v > 0u && i < (int)sizeof(tmp)) {
+    tmp[i++] = (char)('0' + (v % 10u));
+    v /= 10u;
+  }
+  while (i > 0) {
+    manifest_default_result_t st;
+    --i;
+    st = mg_append_byte(out_buf, out_cap, pos, tmp[i]);
+    if (st != MANIFEST_DEFAULT_OK) {
+      return st;
+    }
+  }
+  return MANIFEST_DEFAULT_OK;
 }
 
 /* ---- Public API -------------------------------------------------------- */
@@ -176,7 +238,7 @@ manifest_default_result_t manifest_default_synthesise(
   if (params->subject_id < 1u || params->subject_id > 7u) {
     return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
   }
-  owner_str = mg_owner_kind_str(params->owner_kind);
+  owner_str = manifest_default_owner_kind_tag(params->owner_kind);
   if (owner_str == 0) {
     return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
   }
@@ -238,5 +300,158 @@ manifest_default_result_t manifest_default_synthesise(
   /* Always NUL-terminate; capacity guarded by mg_emit_byte's `pos+1 >= cap`. */
   w.buf[w.pos] = '\0';
   *out_len = w.pos;
+  return MANIFEST_DEFAULT_OK;
+}
+
+const char *manifest_default_audit_fail_reason(
+    manifest_default_result_t        rc,
+    const manifest_default_params_t *params) {
+  if (rc == MANIFEST_DEFAULT_ERR_INVALID_ARG) {
+    return "bad_args";
+  }
+  if (rc == MANIFEST_DEFAULT_ERR_BUFFER_TOO_SMALL) {
+    return "output_too_small";
+  }
+  if (rc != MANIFEST_DEFAULT_ERR_INVALID_FIELD) {
+    return "internal_error";
+  }
+  if (params == 0) {
+    return "invalid_field";
+  }
+  if (params->app_id == 0 || params->app_version == 0 || params->binary_path == 0
+      || mg_strlen(params->app_id) == 0u || mg_strlen(params->app_version) == 0u
+      || mg_strlen(params->binary_path) == 0u) {
+    return "bad_required_fields";
+  }
+  if (params->subject_id < 1u || params->subject_id > 7u) {
+    return "bad_subject_id";
+  }
+  if (manifest_default_owner_kind_tag(params->owner_kind) == 0) {
+    return "bad_owner_kind";
+  }
+  if (params->runtime_arena_bytes != 0u
+      && (params->runtime_arena_bytes < MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES
+          || params->runtime_arena_bytes > MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX)) {
+    return "bad_arena_bytes";
+  }
+  return "invalid_field";
+}
+
+manifest_default_result_t manifest_default_format_audit_marker_ok(
+    uint32_t              sid,
+    const char           *sof_sha_prefix,
+    manifest_owner_kind_t owner_kind,
+    uint32_t              arena_bytes,
+    char                 *out_buf,
+    size_t                out_cap,
+    size_t               *out_len) {
+  size_t pos = 0u;
+  size_t i;
+  size_t n;
+  const char *owner_tag;
+  manifest_default_result_t st;
+
+  if (out_buf == 0 || out_len == 0 || out_cap == 0u || sof_sha_prefix == 0) {
+    return MANIFEST_DEFAULT_ERR_INVALID_ARG;
+  }
+
+  owner_tag = manifest_default_owner_kind_tag(owner_kind);
+  if (owner_tag == 0) {
+    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+
+  n = mg_strlen(sof_sha_prefix);
+  if (n < MANIFEST_SYNTH_AUDIT_SHA_PREFIX_HEX || n > 64u) {
+    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+  for (i = 0u; i < n; ++i) {
+    if (!mg_is_lower_hex(sof_sha_prefix[i])) {
+      return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+    }
+  }
+  if (arena_bytes == 0u) {
+    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+
+  st = mg_append_str(out_buf, out_cap, &pos, "manifest.synth.ok:");
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_u32(out_buf, out_cap, &pos, sid);
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_byte(out_buf, out_cap, &pos, ':');
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_str(out_buf, out_cap, &pos, sof_sha_prefix);
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_byte(out_buf, out_cap, &pos, ':');
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_str(out_buf, out_cap, &pos, owner_tag);
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_byte(out_buf, out_cap, &pos, ':');
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_u32(out_buf, out_cap, &pos, arena_bytes);
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+
+  out_buf[pos] = '\0';
+  *out_len = pos;
+  return MANIFEST_DEFAULT_OK;
+}
+
+manifest_default_result_t manifest_default_format_audit_marker_fail(
+    uint32_t                        sid,
+    manifest_default_result_t       rc,
+    const manifest_default_params_t *params,
+    char                            *out_buf,
+    size_t                           out_cap,
+    size_t                          *out_len) {
+  size_t pos = 0u;
+  const char *reason;
+  manifest_default_result_t st;
+
+  if (out_buf == 0 || out_len == 0 || out_cap == 0u) {
+    return MANIFEST_DEFAULT_ERR_INVALID_ARG;
+  }
+  if (rc == MANIFEST_DEFAULT_OK) {
+    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+
+  reason = manifest_default_audit_fail_reason(rc, params);
+  if (reason == 0 || reason[0] == '\0') {
+    return MANIFEST_DEFAULT_ERR_INVALID_FIELD;
+  }
+
+  st = mg_append_str(out_buf, out_cap, &pos, "manifest.synth.fail:");
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_u32(out_buf, out_cap, &pos, sid);
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_byte(out_buf, out_cap, &pos, ':');
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+  st = mg_append_str(out_buf, out_cap, &pos, reason);
+  if (st != MANIFEST_DEFAULT_OK) {
+    return st;
+  }
+
+  out_buf[pos] = '\0';
+  *out_len = pos;
   return MANIFEST_DEFAULT_OK;
 }
