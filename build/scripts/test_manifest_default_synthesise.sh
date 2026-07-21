@@ -39,12 +39,14 @@
 #   TEST:PASS:manifest_default_synthesise:roundtrip:internal
 #   TEST:PASS:manifest_default_synthesise:roundtrip:external
 #   TEST:(PASS|SKIP):manifest_default_synthesise:roundtrip:local[:awaiting_522]
+#   TEST:(PASS|SKIP):manifest_default_synthesise:archive_link_smoke[:archive_missing]
 #   TEST:PASS:manifest_default_synthesise
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT_DIR="$ROOT_DIR/artifacts/tests"
+ARCHIVE_PATH="$ROOT_DIR/artifacts/user/libs/libmanifestgen.a"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -65,6 +67,54 @@ grep -q "TEST:PASS:manifest_default_synthesise:negatives$" "$LOG_PATH"
 grep -q "TEST:PASS:manifest_default_synthesise:buffer_too_small$" "$LOG_PATH"
 grep -q "TEST:PASS:manifest_default_synthesise:local_kind_emits_local$" "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"
+
+# ----- Archive-link smoke (issue #579) ----------------------------------
+# If the manifestgen archive is available, prove the host test can link and
+# run against the archive path (not just source-compile manifest_default.c).
+# If unavailable (e.g., bare host dev loop without cross archive build), emit
+# a deterministic SKIP marker and continue on the source-compile path.
+if [[ ! -f "$ARCHIVE_PATH" ]]; then
+  BUILD_ARCHIVE_LOG="$TMP_DIR/build_manifestgen_archive.log"
+  set +e
+  bash "$ROOT_DIR/build/scripts/build_user_lib.sh" manifestgen >"$BUILD_ARCHIVE_LOG" 2>&1
+  BUILD_ARCHIVE_RC=$?
+  set -e
+  if [[ "$BUILD_ARCHIVE_RC" -ne 0 || ! -f "$ARCHIVE_PATH" ]]; then
+    echo "TEST:SKIP:manifest_default_synthesise:archive_link_smoke:archive_missing"
+  fi
+fi
+
+if [[ -f "$ARCHIVE_PATH" ]]; then
+  # `libmanifestgen.a` is built freestanding/non-PIE. On distros where host
+  # toolchains default to PIE (gcc/clang), force non-PIE in both compile and
+  # link phases so static archive relocation remains valid.
+  set +e
+  cc -std=c11 -Wall -Wextra -Werror -fno-pie -no-pie \
+    "$ROOT_DIR/tests/manifest_default_synthesise_test.c" \
+    "$ARCHIVE_PATH" \
+    -o "$OUT_DIR/manifest_default_synthesise_test_archive"
+  LINK_RC=$?
+  if [[ "$LINK_RC" -ne 0 ]]; then
+    cc -std=c11 -Wall -Wextra -Werror -fno-pie -Wl,-no-pie \
+      "$ROOT_DIR/tests/manifest_default_synthesise_test.c" \
+      "$ARCHIVE_PATH" \
+      -o "$OUT_DIR/manifest_default_synthesise_test_archive"
+    LINK_RC=$?
+  fi
+  set -e
+  if [[ "$LINK_RC" -ne 0 ]]; then
+    echo "TEST:FAIL:manifest_default_synthesise:archive_link_smoke:link_failed" >&2
+    exit 1
+  fi
+
+  ARCHIVE_LOG_PATH="$OUT_DIR/manifest_default_synthesise_test_archive.log"
+  "$OUT_DIR/manifest_default_synthesise_test_archive" | tee "$ARCHIVE_LOG_PATH"
+
+  grep -q "TEST:PASS:manifest_default_synthesise$" "$ARCHIVE_LOG_PATH"
+  ! grep -q "TEST:FAIL:" "$ARCHIVE_LOG_PATH"
+
+  echo "TEST:PASS:manifest_default_synthesise:archive_link_smoke"
+fi
 
 # ----- Validator round-trip ---------------------------------------------
 # Re-invoke the test binary in driver mode to emit the synthesised bytes
