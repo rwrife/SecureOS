@@ -84,6 +84,12 @@ case "$TEST_NAME" in
     # /apps/dev developer directory + sample are staged onto the disk image.
     run_script "$ROOT_DIR/build/scripts/test_in_os_toolchain_dev_dir.sh"
     ;;
+  dev_hello_c_host_compiles)
+    # Issue #574: host-side compile canary for the canonical in-OS
+    # validation sample (`dev/hello.c`). Catches source/header drift with a
+    # freestanding compile posture before M7 QEMU markers consume it.
+    run_script "$ROOT_DIR/build/scripts/test_dev_hello_c_host_compiles.sh"
+    ;;
   dev_hello_c_pin)
     # Issue #636: source-drift pin for the canonical in-OS compiler sample
     # (`dev/hello.c`). Recomputes SHA-256 and compares to
