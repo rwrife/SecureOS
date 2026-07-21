@@ -30,6 +30,8 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
 | `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
 | `/apps/dev/include/` *(planned)* | Public headers (`secureos_api.h`, `os/*.h`)   |
+| `/apps/dev/lib/` *(planned)*     | TinyCC linker/crt search root (placeholder today; archives staged in later phases) |
+| `/apps/dev/tcc/` *(planned)*     | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder today) |
 
 The repo source that gets staged to `/apps/dev` lives in the top-level
 [`dev/`](../../dev) directory (analogous to how `scripts/` is staged to
