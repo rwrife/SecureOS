@@ -106,6 +106,10 @@ is explicitly listed in `tests/m7_toolchain/marker_harness_allowlist.json`
 with a non-empty justification. The `m7_marker_harnesses_drift` target is the
 negative canary for this gate.
 
+For canonical SKIP-pinned harness authoring workflow, see
+[`docs/contributing/skip-pinned-harness-guide.md`](../../docs/contributing/skip-pinned-harness-guide.md)
+(issue [#608]).
+
 [#494]: https://github.com/rwrife/SecureOS/issues/494
 [#604]: https://github.com/rwrife/SecureOS/issues/604
 [#129]: https://github.com/rwrife/SecureOS/issues/129

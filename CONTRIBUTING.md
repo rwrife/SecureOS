@@ -260,10 +260,17 @@ landing an already-ready issue before opening another backlog item.
 Reference: issue #626 (ready-now index) and
 `docs/development/list-ready-now-issues.md`.
 
+### Authoring tests
+
 For drift-gate authoring conventions (JSON pin + validator +
 `validate_bundle.sh` `TEST_TARGETS` wire-up), see
 [`docs/development/drift-gate-authoring.md`](docs/development/drift-gate-authoring.md)
-(issue #616, with SKIP-pinned sibling guidance in #608).
+(issue #616).
+
+For SKIP-pinned M7 harness authoring (when to SKIP-pin, marker-shape checklist,
+wiring pattern, and SKIP→PASS flip checklist), see
+[`docs/contributing/skip-pinned-harness-guide.md`](docs/contributing/skip-pinned-harness-guide.md)
+(issue #608).
 
 For TinyCC vendor pin updates, follow
 [`docs/vendor/tinycc-bump-procedure.md`](docs/vendor/tinycc-bump-procedure.md)
