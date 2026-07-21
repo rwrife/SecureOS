@@ -96,6 +96,20 @@
       "description": "Pre-#410 SKIP pin for launch audit records: both `launch.granted` and `launch.denied` lines must carry `owner_kind=<internal|external|local>` per docs/abi/audit-markers.md and issue #554."
     },
     {
+      "id": "toolchain_launcher_owner_kind_cache_isolation",
+      "name": "toolchain_launcher_owner_kind_cache_isolation",
+      "harnessPath": "tests/m7_toolchain/launcher_owner_kind_cache_isolation.c",
+      "gatingIssue": 410,
+      "gatingIssues": [
+        410,
+        522
+      ],
+      "reason": "awaiting_410_522",
+      "skipReason": "pre-410",
+      "addedIn": "issue-612",
+      "description": "Pre-#410 SKIP pin for unsigned-run cache-key isolation: AUTH_TYPE_UNSIGNED_BIN cached decisions must not cross owner.kind boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554."
+    },
+    {
       "id": "toolchain_libc_deps_phase3_complete",
       "name": "toolchain_libc_deps_phase3_complete",
       "harnessPath": "tests/m7_toolchain/toolchain_libc_deps_phase3_complete.sh",

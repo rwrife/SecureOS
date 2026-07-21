@@ -10,6 +10,10 @@
     "410": {
       "state": "OPEN"
     },
+    "522": {
+      "state": "CLOSED",
+      "note": "owner.kind=local schema enumerator landed via #522/#525; retained as a closed companion gate for owner-kind cache isolation markers."
+    },
     "538": {
       "state": "OPEN"
     },
