@@ -137,6 +137,14 @@ build_disk_image_inner() {
 	if [ -f "$ROOT_DIR/dev/tcc/README.md" ]; then
 		dev_mappings+=("dev/tcc/README.md=/apps/dev/tcc/README.md")
 	fi
+	# Issue #545: stage freestanding user archives used by in-OS `cc` link
+	# (when present in the host artifacts tree).
+	if [ -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ]; then
+		dev_mappings+=("artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a")
+	fi
+	if [ -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]; then
+		dev_mappings+=("artifacts/user/libs/libsofpack.a=/apps/dev/lib/libsofpack.a")
+	fi
 
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""
