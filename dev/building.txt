@@ -1,17 +1,17 @@
 SecureOS — Building Apps Inside the OS
 ======================================
 
-This folder (/apps/dev) holds the SecureOS developer tools and a sample you
-can compile to confirm the toolchain works.
+This folder (/apps/dev) holds the on-device developer sample content.
 
-  Files here:
-    hello.c        A "hello world" sample to validate the compiler.
-    building.txt   This guide.
-    cc             The in-OS C compiler.            (coming in a later phase)
-    include/       Public headers (secureos_api.h + namespaced library headers).
+  Files here (currently staged on main):
+    hello.c        Canonical validation sample source.
+    building.txt   This on-device quick-start guide.
 
-QUICK START
------------
+QUICK START (planned — gated on #408/#409/#410)
+------------------------------------------------
+  The compile-and-run flow below is the target experience. Until #408, #409,
+  and #410 close, `cc` and launcher run wiring may be unavailable on-device.
+
   1. Compile the sample:
          cc /apps/dev/hello.c -o /apps/hello.bin
   2. Run it:
@@ -19,13 +19,10 @@ QUICK START
   3. You should see:
          hello from inside SecureOS
 
-WRITING YOUR OWN APP
---------------------
+WRITING YOUR OWN APP (planned until #408/#409/#410)
+----------------------------------------------------
   - Every app defines `int main(void)` (or `int main(int argc, char **argv)`).
   - Include the public API:  #include "secureos_api.h"
-  - Library headers keep their namespace prefix when staged under
-    /apps/dev/include (for example: #include <sofpack/sofpack.h> and
-    #include <manifestgen/manifest_default.h>).
   - Print with:              os_console_write("...");
   - Return 0 from main on success; the value becomes the shell's $? .
 
@@ -36,7 +33,7 @@ WRITING YOUR OWN APP
           return 0;
       }
 
-  Build and run:
+  Build and run (planned while gates are open):
       cc /apps/dev/mini.c -o /apps/mini.bin
       mini
 
@@ -57,9 +54,11 @@ TRUST / SIGNING
   private key never lives on the device). When you run a locally built app the
   system will prompt you to allow an unsigned binary the first time. Choose
   "Allow" to run it once, or "Always" to remember your choice for that binary.
-  This is expected for anything you compile yourself on-device.
+
+  Audit trail: both allow and deny decisions are recorded as launch.granted /
+  launch.denied events (see #554 for owner-kind audit-surface tracking).
 
 MORE
 ----
-  Full documentation, including how this fits the OS security model, lives in
-  the source tree at docs/in-os-toolchain/building-apps.md.
+  This file is the on-device companion to
+  docs/in-os-toolchain/building-apps.md. Keep both docs in sync.
