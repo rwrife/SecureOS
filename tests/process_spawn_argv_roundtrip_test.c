@@ -26,11 +26,15 @@
  *   build/scripts/test_process_spawn_argv_roundtrip.sh
  */
 
+#define _GNU_SOURCE 1
+
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include "../user/include/secureos_api.h"
 
