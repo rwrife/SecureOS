@@ -57,6 +57,37 @@ Decode with `(v >> 16) & 0xFFFF` and `v & 0xFFFF`.
   and the `TEST:PASS:` / `TEST:FAIL:` marker contract — validators and
   CI depend on these.
 
+## Manifest schema evolution policy
+
+For manifest changes, classify the change before deciding whether to bump
+`OS_ABI_VERSION`:
+
+- **Additive** (no bump):
+  - new optional field with a safe default that preserves prior behavior when
+    omitted,
+  - new enum value behind an existing discriminator where old values keep the
+    same meaning,
+  - new numeric policy field with explicit clamp/cap and unchanged omit-path
+    behavior.
+- **Breaking** (minor bump):
+  - renaming/removing an existing field,
+  - changing a field default in a way that changes launcher/runtime behavior,
+  - narrowing an enum or reinterpreting an existing value.
+- **Incompatible** (major bump):
+  - wire-format break,
+  - syscall opcode reuse/repurpose,
+  - any change that prevents an existing conforming artifact from being safely
+    interpreted.
+
+### Worked examples
+
+| Change | Classification | Required bump | Reference |
+| --- | --- | --- | --- |
+| Add `owner.kind="local"` while preserving `"internal"` default behavior | Additive | None | [#522](https://github.com/rwrife/SecureOS/issues/522) |
+| Add optional `runtime.arena_bytes` with bounded range and unchanged omit-path semantics | Additive | None | [#424](https://github.com/rwrife/SecureOS/issues/424) |
+| Add optional `capabilities.ownership_role` enum with `"none"` default preserving prior behavior | Additive | None | [#368](https://github.com/rwrife/SecureOS/issues/368) |
+| Synthetic example: rename `launcher.auto_grant_at_launch` or change its default grant semantics | Breaking | Minor (`OS_ABI_VERSION_MINOR`++) | Policy example |
+
 ## Process for an ABI change
 
 1. Open an issue describing the change and the user impact.
@@ -124,4 +155,4 @@ implicit default) once the four pre-existing `no_stamp_line` SKIP files
 `docs/abi/capability-deny-contract.md` PR #477,
 `docs/abi/sosh-capability-contract.md` PR #478) all carry stamps.
 
-Last verified against commit: d60775d
+Last verified against commit: 7966facb112cac25d15c4641af87db9522430d73

@@ -202,7 +202,9 @@ Field semantics we are committing to at v0:
   `capabilities.persistence` in #285/#286,
   `capabilities.broker_role` in #312, and
   `capabilities.ownership_role` in #368, and the introduction of
-  `owner.kind` itself in #396).
+  `owner.kind` itself in #396). See
+  [`versioning.md` §Manifest schema evolution policy](./versioning.md#manifest-schema-evolution-policy)
+  for the normative additive/breaking/incompatible bump rules.
 - `runtime.arena_bytes` is an optional integer field that declares a
   per-app userland arena ceiling in bytes (BUILD_ROADMAP §5.7 and
   plan `plans/2026-05-28-in-os-toolchain-self-hosting.md` §P1,
@@ -230,6 +232,8 @@ Field semantics we are committing to at v0:
   (same precedent as `capabilities.persistence` in #285/#286,
   `capabilities.broker_role` in #312,
   `capabilities.ownership_role` in #368, and `owner.kind` in #396).
+  See [`versioning.md` §Manifest schema evolution policy](./versioning.md#manifest-schema-evolution-policy)
+  for the normative additive/breaking/incompatible bump rules.
 - `launcher.auto_grant_at_launch` is the subset the launcher grants
   unconditionally at startup. It MUST be disjoint from
   `launcher.require_user_confirm`; both MUST be subsets of
@@ -611,4 +615,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 5723920ad178c8391adae6d54ea568affd160e76
+Last verified against commit: 7966facb112cac25d15c4641af87db9522430d73
