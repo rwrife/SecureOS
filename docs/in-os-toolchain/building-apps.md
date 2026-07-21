@@ -146,7 +146,37 @@ binary to a master-signed release remains a host-side, reviewed step. A future
 phase may add a per-device "local developer" key to avoid repeated prompts;
 see the plan's trust-model section.
 
+## `cc` exit codes v0 (contract pin)
+
+Issue [#589](https://github.com/rwrife/SecureOS/issues/589) pins the numeric
+exit surface for the in-OS `cc` driver so QEMU harnesses can assert specific
+failure classes (not just "non-zero"). This table is normative for v0.
+
+| Exit code | Class | `cc.compile.*` pairing (issue [#571]) | Harness/assertion owner |
+|-----------|-------|-----------------------------------------|-------------------------|
+| `0` | Success; output SOF written | `cc.compile.success` | `toolchain_compiles_hello_in_os` ([#567]) and `toolchain_large_output_persisted` ([#569]) assert successful compile/write path |
+| `1` | Usage error (bad flag/invocation) | `cc.compile.fail` with `reason=usage_error` | Exit-code conformance harness ([#599]) pins this value |
+| `2` | Compile error (syntax/type/undeclared symbol) | `cc.compile.fail` with `reason=compile_error` | `toolchain_compile_error_reported` ([#559]) + conformance harness ([#599]) |
+| `3` | Link error (unresolved symbol/missing runtime object) | `cc.compile.fail` with `reason=link_error` | Exit-code conformance harness ([#599]) |
+| `4` | I/O error (source read/output write/fs failure) | `cc.compile.fail` with `reason=io_error` | Exit-code conformance harness ([#599]) |
+| `5` | Arena exhaustion (`runtime.arena_bytes` cap) | `cc.compile.fail` with `reason=arena_exhausted` | `cc_arena_exhaustion_audit_marker` ([#610]) + conformance harness ([#599]) |
+| `64+` | Reserved internal compiler fault range (assert/bug class) | `cc.compile.fail` with `reason=internal_error` (or narrower future subtype) | Reserved/pinned by conformance harness ([#599]); individual values intentionally unassigned in v0 |
+
+Notes:
+- This is a contract pin, not the implementation landing. Runtime behavior
+  still gates on [#409](https://github.com/rwrife/SecureOS/issues/409) and
+  [#410](https://github.com/rwrife/SecureOS/issues/410).
+- New reasons may be added later, but existing numeric assignments above are
+  stable once this table ships.
+
 ## Building the disk image (host side)
+
+[#559]: https://github.com/rwrife/SecureOS/issues/559
+[#567]: https://github.com/rwrife/SecureOS/issues/567
+[#569]: https://github.com/rwrife/SecureOS/issues/569
+[#571]: https://github.com/rwrife/SecureOS/issues/571
+[#599]: https://github.com/rwrife/SecureOS/issues/599
+[#610]: https://github.com/rwrife/SecureOS/issues/610
 
 The `/apps/dev` content is staged onto `secureos-disk.img` by the normal disk
 build:
