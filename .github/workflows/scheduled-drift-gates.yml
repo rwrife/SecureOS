@@ -20,10 +20,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # validate_abi_stamps.sh shells out to git log per file and requires
+          # complete history (it fails hard on shallow clones).
+          fetch-depth: 0
+          submodules: recursive
 
-      - name: Init submodules (full-depth)
-        # checkout@v4 submodules recursion defaults to depth=1; use explicit
-        # full-depth init to avoid pinned-submodule fetch failures (issue #524).
+      - name: Init submodules (full-depth sync)
+        # Keep an explicit sync step so pinned submodule SHAs are available even
+        # if checkout behavior changes; issue #524 guards this contract.
         run: git submodule update --init --recursive
 
       - name: Ensure build scripts are executable
