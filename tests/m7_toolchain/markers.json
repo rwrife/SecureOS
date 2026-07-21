@@ -86,6 +86,16 @@
       "description": "Two sequential `cc` runs in one boot must not see each other's arena state. Kernel half (os_mem_brk + per-process arena reset) landed: syscall + native-bridge slot in #421 via PR #432 (af8ece8), clib_os_brk forwarder via PR #455 (30d6443), launcher per-spawn runtime.arena_bytes enforcement via PR #454 (d6ae05a, closes #448). Remaining gates are the `cc` driver app (#409) that lets us actually invoke `cc` twice in one boot and the unsigned-run/acceptance-suite wiring tracked by #410."
     },
     {
+      "id": "toolchain_launch_audit_owner_kind_field_emitted",
+      "name": "toolchain_launch_audit_owner_kind_field_emitted",
+      "harnessPath": "tests/m7_toolchain/toolchain_launch_audit_owner_kind_field_emitted.sh",
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-614",
+      "description": "Pre-#410 SKIP pin for launch audit records: both `launch.granted` and `launch.denied` lines must carry `owner_kind=<internal|external|local>` per docs/abi/audit-markers.md and issue #554."
+    },
+    {
       "id": "toolchain_libc_deps_phase3_complete",
       "name": "toolchain_libc_deps_phase3_complete",
       "harnessPath": "tests/m7_toolchain/toolchain_libc_deps_phase3_complete.sh",
