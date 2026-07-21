@@ -682,6 +682,13 @@ TEST_TARGETS=(
     # stale-allowlist rejection.
     skip_backlog_cap_fixture
     skip_backlog_cap
+    # Issue #553: drift gate pinning the exact SKIP marker text
+    # (`TEST:SKIP:release_compliance_bundle:awaiting_408`) in both
+    # build/scripts/test_release_compliance_bundle.sh and
+    # docs/legal/lgpl-compliance.md §5. Also pins flip-protocol docs:
+    # when #408 Phase 3 lands, remove `awaiting_408` and run this gate in
+    # strict-no-skip mode so stale SKIP scaffolding flips the bundle red.
+    release_compliance_bundle_skip_pinned
     # Issue #523: LGPL-2.1 compliance bundle gate. SKIP-pinned
     # (`awaiting_408`) until M7-TOOLCHAIN-005 Phase 3 actually links
     # libtcc into the shipped image. Even SKIP-pinned, the wrapper

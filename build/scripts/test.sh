@@ -876,6 +876,13 @@ case "$TEST_NAME" in
     # Mirrors the canary discipline from #213 / #234 / #297.
     run_script "$ROOT_DIR/tests/harness/sosh_contract_registry_drift_test.sh"
     ;;
+  release_compliance_bundle_skip_pinned)
+    # Issue #553: drift pin for the release_compliance_bundle SKIP marker.
+    # Default mode requires the exact `awaiting_408` marker to stay pinned
+    # in both script + docs; --strict-no-skip mode (for #408 Phase 3 flip)
+    # requires the marker to be absent from both.
+    run_script "$ROOT_DIR/build/scripts/test_release_compliance_bundle_skip_pinned.sh"
+    ;;
   release_compliance_bundle)
     # Issue #523: LGPL-2.1 compliance bundle gate. SKIP-pinned
     # (`awaiting_408`) until M7-TOOLCHAIN-005 Phase 3 statically links
