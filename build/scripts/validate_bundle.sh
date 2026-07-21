@@ -625,14 +625,14 @@ TEST_TARGETS=(
     clib_os_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
-    # tests"). All eight markers are SKIP-pinned today — each subordinate
+    # tests"). All nine markers are SKIP-pinned today — each subordinate
     # script in tests/m7_toolchain/ emits TEST:SKIP:<marker>:awaiting_<n>
     # then rolls up TEST:PASS:<marker> so the bundle stays green. Wiring
     # them here freezes the marker spellings as a single source of truth:
     # any accidental rename or drop flips the bundle to FAIL (same orphan-
     # from-TEST_TARGETS shape #129 / #366 / #384 / #401 / #414 catch).
-    # The gating execute slices (#409 / #410 / #421 / #422) replace each
-    # SKIP with a real assertion as they land.
+    # The gating execute slices (#409 / #410 / #421 / #422 / #538 / #539)
+    # replace each SKIP with a real assertion as they land.
     toolchain_compiles_hello_in_os
     toolchain_runs_compiled_binary
     toolchain_unsigned_prompt_enforced
@@ -641,6 +641,7 @@ TEST_TARGETS=(
     toolchain_cc_manifest_sidecar_written_on_link
     toolchain_cc_version_and_help_text_pinned
     toolchain_heap_isolation
+    toolchain_libc_deps_phase3_complete
     # M7-TOOLCHAIN-005 sub-slice (issue #408 Phase 2): freestanding TinyCC
     # config header at `vendor/tinycc/config-secureos.h` — encodes the
     # porting note 1 / 3 knobs (TCC_TARGET_X86_64 + ELF default,

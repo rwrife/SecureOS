@@ -21,7 +21,8 @@
 #   3. Each tests/m7_toolchain/<marker>.sh exists and contains the
 #      literal `TEST:PASS:<marker>` string (so a rename in the stub
 #      that breaks bundle rollup cannot land silently).
-#   4. For each gatingIssue, resolve issue state from either:
+#   4. For each gatingIssue (or `gatingIssues` override list), resolve
+#      issue state from either:
 #        - online gh query (`gh issue view`) when available, or
 #        - offline cache (`tests/m7_toolchain/issue_state.cache.json`).
 #      If the resolved issue is `CLOSED` while the marker reason is still
@@ -51,7 +52,60 @@ CASE_ARM_RE = re.compile(r"^\s*([a-z][a-z0-9_|]*)\)\s*$")
 # Comments inside the TEST_TARGETS block use leading `#`; targets are
 # bare identifiers, one per line.
 TARGET_LINE_RE = re.compile(r"^\s*([a-z][a-z0-9_]*)\s*$")
-GH_ISSUE_RE = re.compile(r"^awaiting_(\d+)$")
+
+LIBC_DEPS_PHASE3_MARKER = "toolchain_libc_deps_phase3_complete"
+LIBC_DEPS_PHASE3_GATE_ISSUES = [538, 539]
+
+
+def parse_awaiting_ids(reason: str) -> list[int]:
+    """Parse awaiting_<id> or awaiting_<id>_<id>... into integer ids."""
+    if not isinstance(reason, str) or not reason.startswith("awaiting_"):
+        return []
+    raw = reason[len("awaiting_") :]
+    if not raw:
+        return []
+    parts = raw.split("_")
+    out: list[int] = []
+    for part in parts:
+        if not part.isdigit():
+            return []
+        out.append(int(part))
+    return out
+
+
+def normalized_gating_issues(entry: dict, name: str) -> tuple[list[int], int] | None:
+    """Return (gating issues list, primary gating issue) or None on validation fail."""
+    primary = entry.get("gatingIssue")
+    raw_multi = entry.get("gatingIssues")
+
+    if not isinstance(primary, int) or primary <= 0:
+        emit_err(f"M7_MARKER:FAIL:{name}:invalid_gating_issue:{primary!r}")
+        return None
+
+    if raw_multi is None:
+        return ([primary], primary)
+
+    if not isinstance(raw_multi, list) or not raw_multi:
+        emit_err(f"M7_MARKER:FAIL:{name}:invalid_gating_issues:{raw_multi!r}")
+        return None
+
+    seen: set[int] = set()
+    issues: list[int] = []
+    for item in raw_multi:
+        if not isinstance(item, int) or item <= 0:
+            emit_err(f"M7_MARKER:FAIL:{name}:invalid_gating_issues:{raw_multi!r}")
+            return None
+        if item in seen:
+            emit_err(f"M7_MARKER:FAIL:{name}:duplicate_gating_issue:{item}")
+            return None
+        seen.add(item)
+        issues.append(item)
+
+    if primary not in seen:
+        emit_err(f"M7_MARKER:FAIL:{name}:gating_issue_not_in_gating_issues:{primary}")
+        return None
+
+    return (issues, primary)
 
 
 def emit_out(line: str) -> None:
@@ -341,20 +395,38 @@ def main() -> int:
     online_lookup = not args.offline_cache_only
     for entry in markers:
         name = entry["name"]
-        gating = entry.get("gatingIssue")
         reason = entry.get("reason", "")
-        if not isinstance(gating, int):
-            emit_err(f"M7_MARKER:FAIL:{name}:invalid_gating_issue:{gating!r}")
+
+        normalized = normalized_gating_issues(entry, name)
+        if normalized is None:
+            failures += 1
+            continue
+        gating_issues, primary_gating = normalized
+
+        # Issue #598 special-case contract: this marker must carry a dual
+        # gate over #538 and #539 until both are closed.
+        if name == LIBC_DEPS_PHASE3_MARKER and sorted(gating_issues) != LIBC_DEPS_PHASE3_GATE_ISSUES:
+            emit_err(
+                f"M7_MARKER:FAIL:{name}:phase3_gate_requires_gating_issues:{LIBC_DEPS_PHASE3_GATE_ISSUES}"
+            )
             failures += 1
             continue
 
-        state, detail, replaced_by = resolve_gating_issue_state(
-            gating,
-            args.repo,
-            issue_cache,
-            online_lookup,
-        )
-        if state == "UNKNOWN":
+        resolved_states: list[tuple[int, str, str, int | None]] = []
+        unknowns: list[str] = []
+        for gating in gating_issues:
+            state, detail, replaced_by = resolve_gating_issue_state(
+                gating,
+                args.repo,
+                issue_cache,
+                online_lookup,
+            )
+            resolved_states.append((gating, state, detail, replaced_by))
+            if state == "UNKNOWN":
+                unknowns.append(f"{gating}:{detail}")
+
+        if unknowns:
+            detail = ";".join(unknowns)
             if args.allow_offline:
                 emit_out(f"M7_MARKER:SKIP:{name}:gating_issue_unknown:{detail}")
             else:
@@ -362,26 +434,70 @@ def main() -> int:
                 failures += 1
             continue
 
-        if state == "OPEN":
-            emit_out(f"M7_MARKER:PASS:{name}:gating_issue_open:{gating}:{detail}")
+        open_issues = [num for num, state, _, _ in resolved_states if state == "OPEN"]
+        closed_rows = [row for row in resolved_states if row[1] == "CLOSED"]
+        awaiting_ids = set(parse_awaiting_ids(str(reason)))
+
+        if open_issues:
+            # #598 explicit guard: while either gate is OPEN, marker must stay
+            # SKIP-pinned with an awaiting reason that references both gates.
+            if name == LIBC_DEPS_PHASE3_MARKER:
+                expected = set(LIBC_DEPS_PHASE3_GATE_ISSUES)
+                if awaiting_ids != expected:
+                    emit_err(
+                        f"M7_MARKER:FAIL:{name}:phase3_open_requires_reason_awaiting_538_539"
+                    )
+                    failures += 1
+                    continue
+
+            if len(gating_issues) == 1:
+                single_num, _, single_detail, _ = resolved_states[0]
+                emit_out(
+                    f"M7_MARKER:PASS:{name}:gating_issue_open:{single_num}:{single_detail}"
+                )
+            else:
+                details = ",".join(
+                    f"{num}:{detail}"
+                    for num, state, detail, _ in resolved_states
+                    if state == "OPEN"
+                )
+                emit_out(
+                    f"M7_MARKER:PASS:{name}:gating_issue_open:{','.join(str(n) for n in open_issues)}:{details}"
+                )
             continue
 
-        # CLOSED
-        m = GH_ISSUE_RE.match(reason)
-        if m and int(m.group(1)) == gating:
+        # All gate issues are CLOSED.
+        closed_issue_ids = {num for num, _, _, _ in closed_rows}
+        stale_awaiting_ids = sorted(awaiting_ids.intersection(closed_issue_ids))
+        if stale_awaiting_ids:
+            _, _, first_closed_detail, first_replaced_by = closed_rows[0]
             suffix = (
-                f":replaced_by:{replaced_by}" if isinstance(replaced_by, int) else ""
+                f":replaced_by:{first_replaced_by}"
+                if isinstance(first_replaced_by, int)
+                else ""
             )
-            emit_err(
-                f"M7_MARKER:FAIL:{name}:gating_issue_closed_but_reason_still_awaiting:{gating}:{detail}{suffix}"
-            )
+            if len(gating_issues) == 1:
+                emit_err(
+                    f"M7_MARKER:FAIL:{name}:gating_issue_closed_but_reason_still_awaiting:{primary_gating}:{first_closed_detail}{suffix}"
+                )
+            else:
+                emit_err(
+                    f"M7_MARKER:FAIL:{name}:gating_issue_closed_but_reason_still_awaiting:{','.join(str(n) for n in stale_awaiting_ids)}:{first_closed_detail}{suffix}"
+                )
             failures += 1
         else:
-            # Issue is closed but reason has already been retargeted
-            # (or never matched the awaiting_<n> shape) — allowed.
-            emit_out(
-                f"M7_MARKER:PASS:{name}:gating_issue_closed_reason_retargeted:{gating}:{detail}"
-            )
+            if len(gating_issues) == 1:
+                _, _, single_detail, _ = closed_rows[0]
+                emit_out(
+                    f"M7_MARKER:PASS:{name}:gating_issue_closed_reason_retargeted:{primary_gating}:{single_detail}"
+                )
+            else:
+                closed_details = ",".join(
+                    f"{num}:{detail}" for num, _, detail, _ in closed_rows
+                )
+                emit_out(
+                    f"M7_MARKER:PASS:{name}:gating_issue_closed_reason_retargeted:{primary_gating}:{closed_details}"
+                )
 
     if failures:
         emit_err(f"M7_MARKER:FAIL:summary:{failures}_failures")
