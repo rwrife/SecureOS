@@ -85,10 +85,17 @@ if [[ ! -f "$ARCHIVE_PATH" ]]; then
 fi
 
 if [[ -f "$ARCHIVE_PATH" ]]; then
-  cc -std=c11 -Wall -Wextra -Werror \
+  # `libmanifestgen.a` is built freestanding/non-PIE. On distros where host
+  # gcc defaults to PIE, force non-PIE for this archive-link smoke binary.
+  if ! cc -std=c11 -Wall -Wextra -Werror -no-pie \
     "$ROOT_DIR/tests/manifest_default_synthesise_test.c" \
     "$ARCHIVE_PATH" \
-    -o "$OUT_DIR/manifest_default_synthesise_test_archive"
+    -o "$OUT_DIR/manifest_default_synthesise_test_archive"; then
+    cc -std=c11 -Wall -Wextra -Werror -Wl,-no-pie \
+      "$ROOT_DIR/tests/manifest_default_synthesise_test.c" \
+      "$ARCHIVE_PATH" \
+      -o "$OUT_DIR/manifest_default_synthesise_test_archive"
+  fi
 
   ARCHIVE_LOG_PATH="$OUT_DIR/manifest_default_synthesise_test_archive.log"
   "$OUT_DIR/manifest_default_synthesise_test_archive" | tee "$ARCHIVE_LOG_PATH"
