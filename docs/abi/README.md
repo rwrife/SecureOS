@@ -23,6 +23,9 @@ changes are deliberate and reviewable rather than emergent.
   Frozen at `OS_ABI_VERSION = 0` ([#233](https://github.com/rwrife/SecureOS/issues/233)).
 - [manifest.md](manifest.md) — Launcher manifest schema: how an app declares
   the capabilities it needs and how the launcher mediates grants today.
+- [apps-dev-layout.md](apps-dev-layout.md) — Frozen include-surface contract
+  for `/apps/dev/include/`: flat-vs-prefixed header staging rules,
+  canonical `#include` spellings, and source-tree authority paths.
 - [sof-format.md](sof-format.md) — SecureOS File Format (SOF) container
   wire layout: 36-byte header, metadata TLV section, ELF payload, and
   optional Ed25519 signature trailer. Pinned at `format_version = 1`
@@ -70,4 +73,4 @@ touch the underlying surface (a syscall signature, a capability ID, the
 launcher API, the manifest layout), bump the verification line in the
 corresponding doc in the same change.
 
-Last verified against commit: e7aea50a277b0a49aab460d5cd4a1cdcb6dae6b3
+Last verified against commit: 7f6102b7f801ff0ef5eaa84dce6087b1dd128309
