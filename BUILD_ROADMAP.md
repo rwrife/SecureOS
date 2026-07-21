@@ -524,6 +524,9 @@ The current M7 execution frontier is tracked by umbrella issue #403 with
 Contributors picking up M7 work should start with
 [`docs/development/pickup-guide-m7.md`](docs/development/pickup-guide-m7.md)
 for the smallest currently-executable slices and stall-safe fallback work.
+For release-readiness tracking, use
+[`docs/release/m7-toolchain-exit-criteria.md`](docs/release/m7-toolchain-exit-criteria.md)
+as the canonical checklist.
 
 ## 6) CI/CD and Test Matrix Strategy
 

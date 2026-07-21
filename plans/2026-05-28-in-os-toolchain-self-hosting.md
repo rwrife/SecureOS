@@ -311,6 +311,8 @@ Follow the `TEST:PASS:` / JSON-report contract (#110) under
 
 ## Cross-links
 
+- `../docs/release/m7-toolchain-exit-criteria.md` — canonical M7 ship
+  checklist and marker-completion tracker (issue #603).
 - `2026-05-15-public-sdk-external-app-template.md` — the host build path
   this mirrors on-target; `cc` is the in-OS analogue of `os-cc`+`os-pack`.
 - `2026-03-16-secureos-file-format.md` — SOF container that `sofpack`
