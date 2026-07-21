@@ -4,6 +4,10 @@
   "repo": "rwrife/SecureOS",
   "generatedAt": "2026-07-21T01:00:00Z",
   "issues": {
+    "404": {
+      "state": "CLOSED",
+      "note": "M7-TOOLCHAIN-001 landed; retained in cache because issue #610 uses a multi-gate marker over #404/#409/#410."
+    },
     "409": {
       "state": "OPEN"
     },
