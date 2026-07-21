@@ -272,6 +272,11 @@ wiring pattern, and SKIP→PASS flip checklist), see
 [`docs/contributing/skip-pinned-harness-guide.md`](docs/contributing/skip-pinned-harness-guide.md)
 (issue #608).
 
+For the pinned `tests/m7_toolchain/markers.json` row schema and its validator
+contract (`validate_m7_markers_schema`), see
+[`docs/contrib/m7-markers-schema.md`](docs/contrib/m7-markers-schema.md)
+(issue #611).
+
 For TinyCC vendor pin updates, follow
 [`docs/vendor/tinycc-bump-procedure.md`](docs/vendor/tinycc-bump-procedure.md)
 (issue #576) and include its PR-template drift summary (old/new SHA,
