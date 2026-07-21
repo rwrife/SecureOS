@@ -134,6 +134,16 @@
       "description": "Pre-#410 SKIP pin for unsigned-run cache-key isolation: AUTH_TYPE_UNSIGNED_BIN cached decisions must not cross owner.kind boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554."
     },
     {
+      "id": "toolchain_launcher_sidecar_owner_kind_mismatch",
+      "name": "toolchain_launcher_sidecar_owner_kind_mismatch",
+      "harnessPath": "tests/m7_toolchain/toolchain_launcher_sidecar_owner_kind_mismatch.sh",
+      "gatingIssue": 410,
+      "reason": "awaiting_410",
+      "skipReason": "pre-410",
+      "addedIn": "issue-601",
+      "description": "Pre-#410 SKIP pin for launcher deny semantics when SOF `owner.kind` and sidecar `.manifest.json` `owner.kind` disagree, with canonical owner-kind mismatch launch evidence."
+    },
+    {
       "id": "toolchain_launcher_sidecar_caps_required_mismatch",
       "name": "toolchain_launcher_sidecar_caps_required_mismatch",
       "harnessPath": "tests/m7_toolchain/toolchain_launcher_sidecar_caps_required_mismatch.sh",
