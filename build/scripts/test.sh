@@ -427,6 +427,12 @@ case "$TEST_NAME" in
     # discipline while those staging issues remain open.
     run_script "$ROOT_DIR/build/scripts/test_apps_dev_staging.sh"
     ;;
+  apps_dev_sha)
+    # Issue #606: /apps/dev staged-source SHA drift gate. Runs after the
+    # presence gate and enforces target->source mapping parity + source
+    # content hashes for non-pending entries.
+    run_script "$ROOT_DIR/build/scripts/test_disk_image_apps_dev_sha.sh"
+    ;;
   apps_dev_include_set)
     # Issue #615: canonical /apps/dev/include header-set drift gate.
     # Enforces strict set parity once #531/#613 staging slices close,

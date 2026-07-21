@@ -108,6 +108,10 @@ TEST_TARGETS=(
     # pin and emits canonical `SKIP:#541,#545,#548,#550,#531` while those
     # staging dependencies remain open.
     apps_dev_staging
+    # Issue #606: source-hash drift gate for `/apps/dev/*` mappings.
+    # Runs immediately after apps_dev_staging so set-membership failures
+    # are surfaced before content-hash parity checks.
+    apps_dev_sha
     # Issue #615: canonical `/apps/dev/include` header-set drift gate.
     # Uses tests/disk_image/apps_dev_include_set.json to pin include-surface
     # membership (secureos_api + namespaced sofpack/manifestgen headers) with

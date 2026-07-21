@@ -1,0 +1,59 @@
+{
+  "_comment": "Issue #606: content pin for /apps/dev/* staging mappings declared in build/scripts/build_disk_image.sh.",
+  "schemaVersion": 1,
+  "issue": 606,
+  "repo": "rwrife/SecureOS",
+  "manifestSource": "build/scripts/build_disk_image.sh",
+  "skipMarker": "SKIP:#531,#548",
+  "gatingIssues": [
+    531,
+    548
+  ],
+  "entries": [
+    {
+      "target": "/apps/dev/hello.c",
+      "source": "dev/hello.c",
+      "sha256": "a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30",
+      "origin": "#403 phase-1 sample source"
+    },
+    {
+      "target": "/apps/dev/building.txt",
+      "source": "dev/building.txt",
+      "sha256": "2a6d349a08f0795d364ea1e6c0c3731bcf50cc8cfcac1978fb2400826d38cdf6",
+      "origin": "#403 phase-1 on-device guide"
+    },
+    {
+      "target": "/apps/dev/lib/README.md",
+      "source": "dev/lib/README.md",
+      "sha256": "2488e292ae29f9c6f1c5b24fa3be930d1b636f6cfb5d81c137686bea5f1a6650",
+      "origin": "#545 placeholder docs"
+    },
+    {
+      "target": "/apps/dev/tcc/README.md",
+      "source": "dev/tcc/README.md",
+      "sha256": "889478f87dd98e0872058e56965ad69e164189171efcb6758c468a7680fd946d",
+      "origin": "#550 placeholder docs"
+    },
+    {
+      "target": "/apps/dev/lib/libclib.a",
+      "source": "artifacts/user/libs/libclib.a",
+      "pending": true,
+      "gatingIssue": 548,
+      "origin": "#545"
+    },
+    {
+      "target": "/apps/dev/lib/libsofpack.a",
+      "source": "artifacts/user/libs/libsofpack.a",
+      "pending": true,
+      "gatingIssue": 548,
+      "origin": "#545"
+    },
+    {
+      "target": "/apps/dev/tcc/libtcc1.a",
+      "source": "artifacts/user/libs/libtcc1.a",
+      "pending": true,
+      "gatingIssue": 548,
+      "origin": "#550"
+    }
+  ]
+}
