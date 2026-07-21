@@ -205,6 +205,10 @@ surface. Values are stable for the lifetime of `format_version = 1`:
   Bumping `format_version` is a wire-format break and follows the
   `OS_ABI_VERSION` major-bump policy in
   [`versioning.md`](versioning.md).
+- Machine-readable constant pin: [`sof-format-constants.json`](sof-format-constants.json)
+  (validated by `tools/validate_sof_format_constants.py` via the
+  `sof_format_constants` test target). Keep this JSON in lockstep with
+  `kernel/format/sof.h` and this document.
 - Adding a new `SOF_META_*` key is **additive**: keep the existing key
   IDs frozen, allocate a new ID, document it in this file, and update
   both `sof_build()` and `sofpack_wrap()` in the same change.
@@ -234,4 +238,4 @@ surface. Values are stable for the lifetime of `format_version = 1`:
 - [`versioning.md`](versioning.md) — `OS_ABI_VERSION` / format-version
   bump policy.
 
-Last verified against commit: 8b4124007023626cf4d784620ed130dd3950e246
+Last verified against commit: 381ffa5cd9b92d9082bd837112490106245b261b

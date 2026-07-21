@@ -1,0 +1,51 @@
+{
+  "_comment": "Issue #547: machine-readable pin for SOF wire-format constants declared in kernel/format/sof.h.",
+  "schemaVersion": 1,
+  "issue": 547,
+  "repo": "rwrife/SecureOS",
+  "sourceHeader": "kernel/format/sof.h",
+  "constants": {
+    "magic_ascii": "SEOS",
+    "format_version": 1,
+    "header_size_bytes": 36,
+    "file_types": {
+      "SOF_TYPE_INVALID": 0,
+      "SOF_TYPE_BIN": 1,
+      "SOF_TYPE_LIB": 2,
+      "SOF_TYPE_APP": 3
+    },
+    "signature_algorithms": {
+      "SOF_SIG_NONE": 0,
+      "SOF_SIG_ED25519": 1,
+      "SOF_SIG_RSA2048": 2
+    },
+    "metadata_keys": {
+      "SOF_META_NAME": 1,
+      "SOF_META_DESCRIPTION": 2,
+      "SOF_META_AUTHOR": 3,
+      "SOF_META_VERSION": 4,
+      "SOF_META_DATE": 5,
+      "SOF_META_ICON": 6,
+      "SOF_META_SIG_ALGO": 16,
+      "SOF_META_SIG_KEYID": 17,
+      "SOF_META_SIG_HASH": 18,
+      "SOF_META_SYSCALL_ID": 32
+    },
+    "result_codes": {
+      "SOF_OK": 0,
+      "SOF_ERR_INVALID_MAGIC": 1,
+      "SOF_ERR_INVALID_VERSION": 2,
+      "SOF_ERR_INVALID_TYPE": 3,
+      "SOF_ERR_INVALID_SIZE": 4,
+      "SOF_ERR_INVALID_META": 5,
+      "SOF_ERR_BUFFER_TOO_SMALL": 6,
+      "SOF_ERR_NO_PAYLOAD": 7,
+      "SOF_ERR_SIGNATURE_REQUIRED": 8,
+      "SOF_ERR_SIGNATURE_INVALID": 9
+    },
+    "limits": {
+      "SOF_META_VALUE_MAX": 64,
+      "SOF_META_MAX_ENTRIES": 12
+    }
+  }
+}

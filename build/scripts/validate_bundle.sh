@@ -74,6 +74,10 @@ TEST_TARGETS=(
     event_bus
     scheduler
     sof_format
+    # Issue #547: machine-readable SOF wire-format constants pin
+    # (docs/abi/sof-format-constants.json) validated against
+    # kernel/format/sof.h.
+    sof_format_constants
     sof_verify_at_rest
     # M7-TOOLCHAIN-006 sub-slice (issue #409): host-only check that
     # `user/libs/sofpack` emits byte-identical bytes to `sof_build()`
