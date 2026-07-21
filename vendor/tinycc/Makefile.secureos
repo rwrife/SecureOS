@@ -73,6 +73,14 @@ TCC_ALL_SRCS = \
 #     os_process_exit, sprintf fallback, dlopen/dlsym #ifdef-out) and
 #     update the manifest as each lands.
 #
+#     Runtime-helper companion pin (issue #548):
+#     `vendor/tinycc/libtcc1-srcs.json` is the authoritative partition of
+#     `vendor/tinycc/tinycc/lib/*.{c,S}` into the SecureOS-required
+#     `libtcc1.a` TU set vs. explicit exclusions (backtrace/bcheck/JIT and
+#     non-x86_64 targets). The host gate `tinycc_libtcc1_srcs`
+#     (build/scripts/test_tinycc_libtcc1_srcs.sh) enforces that every
+#     compilable TU is accounted for before Phase 3 links the archive.
+#
 #  3. Replace TinyCC's filesystem and "find include/library" logic with the
 #     SecureOS VFS paths (sysincludes default to /apps/dev/include).
 #
