@@ -35,6 +35,18 @@
       "origin": "#550 placeholder docs"
     },
     {
+      "target": "/apps/dev/include/sofpack/sofpack.h",
+      "source": "user/libs/sofpack/include/sofpack/sofpack.h",
+      "sha256": "2e17dd1372d1320d6096ec89586926f88b74e8f6e4a5bd23b796c49821ef370a",
+      "origin": "#613 namespaced public header"
+    },
+    {
+      "target": "/apps/dev/include/manifestgen/manifest_default.h",
+      "source": "user/libs/manifestgen/include/manifestgen/manifest_default.h",
+      "sha256": "8d960db575b30b715e1bf490e9cbe7ba703b0b9ba2a957cddbce5414ceb8d442",
+      "origin": "#613 namespaced public header"
+    },
+    {
       "target": "/apps/dev/lib/libclib.a",
       "source": "artifacts/user/libs/libclib.a",
       "pending": true,
