@@ -174,25 +174,38 @@ static void test_negatives(void) {
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
   CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD, "neg_subject_id_too_high");
 
-  /* Bogus owner_kind rejected. */
+  /* Bogus owner_kind rejected with a dedicated error code. */
   fill_default_params(&p);
   p.owner_kind = (manifest_owner_kind_t)99;
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
-  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD, "neg_bogus_owner_kind");
+  CHECK(rc == MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID, "neg_bogus_owner_kind");
+
+  /* Empty output path (binary_path) rejected with a dedicated error code. */
+  fill_default_params(&p);
+  p.binary_path = "";
+  rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
+  CHECK(rc == MANIFEST_DEFAULT_ERR_PATH_INVALID, "neg_empty_binary_path");
 
   /* runtime_arena_bytes below schema minimum rejected. */
   fill_default_params(&p);
   p.runtime_arena_bytes = MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES - 1u;
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
-  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD,
+  CHECK(rc == MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE,
         "neg_runtime_arena_below_default");
 
   /* runtime_arena_bytes above schema maximum rejected. */
   fill_default_params(&p);
   p.runtime_arena_bytes = MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX + 1u;
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
-  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD,
+  CHECK(rc == MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE,
         "neg_runtime_arena_above_max");
+
+  /* Oversized capability-request count rejected (future-proof guardrail). */
+  fill_default_params(&p);
+  p.caps_required_count = MANIFEST_DEFAULT_CAPS_REQUIRED_MAX + 1u;
+  rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
+  CHECK(rc == MANIFEST_DEFAULT_ERR_CAPS_TOO_MANY,
+        "neg_caps_required_too_many");
 
   fprintf(stdout, "TEST:PASS:manifest_default_synthesise:negatives\n");
 }

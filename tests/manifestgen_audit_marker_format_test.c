@@ -106,7 +106,7 @@ static void test_fail_markers(void) {
   fill_default_params(&p);
   p.owner_kind = (manifest_owner_kind_t)99;
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
-  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD, "rc_bad_owner_kind");
+  CHECK(rc == MANIFEST_DEFAULT_ERR_OWNER_KIND_INVALID, "rc_bad_owner_kind");
   expect_fail_marker(
       "fail_bad_owner_kind",
       rc,
@@ -117,7 +117,7 @@ static void test_fail_markers(void) {
   fill_default_params(&p);
   p.runtime_arena_bytes = MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES_MAX + 1u;
   rc = manifest_default_synthesise(&p, out, sizeof(out), &out_len);
-  CHECK(rc == MANIFEST_DEFAULT_ERR_INVALID_FIELD, "rc_bad_arena");
+  CHECK(rc == MANIFEST_DEFAULT_ERR_ARENA_OUT_OF_RANGE, "rc_bad_arena");
   expect_fail_marker(
       "fail_bad_arena_bytes",
       rc,
