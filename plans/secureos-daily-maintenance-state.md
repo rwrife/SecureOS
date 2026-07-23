@@ -1,22 +1,24 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-07-22T21:04:46Z
+- 2026-07-23T21:06:55Z
 
 ## Open PR snapshot
+- Snapshot moment: pre-maintenance triage on latest `main`
 - Open PR count at snapshot: **1**
-- #731 (draft) — `test(manifestgen): add negative-input contract gate (refs #592)`  
+- #731 — `test(manifestgen): add negative-input contract gate (refs #592)`  
   https://github.com/rwrife/SecureOS/pull/731
+  - Draft at snapshot: `true`
   - Head: `feature/manifestgen-negative-contract-592` → Base: `main`
   - Mergeable: `MERGEABLE`
   - Merge state: `UNSTABLE`
-  - Checks:
-    - `build-and-validate`: **fail** (failed step: `Full validation bundle (machine-readable)`)
-    - `build-iso-vm-smoke`: pass
-    - `lint`: pass
+  - Checks at snapshot:
+    - `build-and-validate`: **failure** (`VALIDATION_FAIL:validate_abi_stamps`)
+    - `build-iso-vm-smoke`: success
+    - `lint`: success
 
 ## Open issue snapshot
-- Open issue count: **20**
+- Open issue count at snapshot: **20**
 - #724 — follow-up: evaluate length-prefixed argv wire format for os_process_spawn  
   https://github.com/rwrife/SecureOS/issues/724
 - #613 — disk-image: stage sofpack.h + manifestgen.h public headers under /apps/dev/include/ (in-OS cc link prereq, sibling of #531, refs #521 #533 #409 #540)  
@@ -59,30 +61,29 @@
   https://github.com/rwrife/SecureOS/issues/396
 
 ## PRs merged this run
-- _none_
+- https://github.com/rwrife/SecureOS/pull/731
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/613
+- https://github.com/rwrife/SecureOS/issues/592
 
 ## Issues newly created this run
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `feature/apps-dev-include-stage-613`
-- Local commit: `e180e7b` (`feat(disk-image): stage namespaced /apps/dev/include headers`)
-- PR: _not created (push permission denied)_
+- Branch: `feature/manifestgen-negative-contract-592`
+- Commit pushed this run: `e526af8` (`docs(abi): refresh manifest/audit marker verification stamps`)
+- PR updated + merged: https://github.com/rwrife/SecureOS/pull/731
+- Merge commit on `main`: `e884cadd29c186d86d62e51475a4fbeb82622224`
 
 ## Blockers / notes
-- Open PR #731 was not mergeable this run due failing required check (`build-and-validate`).
-- Attempted implementation for #613 completed locally in worktree:
-  - `build/scripts/build_disk_image.sh`: stages
-    - `user/libs/sofpack/include/sofpack/sofpack.h` → `/apps/dev/include/sofpack/sofpack.h`
-    - `user/libs/manifestgen/include/manifestgen/manifest_default.h` → `/apps/dev/include/manifestgen/manifest_default.h`
-  - `tests/disk_image/apps_dev_include_set.json`: #613 headers promoted to strict requirements; skip marker reduced to `SKIP:#531`.
-  - `tools/disk_image_apps_dev_sha.json`: SHA pins added for the two new header mappings.
-- Validation evidence:
-  - `bash build/scripts/test.sh apps_dev_staging` → PASS (SKIP pending #531)
-  - `bash build/scripts/test.sh apps_dev_include_set` → PASS (SKIP pending #531)
-  - `bash build/scripts/test.sh apps_dev_sha` → FAIL due existing #548-gated pending source expectations (`artifacts/user/libs/*.a` absent in this local run context).
-- GitHub write blocker:
-  - `git push -u origin feature/apps-dev-include-stage-613` returned HTTP 403 (`Permission to rwrife/SecureOS.git denied to rwrife`), so branch push and PR creation could not be completed in this cron run.
+- Initial blocker on open PR #731 was `VALIDATION_FAIL:validate_abi_stamps`.
+- Root cause from CI logs: stale `Last verified against commit` lines in `docs/abi/manifest.md` and `docs/abi/audit-markers.md`.
+- Resolution this run:
+  - Updated stamp lines to their last content commits.
+  - Verified locally with:
+    - `bash build/scripts/test.sh validate_abi_stamps`
+    - `bash build/scripts/test.sh manifestgen_negative`
+    - `bash build/scripts/test.sh manifestgen_audit_marker_format`
+  - Pushed commit to PR branch, marked PR ready, updated PR body, enabled merge flow; PR merged and closed issue #592.
+- `gh pr edit` hit Projects classic GraphQL deprecation; used REST fallback (`gh api -X PATCH repos/rwrife/SecureOS/pulls/731`) per workflow guidance.
+- End-of-run snapshot: open PRs **0**, open issues **19**.
