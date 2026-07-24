@@ -157,6 +157,10 @@ TEST_TARGETS=(
     ipc_sync_v0
     ipc_port_lifecycle
     ipc_handle_gate
+    # Issue #586: malformed-envelope negative-path contract for v0 IPC
+    # wire validation (NULL msg, abi mismatch, flags MBZ, oversized
+    # payload_len, and sender_subject==0 on delivery).
+    ipc_wire_malformed
     proc_sched
     m1_ipc_demo
     # Issue #591: docs/abi audit marker markdown<->json parity gate plus
@@ -861,6 +865,9 @@ TEST_TARGETS=(
     #   - ipc_bounds: kernel IPC payload-bounds allow + one-past-end +
     #     straddle + no-pcb skipped (every capability check + spawn
     #     handoff path rides this).
+    #   - ipc_wire_malformed: malformed-envelope rejection contract for
+    #     v0 IPC validation (NULL/abi/flags/payload_len + delivered
+    #     sender_subject=0) and post-reject slot usability.
     #   - netlib_url_scheme: zero-trust network ABI URL-scheme allow/deny
     #     contract — sole host gate for the netlib surface today.
     #   - harness_defense: meta-canary that defends the bundle harness
@@ -869,6 +876,7 @@ TEST_TARGETS=(
     #     can be caught at all).
     syscall_entry_stub
     ipc_bounds
+    ipc_wire_malformed
     netlib_url_scheme
     harness_defense
 )
