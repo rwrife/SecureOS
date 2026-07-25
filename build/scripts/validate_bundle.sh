@@ -521,6 +521,13 @@ TEST_TARGETS=(
     # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
     # #401 / #414 (see issue #469).
     process_exit_wrapper
+    # Issue #551: bridge-level starter gate for exit-status
+    # round-trip capture (`os_process_exit` -> `g_native_exit_status`
+    # semantics mirrored through a synthetic bridge) plus
+    # `os_process_spawn(..., out_exit_status)` propagation. This
+    # is the incremental preflight peer before the full launcher/QEMU
+    # end-to-end harness is wired.
+    process_exit_qemu
     # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
     # `os_process_spawn` user-runtime wrapper. Pairs with
     # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
