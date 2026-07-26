@@ -19,7 +19,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "2a6d349a08f0795d364ea1e6c0c3731bcf50cc8cfcac1978fb2400826d38cdf6",
+      "sha256": "221ad96eb99db83995ad6cedcab089c046c0b3d933ddad4e39871eabb70746b1",
       "origin": "#403 phase-1 on-device guide"
     },
     {
@@ -41,10 +41,10 @@
       "origin": "#613 namespaced public header"
     },
     {
-      "target": "/apps/dev/include/manifestgen/manifest_default.h",
+      "target": "/apps/dev/include/manifest/manifest.h",
       "source": "user/libs/manifestgen/include/manifestgen/manifest_default.h",
-      "sha256": "8d960db575b30b715e1bf490e9cbe7ba703b0b9ba2a957cddbce5414ceb8d442",
-      "origin": "#613 namespaced public header"
+      "sha256": "3a81ffe0a9d3fb0097876dc5acb2765842106230656b36d122a8fbcb35647899",
+      "origin": "#613 namespaced public header (8.3-safe staged alias)"
     },
     {
       "target": "/apps/dev/lib/libclib.a",

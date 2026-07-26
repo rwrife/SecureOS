@@ -92,6 +92,34 @@ def parse_manifest_targets(script_text: str) -> set[str]:
     return targets
 
 
+def is_8dot3_component(component: str) -> bool:
+    """Return True when a single path component fits strict FAT 8.3 naming."""
+    if not component or component in {".", ".."}:
+        return False
+
+    if component.count(".") > 1:
+        return False
+
+    if "." in component:
+        base, ext = component.split(".", 1)
+        if not base or not ext:
+            return False
+        return len(base) <= 8 and len(ext) <= 3
+
+    return len(component) <= 8
+
+
+def find_first_non_8dot3_component(path: str) -> str | None:
+    """Return the first non-8.3 component for an /apps/dev/include path."""
+    rel = path.removeprefix(INCLUDE_PREFIX)
+    if not rel:
+        return ""
+    for component in rel.split("/"):
+        if not is_8dot3_component(component):
+            return component
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -172,14 +200,28 @@ def main() -> int:
     missing = sorted(expected_header_paths - staged_header_paths)
     extras = sorted(staged_header_paths - expected_header_paths)
 
+    had_failure = False
+    pending_skip_applies = False
+
+    paths_requiring_8dot3: set[str] = set(staged_header_paths)
+    for path, entry in pinned_paths.items():
+        if not bool(entry.get("pending", False)):
+            paths_requiring_8dot3.add(path)
+
+    for path in sorted(paths_requiring_8dot3):
+        bad_component = find_first_non_8dot3_component(path)
+        if bad_component is not None:
+            emit_err(
+                "APPS_DEV_INCLUDE_SET:FAIL:path_component_not_8dot3:"
+                f"{path}:component={bad_component}"
+            )
+            had_failure = True
+
     for path in sorted(expected_header_paths):
         if path in staged_header_paths:
             emit(f"APPS_DEV_INCLUDE_SET:PASS:present:{path}")
         else:
             emit(f"APPS_DEV_INCLUDE_SET:INFO:missing:{path}")
-
-    had_failure = False
-    pending_skip_applies = False
 
     for path in missing:
         entry = pinned_paths[path]

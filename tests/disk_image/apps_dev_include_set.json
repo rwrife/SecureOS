@@ -19,7 +19,7 @@
       "pending": false
     },
     {
-      "path": "/apps/dev/include/manifestgen/manifest_default.h",
+      "path": "/apps/dev/include/manifest/manifest.h",
       "pending": false
     }
   ]
