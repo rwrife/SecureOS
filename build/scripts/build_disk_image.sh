@@ -138,13 +138,14 @@ build_disk_image_inner() {
 		dev_mappings+=("dev/tcc/README.md=/apps/dev/tcc/README.md")
 	fi
 	# Issue #613: stage namespaced public library headers for in-OS `cc`.
-	# Keep source-tree include prefixes intact per docs/abi/apps-dev-layout.md
-	# (issue #617) instead of flattening into /apps/dev/include/*.h aliases.
+	# FAT staging remains strict 8.3 today; keep header aliases 8.3-safe.
 	if [ -f "$ROOT_DIR/user/libs/sofpack/include/sofpack/sofpack.h" ]; then
 		dev_mappings+=("user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h")
 	fi
 	if [ -f "$ROOT_DIR/user/libs/manifestgen/include/manifestgen/manifest_default.h" ]; then
-		dev_mappings+=("user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifestgen/manifest_default.h")
+		# Source header remains manifestgen/manifest_default.h in-tree; staged alias
+		# stays 8.3-safe until long-name support lands in disk-image tooling/runtime.
+		dev_mappings+=("user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h")
 	fi
 	# Issue #545: stage freestanding user archives used by in-OS `cc` link
 	# (when present in the host artifacts tree).
