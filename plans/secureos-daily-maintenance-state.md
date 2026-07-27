@@ -74,7 +74,7 @@
   https://github.com/rwrife/SecureOS/issues/396
 
 ## PRs merged this run
-- _none_
+- https://github.com/rwrife/SecureOS/pull/740
 
 ## Issue selected for implementation
 - https://github.com/rwrife/SecureOS/issues/739
@@ -85,10 +85,12 @@
 ## Branch / PR created for active work
 - Branch: `fix/abi-manifest-stamp-739`
 - Worktree used: `/home/rwrife/repos/secureos/.worktrees/fix-abi-manifest-stamp-739`
-- Implementation PR: https://github.com/rwrife/SecureOS/pull/740
+- Implementation PR created and merged this run: https://github.com/rwrife/SecureOS/pull/740
+- Merge commit on `main`: `3ba0ff96a299428599eba627d998aa2bdcb6c6ea`
+- Remote feature branch deleted after merge.
 
 ## Blockers / notes
 - PR #736 was not merged: merge conflict (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`) and all required checks failing (`build-iso-vm-smoke`, `lint`, `build-and-validate`).
 - PR #735 was not merged: merge conflict (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`) and required checks failing (`build-iso-vm-smoke`, `build-and-validate`).
 - Initial env-token auth (`GH_TOKEN`/`GITHUB_TOKEN`) failed write preflight with `403 Resource not accessible by personal access token`; run continued using stored `gh` auth after unsetting env overrides.
-- Selected issue #739 because scheduled drift gates on `main` were red due `ABI_STAMP:FAIL:docs/abi/manifest.md`; implementation PR #740 refreshes the stale ABI stamp and verifies `validate_abi_stamps` locally.
+- Selected issue #739 because scheduled drift gates on `main` were red due `ABI_STAMP:FAIL:docs/abi/manifest.md`; issue closed by merged PR #740 after local validator pass (`validate_abi_stamps`).
