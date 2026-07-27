@@ -1,37 +1,39 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-07-26T21:09:47Z
+- 2026-07-27T21:04:52Z
 
 ## Open PR snapshot
-- Snapshot moment: after syncing to latest `main`, before merge actions for this run.
+- Snapshot moment: after syncing latest `main`, before merge actions for this run.
 - Open PR count at snapshot: **2**
-
-- #735 — `test(ipc): add malformed-envelope host gate (refs #586)`  
-  https://github.com/rwrife/SecureOS/pull/735
-  - Draft: `true`
-  - Head: `fix/ipc-wire-malformed-harness-586` → Base: `main`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `UNSTABLE`
-  - Checks:
-    - `build-iso-vm-smoke`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30126776621/job/89592026365)
-    - `build-and-validate`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30126776595/job/89592026226)
-    - `lint`: success (https://github.com/rwrife/SecureOS/actions/runs/30126776531/job/89592026175)
 
 - #736 — `test(process): add process_exit_qemu starter bridge gate (refs #551)`  
   https://github.com/rwrife/SecureOS/pull/736
   - Draft: `true`
   - Head: `feature/process-exit-qemu-551` → Base: `main`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `UNSTABLE`
+  - Mergeable: `CONFLICTING`
+  - Merge state: `DIRTY`
   - Checks:
     - `build-iso-vm-smoke`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30175447916/job/89723381169)
     - `lint`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30175447932/job/89723381230)
     - `build-and-validate`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30175447925/job/89723381126)
 
-## Open issue snapshot
-- Open issue count at snapshot: **19**
+- #735 — `test(ipc): add malformed-envelope host gate (refs #586)`  
+  https://github.com/rwrife/SecureOS/pull/735
+  - Draft: `true`
+  - Head: `fix/ipc-wire-malformed-harness-586` → Base: `main`
+  - Mergeable: `CONFLICTING`
+  - Merge state: `DIRTY`
+  - Checks:
+    - `build-iso-vm-smoke`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30126776621/job/89592026365)
+    - `build-and-validate`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30126776595/job/89592026226)
+    - `lint`: **SUCCESS** (https://github.com/rwrife/SecureOS/actions/runs/30126776531/job/89592026175)
 
+## Open issue snapshot
+- Open issue count at snapshot: **20**
+
+- #739 — ci(drift): scheduled-drift-gate failure on main — auto-updated  
+  https://github.com/rwrife/SecureOS/issues/739
 - #724 — follow-up: evaluate length-prefixed argv wire format for os_process_spawn  
   https://github.com/rwrife/SecureOS/issues/724
 - #613 — disk-image: stage sofpack.h + manifestgen.h public headers under /apps/dev/include/ (in-OS cc link prereq, sibling of #531, refs #521 #533 #409 #540)  
@@ -72,23 +74,21 @@
   https://github.com/rwrife/SecureOS/issues/396
 
 ## PRs merged this run
-- https://github.com/rwrife/SecureOS/pull/737
+- _none_
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/613
+- https://github.com/rwrife/SecureOS/issues/739
 
 ## Issues newly created this run
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `fix/apps-dev-include-83-gate-613`
-- Worktree used: `/home/rwrife/repos/secureos/.worktrees/fix-613-apps-dev-include-83-gate`
-- PR created and merged this run: https://github.com/rwrife/SecureOS/pull/737
-- Merge commit on `main`: `a764479064f66e89f6ec747c57adb78ba2b4e03f`
-- Remote feature branch deleted after merge.
+- Branch: `fix/abi-manifest-stamp-739`
+- Worktree used: `/home/rwrife/repos/secureos/.worktrees/fix-abi-manifest-stamp-739`
+- Implementation PR: https://github.com/rwrife/SecureOS/pull/740
 
 ## Blockers / notes
-- Open PRs #735 and #736 were **not mergeable this run due failing required checks**; no force-merge was attempted.
-- `gh pr merge --auto --delete-branch` reported a local-branch deletion error because the branch was attached to an active worktree. The PR itself merged successfully; merge state was verified with `gh pr view`, then the remote branch was deleted explicitly.
-- Initial push attempts using env PAT (`GH_TOKEN`/`GITHUB_TOKEN`) failed with `403 Resource not accessible by personal access token` for git-ref writes. Unsetting env token overrides and using stored `gh` auth resolved write access (preflight write probe succeeded).
-- Implementation anchored to SecureOS bootability/toolchain goals: `/apps/dev/include` staging now avoids FAT 8.3 path violations for manifestgen header exposure while keeping deterministic drift gates in sync.
+- PR #736 was not merged: merge conflict (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`) and all required checks failing (`build-iso-vm-smoke`, `lint`, `build-and-validate`).
+- PR #735 was not merged: merge conflict (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`) and required checks failing (`build-iso-vm-smoke`, `build-and-validate`).
+- Initial env-token auth (`GH_TOKEN`/`GITHUB_TOKEN`) failed write preflight with `403 Resource not accessible by personal access token`; run continued using stored `gh` auth after unsetting env overrides.
+- Selected issue #739 because scheduled drift gates on `main` were red due `ABI_STAMP:FAIL:docs/abi/manifest.md`; implementation PR #740 refreshes the stale ABI stamp and verifies `validate_abi_stamps` locally.
