@@ -439,6 +439,11 @@ case "$TEST_NAME" in
     # reason tokens, and no-partial-write behavior.
     run_script "$ROOT_DIR/build/scripts/test_manifestgen_negative.sh"
     ;;
+  manifestgen_golden)
+    # Issue #577: byte-identical golden-corpus drift gate for
+    # `libmanifestgen` synthesis output and negative error-path pinning.
+    run_script "$ROOT_DIR/build/scripts/test_manifestgen_golden.sh"
+    ;;
   manifest_sidecar_suffix)
     # Issue #580: drift gate for the canonical `<binary>.manifest.json`
     # sidecar naming rule in docs/abi/manifest.md §5.8 and

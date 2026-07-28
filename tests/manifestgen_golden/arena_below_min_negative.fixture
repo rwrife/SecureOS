@@ -1,0 +1,7 @@
+# Negative fixture: arena below MANIFEST_DEFAULT_RUNTIME_ARENA_BYTES rejects.
+FIXTURE_NAME=arena_below_min_negative
+OWNER_KIND=local
+RUNTIME_ARENA_BYTES=1
+EXPECT_RC=2
+EXPECT_STDERR_SUBSTR=driver_synthesise_rc=5
+EXPECT_VALIDATE_SCHEMA=0

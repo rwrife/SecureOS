@@ -1,0 +1,7 @@
+# External-owner synthesis arm parity.
+FIXTURE_NAME=hello_external
+OWNER_KIND=external
+RUNTIME_ARENA_BYTES=0
+EXPECT_RC=0
+EXPECT_OUTPUT=hello_external.expected.json
+EXPECT_VALIDATE_SCHEMA=1
