@@ -1,0 +1,7 @@
+# Canonical in-OS local-build-shaped manifest synthesis.
+FIXTURE_NAME=hello_local
+OWNER_KIND=local
+RUNTIME_ARENA_BYTES=0
+EXPECT_RC=0
+EXPECT_OUTPUT=hello_local.expected.json
+EXPECT_VALIDATE_SCHEMA=1

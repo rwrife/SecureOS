@@ -1,0 +1,7 @@
+# Explicit arena override path (issue #424 companion behavior).
+FIXTURE_NAME=hello_local_with_arena
+OWNER_KIND=local
+RUNTIME_ARENA_BYTES=131072
+EXPECT_RC=0
+EXPECT_OUTPUT=hello_local_with_arena.expected.json
+EXPECT_VALIDATE_SCHEMA=1

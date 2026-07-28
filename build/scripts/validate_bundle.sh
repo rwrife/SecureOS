@@ -102,6 +102,9 @@ TEST_TARGETS=(
     manifestgen_default_arena
     # Issue #592: negative-input contract pin for libmanifestgen.
     manifestgen_negative
+    # Issue #577: byte-identical golden-corpus drift gate for
+    # representative libmanifestgen synthesis fixtures.
+    manifestgen_golden
     # Issue #580: canonical `<binary>.manifest.json` sidecar filename pin
     # across docs/abi/manifest.md §5.8 and
     # user/libs/manifestgen/include/manifestgen/manifest_default.h.
