@@ -1,0 +1,7 @@
+usage: cc <input.c> -o <output.bin> [--manifest <path>]
+scaffold command for the in-OS compiler driver.
+currently prints a deterministic "not yet wired" diagnostic for compile attempts.
+
+options:
+	--help      show command help
+	--version   print command version
