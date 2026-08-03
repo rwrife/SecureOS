@@ -570,6 +570,16 @@ case "$TEST_NAME" in
   m5_owner_delete_cascade_window_qemu)
     run_script "$ROOT_DIR/build/scripts/test_m5_owner_delete_cascade_window_qemu.sh"
     ;;
+  launcher_ownership_role_manifest_edges)
+    # Issue #585: host-side scaffold markers for launcher ownership-role
+    # edge registration (`owner`/`delegate`/`none`) prior to runtime wiring.
+    run_script "$ROOT_DIR/build/scripts/test_launcher_ownership_role_manifest_edges.sh"
+    ;;
+  m5_ownership_role_manifest_cascade_qemu)
+    # Issue #585: substrate/qemu scaffold markers for manifest ownership-role
+    # cascade semantics prior to runtime launcher + broker wiring.
+    run_script "$ROOT_DIR/build/scripts/test_m5_ownership_role_manifest_cascade_qemu.sh"
+    ;;
   app_runtime)
     run_script "$ROOT_DIR/build/scripts/test_app_runtime.sh"
     ;;
