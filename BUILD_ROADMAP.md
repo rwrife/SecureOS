@@ -478,12 +478,13 @@ Manifest schema ownership-role declaration:
   `TEST:PASS:manifest_ownership_role_enum` (run via
   `build/scripts/test.sh manifest_ownership_role_enum`, mirror of the
   §5.3 `manifest_persistence_enum` and §5.4 `manifest_broker_role_enum`
-  markers). Schema-only at v0; the launcher / broker_svc runtime
-  wiring lands in later M5-SUBSTRATE slices. Pending-runtime marker
-  scaffolds for that wiring are pinned by
-  `launcher_ownership_role_manifest_edges` (host) and
-  `m5_ownership_role_manifest_cascade_qemu` (substrate peer), both
-  tracked under issue #585.
+  markers). Runtime wiring is now active on the broker-spawn path:
+  `launcher_broker_spawn_app_with_broker_cap()` consumes
+  `ownership_role` and parents `CAP_IPC_SEND` on the launcher root for
+  `owner`/`delegate` roles while preserving sentinel-root behavior for
+  `none`. Host + substrate acceptance are pinned by
+  `launcher_ownership_role_manifest_edges` and
+  `m5_ownership_role_manifest_cascade_qemu` (issue #585).
 
 ## 5.6 M6: Public SDK + external app template
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # build/scripts/test_launcher_ownership_role_manifest_edges.sh
 #
-# Host gate scaffold for issue #585 (M5 ownership-role runtime wiring).
-# Compiles and executes the marker fixture that pins the ownership-role
-# launcher edge-registration marker IDs prior to runtime implementation.
+# Build + run issue #585 host acceptance for launcher ownership-role edge
+# registration. The fixture asserts:
+#   - owner/delegate roles are parented under launcher root and therefore
+#     revoked by a launcher-root subtree cascade
+#   - none role remains sentinel-rooted and survives that unrelated cascade
 
 set -euo pipefail
 
@@ -13,6 +15,15 @@ OUT_DIR="$ROOT_DIR/artifacts/tests"
 mkdir -p "$OUT_DIR"
 
 cc -std=c11 -Wall -Wextra -Werror \
+  "$ROOT_DIR/kernel/cap/capability.c" \
+  "$ROOT_DIR/kernel/cap/cap_table.c" \
+  "$ROOT_DIR/kernel/cap/cap_handle.c" \
+  "$ROOT_DIR/kernel/cap/cap_gate.c" \
+  "$ROOT_DIR/kernel/cap/cap_deny_marker.c" \
+  "$ROOT_DIR/kernel/proc/address_space.c" \
+  "$ROOT_DIR/kernel/proc/process.c" \
+  "$ROOT_DIR/kernel/user/launcher.c" \
+  "$ROOT_DIR/tests/harness/svc_subjects.c" \
   "$ROOT_DIR/tests/m5_ownership_role_manifest_edges_test.c" \
   -o "$OUT_DIR/m5_ownership_role_manifest_edges_test"
 
