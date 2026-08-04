@@ -287,6 +287,11 @@ TEST_TARGETS=(
     # the freed slot, double-delete is a no-op, and the audit ring
     # records the WM cascade events.
     m5_owner_delete_cascade_window_qemu
+    # Issue #585 runtime gates: launcher ownership-role broker-edge
+    # registration (`owner` / `delegate` / `none`) plus substrate cascade
+    # semantics for launcher-root deletes.
+    launcher_ownership_role_manifest_edges
+    m5_ownership_role_manifest_cascade_qemu
     # HAL call-site gates (issue #349 / PR #365): allow + deny `_qemu`
     # peers (issue #376) ride on the M2 substrate launcher path and
     # prove video_hal_write_as / input_hal_try_read_char_as /
