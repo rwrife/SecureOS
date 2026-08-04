@@ -119,7 +119,7 @@
 - Branch: `feature/m5-ownership-role-scaffold-585` (existing branch, updated this run)
 - Worktree used: `/home/rwrife/repos/secureos/.worktrees/feature/m5-ownership-role-scaffold-585`
 - Implementation PR updated this run: https://github.com/rwrife/SecureOS/pull/746
-- Commit pushed this run: `286ae9b`
+- Latest branch tip pushed this run (see PR commit history for SHA details).
 
 ## Blockers / notes
 - All open PRs are currently `draft`; GitHub blocks merge/auto-merge while draft (`GraphQL: Pull Request is still a draft`).
