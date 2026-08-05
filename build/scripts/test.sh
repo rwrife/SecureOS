@@ -670,6 +670,9 @@ case "$TEST_NAME" in
     # argv marshalling and `out_exit_status` propagation. Pins the
     # current v0 space-joined `raw_args` contract (including the
     # internal-space ambiguity caveat) before #409/#410 consume it.
+    # Issue #724 starter evidence: also pins an explicit join-collision
+    # case where two distinct argv vectors collapse to the same raw
+    # string under the v0 wire format.
     run_script "$ROOT_DIR/build/scripts/test_process_spawn_argv_roundtrip.sh"
     ;;
   mem_brk_wrapper)
