@@ -531,6 +531,8 @@ TEST_TARGETS=(
     # Issue #546: dynamic bridge-backed host gate for spawn argv
     # marshalling + `out_exit_status` propagation. Pins the current
     # v0 space-join wire format before #409/#410 consume it.
+    # Issue #724 starter evidence: explicit join-collision marker for
+    # two distinct argv vectors collapsing to one `raw_args` payload.
     process_spawn_argv_roundtrip
     # Issue #508: kernel-side capability workflow-rule layer (PR #209,
     # closes #77). Host-side dispatcher exists and is documented in the

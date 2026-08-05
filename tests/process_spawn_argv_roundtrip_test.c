@@ -14,7 +14,9 @@
  *     1) N=3 and N=5 argv vectors are joined deterministically,
  *     2) an argv element containing an internal space is not rejected and is
  *        preserved in the joined string (documented v0 limitation),
- *     3) `OS_STATUS_OK` return is distinct from propagated child exit status
+ *     3) two distinct argv vectors can collapse to the same joined raw string
+ *        (explicitly pinning the v0 boundary-loss caveat tracked by #724),
+ *     4) `OS_STATUS_OK` return is distinct from propagated child exit status
  *        (`*out_exit_status = 42`).
  *
  * Interactions:
@@ -235,6 +237,25 @@ int main(void) {
     assert_spawn_ok("space_join_limitation_pinned",
                     "/apps/dev/cc",
                     argv_space,
+                    "/home/my file.c -o /apps/hello.bin");
+  }
+
+  {
+    /* Distinct argv vector, identical v0 joined raw string:
+     * ["/home/my", "file.c", "-o", ...] collapses to the same
+     * space-joined payload as ["/home/my file.c", "-o", ...].
+     * This marker is the host-level canary for #724's follow-up
+     * wire-format evaluation once #410 runtime coverage is in place. */
+    const char *argv_collision[] = {
+      "cc",
+      "/home/my",
+      "file.c",
+      "-o",
+      "/apps/hello.bin",
+      0};
+    assert_spawn_ok("space_join_collision_pinned",
+                    "/apps/dev/cc",
+                    argv_collision,
                     "/home/my file.c -o /apps/hello.bin");
   }
 
