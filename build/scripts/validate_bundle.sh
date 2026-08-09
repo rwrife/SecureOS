@@ -489,6 +489,11 @@ TEST_TARGETS=(
     # orphan-from-TEST_TARGETS lineage as #129 / #366 / #384 / #401 /
     # #414 / #426 / #432.
     mem_brk_qemu
+    # Issue #558: host-side deny-marker gate for over-cap `os_mem_brk`
+    # requests. Pins `OS_STATUS_DENIED` + canonical CAP:DENY mem_brk
+    # marker evidence while ensuring shrink-underflow deny does not
+    # leak over-cap marker output.
+    mem_brk_arena_cap_deny
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired

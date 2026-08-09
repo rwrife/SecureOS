@@ -35,10 +35,24 @@
 
 #define APP_NATIVE_HEAP_BYTES (4u * 1024u * 1024u)
 
+/* Optional launcher-installed hook invoked when a positive `mem_brk`
+ * growth request is denied for exceeding the active arena cap.
+ *
+ * Used by launcher_exec.c to emit canonical audit evidence
+ * (`CAP:DENY:<sid>:mem_brk:arena_bytes`) without coupling this heap TU to
+ * process-context or serial-output dependencies. Host tests may install a
+ * fixture hook to pin deny-marker behavior.
+ */
+typedef void (*app_native_heap_arena_over_cap_deny_hook_t)(void);
+
 /* sbrk(2)-shape grow / shrink / query against the per-app pool.
  * Return values mirror `os_status_t` (0/1/3) so the launcher bridge
  * slot can pass the int through unchanged. */
 int  app_native_mem_brk(int delta, void **out_prev_break);
+
+/* Install or clear (`hook == NULL`) the optional over-cap deny hook. */
+void app_native_heap_set_arena_over_cap_deny_hook(
+    app_native_heap_arena_over_cap_deny_hook_t hook);
 
 /* Reset the per-process break to 0 on a fresh top-level bridge wire. */
 void app_native_heap_reset(void);
