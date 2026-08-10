@@ -85,11 +85,11 @@
     "vfprintf":   { "tus": ["tccpp.c"],                                                                                        "clib_provider": "user/libs/clib/include/clib/stdio.h",   "note": "" },
     "vsnprintf":  { "tus": ["tccpp.c"],                                                                                        "clib_provider": "user/libs/clib/include/clib/stdio.h",   "note": "" },
 
-    "close":      { "tus": ["libtcc.c"],                                                                                       "clib_provider": null, "note": "POSIX fd; Phase 3 wires to os_fs_close via a small clib shim (likely under user/libs/clib/src/posix_fd.c)." },
-    "open":       { "tus": ["libtcc.c", "tccelf.c"],                                                                           "clib_provider": null, "note": "POSIX fd; Phase 3 maps to os_fs_open. VFS sysinclude default (/apps/dev/include) is pinned in config-secureos.h (PR #519)." },
-    "read":       { "tus": ["tccelf.c"],                                                                                       "clib_provider": null, "note": "POSIX fd; pairs with `open`." },
-    "lseek":      { "tus": ["libtcc.c", "tccelf.c"],                                                                           "clib_provider": null, "note": "POSIX fd; pairs with `open`." },
-    "unlink":     { "tus": ["tccelf.c"],                                                                                       "clib_provider": null, "note": "POSIX; Phase 3 maps to os_fs_unlink (or returns ENOSYS-equivalent if cc output never deletes)." },
+    "close":      { "tus": ["libtcc.c"],                                                                                       "clib_provider": "user/libs/clib/include/clib/posix_fd.h", "note": "Provided by user/libs/clib/src/posix_fd.c as a fixed-slot fd-table close operation." },
+    "open":       { "tus": ["libtcc.c", "tccelf.c"],                                                                           "clib_provider": "user/libs/clib/include/clib/posix_fd.h", "note": "Provided by user/libs/clib/src/posix_fd.c with read-only snapshot semantics over os_fs_read_file; write/create flags return ENOTSUP in this slice." },
+    "read":       { "tus": ["tccelf.c"],                                                                                       "clib_provider": "user/libs/clib/include/clib/posix_fd.h", "note": "Provided by user/libs/clib/src/posix_fd.c; reads from the in-memory snapshot captured at open()." },
+    "lseek":      { "tus": ["libtcc.c", "tccelf.c"],                                                                           "clib_provider": "user/libs/clib/include/clib/posix_fd.h", "note": "Provided by user/libs/clib/src/posix_fd.c; supports SEEK_SET/CUR/END cursor updates within the snapshot." },
+    "unlink":     { "tus": ["tccelf.c"],                                                                                       "clib_provider": "user/libs/clib/include/clib/posix_fd.h", "note": "Symbol now provided; current implementation intentionally returns ENOSYS until delete syscall ABI lands." },
     "getcwd":     { "tus": ["tccdbg.c", "tccelf.c"],                                                                           "clib_provider": null, "note": "Phase 3 returns the launcher-provided cwd ('/apps/dev' by default) via a clib shim — TinyCC uses it for DWARF/elf debug paths only." },
     "getenv":     { "tus": ["tccelf.c"],                                                                                       "clib_provider": null, "note": "Phase 3 returns NULL for all keys (SecureOS launcher has no env-var surface; #424 runtime.arena_bytes substitutes for the upstream `TCC_OPTIONS` use case)." },
     "time":       { "tus": ["tccpp.c"],                                                                                        "clib_provider": null, "note": "Used by __DATE__/__TIME__ macros. Phase 3 returns a deterministic constant for build reproducibility (per CONTRIBUTING deterministic-build principle)." },
@@ -105,7 +105,7 @@
   "summary": {
     "_comment": "Pinned summary counts. The drift gate enforces these against the live scan to catch a TinyCC submodule bump that silently grows or shrinks the libc surface. Both the union (`required`) and the partitioned counts (`provided` / `missing`) are pinned.",
     "totalRequired": 47,
-    "providedByClib": 33,
-    "notYetProvided": 14
+    "providedByClib": 38,
+    "notYetProvided": 9
   }
 }

@@ -41,6 +41,7 @@ clib_stdnoreturn_eval
 clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
+close
 errno
 exit
 fclose
@@ -69,13 +70,16 @@ isspace
 isupper
 isxdigit
 labs
+lseek
 memchr
 memcmp
 memcpy
 memmove
 memset
+open
 printf
 qsort
+read
 snprintf
 sprintf
 stderr
@@ -105,5 +109,6 @@ strtoull
 strtoumax
 tolower
 toupper
+unlink
 vfprintf
 vsnprintf

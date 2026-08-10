@@ -822,6 +822,11 @@ TEST_TARGETS=(
     # `symbol_set_pinned` so a TinyCC drop or unrelated PR cannot
     # silently drop one of the public symbols TinyCC links against.
     clib_stdio
+    # M7-TOOLCHAIN-005 slice (issue #538): freestanding POSIX fd nucleus
+    # (`open`/`close`/`read`/`lseek`/`unlink`) bridged to SecureOS file APIs.
+    # Current shape is intentionally read-only snapshot semantics + ENOSYS
+    # unlink placeholder until delete syscall wiring lands.
+    clib_posix_fd
     # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdnoreturn.h>`
     # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdnoreturn.h>` as
     # one of the freestanding-required headers; §7.23 defines the header
