@@ -2,7 +2,7 @@
 
 Status: PINNED at `OS_ABI_VERSION = 0`
 Owner: M7-TOOLCHAIN-004 (umbrella #403, slice issue #407)
-Last reviewed: 2026-08-10 (issue #538)
+Last reviewed: 2026-08-11 (issue #539)
 
 ## Why this exists
 
@@ -287,6 +287,23 @@ semantics over `os_fs_read_file` while delete/write-handle plumbing lands.
 | `lseek`  | `off_t lseek(int fd, off_t offset, int whence)`      | supports `SEEK_SET/CUR/END`; bounds-checked cursor updates |
 | `unlink` | `int unlink(const char *path)`                       | currently returns `-1` with `errno=ENOSYS` pending delete syscall ABI |
 
+### `clib/runtime_compat.h` (M7-TOOLCHAIN-005 slice / issue #539)
+
+Deterministic hosted-libc compatibility shims required by the TinyCC
+freestanding link surface while `-run`/JIT remains disabled.
+
+| Symbol      | Signature                                         | Notes |
+|-------------|---------------------------------------------------|-------|
+| `free`      | `void free(void *ptr)`                            | plain-name forwarder to `clib_free` |
+| `realloc`   | `void *realloc(void *ptr, size_t size)`           | plain-name forwarder to `clib_realloc` |
+| `getcwd`    | `char *getcwd(char *buf, size_t size)`            | deterministic fixed cwd (`/apps/dev`) with bounds checks |
+| `getenv`    | `char *getenv(const char *name)`                  | deterministic `NULL` stub (no env-var surface in v0) |
+| `time`      | `time_t time(time_t *tloc)`                       | deterministic fixed epoch for reproducible builds |
+| `localtime` | `struct tm *localtime(const time_t *timer)`       | deterministic fixed broken-down time companion to `time` |
+| `realpath`  | `char *realpath(const char *path, char *resolved_path)` | deterministic passthrough canonicalization |
+| `dlopen`    | `void *dlopen(const char *filename, int flags)`   | explicit unsupported stub (`NULL`, `errno=ENOTSUP`) |
+| `dlsym`     | `void *dlsym(void *handle, const char *symbol)`   | explicit unsupported stub (`NULL`, `errno=ENOTSUP`) |
+
 ## Canonical pin
 
 The block below is the **machine-checkable** symbol pin. It MUST stay
@@ -341,6 +358,8 @@ clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
 close
+dlopen
+dlsym
 errno
 exit
 fclose
@@ -352,7 +371,10 @@ fprintf
 fputc
 fputs
 fread
+free
 fwrite
+getcwd
+getenv
 imaxabs
 imaxdiv
 isalnum
@@ -369,6 +391,7 @@ isspace
 isupper
 isxdigit
 labs
+localtime
 lseek
 memchr
 memcmp
@@ -379,6 +402,8 @@ open
 printf
 qsort
 read
+realloc
+realpath
 snprintf
 sprintf
 stderr
@@ -406,6 +431,7 @@ strtoll
 strtoul
 strtoull
 strtoumax
+time
 tolower
 toupper
 unlink
@@ -432,4 +458,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: fc784c457275f0e977c3b03c43e565f739d8a05d
+Last verified against commit: fb7ec41a1dd311f384de2779eaa66c36161f52a0

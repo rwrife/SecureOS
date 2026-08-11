@@ -42,6 +42,8 @@ clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
 close
+dlopen
+dlsym
 errno
 exit
 fclose
@@ -53,7 +55,10 @@ fprintf
 fputc
 fputs
 fread
+free
 fwrite
+getcwd
+getenv
 imaxabs
 imaxdiv
 isalnum
@@ -70,6 +75,7 @@ isspace
 isupper
 isxdigit
 labs
+localtime
 lseek
 memchr
 memcmp
@@ -80,6 +86,8 @@ open
 printf
 qsort
 read
+realloc
+realpath
 snprintf
 sprintf
 stderr
@@ -107,6 +115,7 @@ strtoll
 strtoul
 strtoull
 strtoumax
+time
 tolower
 toupper
 unlink
