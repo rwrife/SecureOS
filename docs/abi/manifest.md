@@ -669,4 +669,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: e884cadd29c186d86d62e51475a4fbeb82622224
+Last verified against commit: 2d8bcfb09005e9dd187c38fa89dbd838f75400aa
