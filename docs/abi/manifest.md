@@ -186,12 +186,11 @@ Field semantics we are committing to at v0:
   off-target signed SDK invocation (which is what `"external"`
   records). The Tier-1 unsigned-run flow (#410) uses this third
   enumerator to keep local-built and external-imported binaries
-  distinguishable in the capability-audit log without forcing
-  either of them to mis-label as `"external"`. Like
-  `capabilities.persistence`, `capabilities.broker_role`, and
-  `capabilities.ownership_role`, this field is schema-only at v0 —
-  the runtime wiring (M6-SDK-003 wrappers and the
-  `sdk_external_build_isolation` acceptance test, plus the
+  distinguishable in the capability-audit log without forcing either
+  of them to mis-label as `"external"`. Like
+  `capabilities.persistence` and `capabilities.broker_role`, this field
+  is schema-only at v0 — the runtime wiring (M6-SDK-003 wrappers and
+  the `sdk_external_build_isolation` acceptance test, plus the
   M7-TOOLCHAIN-006/007 in-OS `cc` driver and unsigned-run flow)
   lands in later slices and is gated on the A/B design decision
   tracked in #396 / the unsigned-run flow tracked in #410. Because
@@ -222,7 +221,7 @@ Field semantics we are committing to at v0:
   exceeds the cap is a deny-by-default launch failure with a
   documented audit reason — the launcher emits a capability-audit
   deny event and the spawn fails; the kernel does **not** panic. Like
-  `persistence`, `broker_role`, `ownership_role`, and `owner.kind`,
+  `persistence`, `broker_role`, and `owner.kind`, this field is
   this field is schema-only at v0 — the kernel `os_mem_brk` syscall
   and the launcher clamp/audit wiring land in the M7-TOOLCHAIN-001
   follow-up slice (#421). Because the field is **optional**, has a
@@ -299,10 +298,12 @@ Two additional fixtures exercise the optional
   same as `helloapp.json` but with `capabilities.ownership_role:
   "delegate"`. Demonstrates a delegated-handle declaration.
 
-These fixtures are schema-only at v0: the launcher still registers
-no ownership edge for the subject at spawn (today's behavior) —
-the field's runtime meaning is wired up in later M5-SUBSTRATE
-slices. The pre-existing `helloapp.json` / `helloapp.deny.json` /
+Runtime wiring now applies on the broker-spawn path (issue #585):
+`launcher_broker_spawn_app_with_broker_cap()` consumes
+`ownership_role` and parents the spawned broker handle on the launcher
+root for `"owner"` / `"delegate"`; `"none"` preserves today's
+sentinel-root behavior (no launcher ownership edge). The pre-existing
+`helloapp.json` / `helloapp.deny.json` /
 `helloapp.persistent.json` / `helloapp.broker_*.json` examples omit
 `ownership_role` and so continue to behave as
 `ownership_role: "none"`, proving that the addition is backward-
@@ -340,6 +341,8 @@ list while still being a stable target for the regression test.
 | `manifest_ownership_role_enum` (positive) | enforced (PR #372) |
 | `manifest_ownership_role_enum:negative_rejected` | enforced (PR for #390) |
 | `manifest_ownership_role_enum:default_when_omitted` | enforced (PR for #390) |
+| `launcher_ownership_role_manifest_edges` | enforced (issue #585 runtime slice) |
+| `m5_ownership_role_manifest_cascade_qemu` | enforced (issue #585 runtime slice) |
 
 ### §5.6 owner.kind enforcement status (M6-SDK-003 schema sub-slice)
 
@@ -666,4 +669,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: e884cadd29c186d86d62e51475a4fbeb82622224
+Last verified against commit: 2d8bcfb09005e9dd187c38fa89dbd838f75400aa

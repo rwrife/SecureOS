@@ -1,11 +1,19 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-07-27T21:04:52Z
+- 2026-08-12T21:13:10Z
 
 ## Open PR snapshot
-- Snapshot moment: after syncing latest `main`, before merge actions for this run.
-- Open PR count at snapshot: **2**
+- Snapshot moment: post-implementation push/check cycle.
+- Open PR count at snapshot: **10**
+
+- #735 — `test(ipc): add malformed-envelope host gate (refs #586)`  
+  https://github.com/rwrife/SecureOS/pull/735
+  - Draft: `true`
+  - Head: `fix/ipc-wire-malformed-harness-586` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
 
 - #736 — `test(process): add process_exit_qemu starter bridge gate (refs #551)`  
   https://github.com/rwrife/SecureOS/pull/736
@@ -13,27 +21,75 @@
   - Head: `feature/process-exit-qemu-551` → Base: `main`
   - Mergeable: `CONFLICTING`
   - Merge state: `DIRTY`
-  - Checks:
-    - `build-iso-vm-smoke`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30175447916/job/89723381169)
-    - `lint`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30175447932/job/89723381230)
-    - `build-and-validate`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30175447925/job/89723381126)
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
 
-- #735 — `test(ipc): add malformed-envelope host gate (refs #586)`  
-  https://github.com/rwrife/SecureOS/pull/735
+- #743 — `test(audit): pin launch owner_kind marker contract (refs #554)`  
+  https://github.com/rwrife/SecureOS/pull/743
   - Draft: `true`
-  - Head: `fix/ipc-wire-malformed-harness-586` → Base: `main`
+  - Head: `fix/launch-owner-kind-audit-554` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
+
+- #744 — `test(m7): scaffold cc determinism qemu gate (refs #572)`  
+  https://github.com/rwrife/SecureOS/pull/744
+  - Draft: `true`
+  - Head: `feature/cc-determinism-qemu-572` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
+
+- #745 — `feat: scaffold cc app entrypoint + manifest (refs #540)`  
+  https://github.com/rwrife/SecureOS/pull/745
+  - Draft: `true`
+  - Head: `feature/cc-scaffold-540` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
+
+- #746 — `feat(m5): enforce ownership_role broker edges at runtime (refs #585)`  
+  https://github.com/rwrife/SecureOS/pull/746
+  - Draft: `true`
+  - Head: `feature/m5-ownership-role-scaffold-585` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `UNSTABLE`
+  - Checks: `lint=QUEUED`, `build-iso-vm-smoke=IN_PROGRESS`, `build-and-validate=IN_PROGRESS`
+
+- #747 — `test(process): pin argv join-collision evidence for #724`  
+  https://github.com/rwrife/SecureOS/pull/747
+  - Draft: `true`
+  - Head: `feature/process-spawn-argv-eval-724` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
+
+- #748 — `feat(m6): add hello-from-sdk host gate starter (refs #584)`  
+  https://github.com/rwrife/SecureOS/pull/748
+  - Draft: `true`
+  - Head: `feature/m6-sample-sdk-build-gate-584` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: none reported
+
+- #749 — `docs(abi): align /apps/dev/include manifest header path with 8.3 staging (refs #613)`  
+  https://github.com/rwrife/SecureOS/pull/749
+  - Draft: `true`
+  - Head: `docs/apps-dev-layout-613-alias` → Base: `main`
+  - Mergeable: `MERGEABLE`
+  - Merge state: `CLEAN`
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
+
+- #750 — `test(mem): add mem_brk arena-cap deny marker host gate (refs #558)`  
+  https://github.com/rwrife/SecureOS/pull/750
+  - Draft: `true`
+  - Head: `feature/mem-brk-arena-deny-558` → Base: `main`
   - Mergeable: `CONFLICTING`
   - Merge state: `DIRTY`
-  - Checks:
-    - `build-iso-vm-smoke`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30126776621/job/89592026365)
-    - `build-and-validate`: **FAILURE** (https://github.com/rwrife/SecureOS/actions/runs/30126776595/job/89592026226)
-    - `lint`: **SUCCESS** (https://github.com/rwrife/SecureOS/actions/runs/30126776531/job/89592026175)
+  - Checks: `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`, `build-and-validate=SUCCESS`
 
 ## Open issue snapshot
-- Open issue count at snapshot: **20**
+- Open issue count at snapshot: **18**
 
-- #739 — ci(drift): scheduled-drift-gate failure on main — auto-updated  
-  https://github.com/rwrife/SecureOS/issues/739
 - #724 — follow-up: evaluate length-prefixed argv wire format for os_process_spawn  
   https://github.com/rwrife/SecureOS/issues/724
 - #613 — disk-image: stage sofpack.h + manifestgen.h public headers under /apps/dev/include/ (in-OS cc link prereq, sibling of #531, refs #521 #533 #409 #540)  
@@ -44,8 +100,6 @@
   https://github.com/rwrife/SecureOS/issues/585
 - #584 — M6-SDK-004: third-party sample app samples/hello-from-sdk/ (execute slice 4 of plan #136, BUILD_ROADMAP §5.6)  
   https://github.com/rwrife/SecureOS/issues/584
-- #577 — test(manifestgen): byte-identical golden-corpus gate for libmanifestgen output (sibling of #555 #572, refs #533 PR#535)  
-  https://github.com/rwrife/SecureOS/issues/577
 - #572 — test(qemu): cc determinism gate — byte-identical SOF across repeated/cross-boot compiles (refs #409 #410 #555)  
   https://github.com/rwrife/SecureOS/issues/572
 - #558 — test(cap): pin os_mem_brk arena-cap CAP:DENY marker — refuse-to-grow-past-runtime.arena_bytes contract (refs #421 #424 #404)  
@@ -74,23 +128,24 @@
   https://github.com/rwrife/SecureOS/issues/396
 
 ## PRs merged this run
-- https://github.com/rwrife/SecureOS/pull/740
+- _none_
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/739
+- https://github.com/rwrife/SecureOS/issues/585
 
 ## Issues newly created this run
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `fix/abi-manifest-stamp-739`
-- Worktree used: `/home/rwrife/repos/secureos/.worktrees/fix-abi-manifest-stamp-739`
-- Implementation PR created and merged this run: https://github.com/rwrife/SecureOS/pull/740
-- Merge commit on `main`: `3ba0ff96a299428599eba627d998aa2bdcb6c6ea`
-- Remote feature branch deleted after merge.
+- Branch: `feature/m5-ownership-role-scaffold-585`
+- Worktree used: `/home/rwrife/repos/secureos/.worktrees/feature/m5-ownership-role-scaffold-585`
+- Implementation PR updated this run: https://github.com/rwrife/SecureOS/pull/746
+- Commits pushed this run: `91a527984efe2f47473fdd214cd8f356fd939f8f` plus a maintenance-state update commit on this branch.
 
 ## Blockers / notes
-- PR #736 was not merged: merge conflict (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`) and all required checks failing (`build-iso-vm-smoke`, `lint`, `build-and-validate`).
-- PR #735 was not merged: merge conflict (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`) and required checks failing (`build-iso-vm-smoke`, `build-and-validate`).
-- Initial env-token auth (`GH_TOKEN`/`GITHUB_TOKEN`) failed write preflight with `403 Resource not accessible by personal access token`; run continued using stored `gh` auth after unsetting env overrides.
-- Selected issue #739 because scheduled drift gates on `main` were red due `ABI_STAMP:FAIL:docs/abi/manifest.md`; issue closed by merged PR #740 after local validator pass (`validate_abi_stamps`).
+- No open PRs were merged because all open PRs are still marked **draft**.
+- PR #736 and PR #750 are additionally blocked by merge conflicts (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`).
+- PR #746 checks are currently re-running (lint queued; build-and-validate + vm-smoke in progress) after this run's pushes. Last completed `build-and-validate` failed with `ABI_STAMP:FAIL:docs/abi/clib-symbols.md:stamp=fb7ec41a1d:last_content=4b44a03611` (run https://github.com/rwrife/SecureOS/actions/runs/31641144182).
+- PR #748 currently has no reported checks yet.
+- Cron auth note: env-token path failed write preflight with `HTTP 403 Resource not accessible by personal access token`; run continued with stored `gh` credentials after unsetting `GH_TOKEN`/`GITHUB_TOKEN`.
+- Targeted verification run for this update: `./build/scripts/test.sh validate_abi_stamps` (PASS in branch worktree after refreshing `docs/abi/manifest.md` stamp).
