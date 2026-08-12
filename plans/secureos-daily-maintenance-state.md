@@ -1,7 +1,7 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-08-12T21:12:00Z
+- 2026-08-12T21:13:10Z
 
 ## Open PR snapshot
 - Snapshot moment: post-implementation push/check cycle.
@@ -53,7 +53,7 @@
   - Head: `feature/m5-ownership-role-scaffold-585` → Base: `main`
   - Mergeable: `MERGEABLE`
   - Merge state: `UNSTABLE`
-  - Checks: `build-and-validate=FAILURE`, `build-iso-vm-smoke=SUCCESS`, `lint=SUCCESS`
+  - Checks: `lint=QUEUED`, `build-iso-vm-smoke=IN_PROGRESS`, `build-and-validate=IN_PROGRESS`
 
 - #747 — `test(process): pin argv join-collision evidence for #724`  
   https://github.com/rwrife/SecureOS/pull/747
@@ -145,7 +145,7 @@
 ## Blockers / notes
 - No open PRs were merged because all open PRs are still marked **draft**.
 - PR #736 and PR #750 are additionally blocked by merge conflicts (`mergeable=CONFLICTING`, `mergeStateStatus=DIRTY`).
-- PR #746 remains blocked by failing `build-and-validate`; latest failure is `ABI_STAMP:FAIL:docs/abi/clib-symbols.md:stamp=fb7ec41a1d:last_content=4b44a03611` (run https://github.com/rwrife/SecureOS/actions/runs/31641144182).
+- PR #746 checks are currently re-running (lint queued; build-and-validate + vm-smoke in progress) after this run's pushes. Last completed `build-and-validate` failed with `ABI_STAMP:FAIL:docs/abi/clib-symbols.md:stamp=fb7ec41a1d:last_content=4b44a03611` (run https://github.com/rwrife/SecureOS/actions/runs/31641144182).
 - PR #748 currently has no reported checks yet.
 - Cron auth note: env-token path failed write preflight with `HTTP 403 Resource not accessible by personal access token`; run continued with stored `gh` credentials after unsetting `GH_TOKEN`/`GITHUB_TOKEN`.
 - Targeted verification run for this update: `./build/scripts/test.sh validate_abi_stamps` (PASS in branch worktree after refreshing `docs/abi/manifest.md` stamp).
