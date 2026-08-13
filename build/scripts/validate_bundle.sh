@@ -827,6 +827,10 @@ TEST_TARGETS=(
     # Current shape is intentionally read-only snapshot semantics + ENOSYS
     # unlink placeholder until delete syscall wiring lands.
     clib_posix_fd
+    # M7-TOOLCHAIN-005 follow-up (issue #539): runtime/link-surface gate for
+    # TinyCC compatibility shims (`realloc`, `free`, `sprintf`, `exit`,
+    # `time`, `localtime`, `getcwd`, `getenv`, `realpath`, `dlopen`, `dlsym`).
+    clib_tinycc_link_surface
     # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdnoreturn.h>`
     # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdnoreturn.h>` as
     # one of the freestanding-required headers; §7.23 defines the header
