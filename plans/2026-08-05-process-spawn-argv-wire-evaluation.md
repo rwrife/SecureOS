@@ -26,8 +26,9 @@ additive length-prefixed wire format is required.
 ## This slice (land now)
 
 1. Extend the existing host contract test (`process_spawn_argv_roundtrip`) with
-   an explicit collision case where two distinct argv vectors collapse to the
-   same joined `raw_args` payload.
+   explicit collision evidence where distinct argv vectors collapse to the same
+   joined `raw_args` payload (single-space payload and multi-argument payload
+   variants).
 2. Strengthen the harness script to assert all expected sub-markers (instead of
    only relying on process exit code), so CI catches silent marker drift.
 3. Keep behavior unchanged (no ABI or runtime semantics changes in this slice).
@@ -48,5 +49,7 @@ additive length-prefixed wire format is required.
 - Host gate emits and checks:
   - `TEST:PASS:process_spawn_argv_roundtrip:space_join_limitation_pinned`
   - `TEST:PASS:process_spawn_argv_roundtrip:space_join_collision_pinned`
+  - `TEST:PASS:process_spawn_argv_roundtrip:space_join_multiarg_payload_pinned`
+  - `TEST:PASS:process_spawn_argv_roundtrip:space_join_multiarg_collision_pinned`
 - No runtime behavior or ABI change in this PR.
 - Plan links #724 to concrete next-step evidence collection once #410 lands.
