@@ -4,7 +4,7 @@
  *
  * This test is invoked by build/scripts/test_clib_posix_fd.sh and validates
  * the user/libs/clib bridge symbols open/close/read/lseek/unlink against a
- * deterministic in-memory os_fs_read_file stub.
+ * deterministic in-memory os_fs_read_file/os_fs_write_file fixture.
  */
 
 #include <stdio.h>
@@ -27,40 +27,88 @@ static void record_check(int ok, const char *name) {
 
 typedef struct fixture_row {
   const char *path;
-  const char *content;
-  os_status_t status;
+  char content[64];
+  os_status_t read_status;
+  int exists;
 } fixture_row_t;
 
-static const fixture_row_t k_rows[] = {
-    {"/alpha.txt", "alpha beta gamma", OS_STATUS_OK},
-    {"/empty.txt", "", OS_STATUS_OK},
-    {"/denied.txt", "", OS_STATUS_DENIED},
+static fixture_row_t g_rows[] = {
+    {"/alpha.txt", "alpha beta gamma", OS_STATUS_OK, 1},
+    {"/empty.txt", "", OS_STATUS_OK, 1},
+    {"/denied.txt", "", OS_STATUS_DENIED, 1},
 };
+
+static fixture_row_t *find_row(const char *path) {
+  for (size_t i = 0; i < (sizeof(g_rows) / sizeof(g_rows[0])); ++i) {
+    if (strcmp(path, g_rows[i].path) == 0) {
+      return &g_rows[i];
+    }
+  }
+  return NULL;
+}
 
 os_status_t os_fs_read_file(const char *path,
                             char *out_buffer,
                             unsigned int out_buffer_size) {
+  fixture_row_t *row;
+  size_t n;
+
   if (!path || !out_buffer || out_buffer_size == 0) {
     return OS_STATUS_ERROR;
   }
 
-  for (size_t i = 0; i < (sizeof(k_rows) / sizeof(k_rows[0])); ++i) {
-    if (strcmp(path, k_rows[i].path) != 0) {
-      continue;
-    }
-    if (k_rows[i].status != OS_STATUS_OK) {
-      return k_rows[i].status;
-    }
-
-    size_t n = strlen(k_rows[i].content);
-    if (n + 1 > out_buffer_size) {
-      return OS_STATUS_ERROR;
-    }
-    memcpy(out_buffer, k_rows[i].content, n + 1);
-    return OS_STATUS_OK;
+  row = find_row(path);
+  if (!row || !row->exists) {
+    return OS_STATUS_NOT_FOUND;
+  }
+  if (row->read_status != OS_STATUS_OK) {
+    return row->read_status;
   }
 
-  return OS_STATUS_NOT_FOUND;
+  n = strlen(row->content);
+  if (n + 1 > out_buffer_size) {
+    return OS_STATUS_ERROR;
+  }
+  memcpy(out_buffer, row->content, n + 1);
+  return OS_STATUS_OK;
+}
+
+os_status_t os_fs_write_file(const char *path,
+                             const char *content,
+                             int append) {
+  fixture_row_t *row;
+  const char *src = content ? content : "";
+  size_t src_n;
+  size_t base_n = 0;
+
+  if (!path) {
+    return OS_STATUS_ERROR;
+  }
+
+  row = find_row(path);
+  if (!row || !row->exists) {
+    return OS_STATUS_NOT_FOUND;
+  }
+  if (row->read_status == OS_STATUS_DENIED) {
+    return OS_STATUS_DENIED;
+  }
+
+  src_n = strlen(src);
+  if (append) {
+    base_n = strlen(row->content);
+  }
+
+  if (base_n + src_n + 1 > sizeof(row->content)) {
+    return OS_STATUS_ERROR;
+  }
+
+  if (!append) {
+    row->content[0] = '\0';
+    base_n = 0;
+  }
+
+  memcpy(row->content + base_n, src, src_n + 1);
+  return OS_STATUS_OK;
 }
 
 static int expect_read_eq(int fd, size_t want_count, const char *want) {
@@ -146,10 +194,33 @@ static void test_error_paths(void) {
   errno = 0;
   record_check(lseek(9999, 0, SEEK_SET) == (off_t)-1 && errno == EBADF,
                "lseek_invalid_fd");
+}
+
+static void test_unlink_shim(void) {
+  int fd;
+  char probe[4] = {0};
 
   errno = 0;
-  record_check(unlink("/alpha.txt") == -1 && errno == ENOSYS,
-               "unlink_not_yet_implemented");
+  record_check(unlink("/missing.txt") == -1 && errno == ENOENT,
+               "unlink_missing_maps_enoent");
+
+  errno = 0;
+  record_check(unlink("/denied.txt") == -1 && errno == EACCES,
+               "unlink_denied_maps_eacces");
+
+  errno = 0;
+  record_check(unlink("/alpha.txt") == 0, "unlink_truncate_success");
+
+  fd = open("/alpha.txt", O_RDONLY);
+  if (fd < 0) {
+    record_check(0, "open_after_unlink_success");
+    return;
+  }
+  record_check(1, "open_after_unlink_success");
+
+  errno = 0;
+  record_check(read(fd, probe, sizeof(probe)) == 0, "read_after_unlink_is_eof");
+  record_check(close(fd) == 0, "close_after_unlink_success");
 }
 
 int main(void) {
@@ -157,6 +228,7 @@ int main(void) {
   test_read_and_seek_roundtrip();
   test_fd_table_limit();
   test_error_paths();
+  test_unlink_shim();
 
   record_check(1, "symbol_set_pinned");
 
