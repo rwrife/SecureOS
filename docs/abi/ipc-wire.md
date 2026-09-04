@@ -267,6 +267,10 @@ capability and is never collapsed into `OS_STATUS_ERROR`.
   wire format for (#180 / #185).
 - `BUILD_ROADMAP.md` §5.1 — M1 minimal kernel isolation + IPC
   skeleton; §7 — ABI freeze plan.
+- `tests/ipc_wire_malformed_test.c` +
+  `build/scripts/test_ipc_wire_malformed.sh` — host fixture that pins
+  the v0 malformed-envelope rejection branches (`IPC_ERR_INVALID_MSG`)
+  and validates post-reject port-slot usability (issue #586).
 
 ## 8. Provenance
 
@@ -276,4 +280,4 @@ implementation work begins under #180 / #185. Implementation issues that
 must conform to this surface are enumerated in the M1 plan referenced
 above.
 
-Last verified against commit: 7f303d7e901d6707e6f223a2b1fa1b0621792963
+Last verified against commit: 323823916ed6c3e252f4dd1e96d625dfa9febd7b

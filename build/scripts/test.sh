@@ -835,6 +835,13 @@ case "$TEST_NAME" in
     # + backward-compat carve-out (no PCB ⇒ check skipped).
     run_script "$ROOT_DIR/build/scripts/test_ipc_bounds.sh"
     ;;
+  ipc_wire_malformed)
+    # Issue #586: malformed-envelope rejection contract for v0 IPC wire
+    # surface (NULL msg, abi mismatch, flags MBZ violation, payload_len
+    # overflow, sender_subject==0 on delivery) plus post-reject slot
+    # usability check.
+    run_script "$ROOT_DIR/build/scripts/test_ipc_wire_malformed.sh"
+    ;;
   m1_ipc_demo)
     # Issue #251 (plan #198 slice 4): M1 two-module IPC acceptance
     # demo — m1-sender → m1-receiver allow round-trip and m1-unauth
