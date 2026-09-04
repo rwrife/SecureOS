@@ -130,6 +130,35 @@ def check_issue_state(issue: int) -> str | None:
     return state or None
 
 
+def enforce_launch_owner_kind_contract(rows: list[dict[str, Any]]) -> int:
+    """Issue #554 contract pin.
+
+    `launch.granted` and `launch.denied` rows in docs/abi/audit-markers.json
+    must both carry the explicit owner-kind field token and continue to point
+    at gating issue #554 while runtime wiring is in flight.
+    """
+    failures = 0
+    row_by_prefix = {row["prefix"]: row for row in rows}
+
+    for prefix in ("launch.granted", "launch.denied"):
+        row = row_by_prefix.get(prefix)
+        if row is None:
+            # Missing-row drift is already emitted by prefix parity checks.
+            continue
+
+        shape = row.get("shape")
+        if not isinstance(shape, str) or "owner_kind=<owner_kind>" not in shape:
+            err(f"{MARKER}:FAIL:launch_owner_kind_shape:{prefix}:{shape!r}")
+            failures += 1
+
+        gating = row.get("gating_issue")
+        if gating != 554:
+            err(f"{MARKER}:FAIL:launch_owner_kind_gating_issue:{prefix}:{gating!r}")
+            failures += 1
+
+    return failures
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Validate audit marker markdown/json drift")
     ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent))
@@ -173,6 +202,8 @@ def main() -> int:
     for pref in missing_in_md:
         err(f"{MARKER}:FAIL:missing_in_markdown:{pref}")
         failures += 1
+
+    failures += enforce_launch_owner_kind_contract(json_rows)
 
     if args.with_gh:
         seen_issues: set[int] = set()
