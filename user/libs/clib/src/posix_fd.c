@@ -12,11 +12,13 @@
  * Design constraints:
  *   - No kernel headers beyond secureos_api.h, no hosted libc use.
  *   - Deterministic fixed-size fd table (no malloc prerequisite).
- *   - Read-only snapshot semantics for now:
+ *   - Read-only snapshot semantics for open/read/lseek:
  *       * open(O_RDONLY) reads the file into an in-memory slot.
  *       * read/lseek operate on that snapshot.
- *       * write paths and true unlink are intentionally deferred until
- *         the ABI exposes stream/file-handle operations.
+ *   - unlink is implemented as a deterministic truncate-to-empty shim
+ *     (`os_fs_write_file(path, "", append=0)`) after an existence check,
+ *     so TinyCC cleanup paths can proceed without waiting for a dedicated
+ *     delete syscall in the exported user ABI.
  *
  * This file is called by any userland binary that links against
  * libclib.a and directly invokes the POSIX fd symbols.
@@ -250,14 +252,31 @@ off_t lseek(int fd, off_t offset, int whence) {
 }
 
 int unlink(const char *path) {
+  os_status_t st;
+  int probe_fd;
+
   if (!path || path[0] == '\0') {
     errno = EINVAL;
     return -1;
   }
 
-  /* SecureOS currently exposes overwrite/write primitives but no true delete
-   * syscall in the exported user ABI. Keep symbol presence for TinyCC and
-   * fail explicitly until delete wiring lands. */
-  errno = ENOSYS;
-  return -1;
+  /* Existence check first so missing paths still surface ENOENT instead of
+   * creating a brand-new empty file via os_fs_write_file(). */
+  probe_fd = open(path, O_RDONLY);
+  if (probe_fd < 0) {
+    return -1;
+  }
+  (void)close(probe_fd);
+
+  /* v0 unlink shim: SecureOS does not yet expose a dedicated delete syscall
+   * in the public user ABI, so model unlink as truncate-to-empty. This is
+   * enough for TinyCC temporary-file cleanup paths that only require the path
+   * to become non-material for subsequent reads. */
+  st = os_fs_write_file(path, "", 0);
+  if (st != OS_STATUS_OK) {
+    errno = status_to_errno(st);
+    return -1;
+  }
+
+  return 0;
 }

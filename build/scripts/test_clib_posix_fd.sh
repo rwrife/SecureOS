@@ -9,7 +9,7 @@
 #   - read/lseek: deterministic snapshot read + cursor movement semantics.
 #   - close: valid and invalid-fd behavior.
 #   - fd table saturation: EMFILE when fixed slot table is exhausted.
-#   - unlink: explicit ENOSYS placeholder until delete syscall wiring lands.
+#   - unlink: truncate-to-empty shim (with errno mapping) over os_fs_write_file.
 #   - symbol_set_pinned marker used by the bundle harness.
 #
 # Compiled with -fno-builtin so we validate libclib symbols (not host libc
@@ -49,7 +49,12 @@ grep -q "TEST:PASS:clib_posix_fd:fd_table_emfile" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:close_invalid_fd" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:read_invalid_fd" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:lseek_invalid_fd" "$LOG_PATH"
-grep -q "TEST:PASS:clib_posix_fd:unlink_not_yet_implemented" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:unlink_missing_maps_enoent" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:unlink_denied_maps_eacces" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:unlink_truncate_success" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:open_after_unlink_success" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:read_after_unlink_is_eof" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:close_after_unlink_success" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:symbol_set_pinned" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd$" "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"
