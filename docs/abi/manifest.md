@@ -363,6 +363,7 @@ list while still being a stable target for the regression test.
   it just compiled on-target without having to mis-label it as
   `"external"`. Launch audit owner-kind field contracts are pinned by
   issue [#554](https://github.com/rwrife/SecureOS/issues/554)
+  via [PR #755](https://github.com/rwrife/SecureOS/pull/755)
   host gate `launcher_owner_kind_audit_marker`; end-to-end runtime
   enforcement remains tracked by
   [#410](https://github.com/rwrife/SecureOS/issues/410).
@@ -398,10 +399,10 @@ list while still being a stable target for the regression test.
 | `manifest_owner_kind_enum:local_near_miss_rejected` | enforced (PR for #522 schema sub-slice) |
 | `manifest_owner_kind_enum:negative_rejected` | enforced (PR for #396 schema sub-slice) |
 | `manifest_owner_kind_enum:default_when_omitted` | enforced (PR for #396 schema sub-slice) |
-| `launcher_owner_kind_audit_marker:internal` | enforced (PR for #554 owner-kind audit contract slice) |
-| `launcher_owner_kind_audit_marker:external` | enforced (PR for #554 owner-kind audit contract slice) |
-| `launcher_owner_kind_audit_marker:local` | enforced (PR for #554 owner-kind audit contract slice) |
-| `launcher_owner_kind_audit_marker:default_when_omitted` | enforced (PR for #554 owner-kind audit contract slice) |
+| `launcher_owner_kind_audit_marker:internal` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
+| `launcher_owner_kind_audit_marker:external` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
+| `launcher_owner_kind_audit_marker:local` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
+| `launcher_owner_kind_audit_marker:default_when_omitted` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
 
 ### §5.7 runtime.arena_bytes enforcement status (M7-TOOLCHAIN-001 schema sub-slice)
 
