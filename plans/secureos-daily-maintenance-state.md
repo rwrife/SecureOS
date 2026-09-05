@@ -1,13 +1,13 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-08-15T21:07:15Z
+- 2026-09-05T21:13:48Z
 
 ## Open PR snapshot
-- Open PR count at snapshot: **11**
+- Open PR count at snapshot: **7**
 
-- #754 — feat(clib): add unlink truncate shim for POSIX fd bridge  
-  https://github.com/rwrife/SecureOS/pull/754
+- #755 — test(audit): add launcher owner-kind marker host gate (refs #554)  
+  https://github.com/rwrife/SecureOS/pull/755
   - Draft: `true`
   - Mergeable: `MERGEABLE`
   - Merge state: `UNSTABLE`
@@ -49,9 +49,9 @@
 
 - #747 — test(process): pin argv join-collision evidence for #724  
   https://github.com/rwrife/SecureOS/pull/747
-  - Draft: `true`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `CLEAN`
+  - Draft: `false`
+  - Mergeable: `CONFLICTING`
+  - Merge state: `DIRTY`
   - Checks overall: `passing`
   - Checks detail:
     - `build-iso-vm-smoke:SUCCESS`
@@ -69,55 +69,11 @@
     - `build-iso-vm-smoke:SUCCESS`
     - `lint:SUCCESS`
 
-- #745 — feat: scaffold cc app entrypoint + manifest (refs #540)  
-  https://github.com/rwrife/SecureOS/pull/745
-  - Draft: `true`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `CLEAN`
-  - Checks overall: `passing`
-  - Checks detail:
-    - `build-iso-vm-smoke:SUCCESS`
-    - `lint:SUCCESS`
-    - `build-and-validate:SUCCESS`
-
-- #744 — test(m7): scaffold cc determinism qemu gate (refs #572)  
-  https://github.com/rwrife/SecureOS/pull/744
-  - Draft: `true`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `CLEAN`
-  - Checks overall: `passing`
-  - Checks detail:
-    - `build-iso-vm-smoke:SUCCESS`
-    - `lint:SUCCESS`
-    - `build-and-validate:SUCCESS`
-
-- #743 — test(audit): pin launch owner_kind marker contract (refs #554)  
-  https://github.com/rwrife/SecureOS/pull/743
-  - Draft: `true`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `CLEAN`
-  - Checks overall: `passing`
-  - Checks detail:
-    - `build-iso-vm-smoke:SUCCESS`
-    - `lint:SUCCESS`
-    - `build-and-validate:SUCCESS`
-
 - #736 — test(process): add process_exit_qemu starter bridge gate (refs #551)  
   https://github.com/rwrife/SecureOS/pull/736
   - Draft: `true`
   - Mergeable: `CONFLICTING`
   - Merge state: `DIRTY`
-  - Checks overall: `passing`
-  - Checks detail:
-    - `build-iso-vm-smoke:SUCCESS`
-    - `lint:SUCCESS`
-    - `build-and-validate:SUCCESS`
-
-- #735 — test(ipc): add malformed-envelope host gate (refs #586)  
-  https://github.com/rwrife/SecureOS/pull/735
-  - Draft: `true`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `CLEAN`
   - Checks overall: `passing`
   - Checks detail:
     - `build-iso-vm-smoke:SUCCESS`
@@ -166,22 +122,24 @@
 - _none_
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/538
+- https://github.com/rwrife/SecureOS/issues/554
 
 ## Issues newly created this run
 - _none_
 
 ## Branch / PR created for active work
-- Branch: `feature/m7-538-unlink-shim`
-- Worktree used: `/home/rwrife/repos/secureos/.worktrees/feature-m7-538-unlink-shim`
-- Implementation PR created this run: https://github.com/rwrife/SecureOS/pull/754
+- Branch: `feature/launcher-owner-kind-audit-554`
+- Worktree used: `/home/rwrife/repos/secureos/.worktrees/feature/launcher-owner-kind-audit-554`
+- Implementation PR created this run: https://github.com/rwrife/SecureOS/pull/755
 
 ## Blockers / notes
-- All open PRs remain blocked from merge because they are draft PRs. Additional blockers:
-  - #754: mergeState=UNSTABLE; pending-checks=build-iso-vm-smoke:IN_PROGRESS,lint:IN_PROGRESS,build-and-validate:IN_PROGRESS
-  - #750: mergeable=CONFLICTING; mergeState=DIRTY
-  - #749: mergeable=CONFLICTING; mergeState=DIRTY
-  - #746: mergeable=CONFLICTING; mergeState=DIRTY; failing-checks=build-and-validate:FAILURE
-  - #736: mergeable=CONFLICTING; mergeState=DIRTY
-- Headless auth pitfall observed: initial `git push` returned HTTP 403 under env-token override; recovered by unsetting `GH_TOKEN`/`GITHUB_TOKEN`, running `gh auth setup-git`, and retrying push successfully.
-- Selected issue #538 because it directly advances M7 toolchain viability for QEMU/x86 by removing `unlink` ENOSYS from the freestanding clib bridge used by TinyCC paths.
+- No open PR was safe to merge in this run.
+  - #755 blocked (for merge now) because it is draft and checks are still pending.
+  - #750 blocked by merge conflict (`mergeable=CONFLICTING`, `mergeState=DIRTY`).
+  - #749 blocked by merge conflict (`mergeable=CONFLICTING`, `mergeState=DIRTY`).
+  - #748 blocked because it remains draft and has no reported checks yet.
+  - #747 blocked by merge conflict (`mergeable=CONFLICTING`, `mergeState=DIRTY`).
+  - #746 blocked by merge conflict and failing check (`build-and-validate:FAILURE`).
+  - #736 blocked by merge conflict (`mergeable=CONFLICTING`, `mergeState=DIRTY`).
+- Headless auth pitfall observed: `git push` initially failed with HTTP 403 when environment token override was active. Recovery was to unset `GH_TOKEN` / `GITHUB_TOKEN`, run `gh auth setup-git`, and retry push successfully.
+- Selected issue #554 because it closes a direct zero-trust forensics gap (owner-kind audit discrimination) without introducing syscall/capability/schema surface changes, and it had no open PR duplicating this slice.
