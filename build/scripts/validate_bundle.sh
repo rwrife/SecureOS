@@ -346,6 +346,12 @@ TEST_TARGETS=(
     sdk_abi_pin
     sdk_libos_link
     validate_sdk_no_kernel_includes
+    # Issue #584 (M6-SDK-004 starter): host-side guard that
+    # `samples/hello-from-sdk` continues to build against SDK/libos
+    # surface and that its manifest pins external-owner posture.
+    # Full wrapper/QEMU lane remains tracked by the explicit SKIP peer
+    # `m6_sample_hello_from_sdk_qemu` until #396 wrappers land.
+    m6_sample_hello_from_sdk
     # Issue #623: portability drift gate for the kernel non-arch tree.
     # Fails when direct architecture preprocessor macros
     # (`__x86_64__`, `__i386__`, `__amd64__`, `__aarch64__`, `__arm__`)

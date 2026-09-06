@@ -742,6 +742,16 @@ case "$TEST_NAME" in
     # internal-only types into the public contract.
     run_script "$ROOT_DIR/build/scripts/validate_sdk_no_kernel_includes.sh"
     ;;
+  m6_sample_hello_from_sdk)
+    # Issue #584 (M6-SDK-004 starter): host-side sample-app build +
+    # manifest posture gate for `samples/hello-from-sdk/`.
+    run_script "$ROOT_DIR/build/scripts/test_m6_sample_hello_from_sdk.sh"
+    ;;
+  m6_sample_hello_from_sdk_qemu)
+    # Issue #584 deferred peer: explicit SKIP marker while `os-cc` /
+    # `os-pack` / `os-run` wrapper flow is still pending #396.
+    run_script "$ROOT_DIR/build/scripts/test_m6_sample_hello_from_sdk_qemu.sh"
+    ;;
   validate_no_arch_macros_outside_arch_tree)
     # Issue #623: multi-architecture readiness drift gate. Forbid direct
     # `__x86_64__` / `__i386__` / `__amd64__` / `__aarch64__` /

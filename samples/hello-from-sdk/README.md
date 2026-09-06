@@ -1,24 +1,21 @@
 # `hello-from-sdk` — minimal external-app sample
 
-Status: **source skeleton only** (slice of M6-SDK-003 / issue
-[#396](https://github.com/rwrife/SecureOS/issues/396)). The
-`os-cc` / `os-pack` / `os-run` host wrappers and the
-`sdk_external_build_isolation` acceptance test that copies this
-directory to a scratch dir outside the repo and builds it from there
-are **not yet shipped** — they are gated on the A/B design decision
-called out in the body of #396 and will be added by the wrapper
-slice. Until then this directory is read-only documentation of the
-target shape of an external SDK app.
+Status: **starter implementation in progress** for
+[#584](https://github.com/rwrife/SecureOS/issues/584). The final
+`os-cc` / `os-pack` / `os-run` wrapper flow is still pending
+[#396](https://github.com/rwrife/SecureOS/issues/396), but this
+sample now has a host-side build + manifest gate (`m6_sample_hello_from_sdk`)
+so SDK-surface drift is caught before wrapper wiring lands.
 
 ## What's here
 
 - `main.c` — calls `os_console_write("hello from sdk\n")` and returns 0.
   Verbatim from plan §"Sample External App: `hello-from-sdk`"
   ([`plans/2026-05-15-public-sdk-external-app-template.md`](../../plans/2026-05-15-public-sdk-external-app-template.md)).
-- `manifest.json` — manifest_version 0 / os_abi_version 0; declares
-  `CAP_CONSOLE_WRITE` as required and nothing else. Validated against
-  `manifests/schema/v0.json` (see `tools/validate_manifests.py
-  samples/hello-from-sdk/manifest.json`).
+- `manifest.json` — manifest_version 0 / os_abi_version 0, explicit
+  `owner.kind: "external"`, and `CAP_CONSOLE_WRITE` as the required
+  capability. Validated against `manifests/schema/v0.json` by
+  `build/scripts/test_m6_sample_hello_from_sdk.sh`.
 
 ## Containment rules this sample obeys
 
@@ -53,11 +50,19 @@ os-run hello-from-sdk.sof
 
 …with no `-I` / `-L` reaching back into the source tree.
 
-## Not built by default
+## Current execution scope
 
-This directory is **not** wired into `build/scripts/build.sh`,
-`build/scripts/test.sh`, or `TEST_TARGETS` in
-`build/scripts/validate_bundle.sh`. It is consumed only by the future
-`sdk_external_build_isolation` test driver. Adding the sample to the
-default build today would defeat the "scratch-dir outside the repo"
-isolation guarantee the plan requires.
+This sample now has a host-gated test target:
+
+```bash
+./build/scripts/test.sh m6_sample_hello_from_sdk
+```
+
+The full wrapper + QEMU execution path remains intentionally deferred:
+
+```bash
+./build/scripts/test.sh m6_sample_hello_from_sdk_qemu
+# -> TEST:SKIP:m6_sample_hello_from_sdk_qemu:os_cc_build:wrappers_unwired_pending_issue_396
+```
+
+That SKIP marker is deliberate issue-tracking signal, not a silent pass.

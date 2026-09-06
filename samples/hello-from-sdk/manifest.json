@@ -12,6 +12,9 @@
     "optional": []
   },
   "provides": [],
+  "owner": {
+    "kind": "external"
+  },
   "launcher": {
     "auto_grant_at_launch": ["CAP_CONSOLE_WRITE"],
     "require_user_confirm": []
