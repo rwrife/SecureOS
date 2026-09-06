@@ -14,7 +14,11 @@
  *     1) N=3 and N=5 argv vectors are joined deterministically,
  *     2) an argv element containing an internal space is not rejected and is
  *        preserved in the joined string (documented v0 limitation),
- *     3) `OS_STATUS_OK` return is distinct from propagated child exit status
+ *     3) two distinct argv vectors can collapse to the same joined raw string
+ *        (explicitly pinning the v0 boundary-loss caveat tracked by #724),
+ *     4) multi-argument payloads containing spaces can also collide with
+ *        tokenized vectors (same ambiguity through a different call shape),
+ *     5) `OS_STATUS_OK` return is distinct from propagated child exit status
  *        (`*out_exit_status = 42`).
  *
  * Interactions:
@@ -236,6 +240,54 @@ int main(void) {
                     "/apps/dev/cc",
                     argv_space,
                     "/home/my file.c -o /apps/hello.bin");
+  }
+
+  {
+    /* Distinct argv vector, identical v0 joined raw string:
+     * ["/home/my", "file.c", "-o", ...] collapses to the same
+     * space-joined payload as ["/home/my file.c", "-o", ...].
+     * This marker is the host-level canary for #724's follow-up
+     * wire-format evaluation once #410 runtime coverage is in place. */
+    const char *argv_collision[] = {
+      "cc",
+      "/home/my",
+      "file.c",
+      "-o",
+      "/apps/hello.bin",
+      0};
+    assert_spawn_ok("space_join_collision_pinned",
+                    "/apps/dev/cc",
+                    argv_collision,
+                    "/home/my file.c -o /apps/hello.bin");
+  }
+
+  {
+    /* Same ambiguity with two independently spaced arguments.
+     * Vector A keeps each spaced token as one argv slot, while vector B
+     * tokenizes both, yet both collapse to the same v0 raw_args string. */
+    const char *argv_multi_space[] = {
+      "cc",
+      "/apps/dev/hello world.c",
+      "-I/apps/dev/include extras",
+      0};
+    assert_spawn_ok("space_join_multiarg_payload_pinned",
+                    "/apps/dev/cc",
+                    argv_multi_space,
+                    "/apps/dev/hello world.c -I/apps/dev/include extras");
+  }
+
+  {
+    const char *argv_multi_collision[] = {
+      "cc",
+      "/apps/dev/hello",
+      "world.c",
+      "-I/apps/dev/include",
+      "extras",
+      0};
+    assert_spawn_ok("space_join_multiarg_collision_pinned",
+                    "/apps/dev/cc",
+                    argv_multi_collision,
+                    "/apps/dev/hello world.c -I/apps/dev/include extras");
   }
 
   printf("TEST:PASS:process_spawn_argv_roundtrip:out_exit_status_roundtrip\n");
