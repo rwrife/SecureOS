@@ -462,6 +462,11 @@ TEST_TARGETS=(
     # and no-op default-when-omitted parity. Same orphan-from-
     # TEST_TARGETS gate shape as the rest of the M7 slice peers above.
     launcher_arena_bytes
+    # Issue #554: host-side launch owner-kind audit marker contract pin.
+    # Exercises owner-kind fixture manifests (internal/external/local +
+    # default-when-omitted) and asserts launch.granted / launch.denied
+    # owner_kind field text remains byte-stable ahead of #410 runtime wiring.
+    launcher_owner_kind_audit_marker
     # M7-TOOLCHAIN-001 slice 2 (issue #421): host-side smoke for the
     # `os_mem_brk` user-runtime wrapper landed alongside the kernel
     # bridge slot in the same PR. Pins the symbol export, the
