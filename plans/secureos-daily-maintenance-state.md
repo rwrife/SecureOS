@@ -44,7 +44,14 @@
   - Blocked: draft + conflicting.
 
 ## PRs merged this run
-- None (every open PR is a draft; per policy drafts are not merged or auto-merged in unattended runs).
+- **PR #759 — feat(clib): add POSIX fd write modes and write() (refs #538)**  \
+  https://github.com/rwrife/SecureOS/pull/759
+  - Squash-merged 2026-09-08T21:41:38Z after all checks green
+    (`lint`, `build-and-validate`, `build-iso-vm-smoke` all SUCCESS,
+    `mergeStateStatus: CLEAN`). Remote + local branch deleted and worktree
+    removed.
+- No pre-existing open PRs were merged (every open PR is a draft; per policy
+  drafts are not merged or auto-merged in unattended runs).
 
 ## Open issue snapshot
 - Open issue count at snapshot: **17**
@@ -116,9 +123,11 @@
   future wire-format change and is tracked in the issue itself).
 
 ## Branch / PR created for active work
-- Branch: `feature/clib-posix-fd-write-modes-538`
-- Worktree: `.worktrees/feature/clib-posix-fd-write-modes-538`
-- PR: (created by this run — see run report)
+- Branch: `feature/clib-posix-fd-write-modes-538` (merged + deleted)
+- PR: **https://github.com/rwrife/SecureOS/pull/759** — squash-merged this
+  run; issue #538 remains open with tracked follow-ups (see below).
+- State-snapshot branch for this post-merge refresh:
+  `chore/daily-maintenance-state-2026-09-08`.
 
 ## Local verification (ad-hoc evidence for this run)
 - `./build/scripts/test.sh clib_posix_fd` → PASS (incl. 14 new write-mode markers)
