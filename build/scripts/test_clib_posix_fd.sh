@@ -5,9 +5,12 @@
 # (issue #538 / M7-TOOLCHAIN-005).
 #
 # Covers:
-#   - open: invalid args, denied-path errno mapping, and read-only gate.
+#   - open: invalid args, denied-path errno mapping, write-mode acceptance,
+#     O_CREAT/O_TRUNC/O_APPEND semantics.
 #   - read/lseek: deterministic snapshot read + cursor movement semantics.
-#   - close: valid and invalid-fd behavior.
+#   - write: read-only fd rejection, argument validation, write-back flush
+#     on close, append semantics, slot-capacity ENOSPC.
+#   - close: valid and invalid-fd behavior (with dirty-slot flush).
 #   - fd table saturation: EMFILE when fixed slot table is exhausted.
 #   - unlink: truncate-to-empty shim (with errno mapping) over os_fs_write_file.
 #   - symbol_set_pinned marker used by the bundle harness.
@@ -34,8 +37,19 @@ LOG_PATH="$OUT_DIR/clib_posix_fd_test.log"
 "$OUT_DIR/clib_posix_fd_test" | tee "$LOG_PATH"
 
 grep -q "TEST:PASS:clib_posix_fd:open_null_path" "$LOG_PATH"
-grep -q "TEST:PASS:clib_posix_fd:open_rejects_write_mode" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:open_write_missing_no_creat_enoent" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:open_maps_denied_to_eacces" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:open_write_mode_accepted" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:write_readonly_fd_ebadf" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:write_null_efault" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:write_zero_returns_zero" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:wronly_write_returns_count" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:wronly_close_flushes" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:wronly_trunc_roundtrip" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:creat_missing_accepted" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:creat_write_roundtrip" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:append_forces_end_of_file" "$LOG_PATH"
+grep -q "TEST:PASS:clib_posix_fd:enospc_past_slot_capacity" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:open_alpha_success" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:read_prefix" "$LOG_PATH"
 grep -q "TEST:PASS:clib_posix_fd:lseek_set" "$LOG_PATH"
