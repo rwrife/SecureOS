@@ -121,3 +121,4 @@ toupper
 unlink
 vfprintf
 vsnprintf
+write

@@ -276,16 +276,17 @@ prefix.
 ### `clib/posix_fd.h` (M7-TOOLCHAIN-005 slice / issue #538)
 
 Freestanding POSIX file-descriptor nucleus for TinyCC compatibility.
-Current implementation is intentionally scoped to read-only snapshot
-semantics over `os_fs_read_file` while delete/write-handle plumbing lands.
+Current implementation uses in-memory snapshot / write-back semantics
+over the `os_fs_read_file` / `os_fs_write_file` bridge surface.
 
 | Symbol   | Signature                                            | Notes |
 |----------|------------------------------------------------------|-------|
-| `open`   | `int open(const char *path, int flags, ...)`        | supports read-only (`O_RDONLY`) snapshots; write/create flags return `ENOTSUP` |
-| `close`  | `int close(int fd)`                                  | releases slot from deterministic fixed-size fd table |
+| `open`   | `int open(const char *path, int flags, ...)`        | opens read/write snapshots (`O_RDONLY`/`O_WRONLY`/`O_RDWR`); `O_CREAT` creates missing files lazily via write-back, `O_TRUNC` discards, `O_APPEND` forces writes to end; mode arg accepted and ignored (no permission-bit ABI) |
+| `close`  | `int close(int fd)`                                  | flushes a dirty snapshot back through `os_fs_write_file` before releasing the fd-table slot |
 | `read`   | `ssize_t read(int fd, void *buf, size_t count)`      | reads from in-memory snapshot and advances cursor |
+| `write`  | `ssize_t write(int fd, const void *buf, size_t count)` | extends the snapshot on writable fds (`EBADF` on read-only fds, `ENOSPC` past the fixed slot cap); flushes on close; text payloads only — embedded NUL bytes truncate the flush (v0 fs bridge marshals content as a C string) |
 | `lseek`  | `off_t lseek(int fd, off_t offset, int whence)`      | supports `SEEK_SET/CUR/END`; bounds-checked cursor updates |
-| `unlink` | `int unlink(const char *path)`                       | currently returns `-1` with `errno=ENOSYS` pending delete syscall ABI |
+| `unlink` | `int unlink(const char *path)`                       | deterministic truncate-to-empty shim over `os_fs_write_file` after an existence probe; pending a dedicated delete syscall ABI |
 
 ### `clib/runtime_compat.h` (M7-TOOLCHAIN-005 slice / issue #539)
 
@@ -437,6 +438,7 @@ toupper
 unlink
 vfprintf
 vsnprintf
+write
 ```
 <!-- clib-symbols:end -->
 
@@ -458,4 +460,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: 4b44a036114804ff6bb26a47358a2bc840bdee96
+Last verified against commit: 58c22280a0a5a78b124fc0236b7bc2c05b0501a8

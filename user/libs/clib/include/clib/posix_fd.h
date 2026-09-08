@@ -71,9 +71,20 @@ typedef long off_t;
 #define SEEK_END 2
 #endif
 
+#ifndef S_IRUSR
+#define S_IRUSR 00400
+#endif
+#ifndef S_IWUSR
+#define S_IWUSR 00200
+#endif
+#ifndef S_IRWXU
+#define S_IRWXU 00700
+#endif
+
 int open(const char *path, int flags, ...);
 int close(int fd);
 ssize_t read(int fd, void *buf, size_t count);
+ssize_t write(int fd, const void *buf, size_t count);
 off_t lseek(int fd, off_t offset, int whence);
 int unlink(const char *path);
 

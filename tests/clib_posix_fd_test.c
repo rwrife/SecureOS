@@ -3,8 +3,10 @@
  * @brief Host test for the freestanding POSIX-fd nucleus (issue #538).
  *
  * This test is invoked by build/scripts/test_clib_posix_fd.sh and validates
- * the user/libs/clib bridge symbols open/close/read/lseek/unlink against a
- * deterministic in-memory os_fs_read_file/os_fs_write_file fixture.
+ * the user/libs/clib bridge symbols open/close/read/write/lseek/unlink
+ * against a deterministic in-memory os_fs_read_file/os_fs_write_file
+ * fixture. The fixture models the v0 fs bridge semantics, including
+ * create-if-absent on writes (mirroring fs_write_file_bytes()).
  */
 
 #include <stdio.h>
@@ -25,21 +27,24 @@ static void record_check(int ok, const char *name) {
   }
 }
 
+#define FIXTURE_MAX_ROWS 12
+
 typedef struct fixture_row {
-  const char *path;
+  char path[32];
   char content[64];
   os_status_t read_status;
   int exists;
 } fixture_row_t;
 
-static fixture_row_t g_rows[] = {
+static fixture_row_t g_rows[FIXTURE_MAX_ROWS] = {
     {"/alpha.txt", "alpha beta gamma", OS_STATUS_OK, 1},
     {"/empty.txt", "", OS_STATUS_OK, 1},
     {"/denied.txt", "", OS_STATUS_DENIED, 1},
 };
+static size_t g_row_count = 3;
 
 static fixture_row_t *find_row(const char *path) {
-  for (size_t i = 0; i < (sizeof(g_rows) / sizeof(g_rows[0])); ++i) {
+  for (size_t i = 0; i < g_row_count; ++i) {
     if (strcmp(path, g_rows[i].path) == 0) {
       return &g_rows[i];
     }
@@ -87,7 +92,15 @@ os_status_t os_fs_write_file(const char *path,
 
   row = find_row(path);
   if (!row || !row->exists) {
-    return OS_STATUS_NOT_FOUND;
+    /* Mirrors fs_write_file_bytes(): a missing leaf is created lazily. */
+    if (row || g_row_count >= FIXTURE_MAX_ROWS) {
+      return OS_STATUS_NOT_FOUND;
+    }
+    row = &g_rows[g_row_count++];
+    memset(row, 0, sizeof(*row));
+    snprintf(row->path, sizeof(row->path), "%s", path);
+    row->read_status = OS_STATUS_OK;
+    row->exists = 1;
   }
   if (row->read_status == OS_STATUS_DENIED) {
     return OS_STATUS_DENIED;
@@ -130,8 +143,8 @@ static void test_invalid_inputs(void) {
   record_check(fd == -1 && errno == EINVAL, "open_null_path");
 
   errno = 0;
-  fd = open("/alpha.txt", O_WRONLY);
-  record_check(fd == -1 && errno == ENOTSUP, "open_rejects_write_mode");
+  fd = open("/missing.txt", O_WRONLY);
+  record_check(fd == -1 && errno == ENOENT, "open_write_missing_no_creat_enoent");
 
   errno = 0;
   fd = open("/denied.txt", O_RDONLY);
@@ -223,11 +236,93 @@ static void test_unlink_shim(void) {
   record_check(close(fd) == 0, "close_after_unlink_success");
 }
 
+static void test_write_modes(void) {
+  int fd;
+  char buf[32];
+
+  /* O_WRONLY on an existing file is accepted (write-capable fd). */
+  errno = 0;
+  fd = open("/alpha.txt", O_WRONLY | O_TRUNC);
+  record_check(fd >= 0, "open_write_mode_accepted");
+  if (fd < 0) {
+    return;
+  }
+
+  /* write() on a read-only fd is rejected with EBADF. */
+  {
+    int ro = open("/alpha.txt", O_RDONLY);
+    errno = 0;
+    record_check(ro >= 0 && write(ro, "x", 1) == -1 && errno == EBADF,
+                 "write_readonly_fd_ebadf");
+    record_check(close(ro) == 0, "close_readonly_after_write_attempt");
+  }
+
+  /* write() argument validation. */
+  errno = 0;
+  record_check(write(fd, NULL, 4) == -1 && errno == EFAULT, "write_null_efault");
+  record_check(write(fd, "", 0) == 0, "write_zero_returns_zero");
+
+  /* O_WRONLY | O_TRUNC discards prior contents; write + close flushes. */
+  ssize_t n = write(fd, "fresh", 5);
+  record_check(n == 5, "wronly_write_returns_count");
+  record_check(close(fd) == 0, "wronly_close_flushes");
+
+  fd = open("/alpha.txt", O_RDONLY);
+  memset(buf, 0, sizeof(buf));
+  record_check(fd >= 0 && read(fd, buf, sizeof(buf) - 1) == 5 &&
+                   strcmp(buf, "fresh") == 0,
+               "wronly_trunc_roundtrip");
+  record_check(close(fd) == 0, "close_after_trunc_roundtrip");
+
+  /* O_CREAT on a missing path creates lazily via write-back. */
+  errno = 0;
+  fd = open("/created.txt", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  record_check(fd >= 0, "creat_missing_accepted");
+  if (fd >= 0) {
+    record_check(write(fd, "hello", 5) == 5, "creat_write_returns_count");
+    record_check(close(fd) == 0, "creat_close_flushes");
+
+    fd = open("/created.txt", O_RDONLY);
+    memset(buf, 0, sizeof(buf));
+    record_check(fd >= 0 && read(fd, buf, sizeof(buf) - 1) == 5 &&
+                     strcmp(buf, "hello") == 0,
+                 "creat_write_roundtrip");
+    record_check(close(fd) == 0, "close_after_creat_roundtrip");
+  }
+
+  /* O_APPEND forces every write to the end, even after an explicit seek. */
+  fd = open("/created.txt", O_WRONLY | O_APPEND);
+  if (fd >= 0) {
+    (void)lseek(fd, 0, SEEK_SET);
+    record_check(write(fd, "!", 1) == 1, "append_write_returns_count");
+    record_check(close(fd) == 0, "append_close_flushes");
+
+    fd = open("/created.txt", O_RDONLY);
+    memset(buf, 0, sizeof(buf));
+    record_check(fd >= 0 && read(fd, buf, sizeof(buf) - 1) == 6 &&
+                     strcmp(buf, "hello!") == 0,
+                 "append_forces_end_of_file");
+    record_check(close(fd) == 0, "close_after_append_roundtrip");
+  }
+
+  /* Writes that would exceed the fixed snapshot slot fail with ENOSPC. */
+  fd = open("/big.txt", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  if (fd >= 0) {
+    off_t near_end = lseek(fd, (off_t)(64u * 1024u - 4u), SEEK_SET);
+    record_check(near_end == (off_t)(64u * 1024u - 4u), "enospc_seek_ok");
+    errno = 0;
+    record_check(write(fd, "toobig", 6) == -1 && errno == ENOSPC,
+                 "enospc_past_slot_capacity");
+    record_check(close(fd) == 0, "enospc_close_ok");
+  }
+}
+
 int main(void) {
   test_invalid_inputs();
   test_read_and_seek_roundtrip();
   test_fd_table_limit();
   test_error_paths();
+  test_write_modes();
   test_unlink_shim();
 
   record_check(1, "symbol_set_pinned");

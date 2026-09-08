@@ -1,137 +1,147 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-09-07T21:05:25Z
+- 2026-09-08T21:32:19Z
 
 ## Open PR snapshot
 - Snapshot moment: post-sync, pre-implementation merge sweep.
-- Open PR count at snapshot: **6**
+- Open PR count at snapshot: **6** — **all drafts** (draft gate: not merge candidates in unattended runs).
 
-- #755 — test(audit): add launcher owner-kind marker host gate (refs #554)  
+- #755 — test(audit): add launcher owner-kind marker host gate (refs #554)  \
   https://github.com/rwrife/SecureOS/pull/755
-  - Draft: `true`
-  - Head: `feature/launcher-owner-kind-audit-554` → Base: `main`
-  - Mergeable: `CONFLICTING`
-  - Merge state: `DIRTY`
-  - Checks:
-    - `build-and-validate: FAILURE`
-    - `build-iso-vm-smoke: SUCCESS`
-    - `lint: SUCCESS`
+  - Draft: `true`; Mergeable: `CONFLICTING`; Merge state: `DIRTY`
+  - Checks: `build-and-validate: FAILURE`, `build-iso-vm-smoke: SUCCESS`, `lint: SUCCESS`
+  - Blocked: draft + conflicting + failing build-and-validate.
 
-- #750 — test(mem): add mem_brk arena-cap deny marker host gate (refs #558)  
+- #750 — test(mem): add mem_brk arena-cap deny marker host gate (refs #558)  \
   https://github.com/rwrife/SecureOS/pull/750
-  - Draft: `true`
-  - Head: `feature/mem-brk-arena-deny-558` → Base: `main`
-  - Mergeable: `CONFLICTING`
-  - Merge state: `DIRTY`
-  - Checks:
-    - `build-iso-vm-smoke: SUCCESS`
-    - `lint: SUCCESS`
-    - `build-and-validate: SUCCESS`
+  - Draft: `true`; Mergeable: `CONFLICTING`; Merge state: `DIRTY`
+  - Checks: all SUCCESS
+  - Blocked: draft + conflicting.
 
-- #749 — docs(abi): align /apps/dev/include manifest header path with 8.3 staging (refs #613)  
+- #749 — docs(abi): align /apps/dev/include manifest header path with 8.3 staging (refs #613)  \
   https://github.com/rwrife/SecureOS/pull/749
-  - Draft: `true`
-  - Head: `docs/apps-dev-layout-613-alias` → Base: `main`
-  - Mergeable: `CONFLICTING`
-  - Merge state: `DIRTY`
-  - Checks:
-    - `build-iso-vm-smoke: SUCCESS`
-    - `lint: SUCCESS`
-    - `build-and-validate: SUCCESS`
+  - Draft: `true`; Mergeable: `CONFLICTING`; Merge state: `DIRTY`
+  - Checks: all SUCCESS
+  - Blocked: draft + conflicting.
 
-- #748 — feat(m6): add hello-from-sdk host gate starter (refs #584)  
+- #748 — feat(m6): add hello-from-sdk host gate starter (refs #584)  \
   https://github.com/rwrife/SecureOS/pull/748
-  - Draft: `true`
-  - Head: `feature/m6-sample-sdk-build-gate-584` → Base: `main`
-  - Mergeable: `MERGEABLE`
-  - Merge state: `CLEAN`
-  - Checks:
-    - `_none reported_`
+  - Draft: `true`; Mergeable: `MERGEABLE`; Merge state: `CLEAN`
+  - Checks: none reported yet
+  - Blocked: draft (only non-conflicting draft; checks still absent).
 
-- #746 — feat(m5): enforce ownership_role broker edges at runtime (refs #585)  
+- #746 — feat(m5): enforce ownership_role broker edges at runtime (refs #585)  \
   https://github.com/rwrife/SecureOS/pull/746
-  - Draft: `true`
-  - Head: `feature/m5-ownership-role-scaffold-585` → Base: `main`
-  - Mergeable: `CONFLICTING`
-  - Merge state: `DIRTY`
-  - Checks:
-    - `build-and-validate: FAILURE`
-    - `build-iso-vm-smoke: SUCCESS`
-    - `lint: SUCCESS`
+  - Draft: `true`; Mergeable: `CONFLICTING`; Merge state: `DIRTY`
+  - Checks: `build-and-validate: FAILURE`, `build-iso-vm-smoke: SUCCESS`, `lint: SUCCESS`
+  - Blocked: draft + conflicting + failing build-and-validate.
 
-- #736 — test(process): add process_exit_qemu starter bridge gate (refs #551)  
+- #736 — test(process): add process_exit_qemu starter bridge gate (refs #551)  \
   https://github.com/rwrife/SecureOS/pull/736
-  - Draft: `true`
-  - Head: `feature/process-exit-qemu-551` → Base: `main`
-  - Mergeable: `CONFLICTING`
-  - Merge state: `DIRTY`
-  - Checks:
-    - `build-iso-vm-smoke: SUCCESS`
-    - `lint: SUCCESS`
-    - `build-and-validate: SUCCESS`
-
-## Open issue snapshot
-- Open issue count at snapshot: **18**
-
-- #396 [documentation, enhancement] — M6-SDK-003: os-cc / os-pack / os-run tool wrappers + manifest schema additions (execute slice 3 of plan #136)  
-  https://github.com/rwrife/SecureOS/issues/396
-- #403 [enhancement] — M7-TOOLCHAIN: in-OS toolchain — compile apps inside SecureOS (umbrella, plan in #402)  
-  https://github.com/rwrife/SecureOS/issues/403
-- #408 [enhancement] — M7-TOOLCHAIN-005: TinyCC freestanding port (libtcc) (in-OS toolchain, refs #403)  
-  https://github.com/rwrife/SecureOS/issues/408
-- #409 [enhancement] — M7-TOOLCHAIN-006: sofpack lib + cc driver app (in-OS toolchain, refs #403)  
-  https://github.com/rwrife/SecureOS/issues/409
-- #410 [enhancement] — M7-TOOLCHAIN-007: unsigned-run wiring + m7_toolchain acceptance suite (in-OS toolchain, refs #403)  
-  https://github.com/rwrife/SecureOS/issues/410
-- #531 [documentation, enhancement] — disk-image: stage secureos_api.h under /apps/dev/include (TinyCC sysinclude default, refs #408 #409)  
-  https://github.com/rwrife/SecureOS/issues/531
-- #538 [enhancement] — M7-TOOLCHAIN-005 sub-slice: clib POSIX-fd nucleus (open/close/read/lseek/unlink over os_fs_*, refs #408)  
-  https://github.com/rwrife/SecureOS/issues/538
-- #540 [enhancement] — M7-TOOLCHAIN-006 sub-slice: user/apps/cc driver-app skeleton + disk-staging to /apps/dev/cc (refs #409 #521 #533)  
-  https://github.com/rwrife/SecureOS/issues/540
-- #551 [enhancement] — test(qemu): end-to-end os_process_exit status round-trip — sibling of mem_brk_qemu (#495), pre-#410 unblock (refs #406 #422 #546)  
-  https://github.com/rwrife/SecureOS/issues/551
-- #554 [documentation, enhancement] — audit: pin owner_kind=<internal|external|local> on launch.granted/launch.denied audit records (M7/M6 zero-trust forensics, refs #522 #396 #410 #542)  
-  https://github.com/rwrife/SecureOS/issues/554
-- #558 [documentation, enhancement] — test(cap): pin os_mem_brk arena-cap CAP:DENY marker — refuse-to-grow-past-runtime.arena_bytes contract (refs #421 #424 #404)  
-  https://github.com/rwrife/SecureOS/issues/558
-- #572 [enhancement] — test(qemu): cc determinism gate — byte-identical SOF across repeated/cross-boot compiles (refs #409 #410 #555)  
-  https://github.com/rwrife/SecureOS/issues/572
-- #584 [documentation, enhancement] — M6-SDK-004: third-party sample app samples/hello-from-sdk/ (execute slice 4 of plan #136, BUILD_ROADMAP §5.6)  
-  https://github.com/rwrife/SecureOS/issues/584
-- #585 [enhancement] — M5-SUBSTRATE: launcher + broker_svc runtime enforcement of manifest capabilities.ownership_role (follow-up to #368, BUILD_ROADMAP §5.5)  
-  https://github.com/rwrife/SecureOS/issues/585
-- #586 [documentation, enhancement] — test(ipc): malformed IPC frame boundary harness — pin docs/abi/ipc-wire.md error model on bad header/length/opcode (BUILD_ROADMAP §6.2, §7)  
-  https://github.com/rwrife/SecureOS/issues/586
-- #613 [documentation, enhancement] — disk-image: stage sofpack.h + manifestgen.h public headers under /apps/dev/include/ (in-OS cc link prereq, sibling of #531, refs #521 #533 #409 #540)  
-  https://github.com/rwrife/SecureOS/issues/613
-- #724 [none] — follow-up: evaluate length-prefixed argv wire format for os_process_spawn  
-  https://github.com/rwrife/SecureOS/issues/724
-- #757 [none] — ci(drift): scheduled-drift-gate failure on main — auto-updated  
-  https://github.com/rwrife/SecureOS/issues/757
+  - Draft: `true`; Mergeable: `CONFLICTING`; Merge state: `DIRTY`
+  - Checks: all SUCCESS
+  - Blocked: draft + conflicting.
 
 ## PRs merged this run
-- _none_
+- None (every open PR is a draft; per policy drafts are not merged or auto-merged in unattended runs).
+
+## Open issue snapshot
+- Open issue count at snapshot: **17**
+
+- #396 [documentation,enhancement] — M6-SDK-003: os-cc / os-pack / os-run tool wrappers  \
+  https://github.com/rwrife/SecureOS/issues/396
+- #403 [enhancement] — M7-TOOLCHAIN umbrella  \
+  https://github.com/rwrife/SecureOS/issues/403
+- #408 [enhancement] — M7-TOOLCHAIN-005: TinyCC freestanding port  \
+  https://github.com/rwrife/SecureOS/issues/408
+- #409 [enhancement] — M7-TOOLCHAIN-006: sofpack lib + cc driver app  \
+  https://github.com/rwrife/SecureOS/issues/409
+- #410 [enhancement] — M7-TOOLCHAIN-007: unsigned-run wiring + acceptance suite  \
+  https://github.com/rwrife/SecureOS/issues/410
+- #531 [documentation,enhancement] — stage secureos_api.h under /apps/dev/include  \
+  https://github.com/rwrife/SecureOS/issues/531
+- #538 [enhancement] — clib POSIX-fd nucleus (open/close/read/lseek/unlink)  \
+  https://github.com/rwrife/SecureOS/issues/538
+- #540 [enhancement] — cc driver-app skeleton + disk staging  \
+  https://github.com/rwrife/SecureOS/issues/540
+- #551 [enhancement] — os_process_exit status round-trip (draft PR #736)  \
+  https://github.com/rwrife/SecureOS/issues/551
+- #554 [documentation,enhancement] — owner_kind audit markers (draft PR #755)  \
+  https://github.com/rwrife/SecureOS/issues/554
+- #558 [documentation,enhancement] — mem_brk arena-cap CAP:DENY marker (draft PR #750)  \
+  https://github.com/rwrife/SecureOS/issues/558
+- #572 [enhancement] — cc determinism gate (starter merged in #744)  \
+  https://github.com/rwrife/SecureOS/issues/572
+- #584 [documentation,enhancement] — hello-from-sdk sample app (draft PR #748)  \
+  https://github.com/rwrife/SecureOS/issues/584
+- #585 [enhancement] — ownership_role runtime enforcement (draft PR #746)  \
+  https://github.com/rwrife/SecureOS/issues/585
+- #586 [documentation,enhancement] — malformed IPC frame harness (gate merged in #735; issue left open intentionally — v0 wire has no byte-stream framing/opcode surface; see issue body scope notes)  \
+  https://github.com/rwrife/SecureOS/issues/586
+- #613 [documentation,enhancement] — stage sofpack.h + manifestgen.h headers (draft PR #749)  \
+  https://github.com/rwrife/SecureOS/issues/613
+- #724 [] — length-prefixed argv wire format evaluation (explicitly deferred until #410 runtime signal)  \
+  https://github.com/rwrife/SecureOS/issues/724
 
 ## Issue selected for implementation
-- https://github.com/rwrife/SecureOS/issues/757
+- **#538 — M7-TOOLCHAIN-005 sub-slice: clib POSIX-fd nucleus**  \
+  https://github.com/rwrife/SecureOS/issues/538
+- Rationale: the slice-1 nucleus landed via #751/#754 but its acceptance
+  criteria remain open: write/create fd modes returned `ENOTSUP`, `write()`
+  was absent, and the fd 0/1/2 story was unstarted. TinyCC's ELF writer
+  (`tccelf.c`) needs `open(O_WRONLY|O_CREAT|O_TRUNC)` + `write()` before any
+  in-OS compile flow can emit binaries, so this is the critical-path slice
+  for the M7 toolchain (and thus the consent-gated compile flow). It also
+  directly closes the drift between the ABI docs (`clib-symbols.md` claimed
+  `unlink` returns ENOSYS, which was already stale) and the shipped code.
+- Scope landed this run (slice 2):
+  - `open()` accepts `O_WRONLY`/`O_RDWR`; honors `O_CREAT` (lazy create via
+    write-back), `O_TRUNC`, `O_APPEND`; mode vararg consumed for shape
+    compatibility.
+  - New `write()` symbol with `EBADF`/`EFAULT`/`ENOSPC` mapping and
+    append-seek semantics; dirty snapshots flush via `os_fs_write_file`
+    on `close()`.
+  - Documented text-payload limitation (v0 fs bridge marshals C strings;
+    embedded NULs truncate on flush).
+  - Host gate `clib_posix_fd` extended (14 new markers); fixture models
+    create-if-absent.
+  - `tests/data/clib_symbols.expected` + `docs/abi/clib-symbols.md` pin
+    `write`; `vendor/tinycc/libc-deps.json` `open` note refreshed; ABI
+    stamp bumped.
 
 ## Issues newly created this run
-- _none_
+- None. All identified gaps already have open issues (#538 selected covers
+  the freshest gap; #586's remaining byte-framing scope is blocked on a
+  future wire-format change and is tracked in the issue itself).
 
 ## Branch / PR created for active work
-- Branch: `fix/scheduled-drift-gate-757`
-- Worktree used: `/home/rwrife/repos/secureos/.worktrees/fix/scheduled-drift-gate-757`
-- Implementation PR: https://github.com/rwrife/SecureOS/pull/758
+- Branch: `feature/clib-posix-fd-write-modes-538`
+- Worktree: `.worktrees/feature/clib-posix-fd-write-modes-538`
+- PR: (created by this run — see run report)
+
+## Local verification (ad-hoc evidence for this run)
+- `./build/scripts/test.sh clib_posix_fd` → PASS (incl. 14 new write-mode markers)
+- `./build/scripts/test.sh clib_symbol_drift` → PASS (pin/doc/libclib agree with `write` added)
+- `./build/scripts/test.sh tinycc_libc_deps` → PASS (submodule-deep checks SKIP: submodule not initialized on this runner — same behavior as CI scaffold)
+- `./build/scripts/test.sh clib_tinycc_link_surface` → PASS (link surface unaffected)
+- `./build/scripts/test.sh validate_abi_stamps` → PASS (stamp points at content commit)
+- CI `build-and-validate` is the authoritative full-suite result.
 
 ## Blockers / notes
-- PR #755 blocked: draft PR (unattended policy: do not merge/auto-merge drafts); failing checks: build-and-validate=FAILURE; mergeable=CONFLICTING mergeStateStatus=DIRTY
-- PR #750 blocked: draft PR (unattended policy: do not merge/auto-merge drafts); mergeable=CONFLICTING mergeStateStatus=DIRTY
-- PR #749 blocked: draft PR (unattended policy: do not merge/auto-merge drafts); mergeable=CONFLICTING mergeStateStatus=DIRTY
-- PR #748 blocked: draft PR (unattended policy: do not merge/auto-merge drafts)
-- PR #746 blocked: draft PR (unattended policy: do not merge/auto-merge drafts); failing checks: build-and-validate=FAILURE; mergeable=CONFLICTING mergeStateStatus=DIRTY
-- PR #736 blocked: draft PR (unattended policy: do not merge/auto-merge drafts); mergeable=CONFLICTING mergeStateStatus=DIRTY
-- Merge sweep action taken: no non-draft mergeable+green PRs were available to merge this run.
-- Write preflight initially failed with env-token 403; recovered by unsetting GH_TOKEN/GITHUB_TOKEN and re-running write probe successfully.
-- Selected issue #757 because the scheduled drift gate on main was red due ABI stamp drift in docs/abi/ipc-wire.md; this directly restores unattended verification health for ongoing SecureOS isolation/capability work.
+- All 6 open PRs are drafts, and 5 of them are additionally CONFLICTING vs
+  main (#755, #750, #749, #746, #736). They need rebase + ready-for-review
+  transitions by a human before any merge action is possible; cron will not
+  force-merge.
+- #755 and #746 additionally show `build-and-validate: FAILURE` — likely
+  stale branch bases given the conflicts; re-test after rebase.
+- #748 is the only clean-base draft but reports no checks yet; still draft-gated.
+- Env note: `GH_TOKEN`/`GITHUB_TOKEN` in `~/.hermes/.env` returned 401 this
+  run; the stored `gh` keychain token works (env overrides unset).
+- #586 note: merged gate #735 pins the v0 malformed-envelope cases; the
+  issue's byte-stream framing subcases (truncated header/unknown opcode) are
+  not representable on today's typed-envelope ABI — do not re-implement
+  until the wire format gains byte framing.
+- Remaining #538 follow-up candidates (tracked in the issue): fd 0/1/2
+  console forwarding, byte-length write ABI for binary payloads (needed for
+  ELF emission), dedicated delete syscall to replace the unlink shim.
