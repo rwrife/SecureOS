@@ -1,7 +1,7 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-09-09T21:23:24Z
+- 2026-09-09T21:23:24Z (post-merge refresh appended at 2026-09-09T21:35Z)
 
 ## Open PR snapshot
 - Snapshot moment: post-sync, pre-implementation merge sweep.
@@ -44,9 +44,14 @@
   - Blocked: draft + conflicting.
 
 ## PRs merged this run
-- None. Every pre-existing open PR is a draft, and 5 of 6 are additionally
-  `CONFLICTING` vs main (per policy, drafts are not merged or auto-merged in
-  unattended runs; conflicted PRs are never force-merged).
+- **PR #761 — feat(clib): reserve fds 0/1/2 as console descriptors (refs #538)**  \
+  https://github.com/rwrife/SecureOS/pull/761
+  - Created and squash-merged this run at 2026-09-09T21:28:54Z after all
+    checks green (`lint`, `build-and-validate`, `build-iso-vm-smoke` all
+    SUCCESS, `mergeStateStatus: CLEAN`). Squash commit `3bf5617f84`.
+    Remote + local branch deleted and worktree removed.
+- No pre-existing open PRs were merged (every open PR is a draft; per policy
+  drafts are not merged or auto-merged in unattended runs).
 
 ## Open issue snapshot
 - Open issue count at snapshot: **17**
@@ -97,7 +102,7 @@
   these reserved fds through the existing `os_console_write` syscall (no new
   ABI opcode, no new capability) is the consent-preserving way to complete the
   fd nucleus. Small, self-contained, gate-backed slice.
-- Scope landed this run (slice 3):
+- Scope landed this run (slice 3, merged via #761):
   - fds 0/1/2 are reserved console descriptors:
     - `write(1|2)` forwards to `os_console_write()` in NUL-bounded chunks
       (embedded NULs split chunks; no empty console calls; `EIO` on syscall
@@ -125,10 +130,15 @@
   issues.
 
 ## Branch / PR created for active work
-- Branch: `feature/clib-fd-console-538` (worktree `.worktrees/feature/clib-fd-console-538`)
-- PR: **https://github.com/rwrife/SecureOS/pull/761** (refs #538) — opened
-  this run, non-draft, awaiting CI.
-- This state-file update rides the same PR branch (single docs commit).
+- Branch: `feature/clib-fd-console-538` — squash-merged via #761 and cleaned
+  up (worktree removed, branches deleted).
+- PR: **https://github.com/rwrife/SecureOS/pull/761** — merged this run.
+- Post-merge cleanup branch: `chore/abi-stamp-repair-2026-09-09` carrying:
+  1. the expected squash-merge stamp repair — `docs/abi/clib-symbols.md`
+     `Last verified against commit` repointed from the dangling pre-merge SHA
+     `464975ad27` to the on-main squash SHA `3bf5617f84` (known pattern, see
+     references/abi-stamp-repair-playbook.md); and
+  2. this post-merge state snapshot.
 
 ## Local verification (ad-hoc evidence for this run)
 - `./build/scripts/test.sh clib_posix_fd` → PASS (incl. 12 new console-fd
@@ -142,9 +152,9 @@
   unaffected)
 - `./build/scripts/test.sh clib_stdio` → PASS (stdio TU coexists with the
   test-local os_console_write recorder fixture)
-- `./build/scripts/test.sh validate_abi_stamps` → PASS
-  (`clib-symbols.md:464975ad27`, stamp == content commit, ancestor-safe)
-- CI `build-and-validate` is the authoritative full-suite result.
+- `./build/scripts/test.sh validate_abi_stamps` → PASS after stamp repair
+  (`clib-symbols.md:3bf5617f84`)
+- CI `build-and-validate` on #761: SUCCESS (authoritative full-suite result).
 
 ## Blockers / notes
 - All 6 pre-existing open PRs are drafts, and 5 are additionally CONFLICTING
@@ -154,10 +164,12 @@
 - #755 and #746 additionally show `build-and-validate: FAILURE` — likely stale
   branch bases given the conflicts; re-test after rebase.
 - #748 is the only clean-base draft but reports no checks yet; still draft-gated.
-- Watch for the known squash-merge stamp-dangling pattern on
-  `docs/abi/clib-symbols.md`: this PR stamps the doc to branch commit
-  `464975ad27...`; if the PR squash-merges, expect a follow-up stamp-repair PR
-  repointing to the on-main squash SHA (see references/abi-stamp-repair-playbook.md).
+- Squash-merge stamp-dangling pattern hit and repaired as expected: #761
+  squash rewrote the stamped SHA `464975ad27` (unknown to main), so this
+  cleanup PR repoints `docs/abi/clib-symbols.md` to squash SHA `3bf5617f84`.
+  If this cleanup PR itself squash-merges without further content edits to
+  the doc, the stamp stays valid (stamp-only edits are not content-changing
+  per the validator).
 - #586 note: merged gate #735 pins the v0 malformed-envelope cases; the
   issue's byte-stream framing subcases (truncated header/unknown opcode) are
   not representable on today's typed-envelope ABI — do not re-implement until

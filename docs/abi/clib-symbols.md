@@ -464,4 +464,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: 464975ad2742902c84adf3154d2002b455a607c0
+Last verified against commit: 3bf5617f84fd43ed47c70a28cd7dc15dd5ce482e
