@@ -29,6 +29,16 @@
  *     (`os_fs_write_file(path, "", append=0)`) after an existence check,
  *     so TinyCC cleanup paths can proceed without waiting for a dedicated
  *     delete syscall in the exported user ABI.
+ *   - fds 0/1/2 are pre-assigned console descriptors (slice 3):
+ *       * write(1|2) forwards to os_console_write() in NUL-terminated
+ *         chunks (write-through, no snapshot buffering);
+ *       * stdin has no console-read syscall in the v0 bridge, so read(0)
+ *         deterministically fails with ENOTSUP;
+ *       * lseek on any console fd fails with ESPIPE;
+ *       * close on fds 0/1/2 succeeds as a no-op (the descriptors are
+ *         never released, matching the usual POSIX-reserved convention);
+ *       * open() refuses the reserved console aliases with EBUSY so no
+ *         file snapshot can alias the console descriptors.
  *
  * This file is called by any userland binary that links against
  * libclib.a and directly invokes the POSIX fd symbols.
@@ -43,10 +53,96 @@
 
 #include "../../../include/secureos_api.h"
 
+/* Reserved console alias paths (slice 3 of #538). open() refuses these so
+ * no file snapshot can ever alias the console descriptors; they are the
+ * conventional POSIX names TinyCC's stubs may probe. */
+#define CLIB_CONSOLE_ALIAS_STDIN "/dev/stdin"
+#define CLIB_CONSOLE_ALIAS_STDOUT "/dev/stdout"
+#define CLIB_CONSOLE_ALIAS_STDERR "/dev/stderr"
+
+static int path_is_console_alias(const char *path) {
+  const char *alias;
+  size_t i;
+
+  if (path[0] != '/') {
+    return 0;
+  }
+  for (i = 0; i < 3; ++i) {
+    alias = (i == 0)   ? CLIB_CONSOLE_ALIAS_STDIN
+            : (i == 1) ? CLIB_CONSOLE_ALIAS_STDOUT
+                       : CLIB_CONSOLE_ALIAS_STDERR;
+    size_t n = 0;
+    while (alias[n] != '\0' && path[n] == alias[n]) {
+      ++n;
+    }
+    if (alias[n] == '\0' && path[n] == '\0') {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 #define CLIB_POSIX_FD_FIRST 3
 #define CLIB_POSIX_FD_SLOTS 16
 #define CLIB_POSIX_FD_PATH_CAP 256
 #define CLIB_POSIX_FD_FILE_CAP (64u * 1024u)
+
+/* Reserved console descriptors (slice 3 of #538). They are not table
+ * slots: fd 0 is a deterministic unsupported-read stub (the v0 bridge
+ * has no console-read syscall), fds 1/2 write through to
+ * os_console_write() in NUL-terminated chunks. */
+#define CLIB_CONSOLE_FD_STDIN 0
+#define CLIB_CONSOLE_FD_STDOUT 1
+#define CLIB_CONSOLE_FD_STDERR 2
+#define CLIB_CONSOLE_CHUNK_CAP 256
+
+static int fd_is_console(int fd) {
+  return fd == CLIB_CONSOLE_FD_STDIN || fd == CLIB_CONSOLE_FD_STDOUT ||
+         fd == CLIB_CONSOLE_FD_STDERR;
+}
+
+/*
+ * Forward a byte range to os_console_write() in NUL-terminated chunks.
+ * The v0 console syscall marshals a single C string per call, so
+ * embedded NUL bytes act as chunk boundaries (documented limitation,
+ * same constraint as the fs text-payload flush): each maximal run of
+ * non-NUL bytes becomes one `os_console_write` call and empty runs
+ * between consecutive NULs emit no call at all. The console has no
+ * short-write semantics: every chunk either succeeds or the write fails
+ * wholesale with EIO.
+ */
+static ssize_t console_write_bytes(int fd, const void *buf, size_t count) {
+  const unsigned char *p = (const unsigned char *)buf;
+  char chunk[CLIB_CONSOLE_CHUNK_CAP + 1];
+  size_t done = 0;
+
+  (void)fd; /* stdout and stderr share the single console sink. */
+
+  while (done < count) {
+    size_t n = 0;
+    while (n < CLIB_CONSOLE_CHUNK_CAP && (done + n) < count &&
+           p[done + n] != '\0') {
+      chunk[n] = (char)p[done + n];
+      ++n;
+    }
+    if (n > 0) {
+      chunk[n] = '\0';
+      if (os_console_write(chunk) != OS_STATUS_OK) {
+        errno = EIO;
+        return -1;
+      }
+      /* Skip the terminating NUL byte itself (or advance by the full
+       * chunk when the run hit the chunk cap or end of payload). */
+      done += (n < CLIB_CONSOLE_CHUNK_CAP && (done + n) < count) ? n + 1 : n;
+    } else {
+      /* Payload starts with a NUL at this offset: boundary consumed,
+       * no empty console write emitted. */
+      done += 1;
+    }
+  }
+
+  return (ssize_t)count;
+}
 
 typedef struct clib_posix_fd_slot {
   int in_use;
@@ -192,6 +288,13 @@ int open(const char *path, int flags, ...) {
     return -1;
   }
 
+  if (path_is_console_alias(path)) {
+    /* Reserved console streams: refuse file-style opens so fds 0/1/2
+     * semantics stay exclusive to the console branch. */
+    errno = EBUSY;
+    return -1;
+  }
+
   access = flags & O_ACCMODE;
   want_create = (flags & O_CREAT) != 0;
 
@@ -237,7 +340,15 @@ int open(const char *path, int flags, ...) {
 }
 
 int close(int fd) {
-  clib_posix_fd_slot_t *slot = fd_slot_from_public(fd);
+  clib_posix_fd_slot_t *slot;
+
+  if (fd_is_console(fd)) {
+    /* Reserved descriptors: close succeeds as a no-op; the console
+     * streams are never released. */
+    return 0;
+  }
+
+  slot = fd_slot_from_public(fd);
   if (!slot) {
     errno = EBADF;
     return -1;
@@ -254,7 +365,21 @@ int close(int fd) {
 }
 
 ssize_t read(int fd, void *buf, size_t count) {
-  clib_posix_fd_slot_t *slot = fd_slot_from_public(fd);
+  clib_posix_fd_slot_t *slot;
+
+  if (fd == CLIB_CONSOLE_FD_STDIN) {
+    /* The v0 bridge exposes no console-read syscall, so stdin is a
+     * deterministic unsupported stream rather than a silent EOF (an EOF
+     * would let read loops terminate with bogus success). */
+    errno = ENOTSUP;
+    return -1;
+  }
+  if (fd_is_console(fd)) {
+    errno = EBADF; /* stdout/stderr are write-side streams. */
+    return -1;
+  }
+
+  slot = fd_slot_from_public(fd);
   if (!slot) {
     errno = EBADF;
     return -1;
@@ -285,7 +410,24 @@ ssize_t read(int fd, void *buf, size_t count) {
 }
 
 ssize_t write(int fd, const void *buf, size_t count) {
-  clib_posix_fd_slot_t *slot = fd_slot_from_public(fd);
+  clib_posix_fd_slot_t *slot;
+
+  if (fd_is_console(fd)) {
+    if (fd == CLIB_CONSOLE_FD_STDIN) {
+      errno = EBADF; /* stdin is a read-side stream. */
+      return -1;
+    }
+    if (!buf && count > 0) {
+      errno = EFAULT;
+      return -1;
+    }
+    if (count == 0) {
+      return 0;
+    }
+    return console_write_bytes(fd, buf, count);
+  }
+
+  slot = fd_slot_from_public(fd);
   if (!slot) {
     errno = EBADF;
     return -1;
@@ -322,7 +464,14 @@ ssize_t write(int fd, const void *buf, size_t count) {
 }
 
 off_t lseek(int fd, off_t offset, int whence) {
-  clib_posix_fd_slot_t *slot = fd_slot_from_public(fd);
+  clib_posix_fd_slot_t *slot;
+
+  if (fd_is_console(fd)) {
+    errno = ESPIPE; /* console streams are not seekable. */
+    return (off_t)-1;
+  }
+
+  slot = fd_slot_from_public(fd);
   if (!slot) {
     errno = EBADF;
     return (off_t)-1;

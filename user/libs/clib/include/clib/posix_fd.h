@@ -17,6 +17,10 @@
  *
  * Notes:
  *   - Semantics are documented in src/posix_fd.c.
+ *   - fds 0/1/2 are reserved console descriptors: write(1|2) forwards to
+ *     os_console_write(), read(0) fails with ENOTSUP (no v0 console-read
+ *     syscall), lseek fails with ESPIPE, close is a no-op, and open()
+ *     refuses the /dev/stdin|stdout|stderr aliases with EBUSY.
  *   - This is an additive userland surface at OS_ABI_VERSION=0.
  */
 

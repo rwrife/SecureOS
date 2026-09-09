@@ -7,6 +7,10 @@
  * against a deterministic in-memory os_fs_read_file/os_fs_write_file
  * fixture. The fixture models the v0 fs bridge semantics, including
  * create-if-absent on writes (mirroring fs_write_file_bytes()).
+ *
+ * The slice-3 console-descriptor surface (fds 0/1/2) is validated against
+ * an os_console_write recorder fixture that captures every forwarded
+ * NUL-terminated chunk.
  */
 
 #include <stdio.h>
@@ -25,6 +29,38 @@ static void record_check(int ok, const char *name) {
     printf("TEST:FAIL:clib_posix_fd:%s\n", name);
     g_failures++;
   }
+}
+
+#define CONSOLE_MAX_CALLS 16
+#define CONSOLE_CALL_CAP 272 /* CLIB_CONSOLE_CHUNK_CAP + slack */
+
+static char g_console_calls[CONSOLE_MAX_CALLS][CONSOLE_CALL_CAP];
+static size_t g_console_call_count = 0;
+static os_status_t g_console_status = OS_STATUS_OK;
+
+os_status_t os_console_write(const char *message) {
+  if (g_console_status != OS_STATUS_OK) {
+    return g_console_status;
+  }
+  if (!message) {
+    return OS_STATUS_ERROR;
+  }
+  if (g_console_call_count >= CONSOLE_MAX_CALLS) {
+    return OS_STATUS_ERROR;
+  }
+  if (strlen(message) >= CONSOLE_CALL_CAP) {
+    return OS_STATUS_ERROR;
+  }
+  snprintf(g_console_calls[g_console_call_count], CONSOLE_CALL_CAP, "%s",
+           message);
+  ++g_console_call_count;
+  return OS_STATUS_OK;
+}
+
+static void console_reset(void) {
+  g_console_call_count = 0;
+  g_console_status = OS_STATUS_OK;
+  memset(g_console_calls, 0, sizeof(g_console_calls));
 }
 
 #define FIXTURE_MAX_ROWS 12
@@ -317,12 +353,95 @@ static void test_write_modes(void) {
   }
 }
 
+static void test_console_fds(void) {
+  console_reset();
+
+  /* write(1) forwards to the console recorder. */
+  errno = 0;
+  record_check(write(1, "hello", 5) == 5, "console_stdout_write_count");
+  record_check(g_console_call_count == 1 &&
+                   strcmp(g_console_calls[0], "hello") == 0,
+               "console_stdout_forwards_chunk");
+
+  /* write(2) shares the same console sink. */
+  record_check(write(2, "err", 3) == 3, "console_stderr_write_count");
+  record_check(g_console_call_count == 2 &&
+                   strcmp(g_console_calls[1], "err") == 0,
+               "console_stderr_forwards_chunk");
+
+  /* write(0) is rejected: stdin is a read-side stream. */
+  errno = 0;
+  record_check(write(0, "x", 1) == -1 && errno == EBADF,
+               "console_stdin_write_ebadf");
+
+  /* Embedded NULs split into NUL-bounded chunks with no empty calls. */
+  console_reset();
+  record_check(write(1, "ab\0cd", 5) == 5, "console_nul_write_count");
+  record_check(g_console_call_count == 2 &&
+                   strcmp(g_console_calls[0], "ab") == 0 &&
+                   strcmp(g_console_calls[1], "cd") == 0,
+               "console_nul_splits_chunks");
+
+  console_reset();
+  record_check(write(1, "\0", 1) == 1, "console_lone_nul_write_count");
+  record_check(g_console_call_count == 0, "console_lone_nul_no_call");
+
+  /* Console failure maps to EIO. */
+  console_reset();
+  g_console_status = OS_STATUS_ERROR;
+  errno = 0;
+  record_check(write(1, "boom", 4) == -1 && errno == EIO,
+               "console_write_failure_eio");
+  console_reset();
+
+  /* Argument validation on console fds. */
+  errno = 0;
+  record_check(write(1, NULL, 4) == -1 && errno == EFAULT,
+               "console_write_null_efault");
+  record_check(write(1, "", 0) == 0, "console_write_zero_returns_zero");
+
+  /* read(0) is a deterministic unsupported stub (no v0 console read). */
+  {
+    char in_buf[8];
+    errno = 0;
+    record_check(read(0, in_buf, sizeof(in_buf)) == -1 && errno == ENOTSUP,
+                 "console_stdin_read_enotsup");
+    errno = 0;
+    record_check(read(1, in_buf, sizeof(in_buf)) == -1 && errno == EBADF,
+                 "console_stdout_read_ebadf");
+  }
+
+  /* Console streams are not seekable. */
+  errno = 0;
+  record_check(lseek(1, 0, SEEK_SET) == (off_t)-1 && errno == ESPIPE,
+               "console_lseek_espipe");
+
+  /* close on reserved descriptors succeeds and keeps them usable. */
+  errno = 0;
+  record_check(close(0) == 0 && close(1) == 0 && close(2) == 0,
+               "console_close_noop_success");
+  console_reset();
+  record_check(write(1, "again", 5) == 5 && g_console_call_count == 1 &&
+                   strcmp(g_console_calls[0], "again") == 0,
+               "console_write_after_close_still_works");
+
+  /* Reserved console alias paths refuse file-style opens. */
+  errno = 0;
+  record_check(open("/dev/stdin", O_WRONLY | O_CREAT, S_IRUSR) == -1 &&
+                   errno == EBUSY,
+               "console_alias_open_ebusy");
+  errno = 0;
+  record_check(open("/dev/stdout", O_WRONLY) == -1 && errno == EBUSY,
+               "console_alias_stdout_ebusy");
+}
+
 int main(void) {
   test_invalid_inputs();
   test_read_and_seek_roundtrip();
   test_fd_table_limit();
   test_error_paths();
   test_write_modes();
+  test_console_fds();
   test_unlink_shim();
 
   record_check(1, "symbol_set_pinned");
