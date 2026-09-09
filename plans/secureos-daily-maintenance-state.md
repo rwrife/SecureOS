@@ -1,7 +1,7 @@
 # SecureOS Daily Maintenance State
 
 ## Run timestamp (UTC)
-- 2026-09-08T21:32:19Z
+- 2026-09-09T21:23:24Z
 
 ## Open PR snapshot
 - Snapshot moment: post-sync, pre-implementation merge sweep.
@@ -44,14 +44,9 @@
   - Blocked: draft + conflicting.
 
 ## PRs merged this run
-- **PR #759 — feat(clib): add POSIX fd write modes and write() (refs #538)**  \
-  https://github.com/rwrife/SecureOS/pull/759
-  - Squash-merged 2026-09-08T21:41:38Z after all checks green
-    (`lint`, `build-and-validate`, `build-iso-vm-smoke` all SUCCESS,
-    `mergeStateStatus: CLEAN`). Remote + local branch deleted and worktree
-    removed.
-- No pre-existing open PRs were merged (every open PR is a draft; per policy
-  drafts are not merged or auto-merged in unattended runs).
+- None. Every pre-existing open PR is a draft, and 5 of 6 are additionally
+  `CONFLICTING` vs main (per policy, drafts are not merged or auto-merged in
+  unattended runs; conflicted PRs are never force-merged).
 
 ## Open issue snapshot
 - Open issue count at snapshot: **17**
@@ -92,65 +87,82 @@
   https://github.com/rwrife/SecureOS/issues/724
 
 ## Issue selected for implementation
-- **#538 — M7-TOOLCHAIN-005 sub-slice: clib POSIX-fd nucleus**  \
+- **#538 — M7-TOOLCHAIN-005 sub-slice: clib POSIX-fd nucleus (slice 3: fd 0/1/2 console descriptors)**  \
   https://github.com/rwrife/SecureOS/issues/538
-- Rationale: the slice-1 nucleus landed via #751/#754 but its acceptance
-  criteria remain open: write/create fd modes returned `ENOTSUP`, `write()`
-  was absent, and the fd 0/1/2 story was unstarted. TinyCC's ELF writer
-  (`tccelf.c`) needs `open(O_WRONLY|O_CREAT|O_TRUNC)` + `write()` before any
-  in-OS compile flow can emit binaries, so this is the critical-path slice
-  for the M7 toolchain (and thus the consent-gated compile flow). It also
-  directly closes the drift between the ABI docs (`clib-symbols.md` claimed
-  `unlink` returns ENOSYS, which was already stale) and the shipped code.
-- Scope landed this run (slice 2):
-  - `open()` accepts `O_WRONLY`/`O_RDWR`; honors `O_CREAT` (lazy create via
-    write-back), `O_TRUNC`, `O_APPEND`; mode vararg consumed for shape
-    compatibility.
-  - New `write()` symbol with `EBADF`/`EFAULT`/`ENOSPC` mapping and
-    append-seek semantics; dirty snapshots flush via `os_fs_write_file`
-    on `close()`.
-  - Documented text-payload limitation (v0 fs bridge marshals C strings;
-    embedded NULs truncate on flush).
-  - Host gate `clib_posix_fd` extended (14 new markers); fixture models
-    create-if-absent.
-  - `tests/data/clib_symbols.expected` + `docs/abi/clib-symbols.md` pin
-    `write`; `vendor/tinycc/libc-deps.json` `open` note refreshed; ABI
-    stamp bumped.
+- Rationale: slice 2 (write modes + `write()`) merged via #759 yesterday, and
+  the issue's remaining tracked follow-ups list fd 0/1/2 console forwarding as
+  the next open acceptance item. TinyCC's error/diagnostic paths and any
+  toolchain app that links libclib expect `write(1, ...)` / `write(2, ...)` to
+  reach the console — the kernel owns the console per AGENTS.md, so routing
+  these reserved fds through the existing `os_console_write` syscall (no new
+  ABI opcode, no new capability) is the consent-preserving way to complete the
+  fd nucleus. Small, self-contained, gate-backed slice.
+- Scope landed this run (slice 3):
+  - fds 0/1/2 are reserved console descriptors:
+    - `write(1|2)` forwards to `os_console_write()` in NUL-bounded chunks
+      (embedded NULs split chunks; no empty console calls; `EIO` on syscall
+      failure; stdout/stderr share the single console sink).
+    - `read(0)` deterministically fails `ENOTSUP` (v0 bridge has no
+      console-read syscall; silent EOF would let read loops exit with bogus
+      success). `read(1|2)` fails `EBADF`.
+    - `lseek` on console fds fails `ESPIPE`.
+    - `close(0|1|2)` succeeds as a no-op; descriptors stay usable.
+    - `open()` refuses `/dev/stdin|stdout|stderr` aliases with `EBUSY` so no
+      file snapshot can alias the console fds.
+  - Host gate `clib_posix_fd` extended with an `os_console_write` recorder
+    fixture (12 new markers); `build/scripts/test_clib_posix_fd.sh` greps
+    updated.
+  - `docs/abi/clib-symbols.md` posix_fd section updated + stamp bumped
+    (two-commit pattern: content commit, then stamp-only commit at it).
+  - No new symbols, no new ABI opcodes, no new capabilities.
 
 ## Issues newly created this run
-- None. All identified gaps already have open issues (#538 selected covers
-  the freshest gap; #586's remaining byte-framing scope is blocked on a
-  future wire-format change and is tracked in the issue itself).
+- None. The gap addressed today (fd 0/1/2 forwarding) was already tracked as
+  an explicit follow-up inside #538; creating a duplicate issue would violate
+  the no-duplicates rule. Remaining open gaps (draft-PR-backed #551/#554/#558/
+  #584/#585/#613, blocked #531, deferred #724, umbrella/phase issues
+  #396/#403/#408/#409/#410/#540, blocked-on-wire-format #586) all already have
+  issues.
 
 ## Branch / PR created for active work
-- Branch: `feature/clib-posix-fd-write-modes-538` (merged + deleted)
-- PR: **https://github.com/rwrife/SecureOS/pull/759** — squash-merged this
-  run; issue #538 remains open with tracked follow-ups (see below).
-- State-snapshot branch for this post-merge refresh:
-  `chore/daily-maintenance-state-2026-09-08`.
+- Branch: `feature/clib-fd-console-538` (worktree `.worktrees/feature/clib-fd-console-538`)
+- PR: **https://github.com/rwrife/SecureOS/pull/761** (refs #538) — opened
+  this run, non-draft, awaiting CI.
+- This state-file update rides the same PR branch (single docs commit).
 
 ## Local verification (ad-hoc evidence for this run)
-- `./build/scripts/test.sh clib_posix_fd` → PASS (incl. 14 new write-mode markers)
-- `./build/scripts/test.sh clib_symbol_drift` → PASS (pin/doc/libclib agree with `write` added)
-- `./build/scripts/test.sh tinycc_libc_deps` → PASS (submodule-deep checks SKIP: submodule not initialized on this runner — same behavior as CI scaffold)
-- `./build/scripts/test.sh clib_tinycc_link_surface` → PASS (link surface unaffected)
-- `./build/scripts/test.sh validate_abi_stamps` → PASS (stamp points at content commit)
+- `./build/scripts/test.sh clib_posix_fd` → PASS (incl. 12 new console-fd
+  markers; compile with `-Wall -Wextra -Werror -fno-builtin` clean)
+- `./build/scripts/test.sh clib_symbol_drift` → PASS (pin/doc/libclib agree;
+  no new symbols this slice)
+- `./build/scripts/test.sh tinycc_libc_deps` → PASS (submodule-deep checks
+  SKIP: submodule not initialized on this runner — same behavior as CI
+  scaffold)
+- `./build/scripts/test.sh clib_tinycc_link_surface` → PASS (link surface
+  unaffected)
+- `./build/scripts/test.sh clib_stdio` → PASS (stdio TU coexists with the
+  test-local os_console_write recorder fixture)
+- `./build/scripts/test.sh validate_abi_stamps` → PASS
+  (`clib-symbols.md:464975ad27`, stamp == content commit, ancestor-safe)
 - CI `build-and-validate` is the authoritative full-suite result.
 
 ## Blockers / notes
-- All 6 open PRs are drafts, and 5 of them are additionally CONFLICTING vs
-  main (#755, #750, #749, #746, #736). They need rebase + ready-for-review
+- All 6 pre-existing open PRs are drafts, and 5 are additionally CONFLICTING
+  vs main (#755, #750, #749, #746, #736). They need rebase + ready-for-review
   transitions by a human before any merge action is possible; cron will not
   force-merge.
-- #755 and #746 additionally show `build-and-validate: FAILURE` — likely
-  stale branch bases given the conflicts; re-test after rebase.
+- #755 and #746 additionally show `build-and-validate: FAILURE` — likely stale
+  branch bases given the conflicts; re-test after rebase.
 - #748 is the only clean-base draft but reports no checks yet; still draft-gated.
-- Env note: `GH_TOKEN`/`GITHUB_TOKEN` in `~/.hermes/.env` returned 401 this
-  run; the stored `gh` keychain token works (env overrides unset).
+- Watch for the known squash-merge stamp-dangling pattern on
+  `docs/abi/clib-symbols.md`: this PR stamps the doc to branch commit
+  `464975ad27...`; if the PR squash-merges, expect a follow-up stamp-repair PR
+  repointing to the on-main squash SHA (see references/abi-stamp-repair-playbook.md).
 - #586 note: merged gate #735 pins the v0 malformed-envelope cases; the
   issue's byte-stream framing subcases (truncated header/unknown opcode) are
-  not representable on today's typed-envelope ABI — do not re-implement
-  until the wire format gains byte framing.
-- Remaining #538 follow-up candidates (tracked in the issue): fd 0/1/2
-  console forwarding, byte-length write ABI for binary payloads (needed for
-  ELF emission), dedicated delete syscall to replace the unlink shim.
+  not representable on today's typed-envelope ABI — do not re-implement until
+  the wire format gains byte framing.
+- Remaining #538 follow-up candidates after this slice: byte-length write ABI
+  for binary payloads (needed for ELF emission through the fd layer),
+  dedicated delete syscall to replace the truncate-to-empty unlink shim, and
+  a console-read syscall to replace the `ENOTSUP` stdin stub.
