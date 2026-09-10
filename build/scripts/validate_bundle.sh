@@ -291,6 +291,11 @@ TEST_TARGETS=(
     # the freed slot, double-delete is a no-op, and the audit ring
     # records the WM cascade events.
     m5_owner_delete_cascade_window_qemu
+    # Issue #585 runtime gates: launcher ownership-role broker-edge
+    # registration (`owner` / `delegate` / `none`) plus substrate cascade
+    # semantics for launcher-root deletes.
+    launcher_ownership_role_manifest_edges
+    m5_ownership_role_manifest_cascade_qemu
     # HAL call-site gates (issue #349 / PR #365): allow + deny `_qemu`
     # peers (issue #376) ride on the M2 substrate launcher path and
     # prove video_hal_write_as / input_hal_try_read_char_as /
@@ -346,6 +351,12 @@ TEST_TARGETS=(
     sdk_abi_pin
     sdk_libos_link
     validate_sdk_no_kernel_includes
+    # Issue #584 (M6-SDK-004 starter): host-side guard that
+    # `samples/hello-from-sdk` continues to build against SDK/libos
+    # surface and that its manifest pins external-owner posture.
+    # Full wrapper/QEMU lane remains tracked by the explicit SKIP peer
+    # `m6_sample_hello_from_sdk_qemu` until #396 wrappers land.
+    m6_sample_hello_from_sdk
     # Issue #623: portability drift gate for the kernel non-arch tree.
     # Fails when direct architecture preprocessor macros
     # (`__x86_64__`, `__i386__`, `__amd64__`, `__aarch64__`, `__arm__`)
@@ -498,6 +509,11 @@ TEST_TARGETS=(
     # orphan-from-TEST_TARGETS lineage as #129 / #366 / #384 / #401 /
     # #414 / #426 / #432.
     mem_brk_qemu
+    # Issue #558: host-side deny-marker gate for over-cap `os_mem_brk`
+    # requests. Pins `OS_STATUS_DENIED` + canonical CAP:DENY mem_brk
+    # marker evidence while ensuring shrink-underflow deny does not
+    # leak over-cap marker output.
+    mem_brk_arena_cap_deny
     validate_manifests_abi_major
     # M7-TOOLCHAIN-004 slice 1 (issue #407, plan P3): freestanding str*/mem*
     # family in `user/libs/clib`. Pure host-side check, no env deps. Wired

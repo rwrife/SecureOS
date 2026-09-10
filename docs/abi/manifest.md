@@ -223,7 +223,7 @@ Field semantics we are committing to at v0:
   exceeds the cap is a deny-by-default launch failure with a
   documented audit reason — the launcher emits a capability-audit
   deny event and the spawn fails; the kernel does **not** panic. Like
-  `persistence`, `broker_role`, `ownership_role`, and `owner.kind`,
+  `persistence`, `broker_role`, and `owner.kind`, this field is
   this field is schema-only at v0 — the kernel `os_mem_brk` syscall
   and the launcher clamp/audit wiring land in the M7-TOOLCHAIN-001
   follow-up slice (#421). Because the field is **optional**, has a
@@ -300,10 +300,12 @@ Two additional fixtures exercise the optional
   same as `helloapp.json` but with `capabilities.ownership_role:
   "delegate"`. Demonstrates a delegated-handle declaration.
 
-These fixtures are schema-only at v0: the launcher still registers
-no ownership edge for the subject at spawn (today's behavior) —
-the field's runtime meaning is wired up in later M5-SUBSTRATE
-slices. The pre-existing `helloapp.json` / `helloapp.deny.json` /
+Runtime wiring now applies on the broker-spawn path (issue #585):
+`launcher_broker_spawn_app_with_broker_cap()` consumes
+`ownership_role` and parents the spawned broker handle on the launcher
+root for `"owner"` / `"delegate"`; `"none"` preserves today's
+sentinel-root behavior (no launcher ownership edge). The pre-existing
+`helloapp.json` / `helloapp.deny.json` /
 `helloapp.persistent.json` / `helloapp.broker_*.json` examples omit
 `ownership_role` and so continue to behave as
 `ownership_role: "none"`, proving that the addition is backward-
@@ -341,6 +343,8 @@ list while still being a stable target for the regression test.
 | `manifest_ownership_role_enum` (positive) | enforced (PR #372) |
 | `manifest_ownership_role_enum:negative_rejected` | enforced (PR for #390) |
 | `manifest_ownership_role_enum:default_when_omitted` | enforced (PR for #390) |
+| `launcher_ownership_role_manifest_edges` | enforced (issue #585 runtime slice) |
+| `m5_ownership_role_manifest_cascade_qemu` | enforced (issue #585 runtime slice) |
 
 ### §5.6 owner.kind enforcement status (M6-SDK-003 schema sub-slice)
 
@@ -675,4 +679,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 1b162bd7bd0bf3f062bf4925ed6b34dab8c05cc4
+Last verified against commit: 2d8bcfb09005e9dd187c38fa89dbd838f75400aa

@@ -623,6 +623,32 @@ static size_t app_append_u32_decimal(char *dst, size_t dst_size, size_t cursor, 
   return cursor;
 }
 
+static void app_native_emit_mem_brk_arena_deny_marker(void) {
+  char marker[96];
+  size_t cursor = 0u;
+
+  if (g_native_context == 0 || g_native_context->output == 0) {
+    return;
+  }
+
+  marker[0] = '\0';
+  cursor = app_append_string(marker, sizeof(marker), cursor, "CAP:DENY:");
+  cursor = app_append_u32_decimal(marker,
+                                  sizeof(marker),
+                                  cursor,
+                                  (uint32_t)g_native_context->subject_id);
+  cursor = app_append_string(marker,
+                             sizeof(marker),
+                             cursor,
+                             ":mem_brk:arena_bytes\n");
+  if (cursor + 1u >= sizeof(marker)) {
+    marker[sizeof(marker) - 2u] = '\n';
+    marker[sizeof(marker) - 1u] = '\0';
+  }
+
+  g_native_context->output(marker);
+}
+
 static unsigned int app_parse_u32(const char *value, int *ok) {
   unsigned int parsed = 0u;
   size_t i = 0u;
@@ -1894,6 +1920,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
        * (the !nested case in the launcher entry path). Nested
        * spawns intentionally share the parent's heap state. */
       if (!nested) {
+        app_native_heap_set_arena_over_cap_deny_hook(
+            app_native_emit_mem_brk_arena_deny_marker);
         app_native_heap_reset();
       }
     }
@@ -1934,6 +1962,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
           bridge->process_exit = 0;
           bridge->process_spawn = 0;
           bridge->mem_brk = 0;
+          app_native_heap_set_arena_over_cap_deny_hook(0);
           app_native_heap_reset();
         }
         g_native_context = saved_context;
@@ -1962,6 +1991,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
         if (!nested) {
           bridge->magic = 0u;
           bridge->version = 0u;
+          app_native_heap_set_arena_over_cap_deny_hook(0);
           app_native_heap_reset();
         }
         g_native_context = saved_context;
@@ -2043,6 +2073,7 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->process_exit = 0;
       bridge->process_spawn = 0;
       bridge->mem_brk = 0;
+      app_native_heap_set_arena_over_cap_deny_hook(0);
       app_native_heap_reset();
 
       /* Disable kernel cursor if app left it active */
