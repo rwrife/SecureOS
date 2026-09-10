@@ -63,11 +63,11 @@
     {
       "prefix": "launch.denied",
       "family": "launcher-exec-decision",
-      "shape": "launch.denied:<subject>:<reason>",
+      "shape": "launch.denied:owner_kind=<owner_kind>:subject=<sid>:reason=<reason>",
       "emitter": "kernel/user/launcher_exec.c",
       "authoritative_doc": "docs/abi/audit-markers.md",
       "consumer_tests": [
-        "tests/app_native_process_spawn_deny_marker_test.c"
+        "tests/m7_toolchain/toolchain_launch_audit_owner_kind_field_emitted.sh"
       ],
       "gating_issue": 554
     },
