@@ -45,6 +45,17 @@ typedef enum {
 } launcher_result_t;
 
 /*
+ * Manifest-declared ownership role (issue #585, follow-up to schema
+ * slice #368). `NONE` is the backward-compatible default preserving
+ * legacy behavior (no launcher ownership edge registered).
+ */
+typedef enum {
+  LAUNCHER_OWNERSHIP_ROLE_NONE = 0,
+  LAUNCHER_OWNERSHIP_ROLE_OWNER = 1,
+  LAUNCHER_OWNERSHIP_ROLE_DELEGATE = 2,
+} launcher_ownership_role_t;
+
+/*
  * Kernel-internal manifest projection (slice 2 of plan #263, issue #269).
  *
  * The on-disk manifest schema (`manifests/schema/v0.json`) carries fields
@@ -93,6 +104,15 @@ typedef struct {
    * bump `OS_ABI_VERSION` (same precedent as `auto_grant_caps`).
    */
   uint32_t                arena_bytes;
+  /*
+   * Optional ownership-edge intent carried from
+   * `capabilities.ownership_role` (issue #585). The launcher consumes
+   * this in broker-spawn paths to decide whether to parent the spawned
+   * broker handle on the launcher root edge (`OWNER`/`DELEGATE`) or keep
+   * it sentinel-rooted (`NONE`, default/omitted) for backward
+   * compatibility.
+   */
+  launcher_ownership_role_t ownership_role;
 } launcher_manifest_t;
 
 /*

@@ -33,6 +33,11 @@
 #include "../proc/process.h"
 
 #define LAUNCHER_MAX_APPS CAP_TABLE_MAX_SUBJECTS
+/*
+ * Reserved launcher subject used as the ownership-role parent root for
+ * issue #585 broker-edge wiring.
+ */
+#define LAUNCHER_OWNER_SUBJECT_ID ((cap_subject_id_t)1u)
 
 typedef struct {
   int used;
@@ -52,6 +57,29 @@ static launcher_app_entry_t *launcher_find_entry(cap_subject_id_t app_subject_id
 
 static int launcher_subject_in_range(cap_subject_id_t app_subject_id) {
   return app_subject_id < CAP_TABLE_MAX_SUBJECTS;
+}
+
+static int launcher_ownership_role_valid(launcher_ownership_role_t role) {
+  return role == LAUNCHER_OWNERSHIP_ROLE_NONE
+      || role == LAUNCHER_OWNERSHIP_ROLE_OWNER
+      || role == LAUNCHER_OWNERSHIP_ROLE_DELEGATE;
+}
+
+/*
+ * Resolve the launcher-root parent handle for manifest ownership-role
+ * wiring (issue #585). `NONE` preserves legacy sentinel-root behavior
+ * (no ownership edge registration).
+ */
+static cap_handle_t launcher_ownership_role_parent(
+    launcher_ownership_role_t role) {
+  if (role == LAUNCHER_OWNERSHIP_ROLE_NONE) {
+    return CAP_HANDLE_NULL;
+  }
+  if (cap_table_grant(LAUNCHER_OWNER_SUBJECT_ID,
+                      CAP_IPC_SEND) != CAP_OK) {
+    return CAP_HANDLE_NULL;
+  }
+  return cap_handle_grant(LAUNCHER_OWNER_SUBJECT_ID, CAP_IPC_SEND);
 }
 
 void launcher_reset(void) {
@@ -317,6 +345,9 @@ launcher_result_t launcher_spawn_app_from_manifest(
   if (manifest == NULL) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
   }
+  if (!launcher_ownership_role_valid(manifest->ownership_role)) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
   if (!launcher_subject_in_range(manifest->subject_id) ||
       manifest->subject_id == 0u) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
@@ -491,6 +522,9 @@ launcher_result_t launcher_fs_spawn_app_with_fs_caps(
   if (manifest == NULL) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
   }
+  if (!launcher_ownership_role_valid(manifest->ownership_role)) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
   if (!launcher_subject_in_range(manifest->subject_id) ||
       manifest->subject_id == 0u) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
@@ -631,6 +665,9 @@ launcher_result_t launcher_broker_spawn_app_with_broker_cap(
   if (manifest == NULL) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
   }
+  if (!launcher_ownership_role_valid(manifest->ownership_role)) {
+    return LAUNCHER_ERR_INVALID_MANIFEST;
+  }
   if (!launcher_subject_in_range(manifest->subject_id) ||
       manifest->subject_id == 0u) {
     return LAUNCHER_ERR_INVALID_MANIFEST;
@@ -679,13 +716,27 @@ launcher_result_t launcher_broker_spawn_app_with_broker_cap(
 
   /* (4) Mint the CAP_IPC_SEND handle for the broker-svc port. Keep
    * the legacy bitset grant in sync so audit-trail tests that go
-   * through cap_check still see the grant. */
+   * through cap_check still see the grant.
+   *
+   * Issue #585 runtime wiring: `ownership_role=owner|delegate` parents
+   * the spawned broker handle on the launcher root handle so an owner
+   * delete cascade rooted at the launcher can revoke delegated handles
+   * derived from this app. `ownership_role=none` preserves legacy
+   * sentinel-rooted behavior (no parent edge).
+   */
   if (cap_table_grant(manifest->subject_id, CAP_IPC_SEND) != CAP_OK) {
     (void)process_destroy(pid);
     return LAUNCHER_ERR_HANDLE_MINT;
   }
+  cap_handle_t parent_h =
+      launcher_ownership_role_parent(manifest->ownership_role);
+  if (manifest->ownership_role != LAUNCHER_OWNERSHIP_ROLE_NONE
+      && parent_h == CAP_HANDLE_NULL) {
+    (void)process_destroy(pid);
+    return LAUNCHER_ERR_HANDLE_MINT;
+  }
   cap_handle_t broker_h =
-      cap_handle_grant(manifest->subject_id, CAP_IPC_SEND);
+      cap_handle_grant_child(manifest->subject_id, CAP_IPC_SEND, parent_h);
   if (broker_h == CAP_HANDLE_NULL) {
     (void)process_destroy(pid);
     return LAUNCHER_ERR_HANDLE_MINT;
