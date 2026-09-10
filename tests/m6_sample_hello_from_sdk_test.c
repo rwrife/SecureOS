@@ -75,8 +75,17 @@ static bool include_line_has(const char *text, const char *needle) {
     const char *line_end = strchr(cursor, '\n');
     size_t len = line_end != NULL ? (size_t)(line_end - cursor) : strlen(cursor);
 
-    if (len > 0u && strstr(cursor, "#include") != NULL) {
-      if (strstr(cursor, needle) != NULL) {
+    if (len > 0u) {
+      /* Bound both probes to THIS line only; an unbounded strstr over
+       * `cursor` would match needles that live on later lines (e.g. a
+       * prose comment mentioning `secureos_api.h` tripping the deny
+       * check for an earlier `#include`). */
+      char line[512];
+      size_t copy_len = len < sizeof(line) - 1u ? len : sizeof(line) - 1u;
+      memcpy(line, cursor, copy_len);
+      line[copy_len] = '\0';
+      if (strstr(line, "#include") != NULL &&
+          strstr(line, needle) != NULL) {
         return true;
       }
     }
