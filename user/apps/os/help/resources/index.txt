@@ -27,6 +27,7 @@ SecureOS Shell Commands
   Applications & Libraries:
     apps                  list installed applications
     run <app>             launch an application
+    cc [args]             in-OS C compiler driver scaffold
     libs [loaded|use|release]  manage shared libraries
     loadlib <lib>         load a shared library
     unload <handle>       unload a shared library

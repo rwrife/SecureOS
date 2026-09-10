@@ -2,7 +2,7 @@
 
 Status: PINNED at `OS_ABI_VERSION = 0`
 Owner: M7-TOOLCHAIN-004 (umbrella #403, slice issue #407)
-Last reviewed: 2026-05-30 (issue #449)
+Last reviewed: 2026-08-11 (issue #539)
 
 ## Why this exists
 
@@ -273,6 +273,42 @@ width (`%8d`), zero-pad (`%08d`), left-justify (`%-5s`). Unsupported
 specs echo the literal `%...` sequence; `%p` always emits the `0x`
 prefix.
 
+### `clib/posix_fd.h` (M7-TOOLCHAIN-005 slice / issue #538)
+
+Freestanding POSIX file-descriptor nucleus for TinyCC compatibility.
+Current implementation uses in-memory snapshot / write-back semantics
+over the `os_fs_read_file` / `os_fs_write_file` bridge surface. fds
+0/1/2 are reserved console descriptors (slice 3): stdout/stderr write
+through to `os_console_write` in NUL-bounded chunks, stdin read is a
+deterministic `ENOTSUP` (no v0 console-read syscall), lseek fails with
+`ESPIPE`, and close is a no-op.
+
+| Symbol   | Signature                                            | Notes |
+|----------|------------------------------------------------------|-------|
+| `open`   | `int open(const char *path, int flags, ...)`        | opens read/write snapshots (`O_RDONLY`/`O_WRONLY`/`O_RDWR`); `O_CREAT` creates missing files lazily via write-back, `O_TRUNC` discards, `O_APPEND` forces writes to end; mode arg accepted and ignored (no permission-bit ABI); refuses the reserved console aliases (`/dev/stdin`, `/dev/stdout`, `/dev/stderr`) with `EBUSY` |
+| `close`  | `int close(int fd)`                                  | flushes a dirty snapshot back through `os_fs_write_file` before releasing the fd-table slot; reserved console fds 0/1/2 close as a successful no-op |
+| `read`   | `ssize_t read(int fd, void *buf, size_t count)`      | reads from in-memory snapshot and advances cursor; fd 0 fails with `ENOTSUP` (no console-read syscall), fds 1/2 fail with `EBADF` |
+| `write`  | `ssize_t write(int fd, const void *buf, size_t count)` | extends the snapshot on writable fds (`EBADF` on read-only fds, `ENOSPC` past the fixed slot cap); flushes on close; text payloads only — embedded NUL bytes truncate the flush (v0 fs bridge marshals content as a C string); fds 1/2 write through to `os_console_write` in NUL-bounded chunks (embedded NULs split chunks, no empty console calls; `EIO` on syscall failure), fd 0 fails with `EBADF` |
+| `lseek`  | `off_t lseek(int fd, off_t offset, int whence)`      | supports `SEEK_SET/CUR/END`; bounds-checked cursor updates; console fds fail with `ESPIPE` |
+| `unlink` | `int unlink(const char *path)`                       | deterministic truncate-to-empty shim over `os_fs_write_file` after an existence probe; pending a dedicated delete syscall ABI |
+
+### `clib/runtime_compat.h` (M7-TOOLCHAIN-005 slice / issue #539)
+
+Deterministic hosted-libc compatibility shims required by the TinyCC
+freestanding link surface while `-run`/JIT remains disabled.
+
+| Symbol      | Signature                                         | Notes |
+|-------------|---------------------------------------------------|-------|
+| `free`      | `void free(void *ptr)`                            | plain-name forwarder to `clib_free` |
+| `realloc`   | `void *realloc(void *ptr, size_t size)`           | plain-name forwarder to `clib_realloc` |
+| `getcwd`    | `char *getcwd(char *buf, size_t size)`            | deterministic fixed cwd (`/apps/dev`) with bounds checks |
+| `getenv`    | `char *getenv(const char *name)`                  | deterministic `NULL` stub (no env-var surface in v0) |
+| `time`      | `time_t time(time_t *tloc)`                       | deterministic fixed epoch for reproducible builds |
+| `localtime` | `struct tm *localtime(const time_t *timer)`       | deterministic fixed broken-down time companion to `time` |
+| `realpath`  | `char *realpath(const char *path, char *resolved_path)` | deterministic passthrough canonicalization |
+| `dlopen`    | `void *dlopen(const char *filename, int flags)`   | explicit unsupported stub (`NULL`, `errno=ENOTSUP`) |
+| `dlsym`     | `void *dlsym(void *handle, const char *symbol)`   | explicit unsupported stub (`NULL`, `errno=ENOTSUP`) |
+
 ## Canonical pin
 
 The block below is the **machine-checkable** symbol pin. It MUST stay
@@ -326,6 +362,9 @@ clib_stdnoreturn_eval
 clib_stdnoreturn_loop_forever
 clib_stdnoreturn_op_count
 clib_strerror
+close
+dlopen
+dlsym
 errno
 exit
 fclose
@@ -337,7 +376,10 @@ fprintf
 fputc
 fputs
 fread
+free
 fwrite
+getcwd
+getenv
 imaxabs
 imaxdiv
 isalnum
@@ -354,13 +396,19 @@ isspace
 isupper
 isxdigit
 labs
+localtime
+lseek
 memchr
 memcmp
 memcpy
 memmove
 memset
+open
 printf
 qsort
+read
+realloc
+realpath
 snprintf
 sprintf
 stderr
@@ -388,10 +436,13 @@ strtoll
 strtoul
 strtoull
 strtoumax
+time
 tolower
 toupper
+unlink
 vfprintf
 vsnprintf
+write
 ```
 <!-- clib-symbols:end -->
 
@@ -413,4 +464,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: 1a828adc6fd9b22ce1b3b447033cf0ede8c6d634
+Last verified against commit: 3bf5617f84fd43ed47c70a28cd7dc15dd5ce482e

@@ -157,6 +157,10 @@ TEST_TARGETS=(
     ipc_sync_v0
     ipc_port_lifecycle
     ipc_handle_gate
+    # Issue #586: malformed-envelope negative-path contract for v0 IPC
+    # wire validation (NULL msg, abi mismatch, flags MBZ, oversized
+    # payload_len, and sender_subject==0 on delivery).
+    ipc_wire_malformed
     proc_sched
     m1_ipc_demo
     # Issue #591: docs/abi audit marker markdown<->json parity gate plus
@@ -526,6 +530,13 @@ TEST_TARGETS=(
     # orphan-from-TEST_TARGETS gate shape as #129 / #366 / #384 /
     # #401 / #414 (see issue #469).
     process_exit_wrapper
+    # Issue #551: bridge-level starter gate for exit-status
+    # round-trip capture (`os_process_exit` -> `g_native_exit_status`
+    # semantics mirrored through a synthetic bridge) plus
+    # `os_process_spawn(..., out_exit_status)` propagation. This
+    # is the incremental preflight peer before the full launcher/QEMU
+    # end-to-end harness is wired.
+    process_exit_qemu
     # M7-TOOLCHAIN-003 slice 2 (issue #422): host-side smoke for the
     # `os_process_spawn` user-runtime wrapper. Pairs with
     # `process_exit_wrapper` (slice 1, #406 / PR #413) so any drift
@@ -536,6 +547,8 @@ TEST_TARGETS=(
     # Issue #546: dynamic bridge-backed host gate for spawn argv
     # marshalling + `out_exit_status` propagation. Pins the current
     # v0 space-join wire format before #409/#410 consume it.
+    # Issue #724 starter evidence: explicit join-collision marker for
+    # two distinct argv vectors collapsing to one `raw_args` payload.
     process_spawn_argv_roundtrip
     # Issue #508: kernel-side capability workflow-rule layer (PR #209,
     # closes #77). Host-side dispatcher exists and is documented in the
@@ -691,7 +704,7 @@ TEST_TARGETS=(
     clib_os_assert
     # M7-TOOLCHAIN acceptance suite scaffolding (issue #423, umbrella #403,
     # plan plans/2026-05-28-in-os-toolchain-self-hosting.md §"Acceptance
-    # tests"). All twenty-one markers are SKIP-pinned today — each subordinate
+    # tests"). All twenty-two markers are SKIP-pinned today — each subordinate
     # script in tests/m7_toolchain/ emits TEST:SKIP:<marker>:awaiting_<n>
     # then rolls up TEST:PASS:<marker> so the bundle stays green. Wiring
     # them here freezes the marker spellings as a single source of truth:
@@ -712,6 +725,7 @@ TEST_TARGETS=(
     toolchain_cc_version_and_help_text_pinned
     toolchain_cc_exit_codes_match_v0_table
     toolchain_cc_arena_exhaustion_audit_marker
+    toolchain_cc_determinism
     toolchain_heap_isolation
     toolchain_launch_audit_owner_kind_field_emitted
     toolchain_launcher_owner_kind_cache_isolation
@@ -827,6 +841,15 @@ TEST_TARGETS=(
     # `symbol_set_pinned` so a TinyCC drop or unrelated PR cannot
     # silently drop one of the public symbols TinyCC links against.
     clib_stdio
+    # M7-TOOLCHAIN-005 slice (issue #538): freestanding POSIX fd nucleus
+    # (`open`/`close`/`read`/`lseek`/`unlink`) bridged to SecureOS file APIs.
+    # Current shape is intentionally read-only snapshot semantics + ENOSYS
+    # unlink placeholder until delete syscall wiring lands.
+    clib_posix_fd
+    # M7-TOOLCHAIN-005 follow-up (issue #539): runtime/link-surface gate for
+    # TinyCC compatibility shims (`realloc`, `free`, `sprintf`, `exit`,
+    # `time`, `localtime`, `getcwd`, `getenv`, `realpath`, `dlopen`, `dlsym`).
+    clib_tinycc_link_surface
     # M7-TOOLCHAIN-004 slice (issue #407): freestanding `<stdnoreturn.h>`
     # nucleus in `user/libs/clib`. C11 §4¶6 lists `<stdnoreturn.h>` as
     # one of the freestanding-required headers; §7.23 defines the header
@@ -866,6 +889,9 @@ TEST_TARGETS=(
     #   - ipc_bounds: kernel IPC payload-bounds allow + one-past-end +
     #     straddle + no-pcb skipped (every capability check + spawn
     #     handoff path rides this).
+    #   - ipc_wire_malformed: malformed-envelope rejection contract for
+    #     v0 IPC validation (NULL/abi/flags/payload_len + delivered
+    #     sender_subject=0) and post-reject slot usability.
     #   - netlib_url_scheme: zero-trust network ABI URL-scheme allow/deny
     #     contract — sole host gate for the netlib surface today.
     #   - harness_defense: meta-canary that defends the bundle harness
@@ -874,6 +900,7 @@ TEST_TARGETS=(
     #     can be caught at all).
     syscall_entry_stub
     ipc_bounds
+    ipc_wire_malformed
     netlib_url_scheme
     harness_defense
 )
