@@ -30,6 +30,13 @@
 static uint8_t g_native_heap_pool[APP_NATIVE_HEAP_BYTES]
     __attribute__((aligned(16)));
 static size_t g_native_heap_break = 0;
+static app_native_heap_arena_over_cap_deny_hook_t g_arena_over_cap_deny_hook =
+    0;
+
+void app_native_heap_set_arena_over_cap_deny_hook(
+    app_native_heap_arena_over_cap_deny_hook_t hook) {
+  g_arena_over_cap_deny_hook = hook;
+}
 
 void app_native_heap_reset(void) {
   g_native_heap_break = 0;
@@ -61,6 +68,9 @@ int app_native_mem_brk(int delta, void **out_prev_break) {
      * wrap before it confuses the bounds check. */
     if (udelta > APP_NATIVE_HEAP_BYTES - prev) {
       *out_prev_break = (void *)&g_native_heap_pool[prev];
+      if (g_arena_over_cap_deny_hook != 0) {
+        g_arena_over_cap_deny_hook();
+      }
       return 1; /* OS_STATUS_DENIED — out-of-arena */
     }
     new_break = prev + udelta;
