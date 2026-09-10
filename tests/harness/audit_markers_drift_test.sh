@@ -3,6 +3,9 @@
 #
 # Issue #591 negative canary: prove validator fails when markdown/json
 # marker-prefix sets diverge.
+#
+# Issue #554 extension: also prove validator fails when either launch
+# marker shape drops `owner_kind=<owner_kind>`.
 
 set -u
 
@@ -20,6 +23,15 @@ cp "$ROOT_DIR/tools/validate_audit_markers.py" \
   "$SANDBOX/tools/validate_audit_markers.py" \
   || { printf 'TEST:FAIL:audit_markers_drift_canary:validator_copy_failed\n'; exit 1; }
 
+PY="${PYTHON:-python3}"
+OUT="$TMP_DIR/stdout"
+ERR="$TMP_DIR/stderr"
+OUT2="$TMP_DIR/stdout2"
+ERR2="$TMP_DIR/stderr2"
+
+# ---------------------------------------------------------------------------
+# Case 1: markdown/json prefix drift (launch.denied missing from JSON)
+# ---------------------------------------------------------------------------
 cat > "$SANDBOX/docs/abi/audit-markers.md" <<'EOF'
 # Audit Marker Registry (fixture)
 
@@ -51,10 +63,6 @@ cat > "$SANDBOX/docs/abi/audit-markers.json" <<'EOF'
 }
 EOF
 
-PY="${PYTHON:-python3}"
-OUT="$TMP_DIR/stdout"
-ERR="$TMP_DIR/stderr"
-
 set +e
 "$PY" "$SANDBOX/tools/validate_audit_markers.py" --root "$SANDBOX" >"$OUT" 2>"$ERR"
 RC=$?
@@ -82,6 +90,59 @@ fi
 if ! grep -Fq 'AUDIT_MARKERS:SKIP:gating_issue_check_disabled:use_--with-gh' "$OUT"; then
   printf 'TEST:FAIL:audit_markers_drift_canary:missing_expected_skip_marker\n'
   cat "$OUT" >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Case 2: launch.denied shape drift (owner_kind token removed)
+# ---------------------------------------------------------------------------
+cat > "$SANDBOX/docs/abi/audit-markers.json" <<'EOF'
+{
+  "schemaVersion": 1,
+  "markers": [
+    {
+      "prefix": "launch.granted",
+      "family": "launcher-exec-decision",
+      "shape": "launch.granted:owner_kind=<owner_kind>",
+      "emitter": "fixture",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": ["tests/fixture"],
+      "gating_issue": 554
+    },
+    {
+      "prefix": "launch.denied",
+      "family": "launcher-exec-decision",
+      "shape": "launch.denied:subject=<sid>:reason=<reason>",
+      "emitter": "fixture",
+      "authoritative_doc": "docs/abi/audit-markers.md",
+      "consumer_tests": ["tests/fixture"],
+      "gating_issue": 554
+    }
+  ]
+}
+EOF
+
+set +e
+"$PY" "$SANDBOX/tools/validate_audit_markers.py" --root "$SANDBOX" >"$OUT2" 2>"$ERR2"
+RC2=$?
+set -e
+
+if [[ "$RC2" -ne 1 ]]; then
+  printf 'TEST:FAIL:audit_markers_drift_canary:owner_kind_case_unexpected_exit:%d\n' "$RC2"
+  cat "$OUT2" >&2
+  cat "$ERR2" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'AUDIT_MARKERS:FAIL:launch_owner_kind_shape:launch.denied' "$ERR2"; then
+  printf 'TEST:FAIL:audit_markers_drift_canary:missing_owner_kind_shape_fail\n'
+  cat "$ERR2" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'AUDIT_MARKERS:FAIL:summary:1_failures' "$ERR2"; then
+  printf 'TEST:FAIL:audit_markers_drift_canary:owner_kind_missing_summary_fail\n'
+  cat "$ERR2" >&2
   exit 1
 fi
 

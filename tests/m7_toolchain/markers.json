@@ -149,6 +149,20 @@
       "description": "Pre-#409/#410 SKIP pin for arena exhaustion join-contract: when cc exceeds runtime.arena_bytes, emit both CAP:DENY:<sid>:mem_brk:arena_bytes and cc.compile.fail reason=arena_exhausted with internal-exit classification (issue #610, refs #558/#571/#589)."
     },
     {
+      "id": "toolchain_cc_determinism",
+      "name": "toolchain_cc_determinism",
+      "harnessPath": "tests/m7_toolchain/toolchain_cc_determinism.sh",
+      "gatingIssue": 409,
+      "gatingIssues": [
+        409,
+        410
+      ],
+      "reason": "awaiting_409_410",
+      "skipReason": "pre-409",
+      "addedIn": "issue-572",
+      "description": "Pre-#409/#410 SKIP pin for issue #572: compile the same source multiple times (same boot + fresh boot) and require byte-identical SOF outputs with deterministic mismatch diagnostics."
+    },
+    {
       "id": "toolchain_heap_isolation",
       "name": "toolchain_heap_isolation",
       "harnessPath": "tests/m7_toolchain/toolchain_heap_isolation.sh",
