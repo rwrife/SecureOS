@@ -54,9 +54,11 @@
       "family": "launcher-exec-decision",
       "shape": "launch.granted:owner_kind=<owner_kind>",
       "emitter": "kernel/user/launcher_exec.c",
-      "authoritative_doc": "docs/abi/audit-markers.md",
+      "authoritative_doc": "docs/abi/launch-audit-contract.md",
       "consumer_tests": [
-        "tests/launcher_spawn_handoff_test.c"
+        "build/scripts/test_launcher_owner_kind_audit_marker.sh",
+        "tests/launcher_spawn_handoff_test.c",
+        "tests/m7_toolchain/qemu/launch_audit_owner_kind_field_emitted.sh"
       ],
       "gating_issue": 554
     },
@@ -65,9 +67,10 @@
       "family": "launcher-exec-decision",
       "shape": "launch.denied:owner_kind=<owner_kind>:subject=<sid>:reason=<reason>",
       "emitter": "kernel/user/launcher_exec.c",
-      "authoritative_doc": "docs/abi/audit-markers.md",
+      "authoritative_doc": "docs/abi/launch-audit-contract.md",
       "consumer_tests": [
-        "tests/m7_toolchain/toolchain_launch_audit_owner_kind_field_emitted.sh"
+        "build/scripts/test_launcher_owner_kind_audit_marker.sh",
+        "tests/m7_toolchain/qemu/launch_audit_owner_kind_field_emitted.sh"
       ],
       "gating_issue": 554
     },

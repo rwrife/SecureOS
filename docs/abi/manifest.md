@@ -186,14 +186,16 @@ Field semantics we are committing to at v0:
   off-target signed SDK invocation (which is what `"external"`
   records). The Tier-1 unsigned-run flow (#410) uses this third
   enumerator to keep local-built and external-imported binaries
-  distinguishable in the capability-audit log without forcing either
-  of them to mis-label as `"external"`. Like
-  `capabilities.persistence` and `capabilities.broker_role`, this field
-  is schema-only at v0 — the runtime wiring (M6-SDK-003 wrappers and
-  the `sdk_external_build_isolation` acceptance test, plus the
-  M7-TOOLCHAIN-006/007 in-OS `cc` driver and unsigned-run flow)
-  lands in later slices and is gated on the A/B design decision
-  tracked in #396 / the unsigned-run flow tracked in #410. Because
+  distinguishable in the capability-audit log without forcing
+  either of them to mis-label as `"external"`. Like
+  `capabilities.persistence`, `capabilities.broker_role`, and
+  `capabilities.ownership_role`, this field is additive at v0 and
+  keeps existing launcher behavior when omitted/defaulted. Issue
+  [#554](https://github.com/rwrife/SecureOS/issues/554) pins the
+  launch-audit owner-kind marker contract via host gate
+  `launcher_owner_kind_audit_marker`; runtime QEMU emit-path
+  enforcement remains tracked by
+  [#410](https://github.com/rwrife/SecureOS/issues/410). Because
   the field is **optional**, has a non-default value only when
   explicitly declared, and `"internal"` exactly
   preserves the current launcher path, adding it is additive and
@@ -363,8 +365,12 @@ list while still being a stable target for the regression test.
   by the M7-TOOLCHAIN-006 schema sub-slice (issue #522) so the
   in-OS `cc` driver (#409) can synthesise a manifest for a binary
   it just compiled on-target without having to mis-label it as
-  `"external"`. Runtime semantics (Tier-1 unsigned-run flow,
-  audit-log marker) land with #410.
+  `"external"`. Launch audit owner-kind field contracts are pinned by
+  issue [#554](https://github.com/rwrife/SecureOS/issues/554)
+  via [PR #755](https://github.com/rwrife/SecureOS/pull/755)
+  host gate `launcher_owner_kind_audit_marker`; end-to-end runtime
+  enforcement remains tracked by
+  [#410](https://github.com/rwrife/SecureOS/issues/410).
 - **Owner omitted (back-compat)** — the bundled
   `helloapp.json`, `helloapp.deny.json`, `helloapp.persistent.json`,
   `helloapp.broker_provider.json`, `helloapp.broker_consumer.json`,
@@ -397,6 +403,10 @@ list while still being a stable target for the regression test.
 | `manifest_owner_kind_enum:local_near_miss_rejected` | enforced (PR for #522 schema sub-slice) |
 | `manifest_owner_kind_enum:negative_rejected` | enforced (PR for #396 schema sub-slice) |
 | `manifest_owner_kind_enum:default_when_omitted` | enforced (PR for #396 schema sub-slice) |
+| `launcher_owner_kind_audit_marker:internal` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
+| `launcher_owner_kind_audit_marker:external` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
+| `launcher_owner_kind_audit_marker:local` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
+| `launcher_owner_kind_audit_marker:default_when_omitted` | enforced ([#755](https://github.com/rwrife/SecureOS/pull/755)) |
 
 ### §5.7 runtime.arena_bytes enforcement status (M7-TOOLCHAIN-001 schema sub-slice)
 
@@ -669,4 +679,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: 2d8bcfb09005e9dd187c38fa89dbd838f75400aa
+Last verified against commit: c18f4fe6297b3824c3d5f76f08bb43fad43d8929
