@@ -49,6 +49,11 @@ changes are deliberate and reviewable rather than emergent.
   families (`CAP:DENY`, launcher auth markers, launch decision markers,
   and toolchain marker families) with links to each authoritative contract
   and its gating issue.
+- [launch-audit-contract.md](launch-audit-contract.md) — authoritative ABI
+  contract for launcher `launch.granted` / `launch.denied` decision markers
+  carrying the manifest `owner_kind` classification (`internal` /
+  `external` / `local`), including field spelling and resolution rules.
+  Specified by [#554](https://github.com/rwrife/SecureOS/issues/554).
 - [versioning.md](versioning.md) — `OS_ABI_VERSION` policy, compat-shim
   window, and the process for adding / removing ABI surface.
 - [clib-symbols.md](clib-symbols.md) — Public symbol surface of
