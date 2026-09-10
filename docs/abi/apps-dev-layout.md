@@ -40,4 +40,4 @@ aliases change include-surface expectations and can mask namespace collisions.
 in disk-image/runtime tooling, this table should migrate to the direct
 `manifestgen/manifest_default.h` staging path.
 
-Last verified against commit: 959c927d0c20ff887e4b4f38585332da1d6ca4b1
+Last verified against commit: a0e0567b89013afe6d8c18d72be1964e0aa2c9b6
