@@ -42,4 +42,4 @@ symmetric across allow/deny decisions.
   `toolchain_launch_audit_owner_kind_field_emitted` remains SKIP-pinned until
   #410 wires the end-to-end unsigned-run launcher flow.
 
-Last verified against commit: edfc89cacfdd60da9c804782a5fcf48bb68cc4f2
+Last verified against commit: e026af0be68c3238edf2b3d184b149a655511dee
