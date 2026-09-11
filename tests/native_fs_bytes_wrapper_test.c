@@ -25,6 +25,10 @@
  *   build/scripts/test_native_fs_bytes_wrapper.sh
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
