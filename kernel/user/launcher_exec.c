@@ -228,7 +228,7 @@ enum {
   APP_ARGS_MAX = 128,
   APP_ARGV_MAX = 8,
   APP_NATIVE_BRIDGE_MAGIC = 0x53524247u, /* 'SRBG' */
-  APP_NATIVE_BRIDGE_VERSION = 4u,
+  APP_NATIVE_BRIDGE_VERSION = 5u,
   APP_NATIVE_BRIDGE_ADDR = 0x009FF000u,
   APP_NATIVE_LOAD_MIN = 0x00800000u,
   APP_NATIVE_LOAD_MAX = APP_NATIVE_BRIDGE_ADDR,
@@ -330,6 +330,14 @@ typedef struct {
    * See user/runtime/secureos_api_stubs.c bridge slot comment for
    * semantics. Bridge version 4+ only. */
   int (*mem_brk)(int delta, void **out_prev_break);
+  /* DEMO-01 (#765): binary-safe length-bearing file I/O. Same slots +
+   * semantics as user/runtime/secureos_api_stubs.c bridge comment.
+   * Bridge version 5+ only. */
+  int (*fs_read_file_bytes)(const char *path, void *out_buffer,
+                            unsigned int out_buffer_size,
+                            unsigned int *out_len);
+  int (*fs_write_file_bytes)(const char *path, const void *content,
+                             unsigned int content_len, int append);
 } app_native_bridge_t;
 
 /*
@@ -1248,6 +1256,71 @@ static int app_native_fs_write_file(const char *path, const char *content,
   return 0;
 }
 
+static int app_native_fs_read_file_bytes(const char *path, void *out_buffer,
+                                         unsigned int out_buffer_size,
+                                         unsigned int *out_len) {
+  char resolved[APP_TOKEN_MAX];
+  size_t out_bytes = 0u;
+
+  if (g_native_context == 0 || path == 0 || out_buffer == 0 ||
+      out_buffer_size == 0u || out_len == 0) {
+    return 3;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_READ)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io("read", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  fs_result_t fs_result;
+
+  fs_result = fs_read_file_bytes(resolved, (uint8_t *)out_buffer,
+                                 (size_t)out_buffer_size, &out_bytes);
+  if (fs_result != FS_OK) {
+    *out_len = 0u;
+    /* FS_ERR_NOT_FOUND -> 2; capacity / storage / arg failures -> 3. */
+    return (fs_result == FS_ERR_NOT_FOUND) ? 2 : 3;
+  }
+  *out_len = (unsigned int)out_bytes;
+  return 0;
+}
+
+static int app_native_fs_write_file_bytes(const char *path, const void *content,
+                                          unsigned int content_len, int append) {
+  char resolved[APP_TOKEN_MAX];
+
+  if (g_native_context == 0 || path == 0 || content == 0) {
+    return 3;
+  }
+
+  app_resolve_path(g_native_context, path, resolved, sizeof(resolved));
+
+  if (!app_require_capability(g_native_context->subject_id, CAP_FS_WRITE)) {
+    return 1;
+  }
+  if (!app_require_capability(g_native_context->subject_id, CAP_DISK_IO_REQUEST)) {
+    return 1;
+  }
+  if (g_native_context->authorize_disk_io != 0 &&
+      g_native_context->authorize_disk_io(append ? "append" : "write", resolved) != CAP_ACCESS_ALLOW) {
+    return 1;
+  }
+
+  if (fs_write_file_bytes(resolved, (const uint8_t *)content,
+                          (size_t)content_len, append) != FS_OK) {
+    return 2;
+  }
+  return 0;
+}
+
 static int app_native_fs_list_dir(const char *path, char *out_buffer,
                                   unsigned int out_buffer_size) {
   char resolved[APP_TOKEN_MAX];
@@ -1916,6 +1989,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->process_exit = app_native_process_exit;
       bridge->process_spawn = app_native_process_spawn;
       bridge->mem_brk = app_native_mem_brk;
+      bridge->fs_read_file_bytes = app_native_fs_read_file_bytes;
+      bridge->fs_write_file_bytes = app_native_fs_write_file_bytes;
       /* Reset per-process heap when wiring a fresh top-level bridge
        * (the !nested case in the launcher entry path). Nested
        * spawns intentionally share the parent's heap state. */
@@ -1962,6 +2037,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
           bridge->process_exit = 0;
           bridge->process_spawn = 0;
           bridge->mem_brk = 0;
+          bridge->fs_read_file_bytes = 0;
+          bridge->fs_write_file_bytes = 0;
           app_native_heap_set_arena_over_cap_deny_hook(0);
           app_native_heap_reset();
         }
@@ -2063,6 +2140,8 @@ static process_result_t app_execute_native_elf(const uint8_t *elf_data,
       bridge->mouse_disable = 0;
       bridge->fs_read_file = 0;
       bridge->fs_write_file = 0;
+      bridge->fs_read_file_bytes = 0;
+      bridge->fs_write_file_bytes = 0;
       bridge->fs_list_dir = 0;
       bridge->fs_mkdir = 0;
       bridge->env_get = 0;

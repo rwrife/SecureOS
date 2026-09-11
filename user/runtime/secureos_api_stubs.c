@@ -24,7 +24,7 @@
 
 enum {
   SECUREOS_NATIVE_BRIDGE_MAGIC = 0x53524247u,
-  SECUREOS_NATIVE_BRIDGE_VERSION = 4u,
+  SECUREOS_NATIVE_BRIDGE_VERSION = 5u,
   SECUREOS_NATIVE_BRIDGE_ADDR = 0x009FF000u,
 };
 
@@ -112,6 +112,21 @@ typedef struct {
    * args). On success the previous break is written to *out_prev_break.
    * Bridge version 4+ only. */
   int (*mem_brk)(int delta, void **out_prev_break);
+  /* DEMO-01 (#765): binary-safe length-bearing file I/O.
+   * `fs_read_file_bytes(path, out, cap, *out_len)` copies at most
+   * `cap` bytes and writes the exact byte count through `out_len`
+   * (no NUL terminator). A file larger than `cap` fails without
+   * partial data. `fs_write_file_bytes(path, buf, len, append)`
+   * persists exactly `len` bytes. Same capability + disk-IO consent
+   * gates as the text pair; embedded NULs are data, not terminators.
+   * Bridge version 5+ only. Return codes mirror the text pair:
+   *   0 -> OK, 1 -> capability/consent denied, 2 -> not found,
+   *   3 -> other failure (bad args, capacity, storage error). */
+  int (*fs_read_file_bytes)(const char *path, void *out_buffer,
+                            unsigned int out_buffer_size,
+                            unsigned int *out_len);
+  int (*fs_write_file_bytes)(const char *path, const void *content,
+                             unsigned int content_len, int append);
 } secureos_native_bridge_t;
 
 static secureos_native_bridge_t *secureos_native_bridge(void) {
@@ -219,6 +234,55 @@ os_status_t os_fs_read_file(const char *path, char *out_buffer, unsigned int out
   if (out_buffer != 0 && out_buffer_size > 0u) {
     out_buffer[0] = '\0';
   }
+  return OS_STATUS_OK;
+}
+
+os_status_t os_fs_read_file_bytes(const char *path, void *out_buffer,
+                                  unsigned int out_buffer_size,
+                                  unsigned int *out_len) {
+  secureos_native_bridge_t *bridge;
+
+  if (path == 0 || out_buffer == 0 || out_buffer_size == 0u || out_len == 0) {
+    return OS_STATUS_ERROR;
+  }
+
+  bridge = secureos_native_bridge();
+  if (bridge != 0 && bridge->fs_read_file_bytes != 0) {
+    int rc = bridge->fs_read_file_bytes(path, out_buffer, out_buffer_size, out_len);
+    if (rc == 0) return OS_STATUS_OK;
+    /* Deterministic error contract: *out_len is only meaningful on
+     * OS_STATUS_OK; every failure path pins it to 0 (mirroring the
+     * kernel bridge implementation). */
+    *out_len = 0u;
+    if (rc == 1) return OS_STATUS_DENIED;
+    if (rc == 2) return OS_STATUS_NOT_FOUND;
+    return OS_STATUS_ERROR;
+  }
+
+  /* No bridge (host harness or pre-v5 runtime): empty read, mirroring
+   * the text wrapper's no-bridge fall-through. */
+  *out_len = 0u;
+  return OS_STATUS_OK;
+}
+
+os_status_t os_fs_write_file_bytes(const char *path, const void *content,
+                                   unsigned int content_len, int append) {
+  secureos_native_bridge_t *bridge;
+
+  if (path == 0 || content == 0) {
+    return OS_STATUS_ERROR;
+  }
+
+  bridge = secureos_native_bridge();
+  if (bridge != 0 && bridge->fs_write_file_bytes != 0) {
+    int rc = bridge->fs_write_file_bytes(path, content, content_len, append);
+    if (rc == 0) return OS_STATUS_OK;
+    if (rc == 1) return OS_STATUS_DENIED;
+    return OS_STATUS_ERROR;
+  }
+
+  (void)content_len;
+  (void)append;
   return OS_STATUS_OK;
 }
 

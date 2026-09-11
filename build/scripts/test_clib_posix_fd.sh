@@ -12,6 +12,10 @@
 #     on close, append semantics, slot-capacity ENOSPC.
 #   - close: valid and invalid-fd behavior (with dirty-slot flush).
 #   - fd table saturation: EMFILE when fixed slot table is exhausted.
+#   - binary-safe round-trips (DEMO-01 #765): snapshots ride the
+#     length-bearing os_fs_read_file_bytes/os_fs_write_file_bytes bridge,
+#     so payloads with leading/interior/trailing NUL bytes persist and
+#     read back byte-for-byte.
 #   - console fds 0/1/2 (slice 3): stdout/stderr write-through to
 #     os_console_write with NUL-bounded chunking, stdin read ENOTSUP,
 #     ESPIPE lseek, no-op close, /dev/std* open refusal (EBUSY).
