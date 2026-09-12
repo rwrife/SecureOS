@@ -19,12 +19,13 @@
  *         directory entry materialises on the first flush); O_TRUNC
  *         zeroes the snapshot; O_APPEND forces writes to the end.
  *       * read/lseek operate on that snapshot; write() extends it.
- *       * A dirty snapshot flushes back with os_fs_write_file(path, ...,
- *         append=0) on close() and on explicit internal flushes. Because
- *         the v0 fs bridge marshals content as a NUL-terminated string,
- *         fd-layer files are treated as text: payloads with embedded
- *         NUL bytes are truncated at the first NUL on flush (documented
- *         limitation until a byte-length write ABI lands).
+ *       * A dirty snapshot flushes back with
+ *         os_fs_write_file_bytes(path, ..., len, append=0) on close()
+ *         and on explicit internal flushes. Since DEMO-01 (#765) the
+ *         fd layer marshals explicit byte lengths across the binary-safe
+ *         fs bridge, so payloads with embedded NUL bytes round-trip
+ *         byte-for-byte (the old v0 text-bridge truncation limitation is
+ *         retired).
  *   - unlink is implemented as a deterministic truncate-to-empty shim
  *     (`os_fs_write_file(path, "", append=0)`) after an existence check,
  *     so TinyCC cleanup paths can proceed without waiting for a dedicated
@@ -104,9 +105,10 @@ static int fd_is_console(int fd) {
 /*
  * Forward a byte range to os_console_write() in NUL-terminated chunks.
  * The v0 console syscall marshals a single C string per call, so
- * embedded NUL bytes act as chunk boundaries (documented limitation,
- * same constraint as the fs text-payload flush): each maximal run of
- * non-NUL bytes becomes one `os_console_write` call and empty runs
+ * embedded NUL bytes act as chunk boundaries (documented limitation of
+ * the console path only — the fs snapshot path is byte-safe since
+ * #765): each maximal run of non-NUL bytes becomes one
+ * `os_console_write` call and empty runs
  * between consecutive NULs emit no call at all. The console has no
  * short-write semantics: every chunk either succeeds or the write fails
  * wholesale with EIO.
@@ -220,49 +222,50 @@ static int status_to_errno(os_status_t status) {
 }
 
 static int load_snapshot(clib_posix_fd_slot_t *slot, const char *path) {
+  unsigned int byte_len = 0u;
+
   clib_mem_zero(slot->data, sizeof(slot->data));
 
-  os_status_t st = os_fs_read_file(path, (char *)slot->data,
-                                   (unsigned int)sizeof(slot->data));
+  /* DEMO-01 (#765): read through the binary-safe byte API so embedded
+   * NUL payloads survive intact and the snapshot length is the actual
+   * byte count (never a strnlen inference). */
+  os_status_t st = os_fs_read_file_bytes(path, slot->data,
+                                         (unsigned int)sizeof(slot->data),
+                                         &byte_len);
   if (st != OS_STATUS_OK) {
     errno = status_to_errno(st);
     return -1;
   }
 
-  size_t len = clib_strnlen_local((const char *)slot->data, sizeof(slot->data));
-  if (len >= sizeof(slot->data)) {
+  if (byte_len > sizeof(slot->data)) {
     errno = EOVERFLOW;
     return -1;
   }
 
-  slot->len = len;
+  slot->len = byte_len;
   slot->cursor = 0;
   return 0;
 }
 
 /*
- * Persist a dirty snapshot back through os_fs_write_file(). The v0 fs
- * bridge (`app_native_fs_write_file` -> `fs_write_file`) marshals content
- * as a NUL-terminated C string, so the flush stops at the first embedded
- * NUL and `slot->len` shrinks to match what storage actually holds. This
- * keeps fd-layer and storage views consistent for text files (the TinyCC
- * use case) without pretending byte-exact binary support.
+ * Persist a dirty snapshot back through os_fs_write_file_bytes().
+ * DEMO-01 (#765): the byte-length write path marshals exactly
+ * `slot->len` bytes, so payloads with embedded / leading / trailing NUL
+ * bytes round-trip byte-for-byte (the v0 text bridge's C-string
+ * truncation no longer applies to the fd layer).
  */
 static int flush_snapshot(clib_posix_fd_slot_t *slot) {
   if (!slot->dirty) {
     return 0;
   }
 
-  os_status_t st = os_fs_write_file(slot->path, (const char *)slot->data, 0);
+  os_status_t st = os_fs_write_file_bytes(slot->path, slot->data,
+                                          (unsigned int)slot->len, 0);
   if (st != OS_STATUS_OK) {
     errno = status_to_errno(st);
     return -1;
   }
 
-  slot->len = clib_strnlen_local((const char *)slot->data, slot->len);
-  if (slot->cursor > slot->len) {
-    slot->cursor = slot->len;
-  }
   slot->dirty = 0;
   return 0;
 }

@@ -30,7 +30,6 @@ static void record_check(int ok, const char *name) {
     g_failures++;
   }
 }
-
 #define CONSOLE_MAX_CALLS 16
 #define CONSOLE_CALL_CAP 272 /* CLIB_CONSOLE_CHUNK_CAP + slack */
 
@@ -64,20 +63,28 @@ static void console_reset(void) {
 }
 
 #define FIXTURE_MAX_ROWS 12
+#define FIXTURE_ROW_CAP 64
 
 typedef struct fixture_row {
   char path[32];
-  char content[64];
+  char content[FIXTURE_ROW_CAP];
+  size_t content_len; /* exact byte length (payloads may contain NUL) */
   os_status_t read_status;
   int exists;
 } fixture_row_t;
 
 static fixture_row_t g_rows[FIXTURE_MAX_ROWS] = {
-    {"/alpha.txt", "alpha beta gamma", OS_STATUS_OK, 1},
-    {"/empty.txt", "", OS_STATUS_OK, 1},
-    {"/denied.txt", "", OS_STATUS_DENIED, 1},
+    {"/alpha.txt", "alpha beta gamma", 16, OS_STATUS_OK, 1},
+    {"/empty.txt", "", 0, OS_STATUS_OK, 1},
+    {"/denied.txt", "", 0, OS_STATUS_DENIED, 1},
+    /* Binary payload with a LEADING NUL. */
+    {"/lead.bin", {0, 'L', 'X'}, 3, OS_STATUS_OK, 1},
+    /* Binary payload with INTERIOR NUL bytes. */
+    {"/mid.bin", {'A', 0, 0, 'B', 0, 'C', 0}, 6, OS_STATUS_OK, 1},
+    /* Binary payload with a TRAILING NUL. */
+    {"/tail.bin", {'Z', 'Y', 0}, 3, OS_STATUS_OK, 1},
 };
-static size_t g_row_count = 3;
+static size_t g_row_count = 6;
 
 static fixture_row_t *find_row(const char *path) {
   for (size_t i = 0; i < g_row_count; ++i) {
@@ -88,13 +95,20 @@ static fixture_row_t *find_row(const char *path) {
   return NULL;
 }
 
-os_status_t os_fs_read_file(const char *path,
-                            char *out_buffer,
-                            unsigned int out_buffer_size) {
+/*
+ * Deterministic in-memory fixture for the binary-safe byte APIs
+ * (os_fs_read_file_bytes / os_fs_write_file_bytes, DEMO-01 #765).
+ * Rows carry explicit byte lengths so payloads with embedded NULs
+ * round-trip; the same row store backs the text os_fs_write_file
+ * fixture (unlink shim) so the two views stay consistent, mirroring
+ * the kernel where fs_write_file is fs_write_file_bytes + strlen.
+ */
+os_status_t os_fs_read_file_bytes(const char *path, void *out_buffer,
+                                  unsigned int out_buffer_size,
+                                  unsigned int *out_len) {
   fixture_row_t *row;
-  size_t n;
 
-  if (!path || !out_buffer || out_buffer_size == 0) {
+  if (!path || !out_buffer || out_buffer_size == 0 || !out_len) {
     return OS_STATUS_ERROR;
   }
 
@@ -106,23 +120,20 @@ os_status_t os_fs_read_file(const char *path,
     return row->read_status;
   }
 
-  n = strlen(row->content);
-  if (n + 1 > out_buffer_size) {
+  if (row->content_len > out_buffer_size) {
     return OS_STATUS_ERROR;
   }
-  memcpy(out_buffer, row->content, n + 1);
+  memcpy(out_buffer, row->content, row->content_len);
+  *out_len = (unsigned int)row->content_len;
   return OS_STATUS_OK;
 }
 
-os_status_t os_fs_write_file(const char *path,
-                             const char *content,
-                             int append) {
+os_status_t os_fs_write_file_bytes(const char *path, const void *content,
+                                   unsigned int content_len, int append) {
   fixture_row_t *row;
-  const char *src = content ? content : "";
-  size_t src_n;
   size_t base_n = 0;
 
-  if (!path) {
+  if (!path || !content) {
     return OS_STATUS_ERROR;
   }
 
@@ -142,22 +153,30 @@ os_status_t os_fs_write_file(const char *path,
     return OS_STATUS_DENIED;
   }
 
-  src_n = strlen(src);
   if (append) {
-    base_n = strlen(row->content);
+    base_n = row->content_len;
   }
 
-  if (base_n + src_n + 1 > sizeof(row->content)) {
+  if (base_n + content_len > sizeof(row->content)) {
     return OS_STATUS_ERROR;
   }
 
   if (!append) {
-    row->content[0] = '\0';
     base_n = 0;
   }
 
-  memcpy(row->content + base_n, src, src_n + 1);
+  memcpy(row->content + base_n, content, content_len);
+  row->content_len = base_n + content_len;
   return OS_STATUS_OK;
+}
+
+/* Text-shaped write used by the unlink truncate-to-empty shim: exact
+ * bytes = strlen(content), matching fs_write_file -> fs_write_file_bytes. */
+os_status_t os_fs_write_file(const char *path,
+                             const char *content,
+                             int append) {
+  const char *src = content ? content : "";
+  return os_fs_write_file_bytes(path, src, (unsigned int)strlen(src), append);
 }
 
 static int expect_read_eq(int fd, size_t want_count, const char *want) {
@@ -171,6 +190,100 @@ static int expect_read_eq(int fd, size_t want_count, const char *want) {
     return 0;
   }
   return strcmp(buf, want) == 0;
+}
+
+/* Byte-exact read comparison for payloads with embedded NULs (the
+ * strlen/strcmp-based helper above cannot express these). */
+static int expect_read_bytes_eq(int fd, const unsigned char *want,
+                                size_t want_n) {
+  unsigned char buf[64];
+  ssize_t got = read(fd, buf, sizeof(buf));
+  if (got < 0 || (size_t)got != want_n) {
+    return 0;
+  }
+  return memcmp(buf, want, want_n) == 0;
+}
+
+static const unsigned char k_lead_payload[3] = {0, 'L', 'X'};
+static const unsigned char k_mid_payload[6] = {'A', 0, 0, 'B', 0, 'C'};
+static const unsigned char k_tail_payload[3] = {'Z', 'Y', 0};
+/* Mixed payload: leading, interior, and trailing NUL bytes. */
+static const unsigned char k_copy_payload[7] = {0, 'A', 0, 0, 'B', 'C', 0};
+
+/*
+ * DEMO-01 (#765): binary payloads with embedded NUL bytes must survive
+ * open/read and write/close round-trips byte-for-byte through the fd
+ * layer now that snapshots ride the length-bearing byte APIs.
+ */
+static void test_binary_roundtrip(void) {
+  unsigned char buf[16];
+  int fd;
+
+  /* Read paths: leading / interior / trailing NUL payloads. */
+  fd = open("/lead.bin", O_RDONLY);
+  if (fd < 0) {
+    record_check(0, "binary_lead_read_exact");
+  } else {
+    record_check(expect_read_bytes_eq(fd, k_lead_payload, sizeof(k_lead_payload)),
+                 "binary_lead_read_exact");
+    record_check(close(fd) == 0, "binary_lead_close");
+  }
+
+  fd = open("/mid.bin", O_RDONLY);
+  if (fd < 0) {
+    record_check(0, "binary_mid_read_exact");
+  } else {
+    record_check(expect_read_bytes_eq(fd, k_mid_payload, sizeof(k_mid_payload)),
+                 "binary_mid_read_exact");
+    record_check(close(fd) == 0, "binary_mid_close");
+  }
+
+  fd = open("/tail.bin", O_RDONLY);
+  if (fd < 0) {
+    record_check(0, "binary_tail_read_exact");
+  } else {
+    record_check(expect_read_bytes_eq(fd, k_tail_payload, sizeof(k_tail_payload)),
+                 "binary_tail_read_exact");
+    record_check(close(fd) == 0, "binary_tail_close");
+  }
+
+  /* Write path: create, persist mixed-NUL payload, close (flush),
+   * reopen and compare byte-for-byte. */
+  errno = 0;
+  fd = open("/copy.bin", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  record_check(fd >= 0, "binary_write_open_creat");
+  if (fd >= 0) {
+    ssize_t n = write(fd, k_copy_payload, sizeof(k_copy_payload));
+    record_check(n == (ssize_t)sizeof(k_copy_payload), "binary_write_returns_count");
+    record_check(close(fd) == 0, "binary_write_close_flushes");
+
+    fd = open("/copy.bin", O_RDONLY);
+    memset(buf, 0xAA, sizeof(buf));
+    ssize_t got = read(fd, buf, sizeof(buf));
+    record_check(got == (ssize_t)sizeof(k_copy_payload) &&
+                     memcmp(buf, k_copy_payload, sizeof(k_copy_payload)) == 0,
+                 "binary_readback_byte_exact");
+    record_check(close(fd) == 0, "binary_readback_close");
+  }
+
+  /* Append mode still lands exact bytes at the end (payload grows to
+   * 8 bytes: the 7-byte k_copy_payload plus one trailing NUL). */
+  fd = open("/copy.bin", O_WRONLY | O_APPEND);
+  record_check(fd >= 0, "binary_append_open");
+  if (fd >= 0) {
+    static const unsigned char extra = 0;
+    record_check(write(fd, &extra, 1) == 1, "binary_append_write_count");
+    record_check(close(fd) == 0, "binary_append_close_flushes");
+
+    fd = open("/copy.bin", O_RDONLY);
+    memset(buf, 0xAA, sizeof(buf));
+    ssize_t got = read(fd, buf, sizeof(buf));
+    record_check(got == 8 &&
+                     memcmp(buf, k_copy_payload, sizeof(k_copy_payload)) == 0 &&
+                     buf[7] == 0,
+                 "binary_append_byte_exact");
+    record_check(close(fd) == 0, "binary_append_close_after");
+  }
 }
 
 static void test_invalid_inputs(void) {
@@ -438,6 +551,7 @@ static void test_console_fds(void) {
 int main(void) {
   test_invalid_inputs();
   test_read_and_seek_roundtrip();
+  test_binary_roundtrip();
   test_fd_table_limit();
   test_error_paths();
   test_write_modes();

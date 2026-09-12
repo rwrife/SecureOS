@@ -19,7 +19,7 @@
     },
     "secureos_api_h": {
       "path": "user/include/secureos_api.h",
-      "sha256": "553d60da5787f7b86ce6ff1d97fded1fbc25ec25fc1d513bbc40b9bfe4b4bf01"
+      "sha256": "5cd11a542b18feb35d7d8706a9d9e7c6f13a5dd468ae0d4bcb77339c70996bdc"
     },
     "crt0_c": {
       "path": "sdk/lib/crt0.c",
@@ -27,13 +27,13 @@
     },
     "secureos_api_stubs_c": {
       "path": "user/runtime/secureos_api_stubs.c",
-      "sha256": "32a4e211d9dcb99913e2135ae8420976c8c7bd2aa0f6aed4328c878ab233a85b"
+      "sha256": "9f86be8cdf0ea815dc505d363d09a3fa9f211deb3389609e6efcba96f7b28fb5"
     }
   },
   "outputs": {
     "hello_bin": {
       "path": "/apps/hello.bin",
-      "sha256": "9d95d5c34e1c6fa27d082f7fc761c83f73aef5ecf6e62e98fca86d725bb9490a"
+      "sha256": "bc367c435399ceeb29a55e5f2b3f42d2a0385305f97393d059aaa9d626e3ce7f"
     }
   }
 }

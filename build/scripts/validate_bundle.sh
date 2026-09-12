@@ -486,6 +486,13 @@ TEST_TARGETS=(
     # NULL-out-pointer fall-through. Same orphan-from-TEST_TARGETS
     # gate shape as #129 / #366 / #384 / #401 / #414 / #426.
     mem_brk_wrapper
+    # DEMO-01 (issue #765): host-side dynamic round-trip for the
+    # binary-safe `os_fs_read_file_bytes` / `os_fs_write_file_bytes`
+    # user-runtime wrappers over the v5 native-bridge byte slots.
+    # Pins exact-byte payload round-trips with embedded NULs, the
+    # pre-v5 handshake degrade, and the full return-code mapping.
+    # Same wrapper-gate shape as `mem_brk_wrapper` above.
+    native_fs_bytes_wrapper
     # M7-TOOLCHAIN-001 slice 3 (issue #421): host-side smoke for the
     # `clib_os_brk` forwarder that wires `user/libs/clib`'s
     # `clib_brk_fn` callback to `os_mem_brk`. Pins the `clib_brk_fn`

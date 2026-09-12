@@ -286,9 +286,9 @@ deterministic `ENOTSUP` (no v0 console-read syscall), lseek fails with
 | Symbol   | Signature                                            | Notes |
 |----------|------------------------------------------------------|-------|
 | `open`   | `int open(const char *path, int flags, ...)`        | opens read/write snapshots (`O_RDONLY`/`O_WRONLY`/`O_RDWR`); `O_CREAT` creates missing files lazily via write-back, `O_TRUNC` discards, `O_APPEND` forces writes to end; mode arg accepted and ignored (no permission-bit ABI); refuses the reserved console aliases (`/dev/stdin`, `/dev/stdout`, `/dev/stderr`) with `EBUSY` |
-| `close`  | `int close(int fd)`                                  | flushes a dirty snapshot back through `os_fs_write_file` before releasing the fd-table slot; reserved console fds 0/1/2 close as a successful no-op |
+| `close`  | `int close(int fd)`                                  | flushes a dirty snapshot back through `os_fs_write_file_bytes` before releasing the fd-table slot; reserved console fds 0/1/2 close as a successful no-op |
 | `read`   | `ssize_t read(int fd, void *buf, size_t count)`      | reads from in-memory snapshot and advances cursor; fd 0 fails with `ENOTSUP` (no console-read syscall), fds 1/2 fail with `EBADF` |
-| `write`  | `ssize_t write(int fd, const void *buf, size_t count)` | extends the snapshot on writable fds (`EBADF` on read-only fds, `ENOSPC` past the fixed slot cap); flushes on close; text payloads only — embedded NUL bytes truncate the flush (v0 fs bridge marshals content as a C string); fds 1/2 write through to `os_console_write` in NUL-bounded chunks (embedded NULs split chunks, no empty console calls; `EIO` on syscall failure), fd 0 fails with `EBADF` |
+| `write`  | `ssize_t write(int fd, const void *buf, size_t count)` | extends the snapshot on writable fds (`EBADF` on read-only fds, `ENOSPC` past the fixed slot cap); flushes on close; byte-exact payloads (embedded NULs persist; binary-safe flush over `os_fs_write_file_bytes` since DEMO-01 #765); fds 1/2 write through to `os_console_write` in NUL-bounded chunks (embedded NULs split chunks, no empty console calls; `EIO` on syscall failure), fd 0 fails with `EBADF` |
 | `lseek`  | `off_t lseek(int fd, off_t offset, int whence)`      | supports `SEEK_SET/CUR/END`; bounds-checked cursor updates; console fds fail with `ESPIPE` |
 | `unlink` | `int unlink(const char *path)`                       | deterministic truncate-to-empty shim over `os_fs_write_file` after an existence probe; pending a dedicated delete syscall ABI |
 
@@ -464,4 +464,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: 3bf5617f84fd43ed47c70a28cd7dc15dd5ce482e
+Last verified against commit: 39f77420394bc6fe1d8a482717ae3b006f42226f

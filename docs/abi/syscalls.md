@@ -49,8 +49,10 @@ unspecified in that case.
 | ---- | ------------ | ----- |
 | `os_fs_list_root(out, len)` | `CAP_FS_READ` | |
 | `os_fs_list_dir(path, out, len)` | `CAP_FS_READ` | |
-| `os_fs_read_file(path, out, len)` | `CAP_FS_READ` | |
-| `os_fs_write_file(path, content, append)` | `CAP_FS_WRITE` | `append == 0` truncates, non-zero appends. |
+| `os_fs_read_file(path, out, len)` | `CAP_FS_READ` | Text-shaped read: marshals a NUL-terminated string (payloads with embedded NULs truncate at the first NUL). New byte-exact callers use `os_fs_read_file_bytes`. |
+| `os_fs_write_file(path, content, append)` | `CAP_FS_WRITE` | `append == 0` truncates, non-zero appends. Text-shaped (C-string marshalling); binary callers use `os_fs_write_file_bytes`. |
+| `os_fs_read_file_bytes(path, out, len, *out_len)` | `CAP_FS_READ` + `CAP_DISK_IO_REQUEST` + disk-IO consent | DEMO-01 (#765). Binary-safe read: bridge slot `fs_read_file_bytes` (bridge version 5+). On `OS_STATUS_OK` `*out_len` is the exact byte count copied (no terminator); capacity undershoot maps to `OS_STATUS_ERROR` with no partial data; every non-OK status pins `*out_len` to 0. Empty file returns OK with `*out_len == 0` (clean EOF, distinct from NOT_FOUND). Same resolve + capability + consent gates as the text read — no new capability IDs. Host gate: `native_fs_bytes_wrapper`. |
+| `os_fs_write_file_bytes(path, content, content_len, append)` | `CAP_FS_WRITE` + `CAP_DISK_IO_REQUEST` + disk-IO consent | DEMO-01 (#765). Binary-safe write: bridge slot `fs_write_file_bytes` (bridge version 5+). Persists exactly `content_len` bytes (embedded/leading/trailing NULs are data); `append == 0` truncates/creates, non-zero appends. `content` must be non-NULL even at zero length. Host gate: `native_fs_bytes_wrapper`. |
 | `os_fs_mkdir(path)` | `CAP_FS_WRITE` | |
 
 ### Process / environment
@@ -142,5 +144,5 @@ unused"). The reservation is purely an ABI-shape anchor.
 4. Add an allow-path and a deny-path test under `build/scripts/test_*.sh`.
 5. Update this table and bump the verification line below.
 
-Last verified against commit: 4e01736a16
+Last verified against commit: 39f77420394bc6fe1d8a482717ae3b006f42226f
 

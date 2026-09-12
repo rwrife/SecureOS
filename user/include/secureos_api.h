@@ -23,6 +23,43 @@ os_status_t os_fs_list_root(char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_fs_list_dir(const char *path, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_fs_read_file(const char *path, char *out_buffer, unsigned int out_buffer_size);
 os_status_t os_fs_write_file(const char *path, const char *content, int append);
+/*
+ * Binary-safe length-bearing file I/O (DEMO-01 #765).
+ *
+ * The v0 text pair above marshals payloads as NUL-terminated C strings,
+ * which truncates any byte stream containing an embedded NUL. These two
+ * calls carry explicit byte lengths across the native bridge so callers
+ * can read and persist arbitrary binary data (archives, ELF, SOF)
+ * byte-for-byte. They reuse the same kernel fs operations
+ * (fs_read_file_bytes / fs_write_file_bytes) and the exact same
+ * capability + consent gates as the text pair — no new capability IDs.
+ *
+ * os_fs_read_file_bytes(path, out_buffer, out_buffer_size, out_len):
+ *   On OS_STATUS_OK, `*out_len` receives the exact number of bytes
+ *   copied into `out_buffer`; no terminator is appended. A file larger
+ *   than `out_buffer_size` fails with OS_STATUS_ERROR (explicit
+ *   capacity failure — there is no silent truncation). On every
+ *   non-OK status `*out_len` is pinned to 0. Empty file returns OK
+ *   with *out_len == 0 (a clean EOF signal, distinct from NOT_FOUND).
+ *
+ * os_fs_write_file_bytes(path, content, content_len, append):
+ *   Writes exactly `content_len` bytes from `content`. `append == 0`
+ *   truncates/creates, non-zero appends — same semantics as
+ *   os_fs_write_file. `content` must be non-NULL even when
+ *   `content_len == 0` (writing an empty file is legal and passes a
+ *   valid 1-byte-sized buffer or any readable address).
+ *
+ * Denied access (missing CAP_FS_READ/CAP_FS_WRITE or the disk-IO
+ * consent gate) returns OS_STATUS_DENIED and never touches storage.
+ *
+ * Bridge slots `fs_read_file_bytes` / `fs_write_file_bytes` (bridge
+ * version 5+). Additive within OS_ABI_VERSION = 0.
+ */
+os_status_t os_fs_read_file_bytes(const char *path, void *out_buffer,
+                                  unsigned int out_buffer_size,
+                                  unsigned int *out_len);
+os_status_t os_fs_write_file_bytes(const char *path, const void *content,
+                                   unsigned int content_len, int append);
 os_status_t os_fs_mkdir(const char *path);
 os_status_t os_process_chdir(const char *path);
 os_status_t os_process_getcwd(char *out_buffer, unsigned int out_buffer_size);
