@@ -106,6 +106,9 @@ build_disk_image_inner() {
 	./build/scripts/build_user_app.sh "filedemo"
 	app_mappings+=("artifacts/user/filedemo.bin=/apps/filedemo.bin")
 
+	./build/scripts/build_user_app.sh "binfs"
+	app_mappings+=("artifacts/user/binfs.bin=/apps/binfs.bin")
+
 	./build/scripts/build_user_app.sh "sosh"
 	# Deploy sosh as an OS-level command (native ELF, not .cmd wrapper)
 	if [ -f "artifacts/user/sosh.bin" ]; then

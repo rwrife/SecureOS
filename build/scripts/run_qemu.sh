@@ -18,6 +18,7 @@ Supported tests:
   kernel_console   Boots the kernel ISO and checks console markers
   kernel_network_libs  Boots the kernel ISO and checks network commands use netlib automatically
   kernel_filedemo  Boots the kernel ISO, runs filedemo, and checks app markers
+  kernel_binfs     Boots the kernel ISO, runs binfs, and checks binary-fs markers (issue #765)
   kernel_persistence  Boots the kernel ISO with the seeded disk and checks persisted file contents
   kernel_sessions  Boots the kernel ISO and verifies session switching and per-session env/cwd isolation
 
@@ -261,7 +262,7 @@ PY
     set -e
     exit $EXIT_CODE
     ;;
-  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_persistence|kernel_sessions)
+  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_binfs|kernel_persistence|kernel_sessions)
     ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
     DISK_PATH="$ROOT_DIR/artifacts/disk/secureos-disk.img"
 
@@ -332,6 +333,17 @@ scripts = {
     'kernel_filedemo': [
       ('[s0 /]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
+    'kernel_binfs': [
+      # Issue #765: binfs is a staged signed SOF and triggers exactly
+      # one disk-IO consent prompt per unique (operation, path) pair:
+      # write+read binnul.dat, write+append+read binapp.dat, the
+      # undersized re-read of binnul.dat (prompts again — plain 'y'
+      # answers do not populate the always-cache), read of the missing
+      # binmiss.dat, then text-write+bytes-read of bintxt.dat. Nine
+      # prompts, nine 'y' answers queued up-front (filedemo pattern).
+      ('[s0 /]> ', 'run /apps/binfs\ny\ny\ny\ny\ny\ny\ny\ny\ny\n'),
+      ('BINFS:done', 'exit pass\nexit pass\n'),
+    ],
     'kernel_persistence': [
       # Issue #188: a single mega-blob ('cat appdemo.txt\ny\nexit pass\n')
       # was getting truncated by the guest's input pacing during the cat
@@ -396,6 +408,19 @@ expected_markers = {
         '[filedemo] wrote appdemo.txt',
         '[filedemo] done',
         '[auth-session] decision=allow',
+    ],
+    'kernel_binfs': [
+      'TEST:START:boot_entry',
+      'TEST:PASS:session_manager',
+      'TEST:PASS:console',
+      'BINFS:start',
+      'BINFS:PASS:nul_roundtrip',
+      'BINFS:PASS:append_bytes',
+      'BINFS:PASS:capacity_error',
+      'BINFS:PASS:notfound',
+      'BINFS:PASS:text_len_compat',
+      'BINFS:done',
+      '[auth-session] decision=allow',
     ],
     'kernel_persistence': [
       'TEST:START:boot_entry',
