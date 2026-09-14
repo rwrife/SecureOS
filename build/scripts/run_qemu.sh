@@ -18,6 +18,7 @@ Supported tests:
   kernel_console   Boots the kernel ISO and checks console markers
   kernel_network_libs  Boots the kernel ISO and checks network commands use netlib automatically
   kernel_filedemo  Boots the kernel ISO, runs filedemo, and checks app markers
+  kernel_binfs     Boots the kernel ISO, runs binfs, and checks binary-fs markers (issue #765)
   kernel_persistence  Boots the kernel ISO with the seeded disk and checks persisted file contents
   kernel_sessions  Boots the kernel ISO and verifies session switching and per-session env/cwd isolation
 
@@ -261,7 +262,7 @@ PY
     set -e
     exit $EXIT_CODE
     ;;
-  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_persistence|kernel_sessions)
+  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_binfs|kernel_persistence|kernel_sessions)
     ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
     DISK_PATH="$ROOT_DIR/artifacts/disk/secureos-disk.img"
 
@@ -332,6 +333,26 @@ scripts = {
     'kernel_filedemo': [
       ('[s0 /]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
+    'kernel_binfs': [
+      # Issue #765 closeout slice: plain y/n decisions do not populate the
+      # always-cache, so every operation prompts. Drive each occurrence only
+      # after the full prompt is visible: allow the initial NUL roundtrip,
+      # deny its overwrite, allow the no-mutation readback, then allow the
+      # append, capacity, not-found, and text-compat operations (11 prompts).
+      ('[s0 /]> ', 'run /apps/binfs\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'n\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('BINFS:done', 'exit pass\nexit pass\n'),
+    ],
     'kernel_persistence': [
       # Issue #188: a single mega-blob ('cat appdemo.txt\ny\nexit pass\n')
       # was getting truncated by the guest's input pacing during the cat
@@ -397,6 +418,21 @@ expected_markers = {
         '[filedemo] done',
         '[auth-session] decision=allow',
     ],
+    'kernel_binfs': [
+      'TEST:START:boot_entry',
+      'TEST:PASS:session_manager',
+      'TEST:PASS:console',
+      'BINFS:start',
+      'BINFS:PASS:nul_roundtrip',
+      'BINFS:PASS:denied_write_no_mutation',
+      'BINFS:PASS:append_bytes',
+      'BINFS:PASS:capacity_error',
+      'BINFS:PASS:notfound',
+      'BINFS:PASS:text_len_compat',
+      'BINFS:done',
+      '[auth-session] decision=allow',
+      '[auth-session] decision=deny',
+    ],
     'kernel_persistence': [
       'TEST:START:boot_entry',
       'TEST:PASS:session_manager',
@@ -439,6 +475,7 @@ result = {
 
 script_steps = scripts[test_name]
 next_step = 0
+search_from = 0
 output = bytearray()
 p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 deadline = time.time() + timeout_s
@@ -460,10 +497,14 @@ while True:
       if chunk:
         output.extend(chunk)
         decoded = output.decode('utf-8', errors='replace')
-        if next_step < len(script_steps) and script_steps[next_step][0] in decoded:
-          p.stdin.write(script_steps[next_step][1].encode('utf-8'))
-          p.stdin.flush()
-          next_step += 1
+        if next_step < len(script_steps):
+          marker, response = script_steps[next_step]
+          marker_at = decoded.find(marker, search_from)
+          if marker_at >= 0:
+            p.stdin.write(response.encode('utf-8'))
+            search_from = marker_at + len(marker)
+            p.stdin.flush()
+            next_step += 1
       continue
 
 if p.stdout is not None:
