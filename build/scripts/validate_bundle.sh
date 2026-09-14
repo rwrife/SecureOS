@@ -152,6 +152,7 @@ TEST_TARGETS=(
     helloapp_deny
     kernel_console
     kernel_filedemo
+    kernel_binfs
     kernel_persistence
     validator_report
     ipc_sync_v0
@@ -1010,7 +1011,7 @@ for target in "${EXPECTED_FAIL_TARGETS[@]}"; do
 done
 
 # Copy known QEMU artifacts when present.
-for qemu_name in hello_boot hello_boot_fail kernel_console kernel_filedemo kernel_persistence; do
+for qemu_name in hello_boot hello_boot_fail kernel_console kernel_filedemo kernel_binfs kernel_persistence; do
   if [[ -f "$ROOT_DIR/artifacts/qemu/${qemu_name}.log" ]]; then
     cp "$ROOT_DIR/artifacts/qemu/${qemu_name}.log" "$RUN_QEMU_DIR/"
   fi
@@ -1071,6 +1072,7 @@ def _resolve_log_and_artifacts(target_name: str):
         "hello_boot_negative": ["hello_boot_fail"],
         "kernel_console":      ["kernel_console"],
         "kernel_filedemo":     ["kernel_filedemo"],
+        "kernel_binfs":        ["kernel_binfs"],
         "kernel_persistence":  ["kernel_persistence"],
     }
     artifacts_rel = []
@@ -1153,7 +1155,7 @@ for line in status_lines:
         failed.append(name)
 
 qemu_commands = {}
-for meta_name in ["hello_boot", "kernel_console", "kernel_filedemo", "kernel_persistence"]:
+for meta_name in ["hello_boot", "kernel_console", "kernel_filedemo", "kernel_binfs", "kernel_persistence"]:
     qemu_meta = run_dir / "qemu" / f"{meta_name}.meta.json"
     if not qemu_meta.exists():
         continue
@@ -1343,6 +1345,7 @@ report = {
                 "qemu/hello_boot_fail.log",
                 "qemu/kernel_console.log",
                 "qemu/kernel_filedemo.log",
+                "qemu/kernel_binfs.log",
                 "qemu/kernel_persistence.log"
       ]
     }
