@@ -6,8 +6,8 @@ Plan: [`plans/2026-05-28-in-os-toolchain-self-hosting.md`](../../plans/2026-05-2
 (§"Acceptance tests").
 
 Umbrella: [#403](https://github.com/rwrife/SecureOS/issues/403).
-Execute slice that flips these markers to `TEST:PASS`:
-[#410 (M7-TOOLCHAIN-007)](https://github.com/rwrife/SecureOS/issues/410).
+The live implementation and acceptance gates that eventually flip these
+markers to real `TEST:PASS` results are #765, #766, #767, #771, and #772.
 Scaffold (this directory): [#423](https://github.com/rwrife/SecureOS/issues/423).
 
 ## Status
@@ -29,28 +29,28 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 
 | Marker                              | Gating issue | What unblocks PASS                                       |
 | ----------------------------------- | ------------ | -------------------------------------------------------- |
-| `toolchain_compiles_hello_in_os`    | [#409]       | `cc` driver app produces a SOF/ELF on-target             |
-| `toolchain_runs_compiled_binary`    | [#410]       | unsigned-run wiring + `cc` driver output reachable through launcher (os_process_spawn merged via #422 / PR #427) |
-| `toolchain_unsigned_prompt_enforced`| [#410]       | unsigned-run wiring through the launcher auth flow       |
-| `toolchain_large_output_persisted`  | [#409]       | `cc` emits a >1 KB binary; FS path stays byte-identical  |
-| `toolchain_compile_error_reported`  | [#409]       | `cc` exits non-zero on syntax error with no output file  |
-| `toolchain_cc_audit_markers`        | [#409] + [#410] | `cc.compile.start|success|fail` marker grammar contract pinned (`sid`, `input_path`, `arena_bytes` / `output_sof_sha256`, `bytes` / `exit_code`, `reason_tag`) |
-| `toolchain_cc_manifest_sidecar_written_on_link` | [#634] | qemu harness pin for sidecar synthesis write-on-link when no `--manifest` or sidecar exists |
-| `toolchain_sofpack_plus_manifestgen_roundtrip` | [#600] | integration pin for `libmanifestgen` + `libsofpack`: synth manifest, wrap ELF into SOF, re-parse manifest byte-identically |
-| `toolchain_launcher_manifest_ownership_role_enforced` | [#585] | launcher enforcement pin for `capabilities.ownership_role`: valid enum grants launch; invalid/missing role denies with canonical reason |
-| `toolchain_cc_manifest_override_precedence` | [#409] + [#410] | precedence pin: `cc --manifest <path>` must override co-located sidecar values (`caps_required`, `runtime.arena_bytes`) with explicit `reason=cli_override` evidence |
-| `toolchain_cc_version_and_help_text_pinned` | [#409] | `cc --version` / `cc --help` stdout goldens are byte-stable and deterministic (no host paths/timestamps) |
-| `toolchain_cc_exit_codes_match_v0_table` | [#410] | runtime `cc` exit codes match the six-slot v0 table pinned in docs ([#589]); harness stays SKIP until toolchain execute slices land |
-| `toolchain_cc_arena_exhaustion_audit_marker` | [#404] + [#409] + [#410] | arena exhaustion join contract: over-cap `os_mem_brk` deny emits canonical `CAP:DENY` evidence and `cc.compile.fail` with `reason=arena_exhausted` + internal-exit classification |
-| `toolchain_cc_determinism` | [#572] + [#409] + [#410] | determinism contract: repeated in-OS `cc` builds (same boot + fresh boot) must produce byte-identical SOFs, with deterministic mismatch diagnostics |
-| `toolchain_heap_isolation`          | [#410]       | two sequential `cc` runs in one boot don't see each other's arena state (kernel `os_mem_brk` + per-process arena reset shipped in #421 via PR #432/#455 and per-spawn arena clamp via PR #454; remaining gate is `cc` driver #409 + acceptance-suite wiring #410) |
-| `toolchain_launch_audit_owner_kind_field_emitted` | [#410] | launch audit contract pin: both `launch.granted` and `launch.denied` records include `owner_kind=<internal|external|local>` (normative contract in `docs/abi/audit-markers.md`, row tracked by #554) |
-| `toolchain_launcher_owner_kind_cache_isolation` | [#410] + [#522] | unsigned-run cache isolation pin: cached `AUTH_TYPE_UNSIGNED_BIN` decisions must not cross `owner.kind` boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554 |
-| `toolchain_launcher_sidecar_owner_kind_mismatch` | [#410] | launcher deny-path pin for SOF vs sidecar `.manifest.json` `owner.kind` mismatch with canonical owner-kind mismatch evidence; SKIP scaffold tracked by #601 |
-| `toolchain_launcher_sidecar_caps_required_mismatch` | [#410] | launcher deny-path pin for sidecar-vs-SOF `caps_required` disagreement (subset/superset/disjoint) with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #605 |
-| `toolchain_launcher_sidecar_size_and_malformed_json` | [#410] | launcher deny-path pin for oversize/truncated/malformed/empty sidecar `.manifest.json` inputs with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #602 |
-| `toolchain_missing_manifest_sidecar` | [#410] | launcher deny-path pin for local SOF launch attempts with no `<binary>.manifest.json` sidecar; SKIP scaffold tracked by #596 |
-| `toolchain_libc_deps_phase3_complete` | [#538] + [#539] | TinyCC Phase-3 libc-deps completion marker; stays SKIP until both sub-slices close, then must flip off `awaiting_*` |
+| `toolchain_compiles_hello_in_os`    | [#767]       | `cc` driver app produces a SOF/ELF on-target             |
+| `toolchain_runs_compiled_binary`    | [#771]       | real guest edit/build/consent/run acceptance             |
+| `toolchain_unsigned_prompt_enforced`| [#771]       | unsigned-run denial and approval in the real guest flow  |
+| `toolchain_large_output_persisted`  | [#767]       | `cc` emits a >1 KB binary; FS path stays byte-identical  |
+| `toolchain_compile_error_reported`  | [#767]       | `cc` exits non-zero on syntax error with no output file  |
+| `toolchain_cc_audit_markers`        | [#767] + [#771] | `cc.compile.start|success|fail` marker grammar contract pinned (`sid`, `input_path`, `arena_bytes` / `output_sof_sha256`, `bytes` / `exit_code`, `reason_tag`) |
+| `toolchain_cc_manifest_sidecar_written_on_link` | [#767] | sidecar synthesis write-on-link when no `--manifest` or sidecar exists |
+| `toolchain_sofpack_plus_manifestgen_roundtrip` | [#767] | integration pin for `libmanifestgen` + `libsofpack`: synth manifest, wrap ELF into SOF, re-parse manifest byte-identically |
+| `toolchain_launcher_manifest_ownership_role_enforced` | [#772] | launcher enforcement pin for `capabilities.ownership_role`: valid enum grants launch; invalid/missing role denies with canonical reason |
+| `toolchain_cc_manifest_override_precedence` | [#767] + [#771] | precedence pin: `cc --manifest <path>` must override co-located sidecar values (`caps_required`, `runtime.arena_bytes`) with explicit `reason=cli_override` evidence |
+| `toolchain_cc_version_and_help_text_pinned` | [#767] | `cc --version` / `cc --help` stdout goldens are byte-stable and deterministic (no host paths/timestamps) |
+| `toolchain_cc_exit_codes_match_v0_table` | [#771] | runtime `cc` exit codes match the six-slot v0 table pinned in docs ([#589]); harness stays SKIP until the real guest acceptance gate lands |
+| `toolchain_cc_arena_exhaustion_audit_marker` | [#404] + [#767] + [#771] | arena exhaustion join contract: over-cap `os_mem_brk` deny emits canonical `CAP:DENY` evidence and `cc.compile.fail` with `reason=arena_exhausted` + internal-exit classification |
+| `toolchain_cc_determinism` | [#767] + [#771] | determinism contract: repeated in-OS `cc` builds (same boot + fresh boot) must produce byte-identical SOFs, with deterministic mismatch diagnostics |
+| `toolchain_heap_isolation`          | [#771]       | two sequential real guest `cc` runs in one boot do not see each other's arena state |
+| `toolchain_launch_audit_owner_kind_field_emitted` | [#771] | launch audit contract pin: both `launch.granted` and `launch.denied` records include `owner_kind=<internal|external|local>` (normative contract in `docs/abi/audit-markers.md`, row tracked by #554) |
+| `toolchain_launcher_owner_kind_cache_isolation` | [#771] + [#522] | unsigned-run cache isolation pin: cached `AUTH_TYPE_UNSIGNED_BIN` decisions must not cross `owner.kind` boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554 |
+| `toolchain_launcher_sidecar_owner_kind_mismatch` | [#771] | launcher deny-path pin for SOF vs sidecar `.manifest.json` `owner.kind` mismatch with canonical owner-kind mismatch evidence; SKIP scaffold tracked by #601 |
+| `toolchain_launcher_sidecar_caps_required_mismatch` | [#771] | launcher deny-path pin for sidecar-vs-SOF `caps_required` disagreement (subset/superset/disjoint) with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #605 |
+| `toolchain_launcher_sidecar_size_and_malformed_json` | [#771] | launcher deny-path pin for oversize/truncated/malformed/empty sidecar `.manifest.json` inputs with canonical CAP:DENY launch evidence; SKIP scaffold tracked by #602 |
+| `toolchain_missing_manifest_sidecar` | [#771] | launcher deny-path pin for local SOF launch attempts with no `<binary>.manifest.json` sidecar; SKIP scaffold tracked by #596 |
+| `toolchain_libc_deps_phase3_complete` | [#765] + [#766] | binary-safe I/O and real guest TinyCC prerequisites; stays SKIP until both close |
 
 [#409]: https://github.com/rwrife/SecureOS/issues/409
 [#410]: https://github.com/rwrife/SecureOS/issues/410
@@ -71,6 +71,11 @@ bundle to FAIL (same orphan-from-`TEST_TARGETS` shape #129 / #366 / #384 /
 [#600]: https://github.com/rwrife/SecureOS/issues/600
 [#597]: https://github.com/rwrife/SecureOS/issues/597
 [#404]: https://github.com/rwrife/SecureOS/issues/404
+[#765]: https://github.com/rwrife/SecureOS/issues/765
+[#766]: https://github.com/rwrife/SecureOS/issues/766
+[#767]: https://github.com/rwrife/SecureOS/issues/767
+[#771]: https://github.com/rwrife/SecureOS/issues/771
+[#772]: https://github.com/rwrife/SecureOS/issues/772
 
 ## Running
 
@@ -82,7 +87,8 @@ bash build/scripts/test.sh toolchain_compiles_hello_in_os
 
 The full set runs as part of `build/scripts/validate_bundle.sh` and is
 also reflected in the bundle JSON under the top-level `m7_toolchain`
-section (status `"SKIP"` for every marker until #410 flips them).
+section (status `"SKIP"` until the corresponding live gates deliver real
+guest evidence).
 
 ## Scope guard
 

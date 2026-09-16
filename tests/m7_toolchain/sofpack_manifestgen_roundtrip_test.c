@@ -3,7 +3,7 @@
  * Issue #600 companion C-harness placeholder.
  *
  * This file reserves the C harness name requested by issue #600 while the
- * acceptance marker remains SKIP-pinned behind gating issue #409.
+ * acceptance marker remains SKIP-pinned behind gating issue #767.
  *
  * Runtime marker emission currently flows through
  * tests/m7_toolchain/toolchain_sofpack_plus_manifestgen_roundtrip.sh (which

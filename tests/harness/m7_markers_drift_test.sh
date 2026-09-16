@@ -75,14 +75,14 @@ cat > "$SANDBOX/tests/m7_toolchain/markers.json" <<'EOF'
   "markers": [
     {
       "name": "toolchain_renamed_marker",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
       "description": "drifted name not in test.sh / TEST_TARGETS"
     },
     {
       "name": "toolchain_compiles_hello_in_os",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
       "description": "still wired through every layer"
     }
   ]
@@ -97,7 +97,7 @@ EOF
 cat > "$SANDBOX/tests/m7_toolchain/toolchain_compiles_hello_in_os.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-printf 'TEST:SKIP:toolchain_compiles_hello_in_os:awaiting_409\n'
+printf 'TEST:SKIP:toolchain_compiles_hello_in_os:awaiting_767\n'
 printf 'TEST:PASS:toolchain_compiles_hello_in_os\n'
 EOF
 chmod +x "$SANDBOX/tests/m7_toolchain/toolchain_compiles_hello_in_os.sh"

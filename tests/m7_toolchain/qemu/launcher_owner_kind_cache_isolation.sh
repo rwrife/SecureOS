@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/qemu/launcher_owner_kind_cache_isolation.sh
 #
-# Pre-#410 SKIP-pinned harness for issue #612.
+# Pre-#771 SKIP-pinned harness for the owner-kind cache contract.
 #
-# Contract to enforce when #410 flips this marker from SKIP -> PASS:
+# Contract to enforce when #771 flips this marker from SKIP -> PASS:
 #   1) Stage same-bare-name binaries with distinct owner.kind values
 #      (`external` and `local`).
 #   2) Approve unsigned-run for external variant and observe
@@ -19,5 +19,5 @@
 #   - issue #554 (owner_kind field on launch audit records)
 set -euo pipefail
 
-printf 'TEST:SKIP:toolchain_launcher_owner_kind_cache_isolation:awaiting_410_522\n'
+printf 'TEST:SKIP:toolchain_launcher_owner_kind_cache_isolation:awaiting_771\n'
 printf 'TEST:PASS:toolchain_launcher_owner_kind_cache_isolation\n'

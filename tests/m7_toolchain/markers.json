@@ -9,9 +9,9 @@
       "id": "toolchain_compiles_hello_in_os",
       "name": "toolchain_compiles_hello_in_os",
       "harnessPath": "tests/m7_toolchain/toolchain_compiles_hello_in_os.sh",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-423",
       "description": "cc driver app produces a SOF-wrapped ELF on-target."
     },
@@ -19,19 +19,19 @@
       "id": "toolchain_runs_compiled_binary",
       "name": "toolchain_runs_compiled_binary",
       "harnessPath": "tests/m7_toolchain/toolchain_runs_compiled_binary.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-423",
-      "description": "End-to-end run of cc output: os_process_spawn (#422) merged via PR #427; remaining gates are the cc driver (#409) producing a binary on-target and the launcher unsigned-run wiring (#410) that actually executes it."
+      "description": "End-to-end run of cc output: os_process_spawn (#422) merged via PR #427; the live acceptance gate is #771, after #767 supplies the cc/manifest/launch integration."
     },
     {
       "id": "toolchain_unsigned_prompt_enforced",
       "name": "toolchain_unsigned_prompt_enforced",
       "harnessPath": "tests/m7_toolchain/toolchain_unsigned_prompt_enforced.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-423",
       "description": "Unsigned-run wiring through the launcher auth flow (Tier 1 trust, AUTH_TYPE_UNSIGNED_BIN)."
     },
@@ -39,9 +39,9 @@
       "id": "toolchain_large_output_persisted",
       "name": "toolchain_large_output_persisted",
       "harnessPath": "tests/m7_toolchain/toolchain_large_output_persisted.sh",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-423",
       "description": "cc emits a >1 KB binary; FS path (M7-TOOLCHAIN-002, closed #405) stays byte-identical."
     },
@@ -49,9 +49,9 @@
       "id": "toolchain_compile_error_reported",
       "name": "toolchain_compile_error_reported",
       "harnessPath": "tests/m7_toolchain/toolchain_compile_error_reported.sh",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-423",
       "description": "cc exits non-zero on syntax error, prints a diagnostic, and writes no output file."
     },
@@ -59,23 +59,23 @@
       "id": "toolchain_cc_audit_markers",
       "name": "toolchain_cc_audit_markers",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_audit_markers.sh",
-      "gatingIssue": 409,
+      "gatingIssue": 767,
       "gatingIssues": [
-        409,
-        410
+        767,
+        771
       ],
-      "reason": "awaiting_409_410",
-      "skipReason": "pre-409",
+      "reason": "awaiting_767_771",
+      "skipReason": "pre-767",
       "addedIn": "issue-571",
-      "description": "Pre-#409/#410 SKIP pin for `cc.compile.start|success|fail` marker grammar: start=<sid,input_path,arena_bytes>; success=<sid,input_path,output_sof_sha256,bytes>; fail=<sid,input_path,exit_code,reason_tag>."
+      "description": "Pre-#767/#771 SKIP pin for `cc.compile.start|success|fail` marker grammar: start=<sid,input_path,arena_bytes>; success=<sid,input_path,output_sof_sha256,bytes>; fail=<sid,input_path,exit_code,reason_tag>."
     },
     {
       "id": "toolchain_cc_manifest_sidecar_written_on_link",
       "name": "toolchain_cc_manifest_sidecar_written_on_link",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_sidecar_written_on_link.sh",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-634",
       "description": "When `cc` links with no `--manifest` and no pre-existing sidecar, it synthesises a manifest via libmanifestgen and writes `<output>.manifest.json`."
     },
@@ -83,172 +83,172 @@
       "id": "toolchain_sofpack_plus_manifestgen_roundtrip",
       "name": "toolchain_sofpack_plus_manifestgen_roundtrip",
       "harnessPath": "tests/m7_toolchain/sofpack_manifestgen_roundtrip_test.c",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-600",
-      "description": "Pre-#409 SKIP pin for libmanifestgen + libsofpack integration: synth manifest, pack ELF+manifest into SOF, then re-parse and assert manifest bytes round-trip unchanged."
+      "description": "Pre-#767 SKIP pin for libmanifestgen + libsofpack integration: synth manifest, pack ELF+manifest into SOF, then re-parse and assert manifest bytes round-trip unchanged."
     },
     {
       "id": "toolchain_launcher_manifest_ownership_role_enforced",
       "name": "toolchain_launcher_manifest_ownership_role_enforced",
       "harnessPath": "tests/m7_toolchain/launcher_ownership_role_enforced_test.c",
-      "gatingIssue": 585,
-      "reason": "awaiting_585",
-      "skipReason": "pre-585",
+      "gatingIssue": 772,
+      "reason": "awaiting_772",
+      "skipReason": "pre-772",
       "addedIn": "issue-597",
-      "description": "Pre-#585 SKIP pin for launcher allow/deny enforcement of capabilities.ownership_role: valid enum grants launch, missing/invalid enum denies with canonical ownership_role-invalid reason evidence."
+      "description": "Pre-#772 SKIP pin for launcher allow/deny enforcement of capabilities.ownership_role: valid enum grants launch, missing/invalid enum denies with canonical ownership_role-invalid reason evidence."
     },
     {
       "id": "toolchain_cc_manifest_override_precedence",
       "name": "toolchain_cc_manifest_override_precedence",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_manifest_override_precedence.sh",
-      "gatingIssue": 409,
+      "gatingIssue": 767,
       "gatingIssues": [
-        409,
-        410
+        767,
+        771
       ],
-      "reason": "awaiting_409_410",
-      "skipReason": "pre-409",
+      "reason": "awaiting_767_771",
+      "skipReason": "pre-767",
       "addedIn": "issue-609",
-      "description": "Pre-#409/#410 SKIP pin for manifest precedence: when `--manifest <path>` and `<output>.manifest.json` sidecar both exist, CLI override must win and emit `manifest.synth.skipped`/equivalent `reason=cli_override` evidence."
+      "description": "Pre-#767/#771 SKIP pin for manifest precedence: when `--manifest <path>` and `<output>.manifest.json` sidecar both exist, CLI override must win and emit `manifest.synth.skipped`/equivalent `reason=cli_override` evidence."
     },
     {
       "id": "toolchain_cc_version_and_help_text_pinned",
       "name": "toolchain_cc_version_and_help_text_pinned",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_version_and_help_text_pinned.sh",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-637",
-      "description": "Pre-#409 SKIP-pinned golden contract for `cc --version` and `cc --help` stdout bytes, exit code 0, and empty stderr."
+      "description": "Pre-#767 SKIP-pinned golden contract for `cc --version` and `cc --help` stdout bytes, exit code 0, and empty stderr."
     },
     {
       "id": "toolchain_cc_exit_codes_match_v0_table",
       "name": "toolchain_cc_exit_codes_match_v0_table",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_exit_codes_match_v0_table.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-599",
-      "description": "Pre-#410 SKIP-pinned contract for runtime `cc` numeric exit-code conformance to docs v0 table from #589 (`success`, `usage`, `compile-error`, `link-error`, `io-error`, `internal`)."
+      "description": "Pre-#771 SKIP-pinned contract for runtime `cc` numeric exit-code conformance to docs v0 table from #589 (`success`, `usage`, `compile-error`, `link-error`, `io-error`, `internal`)."
     },
     {
       "id": "toolchain_cc_arena_exhaustion_audit_marker",
       "name": "toolchain_cc_arena_exhaustion_audit_marker",
       "harnessPath": "tests/m7_toolchain/cc_arena_exhaustion_audit.c",
-      "gatingIssue": 409,
+      "gatingIssue": 767,
       "gatingIssues": [
         404,
-        409,
-        410
+        767,
+        771
       ],
-      "reason": "awaiting_409_410",
-      "skipReason": "pre-409",
+      "reason": "awaiting_767_771",
+      "skipReason": "pre-767",
       "addedIn": "issue-610",
-      "description": "Pre-#409/#410 SKIP pin for arena exhaustion join-contract: when cc exceeds runtime.arena_bytes, emit both CAP:DENY:<sid>:mem_brk:arena_bytes and cc.compile.fail reason=arena_exhausted with internal-exit classification (issue #610, refs #558/#571/#589)."
+      "description": "Pre-#767/#771 SKIP pin for arena exhaustion join-contract: when cc exceeds runtime.arena_bytes, emit both CAP:DENY:<sid>:mem_brk:arena_bytes and cc.compile.fail reason=arena_exhausted with internal-exit classification (issue #610, refs #558/#571/#589)."
     },
     {
       "id": "toolchain_cc_determinism",
       "name": "toolchain_cc_determinism",
       "harnessPath": "tests/m7_toolchain/toolchain_cc_determinism.sh",
-      "gatingIssue": 409,
+      "gatingIssue": 767,
       "gatingIssues": [
-        409,
-        410
+        767,
+        771
       ],
-      "reason": "awaiting_409_410",
-      "skipReason": "pre-409",
+      "reason": "awaiting_767_771",
+      "skipReason": "pre-767",
       "addedIn": "issue-572",
-      "description": "Pre-#409/#410 SKIP pin for issue #572: compile the same source multiple times (same boot + fresh boot) and require byte-identical SOF outputs with deterministic mismatch diagnostics."
+      "description": "Pre-#767/#771 SKIP pin for repeated in-OS compilation (same boot + fresh boot) requiring byte-identical SOF outputs with deterministic mismatch diagnostics."
     },
     {
       "id": "toolchain_heap_isolation",
       "name": "toolchain_heap_isolation",
       "harnessPath": "tests/m7_toolchain/toolchain_heap_isolation.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-423",
-      "description": "Two sequential `cc` runs in one boot must not see each other's arena state. Kernel half (os_mem_brk + per-process arena reset) landed: syscall + native-bridge slot in #421 via PR #432 (af8ece8), clib_os_brk forwarder via PR #455 (30d6443), launcher per-spawn runtime.arena_bytes enforcement via PR #454 (d6ae05a, closes #448). Remaining gates are the `cc` driver app (#409) that lets us actually invoke `cc` twice in one boot and the unsigned-run/acceptance-suite wiring tracked by #410."
+      "description": "Two sequential `cc` runs in one boot must not see each other's arena state. Kernel half (os_mem_brk + per-process arena reset) landed: syscall + native-bridge slot in #421 via PR #432 (af8ece8), clib_os_brk forwarder via PR #455 (30d6443), launcher per-spawn runtime.arena_bytes enforcement via PR #454 (d6ae05a, closes #448). The remaining real-guest acceptance work is tracked by #771."
     },
     {
       "id": "toolchain_launch_audit_owner_kind_field_emitted",
       "name": "toolchain_launch_audit_owner_kind_field_emitted",
       "harnessPath": "tests/m7_toolchain/toolchain_launch_audit_owner_kind_field_emitted.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-614",
-      "description": "Pre-#410 SKIP pin for launch audit records: both `launch.granted` and `launch.denied` lines must carry `owner_kind=<internal|external|local>` per docs/abi/audit-markers.md and issue #554."
+      "description": "Pre-#771 SKIP pin for launch audit records: both `launch.granted` and `launch.denied` lines must carry `owner_kind=<internal|external|local>` per docs/abi/audit-markers.md and issue #554."
     },
     {
       "id": "toolchain_launcher_owner_kind_cache_isolation",
       "name": "toolchain_launcher_owner_kind_cache_isolation",
       "harnessPath": "tests/m7_toolchain/launcher_owner_kind_cache_isolation.c",
-      "gatingIssue": 410,
+      "gatingIssue": 771,
       "gatingIssues": [
-        410,
+        771,
         522
       ],
-      "reason": "awaiting_410_522",
-      "skipReason": "pre-410",
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-612",
-      "description": "Pre-#410 SKIP pin for unsigned-run cache-key isolation: AUTH_TYPE_UNSIGNED_BIN cached decisions must not cross owner.kind boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554."
+      "description": "Pre-#771 SKIP pin for unsigned-run cache-key isolation: AUTH_TYPE_UNSIGNED_BIN cached decisions must not cross owner.kind boundaries (`external` vs `local`), with deny-path owner_kind evidence per #542/#554."
     },
     {
       "id": "toolchain_launcher_sidecar_owner_kind_mismatch",
       "name": "toolchain_launcher_sidecar_owner_kind_mismatch",
       "harnessPath": "tests/m7_toolchain/toolchain_launcher_sidecar_owner_kind_mismatch.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-601",
-      "description": "Pre-#410 SKIP pin for launcher deny semantics when SOF `owner.kind` and sidecar `.manifest.json` `owner.kind` disagree, with canonical owner-kind mismatch launch evidence."
+      "description": "Pre-#771 SKIP pin for launcher deny semantics when SOF `owner.kind` and sidecar `.manifest.json` `owner.kind` disagree, with canonical owner-kind mismatch launch evidence."
     },
     {
       "id": "toolchain_launcher_sidecar_caps_required_mismatch",
       "name": "toolchain_launcher_sidecar_caps_required_mismatch",
       "harnessPath": "tests/m7_toolchain/toolchain_launcher_sidecar_caps_required_mismatch.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-605",
-      "description": "Pre-#410 SKIP pin for launcher deny semantics when SOF-declared caps_required and sidecar `.manifest.json` caps_required disagree (subset, superset, or disjoint), with canonical CAP:DENY launch evidence."
+      "description": "Pre-#771 SKIP pin for launcher deny semantics when SOF-declared caps_required and sidecar `.manifest.json` caps_required disagree (subset, superset, or disjoint), with canonical CAP:DENY launch evidence."
     },
     {
       "id": "toolchain_launcher_sidecar_size_and_malformed_json",
       "name": "toolchain_launcher_sidecar_size_and_malformed_json",
       "harnessPath": "tests/m7_toolchain/toolchain_launcher_sidecar_size_and_malformed_json.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-602",
-      "description": "Pre-#410 SKIP pin for launcher deny semantics when sidecar `.manifest.json` is oversize, truncated, malformed, trailing-garbage, or empty, with canonical CAP:DENY launch evidence."
+      "description": "Pre-#771 SKIP pin for launcher deny semantics when sidecar `.manifest.json` is oversize, truncated, malformed, trailing-garbage, or empty, with canonical CAP:DENY launch evidence."
     },
     {
       "id": "toolchain_missing_manifest_sidecar",
       "name": "toolchain_missing_manifest_sidecar",
       "harnessPath": "tests/m7_toolchain/toolchain_missing_manifest_sidecar.sh",
-      "gatingIssue": 410,
-      "reason": "awaiting_410",
-      "skipReason": "pre-410",
+      "gatingIssue": 771,
+      "reason": "awaiting_771",
+      "skipReason": "pre-771",
       "addedIn": "issue-596",
-      "description": "Pre-#410 SKIP pin for launcher deny semantics when a local SOF is staged without a `<binary>.manifest.json` sidecar, with canonical `reason=missing_manifest_sidecar` CAP:DENY launch evidence."
+      "description": "Pre-#771 SKIP pin for launcher deny semantics when a local SOF is staged without a `<binary>.manifest.json` sidecar, with canonical `reason=missing_manifest_sidecar` CAP:DENY launch evidence."
     },
     {
       "id": "toolchain_libc_deps_phase3_complete",
       "name": "toolchain_libc_deps_phase3_complete",
       "harnessPath": "tests/m7_toolchain/toolchain_libc_deps_phase3_complete.sh",
-      "gatingIssue": 539,
+      "gatingIssue": 766,
       "gatingIssues": [
-        538,
-        539
+        765,
+        766
       ],
-      "reason": "awaiting_538_539",
+      "reason": "awaiting_765_766",
       "skipReason": "deferred",
       "addedIn": "issue-539",
-      "description": "TinyCC Phase-3 libc-deps completion marker. Stays SKIP while either #538 (POSIX-fd nucleus) or #539 (remaining 11 gaps) is OPEN; must flip off awaiting_* once both close."
+      "description": "TinyCC runtime-prerequisite marker. Stays SKIP while either #765 (binary-safe I/O) or #766 (real guest TinyCC) is OPEN; must flip off awaiting_* once both close."
     }
   ]
 }

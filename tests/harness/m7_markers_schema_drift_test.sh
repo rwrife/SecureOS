@@ -29,9 +29,9 @@ cat > "$SANDBOX/tests/m7_toolchain/markers.good.json" <<'EOF'
       "id": "toolchain_demo_marker",
       "name": "toolchain_demo_marker",
       "harnessPath": "tests/m7_toolchain/toolchain_demo_marker.sh",
-      "gatingIssue": 409,
-      "reason": "awaiting_409",
-      "skipReason": "pre-409",
+      "gatingIssue": 767,
+      "reason": "awaiting_767",
+      "skipReason": "pre-767",
       "addedIn": "issue-611",
       "description": "demo"
     }
@@ -69,8 +69,8 @@ cat > "$SANDBOX/tests/m7_toolchain/markers.bad.json" <<'EOF'
     {
       "name": "toolchain_demo_marker",
       "harnessPath": "tests/m7_toolchain/toolchain_demo_marker.sh",
-      "gatingIssue": "409",
-      "reason": "awaiting_409",
+      "gatingIssue": "767",
+      "reason": "awaiting_767",
       "skipReason": "pre-999",
       "addedIn": "bad-format",
       "description": "demo",

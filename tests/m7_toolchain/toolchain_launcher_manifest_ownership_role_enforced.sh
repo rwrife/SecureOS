@@ -2,7 +2,7 @@
 # tests/m7_toolchain/toolchain_launcher_manifest_ownership_role_enforced.sh
 #
 # M7 marker entrypoint for issue #597. Delegates to the qemu harness so
-# pre-#585 SKIP semantics remain centralized.
+# pre-#772 SKIP semantics remain centralized.
 # Literal marker anchor for tools/validate_m7_markers.py:
 # TEST:PASS:toolchain_launcher_manifest_ownership_role_enforced
 

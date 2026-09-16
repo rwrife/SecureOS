@@ -20,7 +20,7 @@ MARKER = "M7_SCHEMA"
 
 RE_ID = re.compile(r"^toolchain_[a-z0-9_]+$")
 RE_ADDED_IN = re.compile(r"^(issue|pr|commit)-[A-Za-z0-9._-]+$")
-SKIP_REASON_ENUM = {"pre-408", "pre-409", "pre-410", "pre-585", "deferred"}
+SKIP_REASON_ENUM = {"pre-765", "pre-766", "pre-767", "pre-771", "pre-772", "deferred"}
 
 # Keep legacy fields (`name`, `reason`, `description`) for compatibility with
 # existing gates/scripts while adding schema-pinned metadata (`id`,

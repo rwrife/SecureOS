@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/qemu/cc_version_and_help_text_pinned.sh
 #
-# Pre-#409 SKIP-pinned harness for issue #637.
+# Pre-#767 SKIP-pinned harness for the version/help contract.
 #
-# Contract to enforce when #409 flips this from SKIP -> PASS:
+# Contract to enforce when #767 flips this from SKIP -> PASS:
 #   1) `cc --version` stdout must be byte-identical to
 #      tests/m7_toolchain/goldens/cc_version.stdout.txt
 #   2) `cc --help` stdout must be byte-identical to
@@ -24,11 +24,11 @@ for f in "$VERSION_GOLDEN" "$HELP_GOLDEN"; do
     printf 'TEST:FAIL:toolchain_cc_version_and_help_text_pinned:missing_golden:%s\n' "$f" >&2
     exit 1
   fi
-  if ! grep -q '^TODO: populate at #409 flip$' "$f"; then
+  if ! grep -q '^TODO: populate at #767 flip$' "$f"; then
     printf 'TEST:FAIL:toolchain_cc_version_and_help_text_pinned:golden_missing_todo_header:%s\n' "$f" >&2
     exit 1
   fi
  done
 
-printf 'TEST:SKIP:toolchain_cc_version_and_help_text_pinned:awaiting_409\n'
+printf 'TEST:SKIP:toolchain_cc_version_and_help_text_pinned:awaiting_767\n'
 printf 'TEST:PASS:toolchain_cc_version_and_help_text_pinned\n'

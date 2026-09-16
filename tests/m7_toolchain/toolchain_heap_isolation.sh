@@ -3,7 +3,7 @@
 #
 # SKIP-pinned acceptance stub for the M7-TOOLCHAIN acceptance suite
 # scaffolding (issue #423, umbrella #403). Real assertions land with
-# the gating execute slice (issue #410 — M7-TOOLCHAIN-007).
+# the live guest acceptance gate (issue #771).
 #
 # Plan: plans/2026-05-28-in-os-toolchain-self-hosting.md
 #       (section "Acceptance tests" -> `toolchain_heap_isolation`).
@@ -20,11 +20,9 @@
 #
 # What still blocks a real TEST:PASS here is the same thing that blocks
 # the rest of the m7_toolchain acceptance markers — the `cc` driver app
-# (#409) that lets us actually run "two sequential cc invocations in one
-# boot", plus the unsigned-run wiring (#410) that this stub's umbrella
-# gating execute issue tracks. Retarget the SKIP reason and gating issue
-# to #410 in the same shape PR #456 used for `toolchain_runs_compiled_binary`
-# once its kernel-half (#422) merged.
+# (#767) that lets us actually run "two sequential cc invocations in one
+# boot", plus the unsigned-run wiring (#771) that this stub's umbrella
+# gating execute issue tracks.
 #
 # Emits the canonical SKIP marker for the bundle gate, then rolls up a
 # TEST:PASS:<target> so validate_bundle.sh stays green while the gating
@@ -32,5 +30,5 @@
 # stubs (#389/#392) and the M5 cascade audit SKIPs (#344).
 set -euo pipefail
 
-printf 'TEST:SKIP:toolchain_heap_isolation:awaiting_410\n'
+printf 'TEST:SKIP:toolchain_heap_isolation:awaiting_771\n'
 printf 'TEST:PASS:toolchain_heap_isolation\n'

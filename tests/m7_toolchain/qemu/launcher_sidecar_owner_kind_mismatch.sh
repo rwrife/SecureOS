@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/qemu/launcher_sidecar_owner_kind_mismatch.sh
 #
-# Pre-#410 SKIP-pinned harness for issue #601.
+# Pre-#771 SKIP-pinned harness for the owner-kind mismatch contract.
 #
-# Contract to enforce when #410 lands and this marker flips from SKIP to PASS:
+# Contract to enforce when #771 lands and this marker flips from SKIP to PASS:
 #   1) Stage a local SOF whose embedded manifest declares owner.kind=local.
 #   2) Stage a sibling <binary>.manifest.json sidecar that declares a
 #      different owner.kind value (for example `internal`).
@@ -13,8 +13,8 @@
 #
 # Normative references:
 #   - issue #601 (owner.kind mismatch SKIP harness contract)
-#   - issue #410 (runtime flip target)
+#   - issue #771 (runtime flip target)
 set -euo pipefail
 
-printf 'TEST:SKIP:toolchain_launcher_sidecar_owner_kind_mismatch:awaiting_410\n'
+printf 'TEST:SKIP:toolchain_launcher_sidecar_owner_kind_mismatch:awaiting_771\n'
 printf 'TEST:PASS:toolchain_launcher_sidecar_owner_kind_mismatch\n'
