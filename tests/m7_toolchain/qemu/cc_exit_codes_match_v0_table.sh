@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/qemu/cc_exit_codes_match_v0_table.sh
 #
-# Pre-#410 SKIP-pinned harness for issue #599.
+# Pre-#771 SKIP-pinned harness for the cc exit-code contract.
 #
-# Contract to enforce when #409/#410 land and this marker flips from SKIP to PASS:
+# Contract to enforce when #767/#771 land and this marker flips from SKIP to PASS:
 #   1) Parse the six-slot exit-code v0 table from docs pin #589.
 #   2) Execute `cc` scenarios for success / usage / compile-error /
 #      link-error / io-error / internal.
@@ -15,5 +15,5 @@
 #   - CLI grammar pin issue #552
 set -euo pipefail
 
-printf 'TEST:SKIP:toolchain_cc_exit_codes_match_v0_table:awaiting_410\n'
+printf 'TEST:SKIP:toolchain_cc_exit_codes_match_v0_table:awaiting_771\n'
 printf 'TEST:PASS:toolchain_cc_exit_codes_match_v0_table\n'

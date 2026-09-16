@@ -54,7 +54,7 @@ CASE_ARM_RE = re.compile(r"^\s*([a-z][a-z0-9_|]*)\)\s*$")
 TARGET_LINE_RE = re.compile(r"^\s*([a-z][a-z0-9_]*)\s*$")
 
 LIBC_DEPS_PHASE3_MARKER = "toolchain_libc_deps_phase3_complete"
-LIBC_DEPS_PHASE3_GATE_ISSUES = [538, 539]
+LIBC_DEPS_PHASE3_GATE_ISSUES = [765, 766]
 
 
 def parse_awaiting_ids(reason: str) -> list[int]:
@@ -404,7 +404,8 @@ def main() -> int:
         gating_issues, primary_gating = normalized
 
         # Issue #598 special-case contract: this marker must carry a dual
-        # gate over #538 and #539 until both are closed.
+        # gate over the live binary-I/O and TinyCC replacement issues until
+        # both are closed.
         if name == LIBC_DEPS_PHASE3_MARKER and sorted(gating_issues) != LIBC_DEPS_PHASE3_GATE_ISSUES:
             emit_err(
                 f"M7_MARKER:FAIL:{name}:phase3_gate_requires_gating_issues:{LIBC_DEPS_PHASE3_GATE_ISSUES}"
@@ -445,7 +446,7 @@ def main() -> int:
                 expected = set(LIBC_DEPS_PHASE3_GATE_ISSUES)
                 if awaiting_ids != expected:
                     emit_err(
-                        f"M7_MARKER:FAIL:{name}:phase3_open_requires_reason_awaiting_538_539"
+                        f"M7_MARKER:FAIL:{name}:phase3_open_requires_reason_awaiting_765_766"
                     )
                     failures += 1
                     continue

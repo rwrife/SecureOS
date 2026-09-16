@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/qemu/cc_manifest_override_precedence.sh
 #
-# Pre-#409/#410 SKIP-pinned harness for issue #609.
+# Pre-#767/#771 SKIP-pinned harness for the manifest precedence contract.
 #
 # Contract to enforce when toolchain execute slices land and this marker flips
 # from SKIP to PASS:
@@ -19,5 +19,5 @@
 #   - docs pin issue #561 (`cc --manifest <path>` semantics)
 set -euo pipefail
 
-printf 'TEST:SKIP:toolchain_cc_manifest_override_precedence:awaiting_409_410\n'
+printf 'TEST:SKIP:toolchain_cc_manifest_override_precedence:awaiting_767_771\n'
 printf 'TEST:PASS:toolchain_cc_manifest_override_precedence\n'

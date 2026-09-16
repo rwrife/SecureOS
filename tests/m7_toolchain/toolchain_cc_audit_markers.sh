@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/toolchain_cc_audit_markers.sh
 #
-# Pre-#409/#410 SKIP-pinned harness for issue #571.
+# Pre-#767/#771 SKIP-pinned harness for the audit-marker contract.
 #
 # Contract that flips from SKIP -> PASS when runtime wiring lands:
 #   cc.compile.start:<sid>:<input_path>:<arena_bytes>
@@ -17,5 +17,5 @@
 # TEST:PASS:toolchain_cc_audit_markers
 set -euo pipefail
 
-printf 'TEST:SKIP:toolchain_cc_audit_markers:awaiting_409_410\n'
+printf 'TEST:SKIP:toolchain_cc_audit_markers:awaiting_767_771\n'
 printf 'TEST:PASS:toolchain_cc_audit_markers\n'

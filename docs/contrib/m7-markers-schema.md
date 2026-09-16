@@ -18,12 +18,12 @@ Each `markers[]` row must include:
   "id": "toolchain_cc_version_and_help_text_pinned",
   "name": "toolchain_cc_version_and_help_text_pinned",
   "harnessPath": "tests/m7_toolchain/toolchain_cc_version_and_help_text_pinned.sh",
-  "gatingIssue": 409,
-  "gatingIssues": [409],
-  "reason": "awaiting_409",
-  "skipReason": "pre-409",
+  "gatingIssue": 767,
+  "gatingIssues": [767],
+  "reason": "awaiting_767",
+  "skipReason": "pre-767",
   "addedIn": "issue-637",
-  "description": "Pre-#409 SKIP-pinned golden contract for cc --version/help."
+  "description": "Pre-#767 SKIP-pinned golden contract for cc --version/help."
 }
 ```
 
@@ -44,10 +44,11 @@ Each `markers[]` row must include:
   - if present, must include `gatingIssue`
 - `skipReason`
   - required enum:
-    - `pre-408`
-    - `pre-409`
-    - `pre-410`
-    - `pre-585`
+    - `pre-765`
+    - `pre-766`
+    - `pre-767`
+    - `pre-771`
+    - `pre-772`
     - `deferred`
 - `addedIn`
   - required provenance token, format: `issue-<id>`, `pr-<id>`, or `commit-<sha>`

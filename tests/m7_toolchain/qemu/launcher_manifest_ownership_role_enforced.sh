@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # tests/m7_toolchain/qemu/launcher_manifest_ownership_role_enforced.sh
 #
-# Pre-#585 SKIP-pinned qemu acceptance harness for ownership-role enforcement.
+# Pre-#772 SKIP-pinned qemu acceptance harness for ownership-role enforcement.
 #
-# Target contract once #585 lands:
+# Target contract once #772 lands:
 #   - valid capabilities.ownership_role -> launch.granted
 #   - invalid or missing ownership_role -> launch.denied:reason=ownership_role_invalid
 #
@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-echo "TEST:SKIP:toolchain_launcher_manifest_ownership_role_enforced:awaiting_585"
+echo "TEST:SKIP:toolchain_launcher_manifest_ownership_role_enforced:awaiting_772"
 # Alias marker kept for direct traceability to issue wording.
-echo "TEST:SKIP:launcher_manifest_ownership_role_enforced:gating_issue=585"
+echo "TEST:SKIP:launcher_manifest_ownership_role_enforced:gating_issue=772"
 echo "TEST:PASS:toolchain_launcher_manifest_ownership_role_enforced"

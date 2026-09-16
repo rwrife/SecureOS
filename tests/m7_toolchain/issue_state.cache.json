@@ -2,35 +2,55 @@
   "_comment": "Offline cache for tools/validate_m7_markers.py issue-state resolution (issue #590). Refreshed by CI automation in a follow-up workflow.",
   "schemaVersion": 1,
   "repo": "rwrife/SecureOS",
-  "generatedAt": "2026-07-21T01:00:00Z",
+  "generatedAt": "2026-09-16T07:28:43Z",
   "issues": {
     "404": {
       "state": "CLOSED",
-      "note": "M7-TOOLCHAIN-001 landed; retained in cache because issue #610 uses a multi-gate marker over #404/#409/#410."
+      "note": "M7-TOOLCHAIN-001 landed; retained as a closed companion gate for the arena-exhaustion marker."
     },
     "409": {
-      "state": "OPEN"
+      "state": "CLOSED",
+      "replacedBy": 767
     },
     "410": {
-      "state": "OPEN"
+      "state": "CLOSED",
+      "replacedBy": 771
     },
     "522": {
       "state": "CLOSED",
       "note": "owner.kind=local schema enumerator landed via #522/#525; retained as a closed companion gate for owner-kind cache isolation markers."
     },
     "538": {
-      "state": "OPEN"
+      "state": "CLOSED",
+      "replacedBy": 765
     },
     "539": {
-      "state": "OPEN"
+      "state": "CLOSED",
+      "replacedBy": 766
     },
     "585": {
-      "state": "OPEN"
+      "state": "CLOSED",
+      "replacedBy": 772
     },
     "634": {
       "state": "CLOSED",
       "replacedBy": 409,
-      "note": "Manifest precedence landed under #634; remaining compile/link execution gate is tracked under #409."
+      "note": "Manifest precedence landed under #634; retained as historical issue-state context."
+    },
+    "765": {
+      "state": "OPEN"
+    },
+    "766": {
+      "state": "OPEN"
+    },
+    "767": {
+      "state": "OPEN"
+    },
+    "771": {
+      "state": "OPEN"
+    },
+    "772": {
+      "state": "OPEN"
     }
   }
 }
