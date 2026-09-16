@@ -1,6 +1,14 @@
 # SecureOS
 
-SecureOS is an experimental operating system focused on **zero-trust by default** behavior. Every process runs in total isolation and requires explicit user consent to access any resource.
+SecureOS is an experimental operating system targeting **zero-trust by default** behavior. The current bootable image is a **trusted-application prototype**, not a security boundary for untrusted code.
+
+## Current maturity and security boundary
+
+The ordinary image provides a console, sessions, native application loading, and selected capability checks and consent prompts. Native applications currently execute in shared kernel memory through a fixed-address callback bridge and generally use the console/session identity. They do **not** have hardware-protected address spaces or a genuine application-to-kernel privilege boundary.
+
+Run only code you trust in a disposable QEMU environment. Consent to launch an unsigned binary is not proof of isolation or per-application resource authority; the current checks cannot prevent native code from directly accessing shared memory. Do not rely on this prototype to contain hostile applications, arbitrary faults, or hung code.
+
+Hardware isolation and independently enforced application authority remain open in [SEC-01 (#772)](https://github.com/rwrife/SecureOS/issues/772). The real in-guest edit/build/consent/run/reboot demo is also incomplete; its acceptance gate is [DEMO-07 (#771)](https://github.com/rwrife/SecureOS/issues/771). Boot smoke tests and host-model tests do not establish either capability, and a SKIP marker is incomplete evidence.
 
 ## Quick Start
 
@@ -78,8 +86,8 @@ For graphics mode with the VGA display:
 
 ## Architecture
 
-- `kernel/` — Minimal kernel: process isolation, capability system, hardware abstraction
-- `user/` — User-space libraries, apps, and OS commands
+- `kernel/` — Session management, native loading, capability checks, and hardware abstraction; isolation work is incomplete
+- `user/` — Application libraries, apps, and OS commands (not currently a protected user-mode boundary)
 - `build/` — Dockerfile, internal build scripts, QEMU configs
 - `scripts/` — Host-side entry points (setup, build, boot, test)
 - `manifests/` — Capability manifests for processes
@@ -96,6 +104,8 @@ For graphics mode with the VGA display:
   See [`sdk/README.md`](sdk/README.md).
 
 ## Design Principles
+
+These are architectural goals, not guarantees of the current prototype. See the security boundary above.
 
 - **Capability-native**: All resource access goes through explicit capability gates
 - **Deny-by-default**: Processes start with zero permissions
