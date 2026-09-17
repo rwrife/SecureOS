@@ -334,15 +334,23 @@ scripts = {
       ('[s0 /]> ', 'apps\ny\nrun /apps/filedemo\ny\ny\ny\ny\nexit pass\n'),
     ],
     'kernel_binfs': [
-      # Issue #765 closeout slice: plain y/n decisions do not populate the
+      # Issue #765 closeout slices: plain y/n decisions do not populate the
       # always-cache, so every operation prompts. Drive each occurrence only
       # after the full prompt is visible: allow the initial NUL roundtrip,
       # deny its overwrite, allow the no-mutation readback, then allow the
       # append, capacity, not-found, and text-compat operations (11 prompts).
+      # The archive/persistence slice adds five more disk-IO operations
+      # (read /apps/binfs.bin, write + re-read binarc.dat, write + re-read
+      # binbig.dat) for 16 prompts total: 15 allows and one deny.
       ('[s0 /]> ', 'run /apps/binfs\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'n\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
@@ -429,6 +437,8 @@ expected_markers = {
       'BINFS:PASS:capacity_error',
       'BINFS:PASS:notfound',
       'BINFS:PASS:text_len_compat',
+      'BINFS:PASS:archive_roundtrip',
+      'BINFS:PASS:persistence_256k',
       'BINFS:done',
       '[auth-session] decision=allow',
       '[auth-session] decision=deny',

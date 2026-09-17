@@ -673,11 +673,12 @@ case "$TEST_NAME" in
     # Boots the ordinary ISO + seeded disk, runs the staged signed
     # /apps/binfs.bin app through the console with disk-IO consent, and
     # asserts the BINFS byte-exact markers on the booted FAT path.
-    # Eleven consent decisions stretch the boot+script window past the
-    # 10s default, so raise it (exported so the bash child sees it;
-    # restored afterwards to keep other targets on the default).
+    # Sixteen consent decisions plus the 256 KiB multi-cluster write +
+    # re-read stretch the boot+script window past the 10s default, so
+    # raise it (exported so the bash child sees it; restored afterwards
+    # to keep other targets on the default).
     _qemu_to_saved="${SECUREOS_QEMU_TIMEOUT_SECONDS:-}"
-    export SECUREOS_QEMU_TIMEOUT_SECONDS="${SECUREOS_QEMU_TIMEOUT_SECONDS:-30}"
+    export SECUREOS_QEMU_TIMEOUT_SECONDS="${SECUREOS_QEMU_TIMEOUT_SECONDS:-90}"
     run_script "$ROOT_DIR/build/scripts/build_kernel_image.sh"
     run_script "$ROOT_DIR/build/scripts/build_disk_image.sh"
     run_script "$ROOT_DIR/build/scripts/run_qemu.sh" --test kernel_binfs
