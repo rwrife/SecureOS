@@ -19,6 +19,7 @@ Supported tests:
   kernel_network_libs  Boots the kernel ISO and checks network commands use netlib automatically
   kernel_filedemo  Boots the kernel ISO, runs filedemo, and checks app markers
   kernel_binfs     Boots the kernel ISO, runs binfs, and checks binary-fs markers (issue #765)
+  kernel_edit      Boots the kernel ISO, drives the /apps/edit line editor, and checks EDIT markers (issue #769)
   kernel_persistence  Boots the kernel ISO with the seeded disk and checks persisted file contents
   kernel_sessions  Boots the kernel ISO and verifies session switching and per-session env/cwd isolation
 
@@ -262,7 +263,7 @@ PY
     set -e
     exit $EXIT_CODE
     ;;
-  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_binfs|kernel_persistence|kernel_sessions)
+  kernel_prompt|kernel_console|kernel_network_libs|kernel_filedemo|kernel_binfs|kernel_edit|kernel_persistence|kernel_sessions)
     ISO_PATH="$ROOT_DIR/artifacts/kernel/secureos.iso"
     DISK_PATH="$ROOT_DIR/artifacts/disk/secureos-disk.img"
 
@@ -361,6 +362,49 @@ scripts = {
       ('[auth-session] allow? (y/n/a=always): ', 'y\n'),
       ('BINFS:done', 'exit pass\nexit pass\n'),
     ],
+    'kernel_edit': [
+      # Issue #769: guest-evidence gate for the /apps/edit line editor.
+      # The editor polls the keyboard via the input HAL while it owns the
+      # console, and typed keystrokes are not echoed by the kernel, so
+      # each scripted step is sent only after the previous marker is seen
+      # and every consent prompt is keyed individually (binfs lesson:
+      # queueing a blob across a prompt lets leftover bytes answer y/n/a).
+      # Session 1: create demo.c (read NOT_FOUND -> OPEN:NEW, one allow),
+      # append a 4-line C source verbatim, print, save (allow), change
+      # line 3, delete line 4, save again (allow), append junk, attempt a
+      # save and DENY it, quit discarding the dirty buffer, then `cat
+      # demo.c` to prove the persisted bytes match the last saved version
+      # and were untouched by the denied save (cat raises codesign +
+      # auth-session prompts; doubled 'exit pass' is the #188 pacing
+      # defense). Session 2: reopen the file (OPEN:EXISTING + print
+      # proves readback of the exact persisted contents), append a line,
+      # save, quit clean.
+      ('[s0 /]> ', 'run /apps/edit\\n'),
+      ('EDIT:ready', 'o demo.c\\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
+      ('EDIT:OPEN:NEW', 'a\\nint main(void) {\\n    os_console_write("hi");\\n    return 0;\\n}\\n.\\n'),
+      ('EDIT:APPEND:4', 'p\\n'),
+      ('EDIT:PRINT:4', 'w\\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
+      ('EDIT:SAVE:OK', 'c 3\\n    os_console_write("bye");\\n'),
+      ('EDIT:CHANGE:', 'd 4\\n'),
+      ('EDIT:DEL:4', 'w\\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
+      ('EDIT:SAVE:OK', 'a\\ndenied trailing line\\n.\\n'),
+      ('EDIT:APPEND:4', 'w\\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'n\\n'),
+      ('EDIT:SAVE:DENIED', 'q\\n'),
+      ('EDIT:done', 'cat demo.c\\ny\\ny\\n'),
+      ('os_console_write("hi");', 'run /apps/edit\\n'),
+      ('EDIT:ready', 'o demo.c\\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
+      ('EDIT:OPEN:EXISTING', 'p\\n'),
+      ('EDIT:BUF:2:    os_console_write("hi");', 'a\\nint exit_code;\\n.\\n'),
+      ('EDIT:APPEND:4', 'w\\n'),
+      ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
+      ('EDIT:SAVE:OK', 'q\\n'),
+      ('EDIT:done', 'exit pass\\nexit pass\\n'),
+    ],
     'kernel_persistence': [
       # Issue #188: a single mega-blob ('cat appdemo.txt\ny\nexit pass\n')
       # was getting truncated by the guest's input pacing during the cat
@@ -440,6 +484,27 @@ expected_markers = {
       'BINFS:PASS:archive_roundtrip',
       'BINFS:PASS:persistence_256k',
       'BINFS:done',
+      '[auth-session] decision=allow',
+      '[auth-session] decision=deny',
+    ],
+    'kernel_edit': [
+      'TEST:START:boot_entry',
+      'TEST:PASS:session_manager',
+      'TEST:PASS:console',
+      'EDIT:start',
+      'EDIT:ready',
+      'EDIT:OPEN:NEW',
+      'EDIT:APPEND:4',
+      'EDIT:BUF:2:    os_console_write("hi");',
+      'EDIT:PRINT:4',
+      'EDIT:SAVE:OK',
+      'EDIT:CHANGE:    os_console_write("bye");',
+      'EDIT:DEL:4',
+      'EDIT:SAVE:DENIED',
+      'EDIT:QUIT:DISCARD',
+      'EDIT:OPEN:EXISTING',
+      'EDIT:QUIT:CLEAN',
+      'EDIT:done',
       '[auth-session] decision=allow',
       '[auth-session] decision=deny',
     ],

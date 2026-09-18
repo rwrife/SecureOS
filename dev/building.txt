@@ -33,6 +33,21 @@ WRITING YOUR OWN APP (planned until #408/#409/#410)
   - Print with:              os_console_write("...");
   - Return 0 from main on success; the value becomes the shell's $? .
 
+EDITING SOURCES INSIDE THE OS (available now)
+---------------------------------------------
+  Run the line editor from the console:  run /apps/edit
+  Commands (one per line; reading a file and saving each ask for your
+  consent, and a denied save never changes what is on disk):
+    ?        show help
+    o <file> open an existing file, or start a new one (8.3 name, e.g. demo.c)
+    p        print every buffered line
+    a        append lines; end with a single dot "."
+    c <n>    replace line n (type the new line when prompted)
+    d <n>    delete line n
+    w        save to the open file
+    q        quit (unsaved changes are discarded, nothing is written)
+
+
   Example (mini.c):
       #include "secureos_api.h"
       int main(void) {
