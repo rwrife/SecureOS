@@ -19,8 +19,8 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "221ad96eb99db83995ad6cedcab089c046c0b3d933ddad4e39871eabb70746b1",
-      "origin": "#403 phase-1 on-device guide"
+      "sha256": "9d4db296798c15d0b8dbcb5ae49d530120831c296eee328d7cf9d49e6bc06f0f",
+      "origin": "#403 phase-1 on-device guide; #769 editor section"
     },
     {
       "target": "/apps/dev/lib/README.md",
