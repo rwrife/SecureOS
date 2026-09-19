@@ -46,6 +46,9 @@ EDITING SOURCES INSIDE THE OS (available now)
     d <n>    delete line n
     w        save to the open file
     q        quit (unsaved changes are discarded, nothing is written)
+  Limits: a typed line longer than 63 bytes is refused with
+  EDIT:ERR:LINE_LONG and the buffer is left exactly as it was (nothing
+  is truncated into your file); the editor also holds at most 32 lines.
 
 
   Example (mini.c):

@@ -377,8 +377,13 @@ scripts = {
       # and were untouched by the denied save (cat raises codesign +
       # auth-session prompts; doubled 'exit pass' is the #188 pacing
       # defense). Session 2: reopen the file (OPEN:EXISTING + print
-      # proves readback of the exact persisted contents), append a line,
-      # save, quit clean.
+      # proves readback of the exact persisted contents), then prove the
+      # oversize-input acceptance bullet: a 70-char append line is
+      # rejected with EDIT:ERR:LINE_LONG (drained to the terminator,
+      # append mode ends) and the following print shows the buffer
+      # byte-unchanged at the pre-append line count — no silent
+      # truncation. The session then completes the normal
+      # append/save/quit-clean flow.
       ('[s0 /]> ', 'run /apps/edit\\n'),
       ('EDIT:ready', 'o demo.c\\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
@@ -399,7 +404,9 @@ scripts = {
       ('EDIT:ready', 'o demo.c\\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
       ('EDIT:OPEN:EXISTING', 'p\\n'),
-      ('EDIT:BUF:2:    os_console_write("hi");', 'a\\nint exit_code;\\n.\\n'),
+      ('EDIT:BUF:2:    os_console_write("hi");', 'a\\n' + 'x' * 70 + '\\n'),
+      ('EDIT:ERR:LINE_LONG', 'p\\n'),
+      ('EDIT:PRINT:3', 'a\\nint exit_code;\\n.\\n'),
       ('EDIT:APPEND:4', 'w\\n'),
       ('[auth-session] allow? (y/n/a=always): ', 'y\\n'),
       ('EDIT:SAVE:OK', 'q\\n'),
@@ -503,6 +510,8 @@ expected_markers = {
       'EDIT:SAVE:DENIED',
       'EDIT:QUIT:DISCARD',
       'EDIT:OPEN:EXISTING',
+      'EDIT:ERR:LINE_LONG',
+      'EDIT:PRINT:3',
       'EDIT:QUIT:CLEAN',
       'EDIT:done',
       '[auth-session] decision=allow',
