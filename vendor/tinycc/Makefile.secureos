@@ -1,12 +1,18 @@
 # Makefile.secureos — TinyCC source file list for the SecureOS freestanding
 # in-OS compiler.
 #
-# STATUS: SCAFFOLD (Phase 1). This file enumerates the libtcc sources needed
-# for an x86_64 ELF-emitting compiler and records the porting notes. It is
-# NOT yet wired into a working build — that is Phases 3-4 of
-# plans/2026-05-28-in-os-toolchain-self-hosting.md. Listing the files now
-# keeps the vendor surface auditable and gives the execute issue a concrete
-# starting point (mirrors vendor/bearssl/Makefile.secureos).
+# STATUS: FIRST-COMPILE (issue #766 slice 1). The enumerated TCC_ALL_SRCS
+# list below is now MEASURED, not aspirational: the host gate
+# `tinycc_freestanding_compile` (build/scripts/test_tinycc_freestanding_compile.sh)
+# compiles every listed TU with the SecureOS freestanding userland flags
+# against vendor/tinycc/include (config redirect + system-header shims)
+# and the clib headers, and builds the libtcc1.a runtime archive via
+# build/scripts/build_tinycc_libtcc1.sh. This proves compilability of the
+# pinned source set. It does NOT yet produce an executable in-OS compiler:
+# the link step (fdopen/strtod/ldexpl are shim-declared, undefined until
+# linked), loader integration, memory-budget measurement, and the
+# in-guest compile proof remain open #766 work (Phases 4-5 of
+# plans/2026-05-28-in-os-toolchain-self-hosting.md).
 #
 # Target: x86_64, ELF output, hosted-on-SecureOS (compiler runs in-OS).
 

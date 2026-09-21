@@ -36,19 +36,49 @@ running `build/scripts/test.sh tinycc_*`.
 
 ## Status
 
-> **Phase 1 (this slice): vendored only.** The submodule is pinned and the
-> wrapper scaffolding is in place. TinyCC is **not yet built or ported** to
-> the freestanding SecureOS target — that is the work tracked by Phases 2–5
-> of the plan (userland heap, freestanding libc, freestanding TCC build, the
-> `cc` driver app, and SOF packaging). `Makefile.secureos` documents the
-> intended build but does not yet produce a working compiler.
+> **First-compile slice (issue #766): vendored + compiling.** The
+> submodule is pinned, and the pinned freestanding source set now has a
+> measured compile: the `tinycc_freestanding_compile` host gate builds
+> every `Makefile.secureos` core TU with the SecureOS userland flags and
+> produces `artifacts/user/libs/libtcc1.a` (the runtime-helper archive)
+> via `build/scripts/build_tinycc_libtcc1.sh`. TinyCC is **not yet an
+> executable in-OS compiler** — the remaining #766 work is the libtcc
+> link step (fdopen/strerror/strtod/ldexpl call-site shims are
+> declaration-only in `vendor/tinycc/include/tcc-compat.h`), loader/SOF
+> integration, the memory budget, and the in-guest compile proof.
 
-## Build (target shape — not yet functional)
+## Freestanding include surface (`vendor/tinycc/include/`)
 
-The eventual freestanding build compiles TCC's core (`libtcc`) against the
-SecureOS userland C library and links it into the `cc` app under
-`user/apps/cc/`. See [`Makefile.secureos`](Makefile.secureos) for the file
-list and the porting notes.
+TinyCC `#include`s system headers that a freestanding target has no
+provider for. This directory supplies the SecureOS-side answers (the
+submodule stays verbatim; porting note 1 calls them "config + include"
+plumbing):
+
+| File                | Purpose                                                      |
+|---------------------|--------------------------------------------------------------|
+| `config.h`          | Redirect to `../config-secureos.h` (the pinned config)       |
+| `unistd.h`          | Forwards to clib `posix_fd.h` (fd surface, #538)             |
+| `time.h`            | Forwards to clib `runtime_compat.h` (deterministic time, #539) |
+| `fcntl.h`           | open() flag constants matching posix_fd.h values             |
+| `math.h`            | Declaration-only `ldexpl` (single math call in TCC_ALL_SRCS) |
+| `sys/time.h`        | Empty TU (nothing from it used by in-scope sources)          |
+| `tcc-compat.h`      | `-include`d call-site declarations (fdopen/strerror/strtod) + clib split-header pulls (qsort) |
+
+These are TinyCC-build glue, NOT clib public ABI — `docs/abi/clib-symbols.md`
+and the `clib_symbol_drift` pin are unaffected.
+
+## Build
+
+The freestanding compile is automated by two scripts (both run inside the
+pinned Docker toolchain, same posture as BearSSL's `build_bearssl.sh`):
+
+```bash
+# runtime-helper archive only (also `scripts/build.sh tinycc`)
+bash build/scripts/build_tinycc_libtcc1.sh
+
+# gate: compile every core TU + build the archive + member parity
+bash build/scripts/test.sh tinycc_freestanding_compile
+```
 
 ## Files in this directory
 

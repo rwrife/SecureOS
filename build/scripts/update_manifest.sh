@@ -46,6 +46,7 @@ cat > "$MANIFEST" <<EOF
 timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 keys=$(hash_files "build/scripts/generate_keys.sh" "tools/keygen/")
 bearssl=$(hash_files "vendor/bearssl/")
+tinycc=$(hash_files "vendor/tinycc/Makefile.secureos" "vendor/tinycc/config-secureos.h" "vendor/tinycc/libc-deps.json" "vendor/tinycc/libtcc1-srcs.json" "vendor/tinycc/VERSION" "vendor/tinycc/include" "vendor/tinycc/tinycc/lib")
 kernel=$(hash_files "kernel/")
 grub=$(hash_files "build/grub/")
 libs=$(hash_files "user/libs/" "user/include/")

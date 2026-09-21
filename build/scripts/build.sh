@@ -24,6 +24,10 @@ build_bearssl() {
   "$ROOT_DIR/build/scripts/build_bearssl.sh"
 }
 
+build_tinycc() {
+  "$ROOT_DIR/build/scripts/build_tinycc_libtcc1.sh"
+}
+
 build_kernel() {
   "$ROOT_DIR/build/scripts/build_kernel_entry.sh"
 }
@@ -96,6 +100,10 @@ case "$TARGET" in
     # M6-SDK-002 (#388): build only the userland SDK archive.
     build_sdk
     ;;
+  tinycc)
+    # Issue #766: build only the TinyCC runtime-helper archive.
+    build_tinycc
+    ;;
   app)
     APP_NAME="${2:-}"
     if [ -z "$APP_NAME" ]; then
@@ -113,6 +121,7 @@ case "$TARGET" in
     rm -f "$ROOT_DIR/artifacts/.build-manifest"
     build_keys
     build_bearssl
+    build_tinycc
     build_kernel
     build_libs
     build_apps
@@ -141,6 +150,11 @@ case "$TARGET" in
     if [[ "$STALE" == *bearssl* ]]; then
       echo "[build] Rebuilding: bearssl"
       build_bearssl
+    fi
+
+    if [[ "$STALE" == *tinycc* ]]; then
+      echo "[build] Rebuilding: tinycc (libtcc1.a runtime archive)"
+      build_tinycc
     fi
 
     if [[ "$STALE" == *kernel* ]]; then
