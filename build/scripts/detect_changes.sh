@@ -6,7 +6,7 @@
 # against the stored manifest from the last successful build.
 #
 # Output: space-separated list of stale layer names, or "none" if all
-# layers are up-to-date.  Layers: keys bearssl kernel iso libs apps
+# layers are up-to-date.  Layers: keys bearssl tinycc kernel iso libs apps
 # os_commands disk
 #
 # Called by: build/scripts/build.sh (smart mode)
@@ -74,18 +74,20 @@ cd "$ROOT_DIR"
 
 HASH_KEYS=$(hash_files "build/scripts/generate_keys.sh" "tools/keygen/")
 HASH_BEARSSL=$(hash_files "vendor/bearssl/")
+HASH_TINYCC=$(hash_files "vendor/tinycc/Makefile.secureos" "vendor/tinycc/config-secureos.h" "vendor/tinycc/libc-deps.json" "vendor/tinycc/libtcc1-srcs.json" "vendor/tinycc/VERSION" "vendor/tinycc/include" "vendor/tinycc/tinycc/lib")
 HASH_KERNEL=$(hash_files "kernel/")
 HASH_GRUB=$(hash_files "build/grub/")
 HASH_LIBS=$(hash_files "user/libs/" "user/include/")
 HASH_APPS=$(hash_files "user/apps/" "user/include/" "user/runtime/")
 HASH_OS_CMDS=$(hash_files "user/os_commands/")
-HASH_BUILD_SCRIPTS=$(hash_files "build/scripts/build_user_app.sh" "build/scripts/build_user_lib.sh" "build/scripts/build_os_command.sh" "build/scripts/build_kernel_entry.sh" "build/scripts/build_kernel_image.sh")
+HASH_BUILD_SCRIPTS=$(hash_files "build/scripts/build_user_app.sh" "build/scripts/build_user_lib.sh" "build/scripts/build_os_command.sh" "build/scripts/build_kernel_entry.sh" "build/scripts/build_kernel_image.sh" "build/scripts/build_tinycc_libtcc1.sh")
 
 # --- Compare against manifest ---
 STALE=""
 
 STORED_KEYS=$(get_manifest_hash "keys")
 STORED_BEARSSL=$(get_manifest_hash "bearssl")
+STORED_TINYCC=$(get_manifest_hash "tinycc")
 STORED_KERNEL=$(get_manifest_hash "kernel")
 STORED_GRUB=$(get_manifest_hash "grub")
 STORED_LIBS=$(get_manifest_hash "libs")
@@ -101,6 +103,13 @@ fi
 # Check bearssl
 if [ "$HASH_BEARSSL" != "$STORED_BEARSSL" ] || [ ! -d "artifacts/bearssl" ]; then
   STALE="$STALE bearssl"
+fi
+
+# Check tinycc (libtcc1.a runtime archive; issue #766). Stale whenever the
+# vendor pin triangle (Makefile.secureos / config / manifests / include
+# shims / VERSION) or the build script changed, or the archive is missing.
+if [ "$HASH_TINYCC" != "$STORED_TINYCC" ] || [ ! -f "artifacts/user/libs/libtcc1.a" ]; then
+  STALE="$STALE tinycc"
 fi
 
 # Check kernel (also stale if build scripts changed)
@@ -129,7 +138,7 @@ if [ "$HASH_OS_CMDS" != "$STORED_OS_CMDS" ]; then
 fi
 
 # Disk is stale if any userspace layer changed
-if [[ "$STALE" == *libs* ]] || [[ "$STALE" == *apps* ]] || [[ "$STALE" == *os_commands* ]] || [ ! -f "artifacts/disk/secureos-disk.img" ]; then
+if [[ "$STALE" == *libs* ]] || [[ "$STALE" == *apps* ]] || [[ "$STALE" == *os_commands* ]] || [[ "$STALE" == *tinycc* ]] || [ ! -f "artifacts/disk/secureos-disk.img" ]; then
   STALE="$STALE disk"
 fi
 

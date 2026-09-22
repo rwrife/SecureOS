@@ -787,6 +787,18 @@ TEST_TARGETS=(
     # upstream TinyCC bump cannot silently change the runtime-helper
     # archive surface consumed by #408 Phase 3.
     tinycc_libtcc1_srcs
+    # Issue #766 (first-compile slice of #408 Phase 3): actually COMPILE
+    # the pinned TinyCC source set. Builds every Makefile.secureos core
+    # TU with the SecureOS freestanding userland flags and builds
+    # artifacts/user/libs/libtcc1.a via build_tinycc_libtcc1.sh from the
+    # libtcc1-srcs.json TU pin. Turns the vendor/config/libc-deps pin
+    # triangle into a measured build fact: the pinned submodule must
+    # compile against vendor/tinycc/include (config redirect + system
+    # header shims) + clib headers, or this gate goes red. Scope is
+    # compilability only — the in-OS link/loader/memory work and the
+    # remaining undefined symbols (fdopen/strtod/ldexpl, shim-declared
+    # in tcc-compat.h) stay open under #766.
+    tinycc_freestanding_compile
     # Issue #543: TinyCC compile-time arena pin (Phase 4 measurement task,
     # refs #408/#409/#424). While #408 Phase 3 is still open, this target
     # is intentionally SKIP-pinned (`awaiting_408_phase3`) but still validates
