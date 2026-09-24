@@ -540,3 +540,44 @@ int unlink(const char *path) {
 
   return 0;
 }
+
+/* ---------------------------------------------------------------------
+ * stdio fdopen adoption hooks (issue #766).
+ *
+ * stdio.c declares these weak; defining them strongly here completes
+ * the fdopen() adoption path whenever both TUs ship in the same
+ * archive. See include/clib/stdio.h for the semantics contract.
+ * ------------------------------------------------------------------- */
+
+const char *clib_posix_fd_path(int fd) {
+  clib_posix_fd_slot_t *slot = fd_slot_from_public(fd);
+  if (!slot) {
+    return NULL;
+  }
+  return slot->path;
+}
+
+int clib_posix_fd_forget(int fd) {
+  clib_posix_fd_slot_t *slot = fd_slot_from_public(fd);
+  if (!slot) {
+    errno = EBADF;
+    return -1;
+  }
+  /* Drop the pending snapshot write-back: the adopting FILE handle is
+   * now the sole persistence path for this path name. The slot stays
+   * open (read/write on the fd still work); only dirty state clears. */
+  slot->dirty = 0;
+  return 0;
+}
+
+const char *clib_stdio_fd_path_fn(int fd) {
+  return clib_posix_fd_path(fd);
+}
+
+int clib_stdio_fd_forget_fn(int fd) {
+  return clib_posix_fd_forget(fd);
+}
+
+int clib_stdio_close_fn(int fd) {
+  return close(fd);
+}

@@ -37,6 +37,13 @@
 
 #include "../user/libs/clib/include/clib/errno.h"
 
+/* #766 plain-name alias of clib_strerror (src/errno.c). Bound via an
+ * asm symbol so the hosted <string.h> `char *strerror(int)` declaration
+ * (pulled in for the harness strcmp) never collides with our const
+ * spelling — same trick tests/clib_tinycc_link_surface_test.c uses for
+ * `sprintf`. */
+const char *clib_strerror_plain(int errnum) __asm__("strerror");
+
 static int g_fail = 0;
 
 #define CHECK(cond, name) do { \
@@ -160,6 +167,11 @@ static void test_symbol_set_pinned(void) {
    * cannot DCE either. */
   const char *(*strerr)(int) = clib_strerror;
   if (strerr == 0) ok = 0;
+  /* #766: the plain-name alias must resolve too (TinyCC tccelf.c
+   * diagnostics bind the canonical spelling). Declared by hand to
+   * avoid any hosted <string.h> constness collision. */
+  const char *(*strerr_plain)(int) = clib_strerror_plain;
+  if (strerr_plain == 0 || strerr_plain(EBADF) != strerr(EBADF)) ok = 0;
   /* Hold &errno live so the linker cannot DCE the symbol; storing
    * through a volatile pointer also doubles as proof that `errno`
    * is a real, addressable lvalue (not a macro). */

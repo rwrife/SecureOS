@@ -67,6 +67,7 @@ void clib_stdio_init(const clib_stdio_backend_t *backend);
 void clib_stdio_shutdown(void);
 
 clib_FILE_t *fopen(const char *path, const char *mode) __asm__("fopen");
+clib_FILE_t *fdopen(int fd, const char *mode) __asm__("fdopen");
 int          fclose(clib_FILE_t *fp) __asm__("fclose");
 size_t       fread (void *buf, size_t size, size_t nmemb, clib_FILE_t *fp) __asm__("fread");
 size_t       fwrite(const void *buf, size_t size, size_t nmemb, clib_FILE_t *fp) __asm__("fwrite");
@@ -492,6 +493,7 @@ static void test_symbol_set_pinned(void) {
     (void *)(uintptr_t)&clib_stdio_init,
     (void *)(uintptr_t)&clib_stdio_shutdown,
     (void *)(uintptr_t)&fopen,
+    (void *)(uintptr_t)&fdopen,
     (void *)(uintptr_t)&fclose,
     (void *)(uintptr_t)&fread,
     (void *)(uintptr_t)&fwrite,

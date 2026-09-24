@@ -59,6 +59,15 @@ char *realpath(const char *path, char *resolved_path);
 void *dlopen(const char *filename, int flags);
 void *dlsym(void *handle, const char *symbol);
 
+/*
+ * abort(): TinyCC's lib/va_list.c (libtcc1 helper archive, issue #548)
+ * declares `extern void abort(void)` and calls it on va_arg overflow.
+ * Forward to exit(134) — the same os_process_exit bridge contract
+ * stdlib.c's exit() uses — so guest programs fail closed through the
+ * launcher rather than returning into the helper.
+ */
+void abort(void);
+
 #ifdef __cplusplus
 }
 #endif

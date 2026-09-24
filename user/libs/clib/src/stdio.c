@@ -80,6 +80,9 @@ struct clib_FILE {
   int              flushed_once;
   int              eof_flag;
   int              err_flag;
+  /* fdopen adoption (issue #766): descriptor handed in by the caller,
+   * closed by fclose (POSIX ownership transfer). -1 for fopen handles. */
+  int              owned_fd;
 };
 
 static struct clib_FILE g_pool[CLIB_STDIO_POOL_SIZE];
@@ -155,6 +158,7 @@ static struct clib_FILE *pool_alloc(void) {
       fp->flushed_once = 0;
       fp->eof_flag     = 0;
       fp->err_flag     = 0;
+      fp->owned_fd     = -1;
       fp->path[0]      = '\0';
       return fp;
     }
@@ -187,6 +191,20 @@ static int console_emit(const unsigned char *bytes, size_t n) {
   }
   return 0;
 }
+
+/* ---- posix_fd adoption hooks (weak; issue #766) -------------------------- */
+
+/*
+ * stdio must not hard-link against the posix_fd layer (the per-slice
+ * test harnesses link stdio.c standalone). These weak symbols stay
+ * NULL when posix_fd.c is absent; when both TUs are in libclib.a, the
+ * strong posix_fd definitions below win at link time and fdopen/
+ * fclose work fully. Same weak-forwarder pattern as stdlib.c's
+ * os_process_exit bridge.
+ */
+__attribute__((weak)) const char *clib_stdio_fd_path_fn(int fd);
+__attribute__((weak)) int clib_stdio_fd_forget_fn(int fd);
+__attribute__((weak)) int clib_stdio_close_fn(int fd);
 
 /* ---- fopen / fclose ------------------------------------------------------ */
 
@@ -235,7 +253,14 @@ int fclose(FILE *fp) {
   }
   /* Refuse to free the static standard-stream slots. */
   if (fp == &g_stdin || fp == &g_stdout || fp == &g_stderr) return rc;
-  fp->in_use = 0;
+  int fd = fp->owned_fd;
+  fp->in_use   = 0;
+  fp->owned_fd = -1;
+  /* fdopen ownership transfer (issue #766): fclose closes the adopted
+   * descriptor through the posix_fd layer when it is linked. */
+  if (fd >= 0 && clib_stdio_close_fn != 0) {
+    if (clib_stdio_close_fn(fd) != 0) rc = EOF;
+  }
   return rc;
 }
 
@@ -313,6 +338,90 @@ int fflush(FILE *fp) {
     return 0;
   }
   return 0;
+}
+
+/* ---- fdopen (issue #766) -------------------------------------------------- */
+
+/*
+ * Accept the mode strings TinyCC actually passes: "r", "rb", "w", "wb",
+ * "a", "ab". Returns 0 and fills *append_out on success.
+ */
+static int fdopen_parse_mode(const char *mode, clib_file_kind_t *kind_out,
+                             int *append_out) {
+  if (mode == 0) return -1;
+  if (mode[0] == 'r') {
+    if (mode[1] == '\0' || (mode[1] == 'b' && mode[2] == '\0')) {
+      *kind_out = CLIB_FK_FILE_R;
+      *append_out = 0;
+      return 0;
+    }
+    return -1;
+  }
+  if (mode[0] == 'w') {
+    if (mode[1] == '\0' || (mode[1] == 'b' && mode[2] == '\0')) {
+      *kind_out = CLIB_FK_FILE_W;
+      *append_out = 0;
+      return 0;
+    }
+    return -1;
+  }
+  if (mode[0] == 'a') {
+    if (mode[1] == '\0' || (mode[1] == 'b' && mode[2] == '\0')) {
+      *kind_out = CLIB_FK_FILE_A;
+      *append_out = 1;
+      return 0;
+    }
+    return -1;
+  }
+  return -1;
+}
+
+FILE *fdopen(int fd, const char *mode) {
+  clib_file_kind_t kind;
+  int append;
+  if (fdopen_parse_mode(mode, &kind, &append) != 0) return 0;
+  if (clib_stdio_fd_path_fn == 0) return 0; /* posix_fd not linked */
+  const char *path = clib_stdio_fd_path_fn(fd);
+  if (path == 0) return 0;                 /* not an open slot */
+
+  struct clib_FILE *fp = pool_alloc();
+  if (fp == 0) return 0;
+  if (clib_strcpy_bounded(fp->path, sizeof fp->path, path) != 0) {
+    fp->in_use = 0;
+    return 0;
+  }
+  fp->owned_fd = fd;
+
+  if (kind == CLIB_FK_FILE_R) {
+    /* Re-snapshot through the read_file backend (same single-call
+     * semantics as fopen("r")); the fd's own snapshot stays untouched
+     * so a plain read() on the fd still sees the original contents. */
+    if (!g_backend_set || g_backend.read_file == 0) {
+      fp->in_use   = 0;
+      fp->owned_fd = -1;
+      return 0;
+    }
+    size_t cap = sizeof fp->buf;
+    if (g_backend.read_file(path, (char *)fp->buf, &cap, g_backend.ctx)
+        != CLIB_STDIO_OK) {
+      fp->in_use   = 0;
+      fp->owned_fd = -1;
+      return 0;
+    }
+    fp->kind   = CLIB_FK_FILE_R;
+    fp->len    = cap;
+    fp->cursor = 0;
+    return fp;
+  }
+
+  fp->kind = kind; /* W or A: accumulate into buf, flush via write_file */
+  fp->flushed_once = append; /* append streams never truncate on flush */
+  /* Hand persistence over to the FILE: drop the fd's snapshot-dirty
+   * flag so close(fd) can never write back a stale (or empty) view. */
+  if (clib_stdio_fd_forget_fn != 0) {
+    clib_stdio_fd_forget_fn(fd);
+  }
+  return fp;
 }
 
 /* ---- fputs / fputc ------------------------------------------------------- */

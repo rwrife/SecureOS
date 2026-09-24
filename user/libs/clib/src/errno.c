@@ -55,3 +55,11 @@ const char *clib_strerror(int errnum) {
     default:        return "Unknown error";
   }
 }
+
+/*
+ * Plain-name alias for TinyCC's diagnostics call sites (tccelf.c
+ * strerror(errno)); the deliberate `clib_strerror` naming from slice 5
+ * stays the canonical clib spelling, and this alias closes the in-OS
+ * libtcc link gap (issue #766). Same table, same never-NULL contract.
+ */
+const char *strerror(int errnum) __attribute__((alias("clib_strerror")));

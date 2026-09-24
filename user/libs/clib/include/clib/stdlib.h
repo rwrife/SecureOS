@@ -148,6 +148,20 @@ long long strtoll(const char *nptr, char **endptr, int base);
  */
 unsigned long long strtoull(const char *nptr, char **endptr, int base);
 
+/*
+ * strtod / strtof / strtold / ldexpl  (issue #766, TinyCC link gap)
+ *   Freestanding decimal/hex-float -> binary conversion for TinyCC's
+ *   preprocessor float-literal folding (tccpp.c). Deterministic
+ *   digit-stream accumulation, within a couple of ulps of
+ *   correctly-rounded (NOT a correctly-rounded libc strtod — see
+ *   src/strtod.c for the accuracy/determinism contract). `ldexpl`
+ *   scales by a power-of-two exponent. No errno, no locale.
+ */
+double      strtod (const char *np, char **end);
+float       strtof (const char *np, char **end);
+long double strtold(const char *np, char **end);
+long double ldexpl (long double x, int exp);
+
 /* --- integer utilities -------------------------------------------------- */
 
 /*

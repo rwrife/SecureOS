@@ -13,13 +13,16 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "clib/errno.h"
 #include "clib/malloc.h"
 #include "clib/runtime_compat.h"
 #include "clib/stdlib.h"
+#include "secureos_api.h"
 
 /* `sprintf` is exported by user/libs/clib/src/stdio.c and shares the libc
  * symbol name. Bind an explicit alias so we can exercise the clib symbol
@@ -57,10 +60,17 @@ static void test_symbol_addresses(void) {
   char *(*sym_realpath)(const char *, char *) = realpath;
   void *(*sym_dlopen)(const char *, int) = dlopen;
   void *(*sym_dlsym)(void *, const char *) = dlsym;
+  /* #766 link-slice additions: float conversions + abort. */
+  double (*sym_strtod)(const char *, char **) = strtod;
+  float (*sym_strtof)(const char *, char **) = strtof;
+  long double (*sym_strtold)(const char *, char **) = strtold;
+  long double (*sym_ldexpl)(long double, int) = ldexpl;
+  void (*sym_abort)(void) = abort;
 
   int ok = sym_realloc && sym_free && sym_sprintf && sym_exit && sym_time &&
            sym_localtime && sym_getcwd && sym_getenv && sym_realpath &&
-           sym_dlopen && sym_dlsym;
+           sym_dlopen && sym_dlsym && sym_strtod && sym_strtof &&
+           sym_strtold && sym_ldexpl && sym_abort;
   record_check(ok, "symbol_set_pinned");
 }
 
@@ -157,6 +167,67 @@ static void test_runtime_compat_determinism(void) {
                "dlsym_enotsup");
 }
 
+/*
+ * Host-strong definition of the (weak-declared) process-exit bridge so
+ * abort()'s termination path is observable: exit(134) -> os_process_exit
+ * -> _exit(). Kernel contract is "never returns", mirrored here with
+ * _exit; only the forked abort-probe child depends on the termination.
+ */
+os_status_t os_process_exit(int status) {
+  _exit((unsigned char)status);
+  return OS_STATUS_OK;
+}
+
+static void test_abort_through_bridge(void) {
+  pid_t pid = fork();
+  if (pid == 0) {
+    abort();
+    _exit(99); /* unreachable if abort terminates through the bridge */
+  }
+  if (pid > 0) {
+    int status = 0;
+    record_check(waitpid(pid, &status, 0) == pid && WIFEXITED(status) &&
+                     WEXITSTATUS(status) == 134,
+                 "abort_exits_134_through_bridge");
+  } else {
+    record_check(0, "abort_exits_134_through_bridge");
+  }
+}
+
+/* strtod family pinned by clib/stdlib.h (issue #766 TinyCC float-literal
+ * folding): deterministic digit-accumulation, exact on short constants. */
+static void test_float_conversion_surface(void) {
+  char *end = (char *)1;
+
+  record_check(strtod("1.25", &end) == 1.25 && end != (char *)1 &&
+                   *end == '\0',
+               "strtod_decimal_exact");
+
+  end = (char *)1;
+  record_check(strtod(" -12.5e2x", &end) == -1250.0 && *end == 'x',
+               "strtod_sign_exponent_endptr");
+
+  end = (char *)1;
+  record_check(strtof("3.5", &end) == 3.5f && *end == '\0',
+               "strtof_basic");
+
+  end = (char *)1;
+  record_check(strtold("0x1.8p1", &end) == 3.0L && *end == '\0',
+               "strtold_hexfloat");
+
+  end = (char *)1;
+  strtod("zzz", &end);
+  record_check(end == (char *)"zzz" + 0 || end != (char *)1,
+               "strtod_endptr_always_set");
+
+  record_check(__builtin_isinf(strtod("inf", NULL)), "strtod_inf");
+  record_check(__builtin_isnan(strtod("nan", NULL)), "strtod_nan");
+
+  record_check(ldexpl(1.5L, 3) == 12.0L && ldexpl(3.0L, -1) == 1.5L &&
+                   ldexpl(0.0L, 42) == 0.0L,
+               "ldexpl_scales");
+}
+
 static void test_sprintf_surface(void) {
   char out[32] = {0};
   int n = clib_sprintf(out, "x=%d", 7);
@@ -167,7 +238,9 @@ int main(void) {
   test_symbol_addresses();
   test_allocator_forwarders();
   test_runtime_compat_determinism();
+  test_float_conversion_surface();
   test_sprintf_surface();
+  test_abort_through_bridge();
 
   if (g_failures == 0) {
     emit_line("TEST:PASS:clib_tinycc_link_surface");

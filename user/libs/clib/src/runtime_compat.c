@@ -26,6 +26,7 @@
 
 #include "../include/clib/errno.h"
 #include "../include/clib/malloc.h"
+#include "../include/clib/stdlib.h"
 
 #include <stddef.h>
 
@@ -133,4 +134,17 @@ void *dlsym(void *handle, const char *symbol) {
   (void)symbol;
   errno = ENOTSUP;
   return NULL;
+}
+
+/*
+ * abort(): TinyCC's libtcc1 va_list helper calls abort() on va_arg
+ * overflow (issue #548 source set). Exit through the process-exit
+ * bridge with the conventional SIGABRT-style status 134 (128+6);
+ * stdlib.c's exit() already handles the no-bridge host fallback.
+ */
+void abort(void) {
+  exit(134);
+  /* exit() is noreturn by contract; keep the compiler honest. */
+  for (;;) {
+  }
 }

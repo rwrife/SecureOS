@@ -1,4 +1,5 @@
 __clib_assert_fail
+abort
 abs
 atoi
 bsearch
@@ -22,6 +23,8 @@ clib_malloc_shutdown
 clib_os_assert_forwarder
 clib_os_assert_install
 clib_os_brk
+clib_posix_fd_forget
+clib_posix_fd_path
 clib_realloc
 clib_stdalign_eval
 clib_stdalign_op_count
@@ -35,6 +38,9 @@ clib_stddef_offsetof_probe
 clib_stddef_sizeof
 clib_stdint_maxof
 clib_stdint_sizeof
+clib_stdio_close_fn
+clib_stdio_fd_forget_fn
+clib_stdio_fd_path_fn
 clib_stdio_init
 clib_stdio_shutdown
 clib_stdnoreturn_eval
@@ -47,6 +53,7 @@ dlsym
 errno
 exit
 fclose
+fdopen
 feof
 ferror
 fflush
@@ -75,6 +82,7 @@ isspace
 isupper
 isxdigit
 labs
+ldexpl
 localtime
 lseek
 memchr
@@ -98,6 +106,7 @@ strchr
 strcmp
 strcpy
 strcspn
+strerror
 strlen
 strncat
 strncmp
@@ -107,10 +116,13 @@ strpbrk
 strrchr
 strspn
 strstr
+strtod
+strtof
 strtoimax
 strtok
 strtok_r
 strtol
+strtold
 strtoll
 strtoul
 strtoull

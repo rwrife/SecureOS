@@ -915,6 +915,10 @@ TEST_TARGETS=(
     # the pin OR doc trips the bundle before TinyCC (#408) starts
     # linking against the same symbols.
     clib_symbol_drift
+    # Issue #766 (DEMO-02 link slice): stdio<->posix_fd fdopen adoption
+    # host gate (TinyCC tccelf.c output-file contract). Orphan guard
+    # shape per #129/#514: dispatched by test.sh, so it must ride here.
+    clib_stdio_fdopen
 
     # Issue #514: four substrate-level host gates that were dispatched by
     # build/scripts/test.sh but orphan-from-TEST_TARGETS (same shape as
