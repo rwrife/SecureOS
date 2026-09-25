@@ -151,6 +151,7 @@ Note: `clib/stddef.h` (slice 9 / PR #436) ships drift-anchor helpers via
 |-----------------|----------------------------------------|----------------------------------------|
 | `errno`         | `int errno;`                           | writable global; no per-thread storage |
 | `clib_strerror` | `const char *clib_strerror(int e)`     | bounded ASCII, never NULL              |
+| `strerror`      | `const char *strerror(int e)`              | linker alias of `clib_strerror` (issue #766, TinyCC tccelf.c diagnostics) |
 
 ### `clib/malloc.h` (slice 0 / pre-#407, issue #404)
 
@@ -210,6 +211,10 @@ are locked down by `clib_os_brk` (build/scripts/test_clib_os_brk.sh).
 | `abs`     | `int abs(int x)`                                                   | INT_MIN UB-safe (input == INT_MIN saturates to INT_MAX) |
 | `labs`    | `long labs(long x)`                                                | LONG_MIN UB-safe |
 | `exit`    | `void exit(int status) __attribute__((noreturn))`                 | forwards to `os_process_exit(status)`; spins if bridge absent |
+| `strtod`  | `double strtod(const char *np, char **end)`                      | deterministic digit-accumulation; NOT correctly-rounded (issue #766) |
+| `strtof`  | `float strtof(const char *np, char **end)`                       | same contract as `strtod`, `float` width (issue #766) |
+| `strtold` | `long double strtold(const char *np, char **end)`                | same contract as `strtod`, `long double` width; parses hex-float literals (issue #766) |
+| `ldexpl`  | `long double ldexpl(long double x, int exp)`                     | scales by 2^exp; used for hex-float `p` exponents (issue #766) |
 
 ### `clib/string.h` (slice 1 / PR #416)
 
@@ -253,6 +258,7 @@ a recorder shim.
 | `stdout`             | `FILE *stdout`                                                                  | sentinel; routes through `console_write` |
 | `stderr`             | `FILE *stderr`                                                                  | sentinel; routes through `console_write` |
 | `fopen`              | `FILE *fopen(const char *path, const char *mode)`                               | modes: `r`, `w`, `r+`, `w+`; rejects unknown |
+| `fdopen`             | `FILE *fdopen(int fd, const char *mode)`                                          | adopts a live posix_fd slot (modes `r`/`rb`/`w`/`wb`/`a`/`ab`); fclose owns/closes the fd; persistence flows through the stdio backend only (issue #766) |
 | `fclose`             | `int fclose(FILE *fp)`                                                          | flushes; no-op on sentinels |
 | `fread`              | `size_t fread(void *buf, size_t sz, size_t n, FILE *fp)`                        |  |
 | `fwrite`             | `size_t fwrite(const void *buf, size_t sz, size_t n, FILE *fp)`                 |  |
@@ -291,6 +297,11 @@ deterministic `ENOTSUP` (no v0 console-read syscall), lseek fails with
 | `write`  | `ssize_t write(int fd, const void *buf, size_t count)` | extends the snapshot on writable fds (`EBADF` on read-only fds, `ENOSPC` past the fixed slot cap); flushes on close; byte-exact payloads (embedded NULs persist; binary-safe flush over `os_fs_write_file_bytes` since DEMO-01 #765); fds 1/2 write through to `os_console_write` in NUL-bounded chunks (embedded NULs split chunks, no empty console calls; `EIO` on syscall failure), fd 0 fails with `EBADF` |
 | `lseek`  | `off_t lseek(int fd, off_t offset, int whence)`      | supports `SEEK_SET/CUR/END`; bounds-checked cursor updates; console fds fail with `ESPIPE` |
 | `unlink` | `int unlink(const char *path)`                       | deterministic truncate-to-empty shim over `os_fs_write_file` after an existence probe; pending a dedicated delete syscall ABI |
+| `clib_posix_fd_path`   | `const char *clib_posix_fd_path(int fd)`         | snapshot path backing a live fd, `NULL` on invalid/console fds (issue #766 fdopen adoption) |
+| `clib_posix_fd_forget` | `int clib_posix_fd_forget(int fd)`             | clears a slot's pending write-back without flushing so a later `close()` cannot overwrite what an adopting `FILE` wrote; `0`/`-1`+`EBADF` (issue #766) |
+| `clib_stdio_fd_path_fn`    | `const char *clib_stdio_fd_path_fn(int fd)`    | strong definition of stdio.c's weak fdopen forwarder (thin wrapper over `clib_posix_fd_path`); stdio's FILE pool resolves it only when posix_fd.c is linked (issue #766 weak-symbol pattern) |
+| `clib_stdio_fd_forget_fn`  | `int clib_stdio_fd_forget_fn(int fd)`          | strong definition of stdio.c's weak forget forwarder (wrapper over `clib_posix_fd_forget`), issue #766 |
+| `clib_stdio_close_fn`      | `int clib_stdio_close_fn(int fd)`              | strong definition of stdio.c's weak close forwarder (wrapper over `close`), used by `fclose` on fdopen-adopted descriptors (issue #766) |
 
 ### `clib/runtime_compat.h` (M7-TOOLCHAIN-005 slice / issue #539)
 
@@ -308,6 +319,7 @@ freestanding link surface while `-run`/JIT remains disabled.
 | `realpath`  | `char *realpath(const char *path, char *resolved_path)` | deterministic passthrough canonicalization |
 | `dlopen`    | `void *dlopen(const char *filename, int flags)`   | explicit unsupported stub (`NULL`, `errno=ENOTSUP`) |
 | `dlsym`     | `void *dlsym(void *handle, const char *symbol)`   | explicit unsupported stub (`NULL`, `errno=ENOTSUP`) |
+| `abort`     | `void abort(void)`                              | terminates through `exit(134)` -> `os_process_exit` bridge (issue #766, libtcc1 va_list overflow) |
 
 ## Canonical pin
 
@@ -320,6 +332,7 @@ and every symbol named in any table above MUST appear here. The
 <!-- clib-symbols:begin -->
 ```
 __clib_assert_fail
+abort
 abs
 atoi
 bsearch
@@ -343,6 +356,8 @@ clib_malloc_shutdown
 clib_os_assert_forwarder
 clib_os_assert_install
 clib_os_brk
+clib_posix_fd_forget
+clib_posix_fd_path
 clib_realloc
 clib_stdalign_eval
 clib_stdalign_op_count
@@ -356,6 +371,9 @@ clib_stddef_offsetof_probe
 clib_stddef_sizeof
 clib_stdint_maxof
 clib_stdint_sizeof
+clib_stdio_close_fn
+clib_stdio_fd_forget_fn
+clib_stdio_fd_path_fn
 clib_stdio_init
 clib_stdio_shutdown
 clib_stdnoreturn_eval
@@ -368,6 +386,7 @@ dlsym
 errno
 exit
 fclose
+fdopen
 feof
 ferror
 fflush
@@ -396,6 +415,7 @@ isspace
 isupper
 isxdigit
 labs
+ldexpl
 localtime
 lseek
 memchr
@@ -419,6 +439,7 @@ strchr
 strcmp
 strcpy
 strcspn
+strerror
 strlen
 strncat
 strncmp
@@ -428,10 +449,13 @@ strpbrk
 strrchr
 strspn
 strstr
+strtod
+strtof
 strtoimax
 strtok
 strtok_r
 strtol
+strtold
 strtoll
 strtoul
 strtoull
@@ -464,4 +488,4 @@ Step 4 is what the bundle gate (`validate_bundle.sh` `TEST_TARGETS`)
 runs in CI, so if you forget any of steps 1-3 the bundle flips to FAIL
 with a descriptive marker pointing at which source disagreed.
 
-Last verified against commit: 78dbd319c964647829992eda6bc590419497dbd1
+Last verified against commit: 849a33abadd1282868f04c9129632dc1447b059e

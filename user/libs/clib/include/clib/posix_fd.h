@@ -92,6 +92,27 @@ ssize_t write(int fd, const void *buf, size_t count);
 off_t lseek(int fd, off_t offset, int whence);
 int unlink(const char *path);
 
+/*
+ * clib_posix_fd_path(fd)
+ *   Returns the snapshot path backing a live fd (fds >= 3), or NULL if
+ *   `fd` is not an open slot. Used by stdio's fdopen() adoption path
+ *   (issue #766): TinyCC's tccelf.c opens the output file with
+ *   open()/O_TRUNC and then wraps the fd with fdopen(fd, "wb"); the
+ *   stdio layer needs the path to re-snapshot the file.
+ *
+ * clib_posix_fd_forget(fd)
+ *   Clears the slot's dirty flag WITHOUT flushing, so a subsequent
+ *   close() performs no snapshot write-back. fdopen() in "w" mode
+ *   calls this after adoption: the FILE handle becomes the sole
+ *   persistence path (os_fs_write_file via the stdio backend), and the
+ *   open fd's stale empty snapshot must not truncate the file when the
+ *   caller closes it. Returns 0 on a live slot, -1 otherwise.
+ *
+ * Both are additive userland surface (OS_ABI_VERSION=0).
+ */
+const char *clib_posix_fd_path(int fd);
+int clib_posix_fd_forget(int fd);
+
 #ifdef __cplusplus
 }
 #endif

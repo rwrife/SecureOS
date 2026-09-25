@@ -558,6 +558,15 @@ int main(void) {
   test_console_fds();
   test_unlink_shim();
 
+  {
+    /* #766 fdopen adoption hooks: take typed addresses so a dropped or
+     * re-typed symbol fails the link. */
+    const char *(*sym_path)(int) = clib_posix_fd_path;
+    int (*sym_forget)(int) = clib_posix_fd_forget;
+    record_check(sym_path != NULL && sym_forget != NULL,
+                 "hooks_symbol_pins");
+  }
+
   record_check(1, "symbol_set_pinned");
 
   if (g_failures == 0) {

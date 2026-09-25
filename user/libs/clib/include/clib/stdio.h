@@ -176,6 +176,29 @@ extern FILE *stderr;
 FILE *fopen(const char *path, const char *mode);
 int   fclose(FILE *fp);
 
+/*
+ * fdopen(fd, mode) — adopt an existing open file descriptor into the
+ * stdio layer (issue #766, TinyCC tccelf.c link-output path).
+ *
+ * Semantics (freestanding subset, documented divergence from POSIX):
+ *   - "r"/"rb": the fd must be a clib posix_fd slot opened for reading;
+ *     the stdio handle re-snapshots the file through the registered
+ *     read_file backend. The fd association is remembered so fclose()
+ *     also closes the descriptor (POSIX ownership transfer).
+ *   - "w"/"wb": the handle starts empty and accumulates writes, which
+ *     flush through the registered write_file backend on fflush/
+ *     fclose. The fd's own snapshot is marked forgotten
+ *     (clib_posix_fd_forget) so the later close(fd) cannot truncate
+ *     what the FILE wrote; fclose() still closes the descriptor.
+ *   - "a"/"ab": like "w" but backend flushes use append mode.
+ *   - The fd must be an open slot (>= 3) and the mode's access kind
+ *     must be compatible; otherwise fdopen returns NULL.
+ *
+ * Only modes "r", "rb", "w", "wb", "a", "ab" are accepted. Returns NULL
+ * on any failure (bad fd, bad mode, pool exhausted).
+ */
+FILE *fdopen(int fd, const char *mode);
+
 size_t fread(void *buf, size_t size, size_t nmemb, FILE *fp);
 size_t fwrite(const void *buf, size_t size, size_t nmemb, FILE *fp);
 int    fflush(FILE *fp);

@@ -8,6 +8,8 @@
 #   - Symbol presence/link resolution for the remaining #539 surface:
 #       realloc, free, sprintf, exit, time, localtime,
 #       getcwd, getenv, realpath, dlopen, dlsym.
+#   - #766 link-slice additions: strtod/strtof/strtold/ldexpl behavior +
+#     abort() terminating through the os_process_exit bridge (forked probe).
 #   - Deterministic runtime behavior for the compatibility stubs.
 #
 # Compiled with -fno-builtin so this gate exercises SecureOS clib symbols,
@@ -26,6 +28,7 @@ cc -std=c11 -Wall -Wextra -Werror -fno-builtin \
   "$ROOT_DIR/user/libs/clib/src/runtime_compat.c" \
   "$ROOT_DIR/user/libs/clib/src/stdio.c" \
   "$ROOT_DIR/user/libs/clib/src/stdlib.c" \
+  "$ROOT_DIR/user/libs/clib/src/strtod.c" \
   "$ROOT_DIR/tests/clib_tinycc_link_surface_test.c" \
   -I"$ROOT_DIR/user/libs/clib/include" \
   -I"$ROOT_DIR/user/include" \
@@ -50,6 +53,15 @@ grep -q "TEST:PASS:clib_tinycc_link_surface:realpath_passthrough_pointer" "$LOG_
 grep -q "TEST:PASS:clib_tinycc_link_surface:realpath_copy" "$LOG_PATH"
 grep -q "TEST:PASS:clib_tinycc_link_surface:dlopen_enotsup" "$LOG_PATH"
 grep -q "TEST:PASS:clib_tinycc_link_surface:dlsym_enotsup" "$LOG_PATH"
-grep -q "TEST:PASS:clib_tinycc_link_surface:sprintf_works" "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:sprintf_works"           "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtod_decimal_exact"    "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtod_sign_exponent_endptr" "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtof_basic"            "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtold_hexfloat"        "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtod_endptr_always_set" "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtod_inf"              "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:strtod_nan"              "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:ldexpl_scales"           "$LOG_PATH"
+grep -q "TEST:PASS:clib_tinycc_link_surface:abort_exits_134_through_bridge" "$LOG_PATH"
 grep -q "TEST:PASS:clib_tinycc_link_surface$" "$LOG_PATH"
 ! grep -q "TEST:FAIL:" "$LOG_PATH"

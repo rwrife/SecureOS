@@ -5,32 +5,36 @@
  *
  * Passed to every libtcc TU compile with `-include` (alongside the
  * config-secureos.h redirect). It declares the handful of libc symbols
- * the pinned `TCC_ALL_SRCS` set calls that clib does NOT expose under
- * the canonical name TinyCC uses:
+ * the pinned `TCC_ALL_SRCS` set calls; since the #766 link slice all of
+ * them have real clib implementations:
  *
  *   - `fdopen(int fd, const char *mode)` — tccelf.c's output-file path.
- *     clib's FILE pool is path-based (no fd bridge); shipping a real
- *     fdopen is future work tracked under #766. Declared here so the
- *     translation unit compiles; the link step (also #766 follow-up)
- *     fails loudly if the code path is ever reached without the shim.
+ *     clib ships a real implementation in src/stdio.c (issue #766 link
+ *     slice): it adopts the descriptor, owns it through fclose, and
+ *     routes persistence through the stdio backend so the fd's stale
+ *     snapshot can never truncate the link output.
  *
  *   - `strerror(int)` — tccelf.c diagnostics. clib ships the bounded
- *     variant as `clib_strerror()` (deliberate naming, issue #452);
- *     the eventual link layer aliases the plain name to it.
+ *     variant as `clib_strerror()` (deliberate naming, issue #452) and
+ *     plain `strerror` as a linker alias to it (src/errno.c, #766).
  *
  *   - `strtod(const char*, char**)` — tccpp.c double-literal parsing.
- *     clib has no float conversion surface yet; declaration-only here,
- *     same link-contract note as fdopen. (Not a new clib symbol: it is
- *     intentionally NOT added to tests/data/clib_symbols.expected.)
+ *     clib ships deterministic digit-accumulation conversions in
+ *     src/strtod.c (strtod/strtof/strtold/ldexpl, #766) declared in
+ *     clib/stdlib.h.
  *
  *   - `qsort` / clib's other split headers — TinyCC gets its ISO
  *     headers through clib via the `-I` graph; qsort is the one symbol
  *     TinyCC calls whose declaration lives in clib/qsort.h rather than
  *     stdlib.h.
  *
- * Everything declared here is TinyCC-build glue and lives OUT of clib's
- * public ABI (docs/abi/clib-symbols.md + the clib_symbol_drift pin stay
- * untouched by this file).
+ * The declarations below are kept as a belt-and-suspenders TinyCC
+ * call-site surface (they must stay signature-identical to the clib
+ * headers, or the compile fails on redeclaration mismatch).
+ *
+ * Everything declared here is TinyCC-build glue; the implementations
+ * live in clib and are pinned by docs/abi/clib-symbols.md + the
+ * clib_symbol_drift gate.
  *
  * Discovered through `-I vendor/tinycc/include` + `-include`.
  */
