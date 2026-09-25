@@ -799,6 +799,10 @@ TEST_TARGETS=(
     # remaining undefined symbols (fdopen/strtod/ldexpl, shim-declared
     # in tcc-compat.h) stay open under #766.
     tinycc_freestanding_compile
+    # Issue #766 (DEMO-02 link slice): build and verify closure of the
+    # freestanding TinyCC compiler archive set (libtcc.a + libclib.a +
+    # libtcc1.a + secureos_api_stubs.o) with zero undefined symbols.
+    tinycc_freestanding_link
     # Issue #543: TinyCC compile-time arena pin (Phase 4 measurement task,
     # refs #408/#409/#424). While #408 Phase 3 is still open, this target
     # is intentionally SKIP-pinned (`awaiting_408_phase3`) but still validates

@@ -25,7 +25,7 @@ build_bearssl() {
 }
 
 build_tinycc() {
-  "$ROOT_DIR/build/scripts/build_tinycc_libtcc1.sh"
+  "$ROOT_DIR/build/scripts/build_tinycc.sh"
 }
 
 build_kernel() {
@@ -153,7 +153,7 @@ case "$TARGET" in
     fi
 
     if [[ "$STALE" == *tinycc* ]]; then
-      echo "[build] Rebuilding: tinycc (libtcc1.a runtime archive)"
+      echo "[build] Rebuilding: tinycc (libtcc.a + libclib.a + libtcc1.a archives)"
       build_tinycc
     fi
 
