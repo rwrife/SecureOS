@@ -46,13 +46,13 @@ cat > "$MANIFEST" <<EOF
 timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 keys=$(hash_files "build/scripts/generate_keys.sh" "tools/keygen/")
 bearssl=$(hash_files "vendor/bearssl/")
-tinycc=$(hash_files "vendor/tinycc/Makefile.secureos" "vendor/tinycc/config-secureos.h" "vendor/tinycc/libc-deps.json" "vendor/tinycc/libtcc1-srcs.json" "vendor/tinycc/VERSION" "vendor/tinycc/include" "vendor/tinycc/tinycc/lib")
+tinycc=$(hash_files "vendor/tinycc/Makefile.secureos" "vendor/tinycc/config-secureos.h" "vendor/tinycc/secureos_runtime.c" "vendor/tinycc/libc-deps.json" "vendor/tinycc/libtcc1-srcs.json" "vendor/tinycc/VERSION" "vendor/tinycc/include" "vendor/tinycc/tinycc/lib")
 kernel=$(hash_files "kernel/")
 grub=$(hash_files "build/grub/")
 libs=$(hash_files "user/libs/" "user/include/")
 apps=$(hash_files "user/apps/" "user/include/" "user/runtime/")
 os_commands=$(hash_files "user/os_commands/")
-build_scripts=$(hash_files "build/scripts/build_user_app.sh" "build/scripts/build_user_lib.sh" "build/scripts/build_os_command.sh" "build/scripts/build_kernel_entry.sh" "build/scripts/build_kernel_image.sh")
+build_scripts=$(hash_files "build/scripts/build_user_app.sh" "build/scripts/build_user_lib.sh" "build/scripts/build_os_command.sh" "build/scripts/build_kernel_entry.sh" "build/scripts/build_kernel_image.sh" "build/scripts/build_tinycc_libtcc1.sh" "build/scripts/build_tinycc.sh")
 EOF
 
 echo "[manifest] Updated $MANIFEST"

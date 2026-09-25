@@ -543,6 +543,9 @@ case "$TEST_NAME" in
   tinycc_freestanding_compile)
     run_script "$ROOT_DIR/build/scripts/test_tinycc_freestanding_compile.sh"
     ;;
+  tinycc_freestanding_link)
+    run_script "$ROOT_DIR/build/scripts/test_tinycc_freestanding_link.sh"
+    ;;
   tinycc_vendor_gate)
     run_script "$ROOT_DIR/build/scripts/test_tinycc_vendor_gate.sh"
     ;;

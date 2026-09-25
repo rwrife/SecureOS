@@ -23,6 +23,7 @@ LIB_NAME="${1:-envlib}"
 build_user_archive_inner() {
   LIB_DIR="user/libs/$LIB_NAME"
   local src_path
+  local asm_path
   local object_path
   local object_files=""
   local user_cflags="--target=x86_64-unknown-none-elf -ffreestanding -fno-stack-protector -mno-red-zone"
@@ -35,6 +36,15 @@ build_user_archive_inner() {
     [ -f "$src_path" ] || continue
     object_path="$archive_dir/${LIB_NAME}_$(basename "$src_path" .c).o"
     clang $user_cflags -c "$src_path" -o "$object_path"
+    object_files="$object_files $object_path"
+  done
+
+  # Optional assembly translation units for freestanding archives
+  # (e.g. clib's setjmp_x86.S used by TinyCC's error path).
+  for asm_path in "$LIB_DIR"/src/*.S; do
+    [ -f "$asm_path" ] || continue
+    object_path="$archive_dir/${LIB_NAME}_$(basename "$asm_path" .S).o"
+    clang $user_cflags -c "$asm_path" -o "$object_path"
     object_files="$object_files $object_path"
   done
 

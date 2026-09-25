@@ -74,13 +74,13 @@ cd "$ROOT_DIR"
 
 HASH_KEYS=$(hash_files "build/scripts/generate_keys.sh" "tools/keygen/")
 HASH_BEARSSL=$(hash_files "vendor/bearssl/")
-HASH_TINYCC=$(hash_files "vendor/tinycc/Makefile.secureos" "vendor/tinycc/config-secureos.h" "vendor/tinycc/libc-deps.json" "vendor/tinycc/libtcc1-srcs.json" "vendor/tinycc/VERSION" "vendor/tinycc/include" "vendor/tinycc/tinycc/lib")
+HASH_TINYCC=$(hash_files "vendor/tinycc/Makefile.secureos" "vendor/tinycc/config-secureos.h" "vendor/tinycc/secureos_runtime.c" "vendor/tinycc/libc-deps.json" "vendor/tinycc/libtcc1-srcs.json" "vendor/tinycc/VERSION" "vendor/tinycc/include" "vendor/tinycc/tinycc/lib")
 HASH_KERNEL=$(hash_files "kernel/")
 HASH_GRUB=$(hash_files "build/grub/")
 HASH_LIBS=$(hash_files "user/libs/" "user/include/")
 HASH_APPS=$(hash_files "user/apps/" "user/include/" "user/runtime/")
 HASH_OS_CMDS=$(hash_files "user/os_commands/")
-HASH_BUILD_SCRIPTS=$(hash_files "build/scripts/build_user_app.sh" "build/scripts/build_user_lib.sh" "build/scripts/build_os_command.sh" "build/scripts/build_kernel_entry.sh" "build/scripts/build_kernel_image.sh" "build/scripts/build_tinycc_libtcc1.sh")
+HASH_BUILD_SCRIPTS=$(hash_files "build/scripts/build_user_app.sh" "build/scripts/build_user_lib.sh" "build/scripts/build_os_command.sh" "build/scripts/build_kernel_entry.sh" "build/scripts/build_kernel_image.sh" "build/scripts/build_tinycc_libtcc1.sh" "build/scripts/build_tinycc.sh")
 
 # --- Compare against manifest ---
 STALE=""
