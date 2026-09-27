@@ -546,6 +546,11 @@ case "$TEST_NAME" in
   tinycc_freestanding_link)
     run_script "$ROOT_DIR/build/scripts/test_tinycc_freestanding_link.sh"
     ;;
+  tinycc_launcher_budget)
+    # Issue #766: links a complete compiler-class ELF and proves its SOF file
+    # headroom plus PT_LOAD memory image fit the launcher's explicit budgets.
+    run_script "$ROOT_DIR/build/scripts/test_tinycc_launcher_budget.sh"
+    ;;
   tinycc_vendor_gate)
     run_script "$ROOT_DIR/build/scripts/test_tinycc_vendor_gate.sh"
     ;;

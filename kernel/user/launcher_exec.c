@@ -220,7 +220,12 @@ static process_result_t app_validate_codesign(const uint8_t *file_data,
 }
 
 enum {
-  APP_FILE_MAX = 65536,
+  /* A full freestanding TinyCC image is currently about 420 KiB before SOF
+   * framing. Keep the bounded whole-file loader, but size it explicitly for
+   * that measured compiler-class application with roughly 88 KiB headroom.
+   * The ELF PT_LOAD memory bounds below remain the authoritative execution
+   * window; this limit only controls file staging. */
+  APP_FILE_MAX = 524288,
   APP_LIBRARY_FILE_MAX = 32768,
   APP_OUTPUT_MAX = 4096,
   APP_LINE_MAX = 192,

@@ -803,6 +803,9 @@ TEST_TARGETS=(
     # freestanding TinyCC compiler archive set (libtcc.a + libclib.a +
     # libtcc1.a + secureos_api_stubs.o) with zero undefined symbols.
     tinycc_freestanding_link
+    # Issue #766 (DEMO-02 loader budget): link a complete compiler-class ELF
+    # and enforce the launcher's bounded file and PT_LOAD windows.
+    tinycc_launcher_budget
     # Issue #543: TinyCC compile-time arena pin (Phase 4 measurement task,
     # refs #408/#409/#424). While #408 Phase 3 is still open, this target
     # is intentionally SKIP-pinned (`awaiting_408_phase3`) but still validates

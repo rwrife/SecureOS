@@ -30,11 +30,12 @@
  *     - archive_roundtrip: reads the app's own on-image SOF runtime
  *       archive (/apps/binfs.bin — the exact container the launcher
  *       loads it from), persists it to a new file (binarc.dat), and
- *       re-reads that copy for a byte-exact comparison. The app binary
- *       is guaranteed <= 64 KiB because the launcher itself loads app
- *       candidates through a 64 KiB staging buffer (APP_FILE_MAX), so
- *       the 64 KiB read buffer is a proven-safe upper bound, not an
- *       assumption. This is the "read a real runtime archive and
+ *       re-reads that copy for a byte-exact comparison. This test app is
+ *       intentionally kept below its 64 KiB archive buffer even though the
+ *       launcher now admits larger compiler-class applications. The fixed
+ *       local buffer keeps this persistence check bounded independently of
+ *       the launcher's evolving staging budget. This is the "read a real
+ *       runtime archive and
  *       persist an ELF/SOF byte-for-byte" acceptance clause of #765.
  *     - persistence_256k: writes a 256 KiB + 256 byte generated payload
  *       (deterministic LCG bytes, forced NUL every 4096th byte,
@@ -51,8 +52,7 @@
  *   manifest arena plays no role in the gate. Combined static payload
  *   (~321 KiB) plus code stays inside the native load window
  *   [0x800000, APP_NATIVE_BRIDGE_ADDR) via p_memsz, while the ELF file
- *   itself (p_filesz, what the launcher's 64 KiB load buffer holds)
- *   stays small because .bss occupies no file bytes.
+ *   itself stays small because .bss occupies no file bytes.
  *
  * Buffer-reuse discipline:
  *   archive_roundtrip keeps its source copy in arc_buf while comparing
@@ -109,9 +109,7 @@ static int bytes_equal(const void *a, const void *b, unsigned int n) {
  * keeping a second copy alive. */
 #define BIG_PAYLOAD_LEN (256u * 1024u + 256u)
 static unsigned char big_buf[BIG_PAYLOAD_LEN];
-/* Upper bound for a launchable app archive: the launcher itself stages
- * app candidates through a 64 KiB buffer (APP_FILE_MAX), so anything
- * that can boot is at most that big. Used for archive_roundtrip. */
+/* Bounded archive buffer for this app's own byte-exact round-trip. */
 #define ARCHIVE_BUF_LEN 65536u
 static unsigned char arc_buf[ARCHIVE_BUF_LEN];
 
