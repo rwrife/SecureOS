@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # test_tinycc_launcher_budget.sh — measured launcher budget gate for TinyCC.
 #
-# Builds a minimal SecureOS driver that initializes libtcc, links the complete
-# freestanding compiler image, then verifies that both the ELF plus SOF framing
-# headroom and every PT_LOAD segment fit the launcher's explicit limits.
+# Builds a SecureOS driver that references the full libtcc compile/output API
+# surface the in-OS `cc` driver will use, links the complete freestanding
+# compiler image, then verifies that both the ELF plus SOF framing headroom
+# and every PT_LOAD segment fit the launcher's explicit limits. Referencing
+# the whole API (not just tcc_new/tcc_delete) forces demand-linking to pull
+# every required libtcc translation unit (tccpp/tccgen/tccelf/tccasm/tccdbg/
+# x86_64-gen/x86_64-link/i386-asm) into the measured image, so the budget
+# reflects the compiler that will actually load, not an initialization-only
+# subset (issue #766 memory-budget criterion).
 # Called by build/scripts/test.sh and validate_bundle.sh for issue #766.
 
 set -euo pipefail
@@ -36,11 +42,27 @@ mkdir -p "$OUT_DIR"
   || fail "build_tinycc_failed"
 
 cat >"$OUT_DIR/driver.c" <<'EOF'
-/* Link probe for the complete freestanding TinyCC image. */
+/* Link probe for the complete freestanding TinyCC image.
+ *
+ * References the full libtcc compile/output API surface the in-OS `cc`
+ * driver (user/apps/cc, issue #767) will call, so demand-linking pulls
+ * every required libtcc TU into the image being budget-checked. The
+ * never-executed branch keeps the references without changing behavior.
+ */
 #include "libtcc.h"
 extern int os_console_write(const char *message);
-int main(void) {
+int main(int argc, char **argv) {
   TCCState *state = tcc_new();
+  char source[] = "int main(void){return 0;}";
+  if (argc > 1) {
+    /* Unreachable in the probe; only forces linkage of the compile path. */
+    tcc_set_output_type(state, TCC_OUTPUT_EXE);
+    tcc_add_library_path(state, "/apps/dev/lib");
+    tcc_add_sysinclude_path(state, "/apps/dev/include");
+    tcc_add_file(state, argv[1]);
+    tcc_compile_string(state, source);
+    tcc_output_file(state, argv[1]);
+  }
   if (state == 0) {
     (void)os_console_write("cc: compiler initialization failed\n");
     return 1;
