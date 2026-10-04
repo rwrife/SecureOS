@@ -60,6 +60,35 @@ PY
   mkdir -p artifacts/user
   mkdir -p "$APP_OUT_DIR"
 
+  # Issue #767: the `cc` driver is the one app that links the freestanding
+  # compiler stack (libtcc.a + libclib.a + libtcc1.a) and the packaging
+  # archives (libsofpack.a + libmanifestgen.a). It therefore needs the
+  # clib/libtcc header search paths (and -nostdlibinc so <stdio.h> resolves
+  # to clib, not host headers) and its objects are linked against archives
+  # instead of a link line of plain objects.
+  CC_APP=0
+  if [ "$APP_NAME" = "cc" ]; then
+    CC_APP=1
+    USER_CFLAGS="$USER_CFLAGS -nostdlibinc \
+-I $ROOT_DIR/user/libs/clib/include/clib \
+-I $ROOT_DIR/user/libs/sofpack/include \
+-I $ROOT_DIR/user/libs/manifestgen/include \
+-I $ROOT_DIR/vendor/tinycc/tinycc"
+    if [ ! -f "$ROOT_DIR/artifacts/user/libs/libtcc.a" ] || \
+       [ ! -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ] || \
+       [ ! -f "$ROOT_DIR/artifacts/user/libs/libtcc1.a" ]; then
+      echo "[cc] libtcc/libclib/libtcc1 archives missing; running build_tinycc.sh"
+      "$ROOT_DIR/build/scripts/build_tinycc.sh" >/dev/null
+    fi
+    for lib_name in sofpack manifestgen; do
+      if [ ! -f "$ROOT_DIR/artifacts/user/libs/lib${lib_name}.a" ]; then
+        echo "[cc] lib${lib_name}.a missing; running build_user_lib.sh"
+        "$ROOT_DIR/build/scripts/build_user_lib.sh" \
+          "$lib_name" >/dev/null
+      fi
+    done
+  fi
+
   # Compile all .c files in the app directory (multi-file app support)
   APP_OBJECTS=""
   for src_file in "$APP_DIR"/*.c; do
@@ -128,8 +157,17 @@ EOF
   fi
 
   clang $USER_CFLAGS -c user/runtime/secureos_api_stubs.c -o artifacts/user/secureos_api_stubs.o
+  CC_ARCHIVE_LINK=""
+  if [ "$CC_APP" = "1" ]; then
+    CC_ARCHIVE_LINK="$ROOT_DIR/artifacts/user/libs/libtcc.a \
+$ROOT_DIR/artifacts/user/libs/libclib.a \
+$ROOT_DIR/artifacts/user/libs/libtcc1.a \
+$ROOT_DIR/artifacts/user/libs/libsofpack.a \
+$ROOT_DIR/artifacts/user/libs/libmanifestgen.a"
+  fi
+  # shellcheck disable=SC2086
   ld.lld $USER_LDFLAGS \
-      -o "artifacts/user/$APP_NAME.elf" $APP_OBJECTS artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS
+      -o "artifacts/user/$APP_NAME.elf" $APP_OBJECTS artifacts/user/secureos_api_stubs.o $EXTRA_OBJECTS $NETLIB_OBJECTS $CC_ARCHIVE_LINK
 
   # Build sof_wrap if not already built
   if [ ! -x "tools/sof_wrap/sof_wrap" ]; then
