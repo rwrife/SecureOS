@@ -35,7 +35,7 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
 | `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
 | `/apps/dev/include/`              | Public headers staged for in-OS builds (`sofpack/sofpack.h`, `manifest/manifest.h`); `secureos_api.h` remains pending behind [#531](https://github.com/rwrife/SecureOS/issues/531) |
-| `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships placeholder README plus staged `libclib.a`/`libsofpack.a` when host artifacts exist) |
+| `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships placeholder README plus staged `libclib.a`/`sofpack.a` when host artifacts exist) |
 | `/apps/dev/tcc/`                 | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder README plus staged `libtcc1.a` when host artifact exists) |
 
 The repo source that gets staged to `/apps/dev` lives in the top-level
@@ -44,8 +44,10 @@ The repo source that gets staged to `/apps/dev` lives in the top-level
 [`build/scripts/build_disk_image.sh`](../../build/scripts/build_disk_image.sh).
 
 When present in `artifacts/user/libs/`, the freestanding archives
-`libclib.a` and `libsofpack.a` are staged to `/apps/dev/lib/` and become
-part of the in-OS `cc` link search surface. `libtcc1.a` is staged to
+`libclib.a` and `sofpack.a` are staged to `/apps/dev/lib/` when their host
+artifacts exist; `sofpack.a` is the strict 8.3 alias for the host-built
+`libsofpack.a`. Compiler support for resolving that alias remains part of
+the unfinished developer-image work (#768). `libtcc1.a` is staged to
 `/apps/dev/tcc/` as the TinyCC runtime-helper archive resolved by
 `tcc_add_runtime()`.
 

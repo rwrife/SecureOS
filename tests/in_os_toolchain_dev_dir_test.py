@@ -8,7 +8,7 @@ Asserts that:
   - nested file targets under /apps/dev are written via auto-created parents,
   - /apps/dev/lib and /apps/dev/tcc are created when staging placeholder files,
   - staged sample/guide/placeholder files round-trip byte-identically,
-  - optional host-built /apps/dev archives (`libclib.a`, `libsofpack.a`,
+  - optional host-built /apps/dev archives (`libclib.a`, `sofpack.a`,
     `libtcc1.a`) are staged byte-identically when source artifacts are present.
 
 Runs purely on the host (no QEMU, no toolchain): it drives the same
@@ -20,6 +20,7 @@ a non-zero exit code otherwise.
 """
 
 import importlib.util
+import json
 import struct
 import sys
 from pathlib import Path
@@ -116,8 +117,10 @@ def main() -> int:
     fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
     if libclib_src is not None:
         fresh.write_file("/apps/dev/lib/libclib.a", libclib_src)
-    if libsofpack_src is not None:
-        fresh.write_file("/apps/dev/lib/libsofpack.a", libsofpack_src)
+    # Even when no host archive exists, exercise the actual 8.3 target with
+    # representative archive bytes; otherwise a clean checkout never tests it.
+    sofpack_bytes = libsofpack_src if libsofpack_src is not None else b"!<arch>\n"
+    fresh.write_file("/apps/dev/lib/sofpack.a", sofpack_bytes)
     if libtcc1_src is not None:
         fresh.write_file("/apps/dev/tcc/libtcc1.a", libtcc1_src)
 
@@ -165,13 +168,20 @@ def main() -> int:
                 f"read {len(got_libclib)} bytes"
             )
 
-    if libsofpack_src is not None:
-        got_libsofpack = read_file(fresh, "/apps/dev/lib/libsofpack.a")
-        if got_libsofpack != libsofpack_src:
-            failures.append(
-                f"/apps/dev/lib/libsofpack.a mismatch: wrote {len(libsofpack_src)} bytes, "
-                f"read {len(got_libsofpack)} bytes"
-            )
+    got_libsofpack = read_file(fresh, "/apps/dev/lib/sofpack.a")
+    if got_libsofpack != sofpack_bytes:
+        failures.append(
+            f"/apps/dev/lib/sofpack.a mismatch: wrote {len(sofpack_bytes)} bytes, "
+            f"read {len(got_libsofpack)} bytes"
+        )
+    mapping = 'artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a'
+    if mapping not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
+        failures.append("disk build does not stage the 8.3 SOF packer alias")
+    pin = json.loads((ROOT / "tools/disk_image_apps_dev_sha.json").read_text())
+    if not any(e["target"] == "/apps/dev/lib/sofpack.a" and
+               e["source"] == "artifacts/user/libs/libsofpack.a"
+               for e in pin["entries"]):
+        failures.append("staging SHA pin does not cover the 8.3 SOF packer alias")
 
     if libtcc1_src is not None:
         got_libtcc1 = read_file(fresh, "/apps/dev/tcc/libtcc1.a")

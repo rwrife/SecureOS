@@ -19,7 +19,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "d45d83e26b7131ec912ca421d6a7951f67b37cac74b01e3cde3ab3c20b2e5e10",
+      "sha256": "e47b5e230606325e7d894b64806cc73c257e2579abdc756c63a6c85a503069c9",
       "origin": "#403 phase-1 on-device guide; #769 editor section"
     },
     {
@@ -54,11 +54,11 @@
       "origin": "#545"
     },
     {
-      "target": "/apps/dev/lib/libsofpack.a",
+      "target": "/apps/dev/lib/sofpack.a",
       "source": "artifacts/user/libs/libsofpack.a",
       "pending": true,
       "gatingIssue": 548,
-      "origin": "#545"
+      "origin": "#768 strict 8.3 alias for #545 archive"
     },
     {
       "target": "/apps/dev/tcc/libtcc1.a",

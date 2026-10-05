@@ -15,7 +15,7 @@
   "requiredPaths": [
     "/apps/dev/cc",
     "/apps/dev/lib/libclib.a",
-    "/apps/dev/lib/libsofpack.a",
+    "/apps/dev/lib/sofpack.a",
     "/apps/dev/include/secureos_api.h",
     "/apps/dev/tcc/libtcc1.a"
   ]

@@ -159,7 +159,9 @@ build_disk_image_inner() {
 		dev_mappings+=("artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a")
 	fi
 	if [ -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]; then
-		dev_mappings+=("artifacts/user/libs/libsofpack.a=/apps/dev/lib/libsofpack.a")
+		# Host archive name exceeds FAT 8.3; stage a legal alias without
+		# renaming the canonical build artifact.
+		dev_mappings+=("artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a")
 	fi
 	# Issue #550: stage TinyCC runtime helper archive used by
 	# tcc_add_runtime() (when present in host artifacts).
