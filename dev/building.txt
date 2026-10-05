@@ -10,7 +10,7 @@ This folder (/apps/dev) holds the on-device developer sample content.
     include/manifest/manifest.h 8.3-safe staged alias of manifestgen's public header.
     lib/README.md               Placeholder for TinyCC linker/crt runtime archives.
     lib/libclib.a               Freestanding libc archive staged when host artifact exists.
-    lib/libsofpack.a            Freestanding SOF packer archive staged when host artifact exists.
+    lib/sofpack.a               8.3 alias for host libsofpack.a, staged when present.
     tcc/README.md               Placeholder for TinyCC runtime helper archive root.
     tcc/libtcc1.a               TinyCC runtime helper archive staged when host artifact exists.
 
