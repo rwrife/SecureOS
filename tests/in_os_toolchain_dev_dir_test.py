@@ -22,7 +22,9 @@ a non-zero exit code otherwise.
 import importlib.util
 import json
 import struct
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -196,6 +198,50 @@ def main() -> int:
         failures.append("hello.c does not include secureos_api.h")
     if b"int main" not in hello_src:
         failures.append("hello.c has no main()")
+
+    # 5. Missing required developer asset fails fast and clean.
+    # Run check_dev_assets.sh in a throwaway temporary tree missing one asset
+    # to confirm it rejects the tree without modifying the live repository.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fake_root = Path(tmpdir)
+        # Recreate the expected layout with all required assets except dev/hello.c
+        (fake_root / "dev" / "lib").mkdir(parents=True)
+        (fake_root / "dev" / "tcc").mkdir(parents=True)
+        (fake_root / "user" / "libs" / "sofpack" / "include" / "sofpack").mkdir(parents=True)
+        (fake_root / "user" / "libs" / "manifestgen" / "include" / "manifestgen").mkdir(parents=True)
+
+        (fake_root / "dev" / "building.txt").write_bytes(guide_src)
+        (fake_root / "dev" / "lib" / "README.md").write_bytes(lib_readme_src)
+        (fake_root / "dev" / "tcc" / "README.md").write_bytes(tcc_readme_src)
+        (fake_root / "user" / "libs" / "sofpack" / "include" / "sofpack" / "sofpack.h").write_bytes(b"/* sofpack */\n")
+        (fake_root / "user" / "libs" / "manifestgen" / "include" / "manifestgen" / "manifest_default.h").write_bytes(b"/* manifest */\n")
+
+        check_script = ROOT / "build" / "scripts" / "check_dev_assets.sh"
+        proc = subprocess.run(
+            ["bash", str(check_script), str(fake_root)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode == 0:
+            failures.append("check_dev_assets.sh succeeded despite missing dev/hello.c")
+        if "BUILD_DISK_IMAGE:FAIL:missing_required_dev_asset:dev/hello.c" not in proc.stderr:
+            failures.append(
+                f"check_dev_assets.sh did not emit expected error marker: stderr={proc.stderr.strip()}"
+            )
+
+        # Now add hello.c and assert it passes
+        (fake_root / "dev" / "hello.c").write_bytes(hello_src)
+        proc_ok = subprocess.run(
+            ["bash", str(check_script), str(fake_root)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc_ok.returncode != 0:
+            failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
+        if "APPS_DEV_ASSETS:PASS:6" not in proc_ok.stdout:
+            failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
 
     if failures:
         for f in failures:

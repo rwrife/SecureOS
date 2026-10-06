@@ -42,6 +42,11 @@ run_manifest_gate() {
 		'user/apps/**/*.manifest.json'
 }
 
+# Keep the clean-image minimum independent of optional host-built archives.
+# Check before generating keys or invoking compilers so a missing tracked
+# developer asset fails promptly and does not leave a partial image.
+bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR"
+
 run_manifest_gate
 
 build_disk_image_inner() {
@@ -126,33 +131,19 @@ build_disk_image_inner() {
 		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
-	# Deploy in-OS developer tools to /apps/dev (sample + on-device guide).
-	# Source of truth is the repo-level dev/ directory; the in-OS compiler
-	# itself is staged here in a later phase (see
-	# plans/2026-05-28-in-os-toolchain-self-hosting.md).
-	local -a dev_mappings=()
-	if [ -f "$ROOT_DIR/dev/hello.c" ]; then
-		dev_mappings+=("dev/hello.c=/apps/dev/hello.c")
-	fi
-	if [ -f "$ROOT_DIR/dev/building.txt" ]; then
-		dev_mappings+=("dev/building.txt=/apps/dev/building.txt")
-	fi
-	if [ -f "$ROOT_DIR/dev/lib/README.md" ]; then
-		dev_mappings+=("dev/lib/README.md=/apps/dev/lib/README.md")
-	fi
-	if [ -f "$ROOT_DIR/dev/tcc/README.md" ]; then
-		dev_mappings+=("dev/tcc/README.md=/apps/dev/tcc/README.md")
-	fi
-	# Issue #613: stage namespaced public library headers for in-OS `cc`.
-	# FAT staging remains strict 8.3 today; keep header aliases 8.3-safe.
-	if [ -f "$ROOT_DIR/user/libs/sofpack/include/sofpack/sofpack.h" ]; then
-		dev_mappings+=("user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h")
-	fi
-	if [ -f "$ROOT_DIR/user/libs/manifestgen/include/manifestgen/manifest_default.h" ]; then
-		# Source header remains manifestgen/manifest_default.h in-tree; staged alias
-		# stays 8.3-safe until long-name support lands in disk-image tooling/runtime.
-		dev_mappings+=("user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h")
-	fi
+	# DEMO-04 (#768): tracked developer assets are mandatory. Existence was
+	# already asserted at the top of this script, so the mappings are now
+	# unconditional: a missing sample/guide/header fails the build instead of
+	# silently producing an incomplete image. Compiler/runtime archive staging
+	# below remains conditional and is NOT covered by this slice.
+	local -a dev_mappings=(
+		"dev/hello.c=/apps/dev/hello.c"
+		"dev/building.txt=/apps/dev/building.txt"
+		"dev/lib/README.md=/apps/dev/lib/README.md"
+		"dev/tcc/README.md=/apps/dev/tcc/README.md"
+		"user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h"
+		"user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h"
+	)
 	# Issue #545: stage freestanding user archives used by in-OS `cc` link
 	# (when present in the host artifacts tree).
 	if [ -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ]; then
