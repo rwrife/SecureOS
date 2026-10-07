@@ -11,6 +11,16 @@ if [[ ! -r "$WRAPPER" ]]; then
   exit 78
 fi
 
+# The pinned archive hashes are mandatory; clean validation checkouts need
+# the same freestanding archive builders as the disk path before SHA checking.
+if [[ ! -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ||
+      ! -f "$ROOT_DIR/artifacts/user/libs/libtcc1.a" ]]; then
+  bash "$ROOT_DIR/build/scripts/build_tinycc.sh"
+fi
+if [[ ! -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]]; then
+  (cd "$ROOT_DIR" && bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack)
+fi
+
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 OUT="$TMP/apps_dev_sha.log"
