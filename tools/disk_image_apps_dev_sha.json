@@ -49,23 +49,20 @@
     {
       "target": "/apps/dev/lib/libclib.a",
       "source": "artifacts/user/libs/libclib.a",
-      "pending": true,
-      "gatingIssue": 548,
-      "origin": "#545"
+      "sha256": "0d638f4965dba9fd2360d7b3362ad80f481b37612dcc5caac209c6821886c7ae",
+      "origin": "#768 mandatory runtime archive (pinned Bookworm toolchain)"
     },
     {
       "target": "/apps/dev/lib/sofpack.a",
       "source": "artifacts/user/libs/libsofpack.a",
-      "pending": true,
-      "gatingIssue": 548,
-      "origin": "#768 strict 8.3 alias for #545 archive"
+      "sha256": "65271e0533029ac381799786002bdb17f1feeedf14e29bcde2fed9b101f2c278",
+      "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
     },
     {
       "target": "/apps/dev/tcc/libtcc1.a",
       "source": "artifacts/user/libs/libtcc1.a",
-      "pending": true,
-      "gatingIssue": 548,
-      "origin": "#550"
+      "sha256": "a783ce833941c4f1565cb184e065c875e38b6cac3dec74036b1839618c7f0b20",
+      "origin": "#768 mandatory runtime archive (pinned Bookworm toolchain)"
     }
   ]
 }

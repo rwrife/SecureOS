@@ -9,7 +9,8 @@
 #   build failure rather than silently skipping them"), not a skipped mapping.
 #
 # Usage:
-#   check_dev_assets.sh [ROOT_DIR]     # defaults to the repository root
+#   check_dev_assets.sh [ROOT_DIR] [--archives] # defaults to repository root
+#   --archives: also require host-built archives after the disk build creates them.
 #
 # Called by:
 #   - build/scripts/build_disk_image.sh (early, before keys/compilers/ISO work)
@@ -21,12 +22,17 @@
 #   stderr, exit 1.
 #
 # Scope note:
-#   Compiler/runtime archives (libclib.a, sofpack.a, libtcc1.a) are NOT part of
-#   this list. They are host build artifacts whose staging is still conditional
-#   under #768, so requiring them here would break every clean image build.
+#   Tracked repository assets are checked early before build work begins.
+#   Passing --archives enforces that compiler/runtime archives (libclib.a,
+#   libsofpack.a, libtcc1.a) were produced by the build before disk staging.
 set -euo pipefail
 
 ROOT_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+if [ "$#" -gt 2 ] || [[ "${2:-}" != "" && "${2:-}" != "--archives" ]]; then
+	echo "Usage: check_dev_assets.sh [ROOT_DIR] [--archives]" >&2
+	exit 2
+fi
+CHECK_ARCHIVES="${2:-}"
 
 required_dev_assets=(
 	dev/hello.c
@@ -36,6 +42,14 @@ required_dev_assets=(
 	user/libs/sofpack/include/sofpack/sofpack.h
 	user/libs/manifestgen/include/manifestgen/manifest_default.h
 )
+
+if [ "$CHECK_ARCHIVES" = "--archives" ]; then
+	required_dev_assets+=(
+		artifacts/user/libs/libclib.a
+		artifacts/user/libs/libsofpack.a
+		artifacts/user/libs/libtcc1.a
+	)
+fi
 
 missing=0
 for asset in "${required_dev_assets[@]}"; do

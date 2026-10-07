@@ -131,11 +131,14 @@ build_disk_image_inner() {
 		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
-	# DEMO-04 (#768): tracked developer assets are mandatory. Existence was
-	# already asserted at the top of this script, so the mappings are now
-	# unconditional: a missing sample/guide/header fails the build instead of
-	# silently producing an incomplete image. Compiler/runtime archive staging
-	# below remains conditional and is NOT covered by this slice.
+	# DEMO-04 (#768): clean disk builds must produce the runtime archives,
+	# not depend on artifacts left by earlier host builds. Fail before packing
+	# if a builder fails or does not produce a required archive.
+	bash "$ROOT_DIR/build/scripts/build_tinycc.sh"
+	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack
+	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives
+
+	# Tracked assets and freshly built archives are staged unconditionally.
 	local -a dev_mappings=(
 		"dev/hello.c=/apps/dev/hello.c"
 		"dev/building.txt=/apps/dev/building.txt"
@@ -144,21 +147,12 @@ build_disk_image_inner() {
 		"user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h"
 		"user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h"
 	)
-	# Issue #545: stage freestanding user archives used by in-OS `cc` link
-	# (when present in the host artifacts tree).
-	if [ -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ]; then
-		dev_mappings+=("artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a")
-	fi
-	if [ -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]; then
-		# Host archive name exceeds FAT 8.3; stage a legal alias without
-		# renaming the canonical build artifact.
-		dev_mappings+=("artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a")
-	fi
-	# Issue #550: stage TinyCC runtime helper archive used by
-	# tcc_add_runtime() (when present in host artifacts).
-	if [ -f "$ROOT_DIR/artifacts/user/libs/libtcc1.a" ]; then
-		dev_mappings+=("artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a")
-	fi
+	# The SOF packer keeps its host name but has an 8.3-safe disk alias.
+	dev_mappings+=(
+		"artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a"
+		"artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a"
+		"artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a"
+	)
 
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""

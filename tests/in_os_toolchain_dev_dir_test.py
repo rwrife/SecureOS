@@ -176,14 +176,40 @@ def main() -> int:
             f"/apps/dev/lib/sofpack.a mismatch: wrote {len(sofpack_bytes)} bytes, "
             f"read {len(got_libsofpack)} bytes"
         )
+
+    # 4. Built disk image roundtrip check (when real artifacts exist).
+    disk_path = ROOT / "artifacts/disk/secureos-disk.img"
+    if disk_path.is_file():
+        disk_raw = disk_path.read_bytes()
+        disk_img = pop.DiskImage(disk_path, len(disk_raw) // pop.FS_BLOCK_SIZE)
+        disk_img.data = bytearray(disk_raw)
+        fat_start = pop.FS_RESERVED_SECTORS * pop.FS_BLOCK_SIZE
+        fat_end = fat_start + pop.FS_FAT_SIZE_SECTORS * pop.FS_BLOCK_SIZE
+        disk_img.fat = bytearray(disk_raw[fat_start:fat_end])
+        for src_name, target in (
+            ("libclib.a", "/apps/dev/lib/libclib.a"),
+            ("libsofpack.a", "/apps/dev/lib/sofpack.a"),
+            ("libtcc1.a", "/apps/dev/tcc/libtcc1.a"),
+        ):
+            src_file = ROOT / "artifacts/user/libs" / src_name
+            if src_file.is_file():
+                staged = read_file(disk_img, target)
+                expected = src_file.read_bytes()
+                if staged != expected:
+                    failures.append(f"{target} on built disk differs from {src_file}")
+
     mapping = 'artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a'
     if mapping not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
         failures.append("disk build does not stage the 8.3 SOF packer alias")
+    disk_script = (ROOT / "build/scripts/build_disk_image.sh").read_text()
+    if 'bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives' not in disk_script:
+        failures.append("disk build does not enforce the post-build archive gate")
     pin = json.loads((ROOT / "tools/disk_image_apps_dev_sha.json").read_text())
     if not any(e["target"] == "/apps/dev/lib/sofpack.a" and
-               e["source"] == "artifacts/user/libs/libsofpack.a"
+               e["source"] == "artifacts/user/libs/libsofpack.a" and
+               not e.get("pending", False)
                for e in pin["entries"]):
-        failures.append("staging SHA pin does not cover the 8.3 SOF packer alias")
+        failures.append("staging SHA pin does not cover the 8.3 SOF packer alias as non-pending")
 
     if libtcc1_src is not None:
         got_libtcc1 = read_file(fresh, "/apps/dev/tcc/libtcc1.a")
@@ -242,6 +268,37 @@ def main() -> int:
             failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
         if "APPS_DEV_ASSETS:PASS:6" not in proc_ok.stdout:
             failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
+
+    # 6. After building, every runtime archive is mandatory, not optional.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fake_root = Path(tmpdir)
+        tracked = (
+            "dev/hello.c", "dev/building.txt", "dev/lib/README.md",
+            "dev/tcc/README.md", "user/libs/sofpack/include/sofpack/sofpack.h",
+            "user/libs/manifestgen/include/manifestgen/manifest_default.h",
+        )
+        archives = ("libclib.a", "libsofpack.a", "libtcc1.a")
+        for asset in tracked:
+            dest = fake_root / asset
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes((ROOT / asset).read_bytes())
+        archive_dir = fake_root / "artifacts/user/libs"
+        archive_dir.mkdir(parents=True)
+        for archive in archives:
+            (archive_dir / archive).write_bytes(b"!<arch>\n")
+        check_script = ROOT / "build/scripts/check_dev_assets.sh"
+        command = ["bash", str(check_script), str(fake_root), "--archives"]
+        complete = subprocess.run(command, capture_output=True, text=True)
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:9" not in complete.stdout:
+            failures.append("archive gate rejected complete developer assets")
+        for archive in archives:
+            path = archive_dir / archive
+            path.unlink()
+            missing = subprocess.run(command, capture_output=True, text=True)
+            marker = f"missing_required_dev_asset:artifacts/user/libs/{archive}"
+            if missing.returncode == 0 or marker not in missing.stderr:
+                failures.append(f"archive gate did not reject missing {archive}")
+            path.write_bytes(b"!<arch>\n")
 
     if failures:
         for f in failures:
