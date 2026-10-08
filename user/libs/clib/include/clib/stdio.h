@@ -161,7 +161,8 @@ extern FILE *stderr;
 #endif
 
 /*
- * File access modes accepted by `fopen`:
+ * File access modes accepted by `fopen` (optional "b" suffix on each;
+ * binary mode has identical byte-preserving semantics):
  *   "r"   — read.  fopen reads the entire file into an internal
  *                  buffer at open-time (one backend.read_file call).
  *   "w"   — write. fopen succeeds without backend interaction; on

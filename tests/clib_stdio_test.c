@@ -302,6 +302,35 @@ static void test_fopen_fwrite_fread_round_trip(void) {
   if (ok && got == plen) PASS("fopen_fwrite_fread_round_trip");
 }
 
+/* The cc manifest resolver uses rb/wb; binary modes must preserve NUL bytes
+ * and append without truncating previously persisted data. */
+static void test_fopen_binary_modes(void) {
+  install_full_backend();
+  const unsigned char payload[] = {0x7f, 0, 0xff};
+  clib_FILE_t *w = fopen("/tmp/out.bin", "wb");
+  CHECK(w != NULL, "fopen_wb_returns_handle");
+  if (w == NULL) return;
+  CHECK(fwrite(payload, 1, sizeof payload, w) == sizeof payload,
+        "binary_fwrite_full");
+  CHECK(fclose(w) == 0, "binary_fclose_w");
+  clib_FILE_t *a = fopen("/tmp/out.bin", "ab");
+  CHECK(a != NULL, "fopen_ab_returns_handle");
+  if (a == NULL) return;
+  CHECK(fwrite(payload, 1, sizeof payload, a) == sizeof payload,
+        "binary_append_full");
+  CHECK(fclose(a) == 0, "binary_fclose_a");
+  clib_FILE_t *r = fopen("/tmp/out.bin", "rb");
+  CHECK(r != NULL, "fopen_rb_returns_handle");
+  if (r == NULL) return;
+  unsigned char back[sizeof payload * 2];
+  size_t got = fread(back, 1, sizeof back, r);
+  int ok = got == sizeof back && memcmp(back, payload, sizeof payload) == 0
+        && memcmp(back + sizeof payload, payload, sizeof payload) == 0;
+  CHECK(ok, "binary_bytes_match");
+  CHECK(fclose(r) == 0, "binary_fclose_r");
+  if (ok) PASS("fopen_binary_modes");
+}
+
 static void test_large_payload_round_trip(void) {
   install_full_backend();
   /* 4097 bytes: deliberately above 4 KiB per #447 acceptance. */
@@ -523,6 +552,7 @@ int main(void) {
   test_printf_basic_format();
   test_printf_full_spec_set();
   test_fopen_fwrite_fread_round_trip();
+  test_fopen_binary_modes();
   test_large_payload_round_trip();
   test_stderr_routes_to_console();
   test_fopen_invalid_mode_returns_null();
