@@ -214,12 +214,15 @@ static int cc_tokenize(char *args_line, char **argv, int argv_max) {
   int count = 0;
   char *cursor = args_line;
 
-  while (count < argv_max) {
+  while (*cursor != '\0') {
     while (*cursor != '\0' && cc_is_space(*cursor)) {
       ++cursor;
     }
     if (*cursor == '\0') {
       break;
+    }
+    if (count >= argv_max) {
+      return -1;
     }
     argv[count++] = cursor;
     while (*cursor != '\0' && !cc_is_space(*cursor)) {
@@ -554,6 +557,10 @@ int main(void) {
 
   (void)os_get_args(args, (unsigned int)sizeof(args));
   argc = cc_tokenize(args, argv_slots, CC_ARGV_MAX);
+  if (argc < 0) {
+    cc_console("cc: too many arguments\n");
+    return CC_EXIT_USAGE;
+  }
 
   if (argc == 0) {
     cc_print_help();

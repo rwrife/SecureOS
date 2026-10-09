@@ -140,6 +140,7 @@ TEST_TARGETS=(
     # Issue #634: host-side precedence pin for `cc` manifest resolution
     # (`--manifest` > sidecar > synth) and hard-fail semantics when an
     # explicit override is unreadable/invalid.
+    cc_args
     cc_manifest_resolution_precedence
     tls
     https
