@@ -216,7 +216,7 @@ FILE *fopen(const char *path, const char *mode) {
     fp->in_use = 0;
     return 0;
   }
-  if (clib_streq(mode, "r")) {
+  if (clib_streq(mode, "r") || clib_streq(mode, "rb")) {
     fp->kind = CLIB_FK_FILE_R;
     /* Snapshot file contents at open time (single backend call). */
     size_t cap = sizeof fp->buf;
@@ -233,11 +233,11 @@ FILE *fopen(const char *path, const char *mode) {
     fp->cursor = 0;
     return fp;
   }
-  if (clib_streq(mode, "w")) {
+  if (clib_streq(mode, "w") || clib_streq(mode, "wb")) {
     fp->kind = CLIB_FK_FILE_W;
     return fp;
   }
-  if (clib_streq(mode, "a")) {
+  if (clib_streq(mode, "a") || clib_streq(mode, "ab")) {
     fp->kind = CLIB_FK_FILE_A;
     return fp;
   }

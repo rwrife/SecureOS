@@ -42,6 +42,11 @@ run_manifest_gate() {
 		'user/apps/**/*.manifest.json'
 }
 
+# Keep the clean-image minimum independent of optional host-built archives.
+# Check before generating keys or invoking compilers so a missing tracked
+# developer asset fails promptly and does not leave a partial image.
+bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR"
+
 run_manifest_gate
 
 build_disk_image_inner() {
@@ -126,46 +131,28 @@ build_disk_image_inner() {
 		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
-	# Deploy in-OS developer tools to /apps/dev (sample + on-device guide).
-	# Source of truth is the repo-level dev/ directory; the in-OS compiler
-	# itself is staged here in a later phase (see
-	# plans/2026-05-28-in-os-toolchain-self-hosting.md).
-	local -a dev_mappings=()
-	if [ -f "$ROOT_DIR/dev/hello.c" ]; then
-		dev_mappings+=("dev/hello.c=/apps/dev/hello.c")
-	fi
-	if [ -f "$ROOT_DIR/dev/building.txt" ]; then
-		dev_mappings+=("dev/building.txt=/apps/dev/building.txt")
-	fi
-	if [ -f "$ROOT_DIR/dev/lib/README.md" ]; then
-		dev_mappings+=("dev/lib/README.md=/apps/dev/lib/README.md")
-	fi
-	if [ -f "$ROOT_DIR/dev/tcc/README.md" ]; then
-		dev_mappings+=("dev/tcc/README.md=/apps/dev/tcc/README.md")
-	fi
-	# Issue #613: stage namespaced public library headers for in-OS `cc`.
-	# FAT staging remains strict 8.3 today; keep header aliases 8.3-safe.
-	if [ -f "$ROOT_DIR/user/libs/sofpack/include/sofpack/sofpack.h" ]; then
-		dev_mappings+=("user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h")
-	fi
-	if [ -f "$ROOT_DIR/user/libs/manifestgen/include/manifestgen/manifest_default.h" ]; then
-		# Source header remains manifestgen/manifest_default.h in-tree; staged alias
-		# stays 8.3-safe until long-name support lands in disk-image tooling/runtime.
-		dev_mappings+=("user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h")
-	fi
-	# Issue #545: stage freestanding user archives used by in-OS `cc` link
-	# (when present in the host artifacts tree).
-	if [ -f "$ROOT_DIR/artifacts/user/libs/libclib.a" ]; then
-		dev_mappings+=("artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a")
-	fi
-	if [ -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]; then
-		dev_mappings+=("artifacts/user/libs/libsofpack.a=/apps/dev/lib/libsofpack.a")
-	fi
-	# Issue #550: stage TinyCC runtime helper archive used by
-	# tcc_add_runtime() (when present in host artifacts).
-	if [ -f "$ROOT_DIR/artifacts/user/libs/libtcc1.a" ]; then
-		dev_mappings+=("artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a")
-	fi
+	# DEMO-04 (#768): clean disk builds must produce the runtime archives,
+	# not depend on artifacts left by earlier host builds. Fail before packing
+	# if a builder fails or does not produce a required archive.
+	bash "$ROOT_DIR/build/scripts/build_tinycc.sh"
+	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack
+	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives
+
+	# Tracked assets and freshly built archives are staged unconditionally.
+	local -a dev_mappings=(
+		"dev/hello.c=/apps/dev/hello.c"
+		"dev/building.txt=/apps/dev/building.txt"
+		"dev/lib/README.md=/apps/dev/lib/README.md"
+		"dev/tcc/README.md=/apps/dev/tcc/README.md"
+		"user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h"
+		"user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h"
+	)
+	# The SOF packer keeps its host name but has an 8.3-safe disk alias.
+	dev_mappings+=(
+		"artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a"
+		"artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a"
+		"artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a"
+	)
 
 	# Deploy root certificate to /certs for runtime signature validation
 	CERTS_ARGS=""
