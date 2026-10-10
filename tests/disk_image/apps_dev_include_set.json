@@ -1,18 +1,18 @@
 {
-  "_comment": "Issue #615: canonical /apps/dev/include header-set pin for disk-image staging. secureos_api.h remains pending behind #531; #613 headers are strict requirements.",
+  "_comment": "Issue #615: canonical /apps/dev/include header-set pin for disk-image staging. secureos_api.h remains pending behind successor DEMO-04 #768; #613 headers are strict requirements.",
   "schemaVersion": 1,
   "issue": 615,
   "repo": "rwrife/SecureOS",
   "manifestSource": "build/scripts/build_disk_image.sh",
-  "skipMarker": "SKIP:#531",
+  "skipMarker": "SKIP:#768",
   "gatingIssues": [
-    531
+    768
   ],
   "headers": [
     {
       "path": "/apps/dev/include/secureos_api.h",
       "pending": true,
-      "gatingIssue": 531
+      "gatingIssue": 768
     },
     {
       "path": "/apps/dev/include/sofpack/sofpack.h",

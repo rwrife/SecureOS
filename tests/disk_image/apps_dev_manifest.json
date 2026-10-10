@@ -4,14 +4,8 @@
   "issue": 570,
   "repo": "rwrife/SecureOS",
   "manifestSource": "build/scripts/build_disk_image.sh",
-  "skipMarker": "SKIP:#541,#545,#548,#550,#531",
-  "gatingIssues": [
-    541,
-    545,
-    548,
-    550,
-    531
-  ],
+  "skipMarker": "SKIP:#768",
+  "gatingIssues": [768],
   "requiredPaths": [
     "/apps/dev/cc",
     "/apps/dev/lib/libclib.a",
