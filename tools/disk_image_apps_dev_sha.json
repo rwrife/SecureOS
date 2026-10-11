@@ -4,10 +4,9 @@
   "issue": 606,
   "repo": "rwrife/SecureOS",
   "manifestSource": "build/scripts/build_disk_image.sh",
-  "skipMarker": "SKIP:#531,#548",
+  "skipMarker": "SKIP:#768",
   "gatingIssues": [
-    531,
-    548
+    768
   ],
   "entries": [
     {
