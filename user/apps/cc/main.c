@@ -246,14 +246,18 @@ static void cc_print_help(void) {
   cc_console("after granting the unsigned-execution prompt.\n");
 }
 
-/* Byte-length of the path prefix up to (and excluding) the last '.'. */
+/* Byte-length of the path prefix up to (and excluding) the extension dot
+ * within the last path component. If the filename component has no dot,
+ * returns the full path length. */
 static size_t cc_stem_len(const char *path) {
-  size_t stem = strlen(path);
-  size_t dot = stem;
+  size_t len = strlen(path);
+  size_t dot = len;
   size_t i;
 
-  for (i = 0; i < stem; ++i) {
-    if (path[i] == '.') {
+  for (i = 0; i < len; ++i) {
+    if (path[i] == '/' || path[i] == '\\') {
+      dot = len;
+    } else if (path[i] == '.') {
       dot = i;
     }
   }

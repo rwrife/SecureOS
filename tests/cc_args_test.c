@@ -17,6 +17,12 @@ int main(void) {
   char overflow[] = "a b c d e f g h i j k l m n o p rejected";
   char empty[] = " \t\r\n";
   char *slots[CC_ARGV_MAX];
+  char staged[CC_PATH_MAX];
+  if (!cc_swap_ext(staged, sizeof(staged), "/apps.v1/demo", "elf") ||
+      strcmp(staged, "/apps.v1/demo.elf") != 0) return 5;
+  if (!cc_swap_ext(staged, sizeof(staged), "/apps.v1/demo.bin", "elf") ||
+      strcmp(staged, "/apps.v1/demo.elf") != 0) return 6;
+  if (cc_swap_ext(staged, 8u, "/apps/demo.bin", "elf")) return 7;
   if (cc_tokenize(exact, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 1;
   if (cc_tokenize(trailing, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 2;
   if (cc_tokenize(overflow, slots, CC_ARGV_MAX) != -1) return 3;
