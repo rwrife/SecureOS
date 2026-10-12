@@ -18,7 +18,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "e47b5e230606325e7d894b64806cc73c257e2579abdc756c63a6c85a503069c9",
+      "sha256": "14f2fbdee56fd58e637bc2a975ed9a75ce75866681f93e923608e96803ea1d6a",
       "origin": "#403 phase-1 on-device guide; #769 editor section"
     },
     {
