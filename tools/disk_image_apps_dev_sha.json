@@ -58,6 +58,12 @@
       "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
     },
     {
+      "target": "/apps/dev/lib/mangen.a",
+      "source": "artifacts/user/libs/libmanifestgen.a",
+      "sha256": "da35c359f2254d177bb004a47dd965ea9eeff12870c6414e49b28a32e27bb394",
+      "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
+    },
+    {
       "target": "/apps/dev/tcc/libtcc1.a",
       "source": "artifacts/user/libs/libtcc1.a",
       "sha256": "a783ce833941c4f1565cb184e065c875e38b6cac3dec74036b1839618c7f0b20",
