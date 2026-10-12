@@ -189,6 +189,7 @@ def main() -> int:
         for src_name, target in (
             ("libclib.a", "/apps/dev/lib/libclib.a"),
             ("libsofpack.a", "/apps/dev/lib/sofpack.a"),
+            ("libmanifestgen.a", "/apps/dev/lib/mangen.a"),
             ("libtcc1.a", "/apps/dev/tcc/libtcc1.a"),
         ):
             src_file = ROOT / "artifacts/user/libs" / src_name
@@ -201,6 +202,9 @@ def main() -> int:
     mapping = 'artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a'
     if mapping not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
         failures.append("disk build does not stage the 8.3 SOF packer alias")
+    mapping_mangen = 'artifacts/user/libs/libmanifestgen.a=/apps/dev/lib/mangen.a'
+    if mapping_mangen not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
+        failures.append("disk build does not stage the 8.3 manifestgen alias")
     disk_script = (ROOT / "build/scripts/build_disk_image.sh").read_text()
     if 'bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives' not in disk_script:
         failures.append("disk build does not enforce the post-build archive gate")
@@ -277,7 +281,7 @@ def main() -> int:
             "dev/tcc/README.md", "user/libs/sofpack/include/sofpack/sofpack.h",
             "user/libs/manifestgen/include/manifestgen/manifest_default.h",
         )
-        archives = ("libclib.a", "libsofpack.a", "libtcc1.a")
+        archives = ("libclib.a", "libsofpack.a", "libmanifestgen.a", "libtcc1.a")
         for asset in tracked:
             dest = fake_root / asset
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -289,7 +293,7 @@ def main() -> int:
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:9" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:10" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
         for archive in archives:
             path = archive_dir / archive

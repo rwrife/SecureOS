@@ -18,7 +18,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "e47b5e230606325e7d894b64806cc73c257e2579abdc756c63a6c85a503069c9",
+      "sha256": "14f2fbdee56fd58e637bc2a975ed9a75ce75866681f93e923608e96803ea1d6a",
       "origin": "#403 phase-1 on-device guide; #769 editor section"
     },
     {
@@ -55,6 +55,12 @@
       "target": "/apps/dev/lib/sofpack.a",
       "source": "artifacts/user/libs/libsofpack.a",
       "sha256": "65271e0533029ac381799786002bdb17f1feeedf14e29bcde2fed9b101f2c278",
+      "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
+    },
+    {
+      "target": "/apps/dev/lib/mangen.a",
+      "source": "artifacts/user/libs/libmanifestgen.a",
+      "sha256": "da35c359f2254d177bb004a47dd965ea9eeff12870c6414e49b28a32e27bb394",
       "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
     },
     {

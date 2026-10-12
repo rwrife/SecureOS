@@ -136,6 +136,7 @@ build_disk_image_inner() {
 	# if a builder fails or does not produce a required archive.
 	bash "$ROOT_DIR/build/scripts/build_tinycc.sh"
 	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack
+	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" manifestgen
 	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives
 
 	# Tracked assets and freshly built archives are staged unconditionally.
@@ -151,6 +152,7 @@ build_disk_image_inner() {
 	dev_mappings+=(
 		"artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a"
 		"artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a"
+		"artifacts/user/libs/libmanifestgen.a=/apps/dev/lib/mangen.a"
 		"artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a"
 	)
 
