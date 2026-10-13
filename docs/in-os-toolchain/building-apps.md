@@ -32,6 +32,7 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | Path                      | Purpose                                              |
 |---------------------------|------------------------------------------------------|
 | `/apps/dev/hello.c`       | Validation sample — compile it to test the toolchain |
+| `/apps/dev/pixels.c`      | Small graphics sample (draw on click, Escape exits)  |
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
 | `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
 | `/apps/dev/include/`              | Public headers staged for in-OS builds (`sofpack/sofpack.h`, `manifest/manifest.h`); `secureos_api.h` remains pending behind [#531](https://github.com/rwrife/SecureOS/issues/531) |
@@ -57,6 +58,13 @@ Header staging currently includes:
 `dev/building.txt` is user-facing runtime docs; this in-tree guide is the
 source-level companion. Keep both in sync so staged `/apps/dev` reality,
 phase-gating labels, and quick-start instructions do not drift.
+
+The staged `pixels.c` sample calls only `secureos_api.h`: it draws a rectangle,
+adds pixels on left-click, and exits on Escape. Use `run /apps/edit` to open
+and change `/apps/dev/pixels.c`. Compilation (`cc /apps/dev/pixels.c -o
+/apps/pixels.bin`) and desktop launch (`run /apps/pixels.bin`) remain **planned**,
+gated on #766, #767, #768, #770, and the guest acceptance gate #771. The
+source's presence does not establish a working in-guest graphics build.
 
 ## Writing an app
 

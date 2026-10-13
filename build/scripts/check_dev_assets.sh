@@ -36,6 +36,7 @@ CHECK_ARCHIVES="${2:-}"
 
 required_dev_assets=(
 	dev/hello.c
+	dev/pixels.c
 	dev/building.txt
 	dev/lib/README.md
 	dev/tcc/README.md

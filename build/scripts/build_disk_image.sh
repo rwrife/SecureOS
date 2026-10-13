@@ -142,6 +142,7 @@ build_disk_image_inner() {
 	# Tracked assets and freshly built archives are staged unconditionally.
 	local -a dev_mappings=(
 		"dev/hello.c=/apps/dev/hello.c"
+		"dev/pixels.c=/apps/dev/pixels.c"
 		"dev/building.txt=/apps/dev/building.txt"
 		"dev/lib/README.md=/apps/dev/lib/README.md"
 		"dev/tcc/README.md=/apps/dev/tcc/README.md"

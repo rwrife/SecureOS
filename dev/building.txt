@@ -5,6 +5,7 @@ This folder (/apps/dev) holds the on-device developer sample content.
 
   Files here (currently staged on main):
     hello.c                     Canonical validation sample source.
+    pixels.c                    Small in-guest graphics sample.
     building.txt                This on-device quick-start guide.
     include/sofpack/sofpack.h   Public SOF packer header for in-OS builds.
     include/manifest/manifest.h 8.3-safe staged alias of manifestgen's public header.
@@ -62,6 +63,15 @@ EDITING SOURCES INSIDE THE OS (available now)
   Build and run (planned while gates are open):
       cc /apps/dev/mini.c -o /apps/mini.bin
       mini
+
+GRAPHICS SAMPLE (planned — gated on #766/#767/#768/#770/#771)
+-------------------------------------------------------------
+  pixels.c draws a rectangle, draws pixels on left-click and exits on Escape.
+  Edit it with: run /apps/edit (open /apps/dev/pixels.c, then save).
+  Once the compiler and graphical acceptance gates land, build it with
+  cc /apps/dev/pixels.c -o /apps/pixels.bin, then run /apps/pixels.bin
+  in the desktop and grant unsigned-run consent when prompted. Today this
+  source is staged but guest compilation and execution remain unverified.
 
 FILESYSTEM NAME LIMITS (important)
 ----------------------------------
