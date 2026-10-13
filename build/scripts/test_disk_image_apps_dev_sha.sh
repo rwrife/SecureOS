@@ -20,6 +20,9 @@ fi
 if [[ ! -f "$ROOT_DIR/artifacts/user/libs/libsofpack.a" ]]; then
   (cd "$ROOT_DIR" && bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack)
 fi
+if [[ ! -f "$ROOT_DIR/artifacts/user/libs/libmanifestgen.a" ]]; then
+  (cd "$ROOT_DIR" && bash "$ROOT_DIR/build/scripts/build_user_lib.sh" manifestgen)
+fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
