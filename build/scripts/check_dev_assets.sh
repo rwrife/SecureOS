@@ -9,8 +9,9 @@
 #   build failure rather than silently skipping them"), not a skipped mapping.
 #
 # Usage:
-#   check_dev_assets.sh [ROOT_DIR] [--archives] # defaults to repository root
-#   --archives: also require host-built archives after the disk build creates them.
+#   check_dev_assets.sh [ROOT_DIR] [--archives] [--compiler]
+#   --archives: require runtime archives after build.
+#   --compiler: require freshly built cc.bin after build.
 #
 # Called by:
 #   - build/scripts/build_disk_image.sh (early, before keys/compilers/ISO work)
@@ -25,14 +26,18 @@
 #   Tracked repository assets are checked early before build work begins.
 #   Passing --archives enforces that compiler/runtime archives (libclib.a,
 #   libsofpack.a, libmanifestgen.a, libtcc1.a) were produced before disk staging.
+#   Passing --compiler additionally enforces the freshly built cc.bin (DEMO-04
+#   #768: the developer image must ship the compiler, not just its archives).
 set -euo pipefail
 
 ROOT_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-if [ "$#" -gt 2 ] || [[ "${2:-}" != "" && "${2:-}" != "--archives" ]]; then
-	echo "Usage: check_dev_assets.sh [ROOT_DIR] [--archives]" >&2
+if [ "$#" -gt 3 ] || [[ "${2:-}" != "" && "${2:-}" != "--archives" ]] || \
+   [[ "${3:-}" != "" && "${3:-}" != "--compiler" ]]; then
+	echo "Usage: check_dev_assets.sh [ROOT_DIR] [--archives] [--compiler]" >&2
 	exit 2
 fi
 CHECK_ARCHIVES="${2:-}"
+CHECK_COMPILER="${3:-}"
 
 required_dev_assets=(
 	dev/hello.c
@@ -50,6 +55,12 @@ if [ "$CHECK_ARCHIVES" = "--archives" ]; then
 		artifacts/user/libs/libsofpack.a
 		artifacts/user/libs/libmanifestgen.a
 		artifacts/user/libs/libtcc1.a
+	)
+fi
+
+if [ "$CHECK_COMPILER" = "--compiler" ]; then
+	required_dev_assets+=(
+		artifacts/user/cc.bin
 	)
 fi
 

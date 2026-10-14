@@ -207,6 +207,10 @@ def main() -> int:
                 expected = src_file.read_bytes()
                 if staged != expected:
                     failures.append(f"{target} on built disk differs from {src_file}")
+        cc_src = ROOT / "artifacts/user/cc.bin"
+        if cc_src.is_file():
+            if read_file(disk_img, "/apps/dev/cc") != cc_src.read_bytes():
+                failures.append("/apps/dev/cc on built disk differs from artifacts/user/cc.bin")
 
     mapping = 'artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a'
     if mapping not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
@@ -215,8 +219,8 @@ def main() -> int:
     if mapping_mangen not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
         failures.append("disk build does not stage the 8.3 manifestgen alias")
     disk_script = (ROOT / "build/scripts/build_disk_image.sh").read_text()
-    if 'bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives' not in disk_script:
-        failures.append("disk build does not enforce the post-build archive gate")
+    if 'bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives --compiler' not in disk_script:
+        failures.append("disk build does not enforce the post-build archive+compiler gate")
     pin = json.loads((ROOT / "tools/disk_image_apps_dev_sha.json").read_text())
     if not any(e["target"] == "/apps/dev/lib/sofpack.a" and
                e["source"] == "artifacts/user/libs/libsofpack.a" and
@@ -315,6 +319,19 @@ def main() -> int:
             if missing.returncode == 0 or marker not in missing.stderr:
                 failures.append(f"archive gate did not reject missing {archive}")
             path.write_bytes(b"!<arch>\n")
+
+        # 6b. Compiler binary gate (--compiler) requires freshly built cc.bin.
+        user_dir = fake_root / "artifacts/user"
+        cc_bin = user_dir / "cc.bin"
+        cc_bin.write_bytes(b"SOF\x01fake-cc")
+        comp_cmd = ["bash", str(check_script), str(fake_root), "--archives", "--compiler"]
+        res = subprocess.run(comp_cmd, capture_output=True, text=True)
+        if res.returncode or "APPS_DEV_ASSETS:PASS:12" not in res.stdout:
+            failures.append(f"compiler gate rejected complete assets: stdout={res.stdout} stderr={res.stderr}")
+        cc_bin.unlink()
+        res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)
+        if res_fail.returncode == 0 or "missing_required_dev_asset:artifacts/user/cc.bin" not in res_fail.stderr:
+            failures.append("compiler gate did not reject missing cc.bin")
 
     if failures:
         for f in failures:

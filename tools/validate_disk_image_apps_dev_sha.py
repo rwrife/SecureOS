@@ -214,6 +214,24 @@ def main() -> int:
         pending = bool(entry.get("pending", False))
         expected_sha = entry.get("sha256")
 
+        # ponytail: cc.bin embeds a build date and a signature, so pinning its
+        # bytes needs reproducible signing inputs. The disk-image round-trip
+        # gate (in_os_toolchain_dev_dir test 7) verifies byte identity against
+        # the freshly built artifacts/user/cc.bin instead of a static pin.
+        if entry.get("runtimeBuilt") is True:
+            if target != "/apps/dev/cc" or expected_sha is not None:
+                emit_err(f"APPS_DEV_SHA:FAIL:runtime_built_pin_misuse:{target}")
+                had_failure = True
+                continue
+            # Validation bundle runs before disk build in CI. Presence after
+            # build is enforced by check_dev_assets.sh --compiler; disk test
+            # checks bytes when built artifacts exist.
+            if not source_path.is_file():
+                emit(f"APPS_DEV_SHA:SKIP:runtime_artifact_not_built:{target}")
+                continue
+            emit(f"APPS_DEV_SHA:SKIP:runtime_built:{target}")
+            continue
+
         if not source_path.is_file():
             if not pending:
                 emit_err(f"APPS_DEV_SHA:FAIL:missing_source_file:{expected_source}:target={target}")

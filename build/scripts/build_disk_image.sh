@@ -131,16 +131,17 @@ build_disk_image_inner() {
 		script_mappings+=("artifacts/scripts/demo.sh=/scripts/demo.sh")
 	fi
 
-	# DEMO-04 (#768): clean disk builds must produce the runtime archives,
-	# not depend on artifacts left by earlier host builds. Fail before packing
-	# if a builder fails or does not produce a required archive.
+	# DEMO-04 (#768): build cc and its runtime archives from a clean tree.
+	# Do not accept an old cc.bin from artifacts: the disk must match this source.
 	bash "$ROOT_DIR/build/scripts/build_tinycc.sh"
 	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack
 	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" manifestgen
-	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives
+	bash "$ROOT_DIR/build/scripts/build_user_app.sh" cc
+	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives --compiler
 
 	# Tracked assets and freshly built archives are staged unconditionally.
 	local -a dev_mappings=(
+		"artifacts/user/cc.bin=/apps/dev/cc"
 		"dev/hello.c=/apps/dev/hello.c"
 		"dev/pixels.c=/apps/dev/pixels.c"
 		"dev/building.txt=/apps/dev/building.txt"

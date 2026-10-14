@@ -4,6 +4,7 @@ SecureOS — Building Apps Inside the OS
 This folder (/apps/dev) holds the on-device developer sample content.
 
   Files here (currently staged on main):
+    cc                          TinyCC-based compiler driver (guest run unverified).
     hello.c                     Canonical validation sample source.
     pixels.c                    Small in-guest graphics sample.
     building.txt                This on-device quick-start guide.
