@@ -10,6 +10,12 @@
   ],
   "entries": [
     {
+      "target": "/apps/dev/cc",
+      "source": "artifacts/user/cc.bin",
+      "origin": "#768 compiler driver app (staged from clean build)",
+      "runtimeBuilt": true
+    },
+    {
       "target": "/apps/dev/hello.c",
       "source": "dev/hello.c",
       "sha256": "a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30",
@@ -24,7 +30,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "4d6307fa56622db7b95a995b4d1bdb85b70dde0ba24c7c05559551b4b5636a40",
+      "sha256": "f0c5acac79249c7a4198189d4ef9c8d772daf33e0c43a432ca02b75b86938b73",
       "origin": "#403 phase-1 on-device guide; #769 editor section; #768 graphics sample"
     },
     {
