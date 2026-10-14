@@ -100,6 +100,7 @@ def main() -> int:
     fresh = pop.DiskImage(Path("unused2.img"), 16384)
     fresh.mkdir("/apps")
     hello_src = (ROOT / "dev" / "hello.c").read_bytes()
+    pixels_src = (ROOT / "dev" / "pixels.c").read_bytes()
     guide_src = (ROOT / "dev" / "building.txt").read_bytes()
     lib_readme_src = (ROOT / "dev" / "lib" / "README.md").read_bytes()
     tcc_readme_src = (ROOT / "dev" / "tcc" / "README.md").read_bytes()
@@ -114,6 +115,7 @@ def main() -> int:
     libtcc1_src = libtcc1_artifact.read_bytes() if libtcc1_artifact.is_file() else None
 
     fresh.write_file("/apps/dev/hello.c", hello_src)
+    fresh.write_file("/apps/dev/pixels.c", pixels_src)
     fresh.write_file("/apps/dev/building.txt", guide_src)
     fresh.write_file("/apps/dev/lib/README.md", lib_readme_src)
     fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
@@ -139,6 +141,13 @@ def main() -> int:
         failures.append(
             f"/apps/dev/hello.c mismatch: wrote {len(hello_src)} bytes, "
             f"read {len(got_hello)} bytes"
+        )
+
+    got_pixels = read_file(fresh, "/apps/dev/pixels.c")
+    if got_pixels != pixels_src:
+        failures.append(
+            f"/apps/dev/pixels.c mismatch: wrote {len(pixels_src)} bytes, "
+            f"read {len(got_pixels)} bytes"
         )
 
     got_guide = read_file(fresh, "/apps/dev/building.txt")
@@ -189,6 +198,7 @@ def main() -> int:
         for src_name, target in (
             ("libclib.a", "/apps/dev/lib/libclib.a"),
             ("libsofpack.a", "/apps/dev/lib/sofpack.a"),
+            ("libmanifestgen.a", "/apps/dev/lib/mangen.a"),
             ("libtcc1.a", "/apps/dev/tcc/libtcc1.a"),
         ):
             src_file = ROOT / "artifacts/user/libs" / src_name
@@ -201,6 +211,9 @@ def main() -> int:
     mapping = 'artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a'
     if mapping not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
         failures.append("disk build does not stage the 8.3 SOF packer alias")
+    mapping_mangen = 'artifacts/user/libs/libmanifestgen.a=/apps/dev/lib/mangen.a'
+    if mapping_mangen not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
+        failures.append("disk build does not stage the 8.3 manifestgen alias")
     disk_script = (ROOT / "build/scripts/build_disk_image.sh").read_text()
     if 'bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives' not in disk_script:
         failures.append("disk build does not enforce the post-build archive gate")
@@ -224,6 +237,8 @@ def main() -> int:
         failures.append("hello.c does not include secureos_api.h")
     if b"int main" not in hello_src:
         failures.append("hello.c has no main()")
+    if b"#include \"secureos_api.h\"" not in pixels_src or b"int main" not in pixels_src:
+        failures.append("pixels.c must be a main() sample using only secureos_api.h")
 
     # 5. Missing required developer asset fails fast and clean.
     # Run check_dev_assets.sh in a throwaway temporary tree missing one asset
@@ -258,6 +273,7 @@ def main() -> int:
 
         # Now add hello.c and assert it passes
         (fake_root / "dev" / "hello.c").write_bytes(hello_src)
+        (fake_root / "dev" / "pixels.c").write_bytes(pixels_src)
         proc_ok = subprocess.run(
             ["bash", str(check_script), str(fake_root)],
             capture_output=True,
@@ -266,18 +282,18 @@ def main() -> int:
         )
         if proc_ok.returncode != 0:
             failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
-        if "APPS_DEV_ASSETS:PASS:6" not in proc_ok.stdout:
+        if "APPS_DEV_ASSETS:PASS:7" not in proc_ok.stdout:
             failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
 
     # 6. After building, every runtime archive is mandatory, not optional.
     with tempfile.TemporaryDirectory() as tmpdir:
         fake_root = Path(tmpdir)
         tracked = (
-            "dev/hello.c", "dev/building.txt", "dev/lib/README.md",
+            "dev/hello.c", "dev/pixels.c", "dev/building.txt", "dev/lib/README.md",
             "dev/tcc/README.md", "user/libs/sofpack/include/sofpack/sofpack.h",
             "user/libs/manifestgen/include/manifestgen/manifest_default.h",
         )
-        archives = ("libclib.a", "libsofpack.a", "libtcc1.a")
+        archives = ("libclib.a", "libsofpack.a", "libmanifestgen.a", "libtcc1.a")
         for asset in tracked:
             dest = fake_root / asset
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -289,7 +305,7 @@ def main() -> int:
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:9" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:11" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
         for archive in archives:
             path = archive_dir / archive

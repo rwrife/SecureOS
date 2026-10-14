@@ -20,17 +20,18 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SRC="$ROOT_DIR/dev/hello.c"
+SRCS=("$ROOT_DIR/dev/hello.c" "$ROOT_DIR/dev/pixels.c")
 OUT_DIR="$ROOT_DIR/artifacts/tests"
-OBJ="$OUT_DIR/dev_hello_host_compile.o"
 LOG="$OUT_DIR/dev_hello_host_compile.log"
 
 emit() { printf '%s\n' "$1"; }
 
-if [[ ! -f "$SRC" ]]; then
-  emit "TEST:FAIL:dev_hello_c_host_compiles:missing_source:dev/hello.c"
-  exit 1
-fi
+for SRC in "${SRCS[@]}"; do
+  if [[ ! -f "$SRC" ]]; then
+    emit "TEST:FAIL:dev_hello_c_host_compiles:missing_source:${SRC#"$ROOT_DIR"/}"
+    exit 1
+  fi
+done
 
 COMPILER=""
 if [[ -n "${CC:-}" ]] && command -v "${CC}" >/dev/null 2>&1; then
@@ -51,21 +52,24 @@ fi
 
 mkdir -p "$OUT_DIR"
 
-set +e
-"$COMPILER" \
-  -std=c11 -Wall -Wextra -Werror \
-  -ffreestanding -nostdlib \
-  -I "$ROOT_DIR/user/include" \
-  -c "$SRC" \
-  -o "$OBJ" \
-  >"$LOG" 2>&1
-RC=$?
-set -e
-
-if [[ "$RC" -ne 0 ]]; then
-  emit "TEST:FAIL:dev_hello_c_host_compiles:compile_failed:compiler=$COMPILER:rc=$RC"
-  exit 1
-fi
+for SRC in "${SRCS[@]}"; do
+  base="$(basename "$SRC" .c)"
+  OBJ="$OUT_DIR/dev_${base}_host_compile.o"
+  set +e
+  "$COMPILER" \
+    -std=c11 -Wall -Wextra -Werror \
+    -ffreestanding -nostdlib \
+    -I "$ROOT_DIR/user/include" \
+    -c "$SRC" \
+    -o "$OBJ" \
+    >>"$LOG" 2>&1
+  RC=$?
+  set -e
+  if [[ "$RC" -ne 0 ]]; then
+    emit "TEST:FAIL:dev_hello_c_host_compiles:compile_failed:source=$base:compiler=$COMPILER:rc=$RC"
+    exit 1
+  fi
+done
 
 emit "TEST:PASS:dev_hello_c_host_compiles:compile_ok"
 emit "TEST:PASS:dev_hello_c_host_compiles"

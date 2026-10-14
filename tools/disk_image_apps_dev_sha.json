@@ -16,10 +16,16 @@
       "origin": "#403 phase-1 sample source"
     },
     {
+      "target": "/apps/dev/pixels.c",
+      "source": "dev/pixels.c",
+      "sha256": "eac46063ab7103e4e691bb467d11ed073d7c1bdf2832c67ee97e8a1d1c95b1c2",
+      "origin": "#768 graphics sample"
+    },
+    {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "e47b5e230606325e7d894b64806cc73c257e2579abdc756c63a6c85a503069c9",
-      "origin": "#403 phase-1 on-device guide; #769 editor section"
+      "sha256": "4d6307fa56622db7b95a995b4d1bdb85b70dde0ba24c7c05559551b4b5636a40",
+      "origin": "#403 phase-1 on-device guide; #769 editor section; #768 graphics sample"
     },
     {
       "target": "/apps/dev/lib/README.md",
@@ -55,6 +61,12 @@
       "target": "/apps/dev/lib/sofpack.a",
       "source": "artifacts/user/libs/libsofpack.a",
       "sha256": "65271e0533029ac381799786002bdb17f1feeedf14e29bcde2fed9b101f2c278",
+      "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
+    },
+    {
+      "target": "/apps/dev/lib/mangen.a",
+      "source": "artifacts/user/libs/libmanifestgen.a",
+      "sha256": "da35c359f2254d177bb004a47dd965ea9eeff12870c6414e49b28a32e27bb394",
       "origin": "#768 mandatory runtime archive (8.3 alias, pinned Bookworm toolchain)"
     },
     {

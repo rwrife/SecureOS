@@ -32,10 +32,11 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | Path                      | Purpose                                              |
 |---------------------------|------------------------------------------------------|
 | `/apps/dev/hello.c`       | Validation sample — compile it to test the toolchain |
+| `/apps/dev/pixels.c`      | Small graphics sample (draw on click, Escape exits)  |
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
 | `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
 | `/apps/dev/include/`              | Public headers staged for in-OS builds (`sofpack/sofpack.h`, `manifest/manifest.h`); `secureos_api.h` remains pending behind [#531](https://github.com/rwrife/SecureOS/issues/531) |
-| `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships placeholder README plus staged `libclib.a`/`sofpack.a` when host artifacts exist) |
+| `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships README plus staged `libclib.a`/`sofpack.a`/`mangen.a`) |
 | `/apps/dev/tcc/`                 | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder README plus staged `libtcc1.a` when host artifact exists) |
 
 The repo source that gets staged to `/apps/dev` lives in the top-level
@@ -43,13 +44,11 @@ The repo source that gets staged to `/apps/dev` lives in the top-level
 `/scripts`). It is wired into the image by
 [`build/scripts/build_disk_image.sh`](../../build/scripts/build_disk_image.sh).
 
-When present in `artifacts/user/libs/`, the freestanding archives
-`libclib.a` and `sofpack.a` are staged to `/apps/dev/lib/` when their host
-artifacts exist; `sofpack.a` is the strict 8.3 alias for the host-built
-`libsofpack.a`. Compiler support for resolving that alias remains part of
-the unfinished developer-image work (#768). `libtcc1.a` is staged to
-`/apps/dev/tcc/` as the TinyCC runtime-helper archive resolved by
-`tcc_add_runtime()`.
+The disk build produces and requires the freestanding archives `libclib.a`,
+`libsofpack.a`, `libmanifestgen.a`, and `libtcc1.a`. It stages the first three
+under `/apps/dev/lib/` as `libclib.a`, `sofpack.a`, and `mangen.a` (8.3-safe
+aliases); `libtcc1.a` goes under `/apps/dev/tcc/` for `tcc_add_runtime()`.
+Compiler support for resolving these aliases remains part of #768.
 
 Header staging currently includes:
 - `/apps/dev/include/sofpack/sofpack.h` (direct namespace mirror)
@@ -59,6 +58,13 @@ Header staging currently includes:
 `dev/building.txt` is user-facing runtime docs; this in-tree guide is the
 source-level companion. Keep both in sync so staged `/apps/dev` reality,
 phase-gating labels, and quick-start instructions do not drift.
+
+The staged `pixels.c` sample calls only `secureos_api.h`: it draws a rectangle,
+adds pixels on left-click, and exits on Escape. Use `run /apps/edit` to open
+and change `/apps/dev/pixels.c`. Compilation (`cc /apps/dev/pixels.c -o
+/apps/pixels.bin`) and desktop launch (`run /apps/pixels.bin`) remain **planned**,
+gated on #766, #767, #768, #770, and the guest acceptance gate #771. The
+source's presence does not establish a working in-guest graphics build.
 
 ## Writing an app
 

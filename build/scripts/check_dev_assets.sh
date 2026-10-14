@@ -24,7 +24,7 @@
 # Scope note:
 #   Tracked repository assets are checked early before build work begins.
 #   Passing --archives enforces that compiler/runtime archives (libclib.a,
-#   libsofpack.a, libtcc1.a) were produced by the build before disk staging.
+#   libsofpack.a, libmanifestgen.a, libtcc1.a) were produced before disk staging.
 set -euo pipefail
 
 ROOT_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -36,6 +36,7 @@ CHECK_ARCHIVES="${2:-}"
 
 required_dev_assets=(
 	dev/hello.c
+	dev/pixels.c
 	dev/building.txt
 	dev/lib/README.md
 	dev/tcc/README.md
@@ -47,6 +48,7 @@ if [ "$CHECK_ARCHIVES" = "--archives" ]; then
 	required_dev_assets+=(
 		artifacts/user/libs/libclib.a
 		artifacts/user/libs/libsofpack.a
+		artifacts/user/libs/libmanifestgen.a
 		artifacts/user/libs/libtcc1.a
 	)
 fi
