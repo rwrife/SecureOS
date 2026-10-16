@@ -69,6 +69,10 @@ for asset in "${required_dev_assets[@]}"; do
 	if [ ! -f "$ROOT_DIR/$asset" ]; then
 		echo "BUILD_DISK_IMAGE:FAIL:missing_required_dev_asset:$asset" >&2
 		missing=1
+	elif [[ "$asset" == artifacts/user/* ]] && [ ! -s "$ROOT_DIR/$asset" ]; then
+		# ponytail: Check empty generated assets here; archive/SOF format is checked by build and image gates.
+		echo "BUILD_DISK_IMAGE:FAIL:empty_required_dev_asset:$asset" >&2
+		missing=1
 	fi
 done
 
