@@ -318,6 +318,11 @@ def main() -> int:
             marker = f"missing_required_dev_asset:artifacts/user/libs/{archive}"
             if missing.returncode == 0 or marker not in missing.stderr:
                 failures.append(f"archive gate did not reject missing {archive}")
+            path.write_bytes(b"")
+            empty = subprocess.run(command, capture_output=True, text=True)
+            marker = f"empty_required_dev_asset:artifacts/user/libs/{archive}"
+            if empty.returncode == 0 or marker not in empty.stderr:
+                failures.append(f"archive gate did not reject empty {archive}")
             path.write_bytes(b"!<arch>\n")
 
         # 6b. Compiler binary gate (--compiler) requires freshly built cc.bin.
@@ -332,6 +337,10 @@ def main() -> int:
         res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)
         if res_fail.returncode == 0 or "missing_required_dev_asset:artifacts/user/cc.bin" not in res_fail.stderr:
             failures.append("compiler gate did not reject missing cc.bin")
+        cc_bin.write_bytes(b"")
+        res_empty = subprocess.run(comp_cmd, capture_output=True, text=True)
+        if res_empty.returncode == 0 or "empty_required_dev_asset:artifacts/user/cc.bin" not in res_empty.stderr:
+            failures.append("compiler gate did not reject empty cc.bin")
 
     if failures:
         for f in failures:
