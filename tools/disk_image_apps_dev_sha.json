@@ -30,7 +30,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "f0c5acac79249c7a4198189d4ef9c8d772daf33e0c43a432ca02b75b86938b73",
+      "sha256": "e9d49a8cbfd3d102b4af6e8c3f9e57f3bb0b3946b19e365c45d28f59a28a3e79",
       "origin": "#403 phase-1 on-device guide; #769 editor section; #768 graphics sample"
     },
     {
@@ -56,6 +56,36 @@
       "source": "user/libs/manifestgen/include/manifestgen/manifest_default.h",
       "sha256": "3a81ffe0a9d3fb0097876dc5acb2765842106230656b36d122a8fbcb35647899",
       "origin": "#613 namespaced public header (8.3-safe staged alias)"
+    },
+    {
+      "target": "/apps/dev/include/stddef.h",
+      "source": "user/libs/clib/include/clib/stddef.h",
+      "sha256": "1ef1b8966605a1c0efa0403f8e23cb20bf0dc9b16ccd51ac6ae10901d4fc4384",
+      "origin": "#768 SDK standard header"
+    },
+    {
+      "target": "/apps/dev/include/stdarg.h",
+      "source": "user/libs/clib/include/clib/stdarg.h",
+      "sha256": "41afc0b78a5646b1bd548bfb5635877d86035edef911047e8cbec9abebddda51",
+      "origin": "#768 SDK standard header"
+    },
+    {
+      "target": "/apps/dev/include/stdint.h",
+      "source": "user/libs/clib/include/clib/stdint.h",
+      "sha256": "0a4144cf0f47f8a0e4bee92e458953bac392d20faa8ea68505d35fd8e96b3648",
+      "origin": "#768 SDK standard header"
+    },
+    {
+      "target": "/apps/dev/include/stdio.h",
+      "source": "user/libs/clib/include/clib/stdio.h",
+      "sha256": "4b5d5486293cc8fc972d2e08ce3e668cbf23ee292626268329f10287dbfdb8ac",
+      "origin": "#768 SDK standard header"
+    },
+    {
+      "target": "/apps/dev/include/string.h",
+      "source": "user/libs/clib/include/clib/string.h",
+      "sha256": "afca7198d755e53a7aed1c2e3f1c121a348b90cfd48b395372ee4f40d8fc7363",
+      "origin": "#768 SDK standard header"
     },
     {
       "target": "/apps/dev/lib/libclib.a",

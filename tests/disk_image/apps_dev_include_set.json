@@ -21,6 +21,26 @@
     {
       "path": "/apps/dev/include/manifest/manifest.h",
       "pending": false
+    },
+    {
+      "path": "/apps/dev/include/stddef.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/stdarg.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/stdint.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/stdio.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/string.h",
+      "pending": false
     }
   ]
 }

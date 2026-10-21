@@ -10,6 +10,11 @@ This folder (/apps/dev) holds the on-device developer sample content.
     building.txt                This on-device quick-start guide.
     include/sofpack/sofpack.h   Public SOF packer header for in-OS builds.
     include/manifest/manifest.h 8.3-safe staged alias of manifestgen's public header.
+    include/stddef.h           Freestanding clib size definitions.
+    include/stdarg.h           Freestanding clib variadic arguments.
+    include/stdint.h           Freestanding clib integer types.
+    include/stdio.h            Freestanding clib file and console I/O.
+    include/string.h           Freestanding clib string functions.
     lib/README.md               Placeholder for TinyCC linker/crt runtime archives.
     lib/libclib.a               Freestanding libc archive staged when host artifact exists.
     lib/sofpack.a               8.3 alias for host libsofpack.a, staged when present.

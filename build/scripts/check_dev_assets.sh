@@ -47,6 +47,11 @@ required_dev_assets=(
 	dev/tcc/README.md
 	user/libs/sofpack/include/sofpack/sofpack.h
 	user/libs/manifestgen/include/manifestgen/manifest_default.h
+	user/libs/clib/include/clib/stddef.h
+	user/libs/clib/include/clib/stdarg.h
+	user/libs/clib/include/clib/stdint.h
+	user/libs/clib/include/clib/stdio.h
+	user/libs/clib/include/clib/string.h
 )
 
 if [ "$CHECK_ARCHIVES" = "--archives" ]; then
