@@ -119,6 +119,11 @@ def main() -> int:
     fresh.write_file("/apps/dev/building.txt", guide_src)
     fresh.write_file("/apps/dev/lib/README.md", lib_readme_src)
     fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
+    for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h"):
+        source = (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
+        fresh.write_file(f"/apps/dev/include/{header}", source)
+        if read_file(fresh, f"/apps/dev/include/{header}") != source:
+            failures.append(f"/apps/dev/include/{header} round-trip mismatch")
     if libclib_src is not None:
         fresh.write_file("/apps/dev/lib/libclib.a", libclib_src)
     # Even when no host archive exists, exercise the actual 8.3 target with
@@ -254,6 +259,11 @@ def main() -> int:
         (fake_root / "dev" / "tcc").mkdir(parents=True)
         (fake_root / "user" / "libs" / "sofpack" / "include" / "sofpack").mkdir(parents=True)
         (fake_root / "user" / "libs" / "manifestgen" / "include" / "manifestgen").mkdir(parents=True)
+        (fake_root / "user" / "libs" / "clib" / "include" / "clib").mkdir(parents=True)
+        for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h"):
+            (fake_root / "user/libs/clib/include/clib" / header).write_bytes(
+                (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
+            )
 
         (fake_root / "dev" / "building.txt").write_bytes(guide_src)
         (fake_root / "dev" / "lib" / "README.md").write_bytes(lib_readme_src)
@@ -286,7 +296,7 @@ def main() -> int:
         )
         if proc_ok.returncode != 0:
             failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
-        if "APPS_DEV_ASSETS:PASS:7" not in proc_ok.stdout:
+        if "APPS_DEV_ASSETS:PASS:12" not in proc_ok.stdout:
             failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
 
     # 6. After building, every runtime archive is mandatory, not optional.
@@ -296,6 +306,8 @@ def main() -> int:
             "dev/hello.c", "dev/pixels.c", "dev/building.txt", "dev/lib/README.md",
             "dev/tcc/README.md", "user/libs/sofpack/include/sofpack/sofpack.h",
             "user/libs/manifestgen/include/manifestgen/manifest_default.h",
+            *(f"user/libs/clib/include/clib/{h}" for h in
+              ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h")),
         )
         archives = ("libclib.a", "libsofpack.a", "libmanifestgen.a", "libtcc1.a")
         for asset in tracked:
@@ -309,7 +321,7 @@ def main() -> int:
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:11" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:16" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
         for archive in archives:
             path = archive_dir / archive
@@ -331,7 +343,7 @@ def main() -> int:
         cc_bin.write_bytes(b"SOF\x01fake-cc")
         comp_cmd = ["bash", str(check_script), str(fake_root), "--archives", "--compiler"]
         res = subprocess.run(comp_cmd, capture_output=True, text=True)
-        if res.returncode or "APPS_DEV_ASSETS:PASS:12" not in res.stdout:
+        if res.returncode or "APPS_DEV_ASSETS:PASS:17" not in res.stdout:
             failures.append(f"compiler gate rejected complete assets: stdout={res.stdout} stderr={res.stderr}")
         cc_bin.unlink()
         res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)

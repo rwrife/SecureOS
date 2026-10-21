@@ -149,6 +149,11 @@ build_disk_image_inner() {
 		"dev/tcc/README.md=/apps/dev/tcc/README.md"
 		"user/libs/sofpack/include/sofpack/sofpack.h=/apps/dev/include/sofpack/sofpack.h"
 		"user/libs/manifestgen/include/manifestgen/manifest_default.h=/apps/dev/include/manifest/manifest.h"
+		"user/libs/clib/include/clib/stddef.h=/apps/dev/include/stddef.h"
+		"user/libs/clib/include/clib/stdarg.h=/apps/dev/include/stdarg.h"
+		"user/libs/clib/include/clib/stdint.h=/apps/dev/include/stdint.h"
+		"user/libs/clib/include/clib/stdio.h=/apps/dev/include/stdio.h"
+		"user/libs/clib/include/clib/string.h=/apps/dev/include/string.h"
 	)
 	# The SOF packer keeps its host name but has an 8.3-safe disk alias.
 	dev_mappings+=(
