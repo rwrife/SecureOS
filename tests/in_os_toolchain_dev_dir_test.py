@@ -214,11 +214,15 @@ def main() -> int:
                     failures.append(f"{target} on built disk differs from {src_file}")
         cc_src = ROOT / "artifacts/user/cc.bin"
         if cc_src.is_file():
-            if read_file(disk_img, "/apps/dev/cc") != cc_src.read_bytes():
-                failures.append("/apps/dev/cc on built disk differs from artifacts/user/cc.bin")
+            if read_file(disk_img, "/apps/dev/cc.bin") != cc_src.read_bytes():
+                failures.append("/apps/dev/cc.bin on built disk differs from artifacts/user/cc.bin")
 
+    disk_script = (ROOT / "build/scripts/build_disk_image.sh").read_text()
+    cc_mapping = 'artifacts/user/cc.bin=/apps/dev/cc.bin'
+    if cc_mapping not in disk_script:
+        failures.append("cc must be staged with .bin suffix for the native launcher")
     mapping = 'artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a'
-    if mapping not in (ROOT / "build/scripts/build_disk_image.sh").read_text():
+    if mapping not in disk_script:
         failures.append("disk build does not stage the 8.3 SOF packer alias")
     mapping_mangen = 'artifacts/user/libs/libmanifestgen.a=/apps/dev/lib/mangen.a'
     if mapping_mangen not in (ROOT / "build/scripts/build_disk_image.sh").read_text():

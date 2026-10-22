@@ -141,7 +141,7 @@ build_disk_image_inner() {
 
 	# Tracked assets and freshly built archives are staged unconditionally.
 	local -a dev_mappings=(
-		"artifacts/user/cc.bin=/apps/dev/cc"
+		"artifacts/user/cc.bin=/apps/dev/cc.bin"
 		"dev/hello.c=/apps/dev/hello.c"
 		"dev/pixels.c=/apps/dev/pixels.c"
 		"dev/building.txt=/apps/dev/building.txt"
