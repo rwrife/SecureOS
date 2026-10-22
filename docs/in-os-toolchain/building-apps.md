@@ -34,7 +34,7 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | `/apps/dev/hello.c`       | Validation sample — compile it to test the toolchain |
 | `/apps/dev/pixels.c`      | Small graphics sample (draw on click, Escape exits)  |
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
-| `/apps/dev/cc` *(planned)*       | The in-OS C compiler (TinyCC-based)           |
+| `/apps/dev/cc.bin` *(planned)*       | The in-OS C compiler (TinyCC-based)     |
 | `/apps/dev/include/`              | Public headers staged for in-OS builds (`sofpack/sofpack.h`, `manifest/manifest.h`); `secureos_api.h` remains pending behind [#531](https://github.com/rwrife/SecureOS/issues/531) |
 | `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships README plus staged `libclib.a`/`sofpack.a`/`mangen.a`) |
 | `/apps/dev/tcc/`                 | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder README plus staged `libtcc1.a` when host artifact exists) |

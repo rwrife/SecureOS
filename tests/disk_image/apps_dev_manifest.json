@@ -7,7 +7,7 @@
   "skipMarker": "SKIP:#768",
   "gatingIssues": [768],
   "requiredPaths": [
-    "/apps/dev/cc",
+    "/apps/dev/cc.bin",
     "/apps/dev/lib/libclib.a",
     "/apps/dev/lib/sofpack.a",
     "/apps/dev/lib/mangen.a",

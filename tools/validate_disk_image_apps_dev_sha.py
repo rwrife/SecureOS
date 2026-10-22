@@ -219,7 +219,7 @@ def main() -> int:
         # gate (in_os_toolchain_dev_dir test 7) verifies byte identity against
         # the freshly built artifacts/user/cc.bin instead of a static pin.
         if entry.get("runtimeBuilt") is True:
-            if target != "/apps/dev/cc" or expected_sha is not None:
+            if target != "/apps/dev/cc.bin" or expected_sha is not None:
                 emit_err(f"APPS_DEV_SHA:FAIL:runtime_built_pin_misuse:{target}")
                 had_failure = True
                 continue

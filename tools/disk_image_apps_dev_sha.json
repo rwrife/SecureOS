@@ -10,9 +10,9 @@
   ],
   "entries": [
     {
-      "target": "/apps/dev/cc",
+      "target": "/apps/dev/cc.bin",
       "source": "artifacts/user/cc.bin",
-      "origin": "#768 compiler driver app (staged from clean build)",
+      "origin": "#768 compiler driver app (staged from clean build under 8.3 binary name)",
       "runtimeBuilt": true
     },
     {
@@ -30,7 +30,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "e9d49a8cbfd3d102b4af6e8c3f9e57f3bb0b3946b19e365c45d28f59a28a3e79",
+      "sha256": "99e1488eb1fb7d00f9f93f9325ddf5acaeb5d7c3b29327bb67a2f784858f0d32",
       "origin": "#403 phase-1 on-device guide; #769 editor section; #768 graphics sample"
     },
     {

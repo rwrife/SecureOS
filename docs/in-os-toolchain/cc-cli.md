@@ -1,7 +1,7 @@
 # `cc` CLI Grammar v0 (Contract Pin)
 
 This document freezes the user-facing command-line contract for the planned
-in-OS compiler driver app (`/apps/dev/cc`). It is the normative grammar
+in-OS compiler driver app (`/apps/dev/cc.bin`). It is the normative grammar
 reference for issue [#552](https://github.com/rwrife/SecureOS/issues/552)
 and companion slices under umbrella
 [#403](https://github.com/rwrife/SecureOS/issues/403).
