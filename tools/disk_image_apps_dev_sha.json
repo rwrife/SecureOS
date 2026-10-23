@@ -16,21 +16,33 @@
       "runtimeBuilt": true
     },
     {
+      "target": "/apps/dev/include/osapi.h",
+      "source": "artifacts/user/include/osapi.h",
+      "origin": "#768 generated 8.3-safe public API alias",
+      "sha256": "8e8ca20a78a61af2d9052b88544a70526327d72439a568007c1449a08f2c6bd4"
+    },
+    {
+      "target": "/apps/dev/include/osabi.h",
+      "source": "artifacts/user/include/osabi.h",
+      "origin": "#768 generated 8.3-safe public ABI alias",
+      "sha256": "2ae3fe0d6f54c1a1d94dabf6009ca4a7d56f92eb10ec3435aaa55f76683cbb0b"
+    },
+    {
       "target": "/apps/dev/hello.c",
       "source": "dev/hello.c",
-      "sha256": "a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30",
+      "sha256": "d40411d49503ad17afea142b21473ec74f972421b3e5b7653f2946a081ce7093",
       "origin": "#403 phase-1 sample source"
     },
     {
       "target": "/apps/dev/pixels.c",
       "source": "dev/pixels.c",
-      "sha256": "eac46063ab7103e4e691bb467d11ed073d7c1bdf2832c67ee97e8a1d1c95b1c2",
+      "sha256": "688f562be8879c121211747400009035335b97455cf787a47bdce3d1ea87d9fe",
       "origin": "#768 graphics sample"
     },
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "99e1488eb1fb7d00f9f93f9325ddf5acaeb5d7c3b29327bb67a2f784858f0d32",
+      "sha256": "8f998c6c4156252bd67862ef4eb1a7be8462c088b58b7b1cc7b4595e65d1399e",
       "origin": "#403 phase-1 on-device guide; #769 editor section; #768 graphics sample"
     },
     {

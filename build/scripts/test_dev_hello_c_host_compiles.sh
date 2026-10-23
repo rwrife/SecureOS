@@ -51,6 +51,7 @@ if [[ -z "$COMPILER" ]]; then
 fi
 
 mkdir -p "$OUT_DIR"
+python3 "$ROOT_DIR/tools/stage_dev_api_headers.py"
 
 for SRC in "${SRCS[@]}"; do
   base="$(basename "$SRC" .c)"
@@ -59,7 +60,7 @@ for SRC in "${SRCS[@]}"; do
   "$COMPILER" \
     -std=c11 -Wall -Wextra -Werror \
     -ffreestanding -nostdlib \
-    -I "$ROOT_DIR/user/include" \
+    -I "$ROOT_DIR/artifacts/user/include" \
     -c "$SRC" \
     -o "$OBJ" \
     >>"$LOG" 2>&1

@@ -18,9 +18,8 @@
  *   validation, tutorials, and compatibility tests.
  *
  * Notes:
- *   - `secureos_api.h` is the public syscall surface. The in-OS compiler
- *     ships it on its default include path (/apps/dev/include), so a bare
- *     #include resolves without any -I flag.
+ *   - `osapi.h` is the 8.3-safe staged alias of the public syscall surface.
+ *     The in-OS compiler searches /apps/dev/include without an -I flag.
  *   - `os_console_write` needs no capability beyond the console the shell
  *     already holds, so this sample declares no special capabilities.
  *   - The on-disk filename is 8.3 (HELLO.C): the SecureOS filesystem caps
@@ -28,7 +27,7 @@
  *     "hello.c". See /apps/dev/building.txt for the full constraint list.
  */
 
-#include "secureos_api.h"
+#include "osapi.h"
 
 int main(void) {
   os_console_write("hello from inside SecureOS\n");

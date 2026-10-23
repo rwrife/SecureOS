@@ -8,6 +8,8 @@ This folder (/apps/dev) holds the on-device developer sample content.
     hello.c                     Canonical validation sample source.
     pixels.c                    Small in-guest graphics sample.
     building.txt                This on-device quick-start guide.
+    include/osapi.h             8.3 alias for public SecureOS API header.
+    include/osabi.h             8.3 alias for public ABI version header.
     include/sofpack/sofpack.h   Public SOF packer header for in-OS builds.
     include/manifest/manifest.h 8.3-safe staged alias of manifestgen's public header.
     include/stddef.h           Freestanding clib size definitions.
@@ -37,7 +39,7 @@ QUICK START (planned — gated on #408/#409/#410)
 WRITING YOUR OWN APP (planned until #408/#409/#410)
 ----------------------------------------------------
   - Every app defines `int main(void)` (or `int main(int argc, char **argv)`).
-  - Include the public API:  #include "secureos_api.h"
+  - Include the public API:  #include "osapi.h"
   - Print with:              os_console_write("...");
   - Return 0 from main on success; the value becomes the shell's $? .
 
@@ -60,7 +62,7 @@ EDITING SOURCES INSIDE THE OS (available now)
 
 
   Example (mini.c):
-      #include "secureos_api.h"
+      #include "osapi.h"
       int main(void) {
           os_console_write("my first app\n");
           return 0;

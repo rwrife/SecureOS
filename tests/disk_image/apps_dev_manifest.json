@@ -11,7 +11,8 @@
     "/apps/dev/lib/libclib.a",
     "/apps/dev/lib/sofpack.a",
     "/apps/dev/lib/mangen.a",
-    "/apps/dev/include/secureos_api.h",
+    "/apps/dev/include/osapi.h",
+    "/apps/dev/include/osabi.h",
     "/apps/dev/tcc/libtcc1.a"
   ]
 }

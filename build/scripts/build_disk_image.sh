@@ -139,9 +139,12 @@ build_disk_image_inner() {
 	bash "$ROOT_DIR/build/scripts/build_user_app.sh" cc
 	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives --compiler
 
-	# Tracked assets and freshly built archives are staged unconditionally.
+	# Keep host SDK canonical; stage its API/ABI pair under legal 8.3 aliases.
+	python3 "$ROOT_DIR/tools/stage_dev_api_headers.py"
 	local -a dev_mappings=(
 		"artifacts/user/cc.bin=/apps/dev/cc.bin"
+		"artifacts/user/include/osapi.h=/apps/dev/include/osapi.h"
+		"artifacts/user/include/osabi.h=/apps/dev/include/osabi.h"
 		"dev/hello.c=/apps/dev/hello.c"
 		"dev/pixels.c=/apps/dev/pixels.c"
 		"dev/building.txt=/apps/dev/building.txt"

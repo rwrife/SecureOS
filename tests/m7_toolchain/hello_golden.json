@@ -15,7 +15,7 @@
   "inputs": {
     "dev_hello_c": {
       "path": "dev/hello.c",
-      "sha256": "a32c5639fa10faa7c3bda0f2a247adb71ec3bc46877354337001802755a96b30"
+      "sha256": "d40411d49503ad17afea142b21473ec74f972421b3e5b7653f2946a081ce7093"
     },
     "secureos_api_h": {
       "path": "user/include/secureos_api.h",

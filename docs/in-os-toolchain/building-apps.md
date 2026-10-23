@@ -35,7 +35,7 @@ Everything for on-device development is under **`/apps/dev`** on the disk:
 | `/apps/dev/pixels.c`      | Small graphics sample (draw on click, Escape exits)  |
 | `/apps/dev/building.txt`  | On-device quick-start companion; keep in sync with this doc |
 | `/apps/dev/cc.bin` *(planned)*       | The in-OS C compiler (TinyCC-based)     |
-| `/apps/dev/include/`              | Public headers staged for in-OS builds (`sofpack/sofpack.h`, `manifest/manifest.h`); `secureos_api.h` remains pending behind [#531](https://github.com/rwrife/SecureOS/issues/531) |
+| `/apps/dev/include/`              | Public headers staged for in-OS builds (`sofpack/sofpack.h`, `manifest/manifest.h`); `osapi.h`/`osabi.h` are 8.3-safe aliases of `secureos_api.h`/`secureos_abi.h` |
 | `/apps/dev/lib/`                 | TinyCC linker/crt search root (ships README plus staged `libclib.a`/`sofpack.a`/`mangen.a`) |
 | `/apps/dev/tcc/`                 | TinyCC runtime helper root (`CONFIG_TCCDIR`; placeholder README plus staged `libtcc1.a` when host artifact exists) |
 
@@ -51,6 +51,7 @@ aliases); `libtcc1.a` goes under `/apps/dev/tcc/` for `tcc_add_runtime()`.
 Compiler support for resolving these aliases remains part of #768.
 
 Header staging currently includes:
+- `/apps/dev/include/osapi.h`, `osabi.h` (generated 8.3 aliases of `user/include/secureos_api.h`/`secureos_abi.h` by `tools/stage_dev_api_headers.py`)
 - `/apps/dev/include/sofpack/sofpack.h` (direct namespace mirror)
 - `/apps/dev/include/manifest/manifest.h` (8.3-safe staged alias of
   `user/libs/manifestgen/include/manifestgen/manifest_default.h`)
@@ -59,7 +60,7 @@ Header staging currently includes:
 source-level companion. Keep both in sync so staged `/apps/dev` reality,
 phase-gating labels, and quick-start instructions do not drift.
 
-The staged `pixels.c` sample calls only `secureos_api.h`: it draws a rectangle,
+The staged `pixels.c` sample calls only `osapi.h`: it draws a rectangle,
 adds pixels on left-click, and exits on Escape. Use `run /apps/edit` to open
 and change `/apps/dev/pixels.c`. Compilation (`cc /apps/dev/pixels.c -o
 /apps/pixels.bin`) and desktop launch (`run /apps/pixels.bin`) remain **planned**,
@@ -71,7 +72,7 @@ source's presence does not establish a working in-guest graphics build.
 An in-OS app is the same shape as an in-tree user app:
 
 ```c
-#include "secureos_api.h"
+#include "osapi.h"
 
 int main(void) {
     os_console_write("my first app\n");
@@ -81,7 +82,7 @@ int main(void) {
 
 - Entry point is `int main(void)` or `int main(int argc, char **argv)`.
   The runtime's `crt0` (`sdk/lib/crt0.c`) marshals args and calls `main`.
-- `secureos_api.h` is the public syscall surface
+- `osapi.h` is the staged 8.3 alias of the public syscall surface
   ([`user/include/secureos_api.h`](../../user/include/secureos_api.h)).
 - `return` value from `main` becomes the shell's `$?`.
 
