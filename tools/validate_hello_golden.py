@@ -47,6 +47,8 @@ def ensure_executable(path: Path) -> None:
 def compute_state(root: Path, sof_date: str) -> dict:
     hello_src = root / "dev/hello.c"
     secureos_api_h = root / "user/include/secureos_api.h"
+    # DEMO-04 (#768): the guest sample includes the 8.3 alias osapi.h.
+    run([sys.executable, "tools/stage_dev_api_headers.py"], cwd=root)
     crt0_src = root / "sdk/lib/crt0.c"
     stubs_src = root / "user/runtime/secureos_api_stubs.c"
     toolchain_lock = root / "build/toolchain.lock"
@@ -72,6 +74,8 @@ def compute_state(root: Path, sof_date: str) -> dict:
             "-ffreestanding",
             "-fno-stack-protector",
             "-mno-red-zone",
+            "-I",
+            "artifacts/user/include",
             "-I",
             "user/include",
         ]

@@ -52,6 +52,8 @@ required_dev_assets=(
 	user/libs/clib/include/clib/stdint.h
 	user/libs/clib/include/clib/stdio.h
 	user/libs/clib/include/clib/string.h
+	user/include/secureos_api.h
+	user/include/secureos_abi.h
 )
 
 if [ "$CHECK_ARCHIVES" = "--archives" ]; then

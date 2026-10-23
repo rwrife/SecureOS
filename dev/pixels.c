@@ -7,7 +7,7 @@
  * Uses only the public SecureOS syscall header; the video and input calls
  * are served by the native bridge through the kernel HAL.
  */
-#include "secureos_api.h"
+#include "osapi.h"
 
 int main(void) {
   char key = 0;

@@ -1,5 +1,5 @@
 {
-  "_comment": "Issue #615: canonical /apps/dev/include header-set pin for disk-image staging. secureos_api.h remains pending behind successor DEMO-04 #768; #613 headers are strict requirements.",
+  "_comment": "Issue #615: canonical /apps/dev/include header-set pin for disk-image staging. osapi.h and osabi.h are 8.3-safe aliases of the public API/ABI headers (#768).",
   "schemaVersion": 1,
   "issue": 615,
   "repo": "rwrife/SecureOS",
@@ -10,9 +10,12 @@
   ],
   "headers": [
     {
-      "path": "/apps/dev/include/secureos_api.h",
-      "pending": true,
-      "gatingIssue": 768
+      "path": "/apps/dev/include/osapi.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/osabi.h",
+      "pending": false
     },
     {
       "path": "/apps/dev/include/sofpack/sofpack.h",

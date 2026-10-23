@@ -18,7 +18,7 @@ for pin in (staging, headers, hashes):
     assert pin["gatingIssues"] == [768], pin["gatingIssues"]
     assert pin["skipMarker"] == "SKIP:#768", pin["skipMarker"]
 pending = [entry for entry in headers["headers"] if entry.get("pending")]
-assert len(pending) == 1 and pending[0]["gatingIssue"] == 768, pending
+assert not pending, pending  # API/ABI aliases now staged; DEMO-04 remains open for guest compilation.
 # Exercise the real validators offline without modifying live issue states.
 for name in (
     "validate_apps_dev_staging",
@@ -34,9 +34,6 @@ for name in (
         output = io.StringIO()
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
             result = validator.main()
-        if state == "CLOSED":
-            assert result == 1 and "FAIL:" in output.getvalue(), output.getvalue()
-        else:
-            assert "SKIP:#768" in output.getvalue(), output.getvalue()
+        assert result == 0 and "PASS:summary:all_" in output.getvalue(), output.getvalue()
 
 print("TEST:PASS:dev_gate_owner")

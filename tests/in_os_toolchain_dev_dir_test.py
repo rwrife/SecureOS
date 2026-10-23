@@ -246,12 +246,12 @@ def main() -> int:
             )
 
     # 4. The sample is a non-trivial source file and includes the public API.
-    if b"#include \"secureos_api.h\"" not in hello_src:
-        failures.append("hello.c does not include secureos_api.h")
+    if b"#include \"osapi.h\"" not in hello_src:
+        failures.append("hello.c does not include osapi.h")
     if b"int main" not in hello_src:
         failures.append("hello.c has no main()")
-    if b"#include \"secureos_api.h\"" not in pixels_src or b"int main" not in pixels_src:
-        failures.append("pixels.c must be a main() sample using only secureos_api.h")
+    if b"#include \"osapi.h\"" not in pixels_src or b"int main" not in pixels_src:
+        failures.append("pixels.c must be a main() sample using only osapi.h")
 
     # 5. Missing required developer asset fails fast and clean.
     # Run check_dev_assets.sh in a throwaway temporary tree missing one asset
@@ -269,6 +269,9 @@ def main() -> int:
                 (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
             )
 
+        (fake_root / "user" / "include").mkdir(parents=True)
+        for header in ("secureos_api.h", "secureos_abi.h"):
+            (fake_root / "user/include" / header).write_bytes((ROOT / "user/include" / header).read_bytes())
         (fake_root / "dev" / "building.txt").write_bytes(guide_src)
         (fake_root / "dev" / "lib" / "README.md").write_bytes(lib_readme_src)
         (fake_root / "dev" / "tcc" / "README.md").write_bytes(tcc_readme_src)
@@ -300,7 +303,7 @@ def main() -> int:
         )
         if proc_ok.returncode != 0:
             failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
-        if "APPS_DEV_ASSETS:PASS:12" not in proc_ok.stdout:
+        if "APPS_DEV_ASSETS:PASS:14" not in proc_ok.stdout:
             failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
 
     # 6. After building, every runtime archive is mandatory, not optional.
@@ -310,6 +313,7 @@ def main() -> int:
             "dev/hello.c", "dev/pixels.c", "dev/building.txt", "dev/lib/README.md",
             "dev/tcc/README.md", "user/libs/sofpack/include/sofpack/sofpack.h",
             "user/libs/manifestgen/include/manifestgen/manifest_default.h",
+            "user/include/secureos_api.h", "user/include/secureos_abi.h",
             *(f"user/libs/clib/include/clib/{h}" for h in
               ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h")),
         )
@@ -325,7 +329,7 @@ def main() -> int:
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:16" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:18" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
         for archive in archives:
             path = archive_dir / archive
@@ -347,7 +351,7 @@ def main() -> int:
         cc_bin.write_bytes(b"SOF\x01fake-cc")
         comp_cmd = ["bash", str(check_script), str(fake_root), "--archives", "--compiler"]
         res = subprocess.run(comp_cmd, capture_output=True, text=True)
-        if res.returncode or "APPS_DEV_ASSETS:PASS:17" not in res.stdout:
+        if res.returncode or "APPS_DEV_ASSETS:PASS:19" not in res.stdout:
             failures.append(f"compiler gate rejected complete assets: stdout={res.stdout} stderr={res.stderr}")
         cc_bin.unlink()
         res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)
