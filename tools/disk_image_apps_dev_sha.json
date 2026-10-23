@@ -19,14 +19,12 @@
       "target": "/apps/dev/include/osapi.h",
       "source": "artifacts/user/include/osapi.h",
       "origin": "#768 generated 8.3-safe public API alias",
-      "sha256": "8e8ca20a78a61af2d9052b88544a70526327d72439a568007c1449a08f2c6bd4",
       "runtimeBuilt": true
     },
     {
       "target": "/apps/dev/include/osabi.h",
       "source": "artifacts/user/include/osabi.h",
       "origin": "#768 generated 8.3-safe public ABI alias",
-      "sha256": "2ae3fe0d6f54c1a1d94dabf6009ca4a7d56f92eb10ec3435aaa55f76683cbb0b",
       "runtimeBuilt": true
     },
     {
