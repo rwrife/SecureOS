@@ -157,6 +157,11 @@ build_disk_image_inner() {
 		"user/libs/clib/include/clib/stdint.h=/apps/dev/include/stdint.h"
 		"user/libs/clib/include/clib/stdio.h=/apps/dev/include/stdio.h"
 		"user/libs/clib/include/clib/string.h=/apps/dev/include/string.h"
+		"user/libs/clib/include/clib/stdlib.h=/apps/dev/include/stdlib.h"
+		"user/libs/clib/include/clib/errno.h=/apps/dev/include/errno.h"
+		"user/libs/clib/include/clib/ctype.h=/apps/dev/include/ctype.h"
+		"user/libs/clib/include/clib/limits.h=/apps/dev/include/limits.h"
+		"user/libs/clib/include/clib/stdbool.h=/apps/dev/include/stdbool.h"
 	)
 	# The SOF packer keeps its host name but has an 8.3-safe disk alias.
 	dev_mappings+=(

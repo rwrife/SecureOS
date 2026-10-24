@@ -119,7 +119,7 @@ def main() -> int:
     fresh.write_file("/apps/dev/building.txt", guide_src)
     fresh.write_file("/apps/dev/lib/README.md", lib_readme_src)
     fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
-    for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h"):
+    for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h", "stdlib.h", "errno.h", "ctype.h", "limits.h", "stdbool.h"):
         source = (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
         fresh.write_file(f"/apps/dev/include/{header}", source)
         if read_file(fresh, f"/apps/dev/include/{header}") != source:
@@ -264,7 +264,7 @@ def main() -> int:
         (fake_root / "user" / "libs" / "sofpack" / "include" / "sofpack").mkdir(parents=True)
         (fake_root / "user" / "libs" / "manifestgen" / "include" / "manifestgen").mkdir(parents=True)
         (fake_root / "user" / "libs" / "clib" / "include" / "clib").mkdir(parents=True)
-        for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h"):
+        for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h", "stdlib.h", "errno.h", "ctype.h", "limits.h", "stdbool.h"):
             (fake_root / "user/libs/clib/include/clib" / header).write_bytes(
                 (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
             )
@@ -303,7 +303,7 @@ def main() -> int:
         )
         if proc_ok.returncode != 0:
             failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
-        if "APPS_DEV_ASSETS:PASS:14" not in proc_ok.stdout:
+        if "APPS_DEV_ASSETS:PASS:19" not in proc_ok.stdout:
             failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
 
     # 6. After building, every runtime archive is mandatory, not optional.
@@ -315,7 +315,7 @@ def main() -> int:
             "user/libs/manifestgen/include/manifestgen/manifest_default.h",
             "user/include/secureos_api.h", "user/include/secureos_abi.h",
             *(f"user/libs/clib/include/clib/{h}" for h in
-              ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h")),
+              ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h", "stdlib.h", "errno.h", "ctype.h", "limits.h", "stdbool.h")),
         )
         archives = ("libclib.a", "libsofpack.a", "libmanifestgen.a", "libtcc1.a")
         for asset in tracked:
@@ -329,7 +329,7 @@ def main() -> int:
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:18" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:23" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
         for archive in archives:
             path = archive_dir / archive
@@ -351,7 +351,7 @@ def main() -> int:
         cc_bin.write_bytes(b"SOF\x01fake-cc")
         comp_cmd = ["bash", str(check_script), str(fake_root), "--archives", "--compiler"]
         res = subprocess.run(comp_cmd, capture_output=True, text=True)
-        if res.returncode or "APPS_DEV_ASSETS:PASS:19" not in res.stdout:
+        if res.returncode or "APPS_DEV_ASSETS:PASS:24" not in res.stdout:
             failures.append(f"compiler gate rejected complete assets: stdout={res.stdout} stderr={res.stderr}")
         cc_bin.unlink()
         res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)

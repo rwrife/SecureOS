@@ -44,6 +44,26 @@
     {
       "path": "/apps/dev/include/string.h",
       "pending": false
+    },
+    {
+      "path": "/apps/dev/include/stdlib.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/errno.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/ctype.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/limits.h",
+      "pending": false
+    },
+    {
+      "path": "/apps/dev/include/stdbool.h",
+      "pending": false
     }
   ]
 }
