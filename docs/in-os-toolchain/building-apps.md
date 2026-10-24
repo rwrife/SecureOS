@@ -55,6 +55,10 @@ Header staging currently includes:
 - `/apps/dev/include/sofpack/sofpack.h` (direct namespace mirror)
 - `/apps/dev/include/manifest/manifest.h` (8.3-safe staged alias of
   `user/libs/manifestgen/include/manifestgen/manifest_default.h`)
+- `/apps/dev/include/` also carries `stddef.h`, `stdarg.h`, `stdint.h`,
+  `stdio.h`, `string.h`, `stdlib.h`, `errno.h`, `ctype.h`, `limits.h`, and
+  `stdbool.h` from the freestanding clib. Each is required by the image gate.
+  Other clib headers are not yet part of the staged SDK (#768 remains open).
 
 `dev/building.txt` is user-facing runtime docs; this in-tree guide is the
 source-level companion. Keep both in sync so staged `/apps/dev` reality,

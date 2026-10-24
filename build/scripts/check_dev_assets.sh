@@ -52,6 +52,11 @@ required_dev_assets=(
 	user/libs/clib/include/clib/stdint.h
 	user/libs/clib/include/clib/stdio.h
 	user/libs/clib/include/clib/string.h
+	user/libs/clib/include/clib/stdlib.h
+	user/libs/clib/include/clib/errno.h
+	user/libs/clib/include/clib/ctype.h
+	user/libs/clib/include/clib/limits.h
+	user/libs/clib/include/clib/stdbool.h
 	user/include/secureos_api.h
 	user/include/secureos_abi.h
 )
