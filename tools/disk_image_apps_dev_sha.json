@@ -42,8 +42,8 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "61b090341c430a71d3a909403e66cd045b89819d30949c6eb73866cb390fe403",
-      "origin": "#403 phase-1 on-device guide; #769 editor section; #768 graphics sample"
+      "sha256": "2bfbdd087ba45824d110b173c92cdb19227ca7340a7eb6775a8b216ee244dda9",
+      "origin": "#768 on-device guide corrected to current developer-image build and experimental guest path"
     },
     {
       "target": "/apps/dev/lib/README.md",
