@@ -1,5 +1,5 @@
 {
-  "_comment": "Issue #618: drift contract for the on-device guide dev/building.txt. Keeps guide file claims aligned with /apps/dev disk-image staging and requires explicit gate labeling for pre-#408/#409/#410 compile/run recipes.",
+  "_comment": "Issue #768: drift contract for the on-device guide dev/building.txt. Keep staged assets and experimental guest recipes in sync with the current demo blockers.",
   "schemaVersion": 1,
   "issue": 618,
   "repo": "rwrife/SecureOS",
@@ -8,9 +8,9 @@
   "stagingManifestSource": "build/scripts/build_disk_image.sh",
   "markersPath": "tests/m7_toolchain/markers.json",
   "requiredQuickStartGateIssues": [
-    408,
-    409,
-    410
+    766,
+    767,
+    768
   ],
   "compileMarker": "toolchain_compiles_hello_in_os",
   "runMarker": "toolchain_runs_compiled_binary"

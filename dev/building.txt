@@ -22,30 +22,33 @@ This folder (/apps/dev) holds the on-device developer sample content.
     include/ctype.h            Freestanding clib character functions.
     include/limits.h           Freestanding integer bounds.
     include/stdbool.h          Freestanding Boolean definitions.
-    lib/README.md               Placeholder for TinyCC linker/crt runtime archives.
-    lib/libclib.a               Freestanding libc archive staged when host artifact exists.
-    lib/sofpack.a               8.3 alias for host libsofpack.a, staged when present.
-    lib/mangen.a                8.3 alias for host libmanifestgen.a, staged when present.
-    tcc/README.md               Placeholder for TinyCC runtime helper archive root.
-    tcc/libtcc1.a               TinyCC runtime helper archive staged when host artifact exists.
+    lib/README.md               Notes on the staged compiler libraries.
+    lib/libclib.a               Freestanding libc archive (required by disk build).
+    lib/sofpack.a               8.3 alias for host libsofpack.a (required).
+    lib/mangen.a                8.3 alias for host libmanifestgen.a (required).
+    tcc/README.md               Notes on the TinyCC runtime helper archive.
+    tcc/libtcc1.a               TinyCC runtime helper archive (required).
 
-Only the headers listed above ship in this SDK. Guest compilation and execution
-remain unverified (#766/#767/#768).
+Only the headers listed above ship in this SDK. A clean disk build requires
+all listed archives and cc.bin; guest compilation and execution remain
+unverified (#766/#767/#768).
 
-QUICK START (planned — gated on #408/#409/#410)
-------------------------------------------------
-  The compile-and-run flow below is the target experience. Until #408, #409,
-  and #410 close, `cc` and launcher run wiring may be unavailable on-device.
+QUICK START (experimental — gated on #766/#767/#768)
+----------------------------------------------------
+  This is a target workflow, not a passing demo recipe. #766, #767 and #768
+  remain open: guest compilation/launch lacks a real gate and the current
+  manifest sidecar uses a name longer than the filesystem's 8.3 limit.
+  Do not rely on cc to preserve an earlier output on failure.
 
-  1. Compile the sample:
-         cc /apps/dev/hello.c -o /apps/hello.bin
-  2. Run it:
-         hello
-  3. You should see:
+  1. Attempt to compile the sample using the actual console command:
+         run /apps/dev/cc.bin /apps/dev/hello.c -o /apps/hello.bin
+  2. If it succeeds, request launch and approve unsigned execution:
+         run /apps/hello.bin
+  3. Intended output:
          hello from inside SecureOS
 
-WRITING YOUR OWN APP (planned until #408/#409/#410)
-----------------------------------------------------
+WRITING YOUR OWN APP (experimental — gated on #766/#767/#768)
+--------------------------------------------------------------
   - Every app defines `int main(void)` (or `int main(int argc, char **argv)`).
   - Include the public API:  #include "osapi.h"
   - Print with:              os_console_write("...");
@@ -76,9 +79,9 @@ EDITING SOURCES INSIDE THE OS (available now)
           return 0;
       }
 
-  Build and run (planned while gates are open):
-      cc /apps/dev/mini.c -o /apps/mini.bin
-      mini
+  Build and run (experimental while gates are open):
+      run /apps/dev/cc.bin /apps/dev/mini.c -o /apps/mini.bin
+      run /apps/mini.bin  (approve unsigned execution)
 
 GRAPHICS SAMPLE (planned — gated on #766/#767/#768/#770/#771)
 -------------------------------------------------------------
