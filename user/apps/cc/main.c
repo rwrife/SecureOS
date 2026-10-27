@@ -281,9 +281,11 @@ static int cc_swap_ext(char *out, size_t cap, const char *path,
 }
 
 /* Derive a v0-schema-safe app id from the output path stem: lowercase,
- * sanitised, guaranteed to start with an ASCII letter. */
+ * sanitised, guaranteed to start with an ASCII letter. Takes the basename stem
+ * rather than concatenating directory components. */
 static void cc_derive_app_id(char *out, size_t cap, const char *output_path) {
   size_t stem = cc_stem_len(output_path);
+  size_t start = 0;
   size_t i;
   size_t o = 0;
   char c;
@@ -291,7 +293,12 @@ static void cc_derive_app_id(char *out, size_t cap, const char *output_path) {
   if (cap == 0u) {
     return;
   }
-  for (i = 0; i < stem && o + 1u < cap; ++i) {
+  for (i = 0; i < stem; ++i) {
+    if (output_path[i] == '/' || output_path[i] == '\\') {
+      start = i + 1u;
+    }
+  }
+  for (i = start; i < stem && o + 1u < cap; ++i) {
     c = output_path[i];
     if (c >= 'A' && c <= 'Z') {
       c = (char)(c - 'A' + 'a');
@@ -306,12 +313,12 @@ static void cc_derive_app_id(char *out, size_t cap, const char *output_path) {
     out[o++] = c;
   }
   if (o == 0u) {
-    out[0] = 'c';
-    out[1] = 'c';
-    out[2] = 'o';
-    out[3] = 'u';
-    out[4] = 't';
-    o = 5;
+    /* Even a caller with a short destination gets a valid, terminated id. */
+    const char *fallback = "ccout";
+    while (o + 1u < cap && fallback[o] != '\0') {
+      out[o] = fallback[o];
+      ++o;
+    }
   }
   out[o] = '\0';
 }
