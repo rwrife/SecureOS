@@ -23,6 +23,12 @@ int main(void) {
   if (!cc_swap_ext(staged, sizeof(staged), "/apps.v1/demo.bin", "elf") ||
       strcmp(staged, "/apps.v1/demo.elf") != 0) return 6;
   if (cc_swap_ext(staged, 8u, "/apps/demo.bin", "elf")) return 7;
+  cc_derive_app_id(staged, sizeof(staged), "/apps/dev/hello.bin");
+  if (strcmp(staged, "hello") != 0) return 8;
+  cc_derive_app_id(staged, sizeof(staged), "/apps/dev/2-demo.bin");
+  if (strcmp(staged, "demo") != 0) return 9;
+  cc_derive_app_id(staged, sizeof(staged), "/apps/dev/123.bin");
+  if (strcmp(staged, "ccout") != 0) return 10;
   if (cc_tokenize(exact, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 1;
   if (cc_tokenize(trailing, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 2;
   if (cc_tokenize(overflow, slots, CC_ARGV_MAX) != -1) return 3;
