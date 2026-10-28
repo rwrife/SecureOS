@@ -280,6 +280,33 @@ static int cc_swap_ext(char *out, size_t cap, const char *path,
   return 1;
 }
 
+/* FAT 8.3 paths are case-insensitive. Reject collisions before TinyCC writes
+ * its intermediate ELF or the final SOF over source/manifest bytes. */
+static int cc_same_path(const char *left, const char *right) {
+  unsigned char a;
+  unsigned char b;
+  if (left == 0 || right == 0) {
+    return 0;
+  }
+  while (*left != '\0' && *right != '\0') {
+    a = (unsigned char)*left++;
+    b = (unsigned char)*right++;
+    if (a >= 'a' && a <= 'z') a = (unsigned char)(a - 'a' + 'A');
+    if (b >= 'a' && b <= 'z') b = (unsigned char)(b - 'a' + 'A');
+    if (a != b) return 0;
+  }
+  return *left == *right;
+}
+
+static int cc_paths_collide(const char *input, const char *output,
+                            const char *manifest) {
+  char elf[CC_PATH_MAX];
+  if (!cc_swap_ext(elf, sizeof(elf), output, "elf")) return 1;
+  return cc_same_path(input, output) || cc_same_path(input, elf) ||
+         (manifest != 0 && (cc_same_path(manifest, output) ||
+                            cc_same_path(manifest, elf)));
+}
+
 /* Derive a v0-schema-safe app id from the output path stem: lowercase,
  * sanitised, guaranteed to start with an ASCII letter. Takes the basename stem
  * rather than concatenating directory components. */
@@ -385,9 +412,18 @@ static int cc_compile(const char *input_path, const char *output_path,
   int rc;
   int exit_code = CC_EXIT_OK;
 
+  /* Preflight collisions before compiler/manifest I/O can overwrite input. */
+  if (cc_paths_collide(input_path, output_path, manifest_override)) {
+    cc_console("cc: output collides with source or manifest\n");
+    return CC_EXIT_USAGE;
+  }
+
   cc_emit_start(input_path);
 
   memset(&diag, 0, sizeof(diag));
+
+  /* ponytail: Existing outputs still need atomic replacement; add it with
+   * guest filesystem rename support before promising no-loss rebuilds. */
 
   state = tcc_new();
   if (state == 0) {

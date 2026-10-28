@@ -33,5 +33,11 @@ int main(void) {
   if (cc_tokenize(trailing, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 2;
   if (cc_tokenize(overflow, slots, CC_ARGV_MAX) != -1) return 3;
   if (cc_tokenize(empty, slots, CC_ARGV_MAX) != 0) return 4;
+  if (!cc_paths_collide("/apps/demo.c", "/apps/demo.c", NULL)) return 11;
+  if (!cc_paths_collide("/apps/demo.c", "/APPS/DEMO.C", NULL)) return 12;
+  if (!cc_paths_collide("/apps/demo.elf", "/apps/demo.bin", NULL)) return 13;
+  if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.bin")) return 14;
+  if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.elf")) return 15;
+  if (cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/custom.json")) return 16;
   return 0;
 }
