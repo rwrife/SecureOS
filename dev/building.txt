@@ -22,6 +22,7 @@ This folder (/apps/dev) holds the on-device developer sample content.
     include/ctype.h            Freestanding clib character functions.
     include/limits.h           Freestanding integer bounds.
     include/stdbool.h          Freestanding Boolean definitions.
+    include/tccdefs.h          TinyCC runtime predefines (required by compiler).
     lib/README.md               Notes on the staged compiler libraries.
     lib/libclib.a               Freestanding libc archive (required by disk build).
     lib/sofpack.a               8.3 alias for host libsofpack.a (required).

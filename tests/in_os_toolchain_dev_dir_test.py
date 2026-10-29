@@ -104,6 +104,7 @@ def main() -> int:
     guide_src = (ROOT / "dev" / "building.txt").read_bytes()
     lib_readme_src = (ROOT / "dev" / "lib" / "README.md").read_bytes()
     tcc_readme_src = (ROOT / "dev" / "tcc" / "README.md").read_bytes()
+    tccdefs_src = (ROOT / "vendor/tinycc/tinycc/include/tccdefs.h").read_bytes()
 
     libclib_artifact = ROOT / "artifacts" / "user" / "libs" / "libclib.a"
     libsofpack_artifact = ROOT / "artifacts" / "user" / "libs" / "libsofpack.a"
@@ -119,6 +120,9 @@ def main() -> int:
     fresh.write_file("/apps/dev/building.txt", guide_src)
     fresh.write_file("/apps/dev/lib/README.md", lib_readme_src)
     fresh.write_file("/apps/dev/tcc/README.md", tcc_readme_src)
+    fresh.write_file("/apps/dev/include/tccdefs.h", tccdefs_src)
+    if read_file(fresh, "/apps/dev/include/tccdefs.h") != tccdefs_src:
+        failures.append("/apps/dev/include/tccdefs.h round-trip mismatch")
     for header in ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h", "stdlib.h", "errno.h", "ctype.h", "limits.h", "stdbool.h"):
         source = (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
         fresh.write_file(f"/apps/dev/include/{header}", source)
@@ -218,6 +222,8 @@ def main() -> int:
                 failures.append("/apps/dev/cc.bin on built disk differs from artifacts/user/cc.bin")
 
     disk_script = (ROOT / "build/scripts/build_disk_image.sh").read_text()
+    if 'vendor/tinycc/tinycc/include/tccdefs.h=/apps/dev/include/tccdefs.h' not in disk_script:
+        failures.append("TinyCC predefines header must be staged for guest compilation")
     cc_mapping = 'artifacts/user/cc.bin=/apps/dev/cc.bin'
     if cc_mapping not in disk_script:
         failures.append("cc must be staged with .bin suffix for the native launcher")
@@ -269,6 +275,8 @@ def main() -> int:
                 (ROOT / "user/libs/clib/include/clib" / header).read_bytes()
             )
 
+        (fake_root / "vendor/tinycc/tinycc/include").mkdir(parents=True)
+        (fake_root / "vendor/tinycc/tinycc/include/tccdefs.h").write_bytes(tccdefs_src)
         (fake_root / "user" / "include").mkdir(parents=True)
         for header in ("secureos_api.h", "secureos_abi.h"):
             (fake_root / "user/include" / header).write_bytes((ROOT / "user/include" / header).read_bytes())
@@ -303,7 +311,7 @@ def main() -> int:
         )
         if proc_ok.returncode != 0:
             failures.append(f"check_dev_assets.sh failed on complete tree: {proc_ok.stderr.strip()}")
-        if "APPS_DEV_ASSETS:PASS:19" not in proc_ok.stdout:
+        if "APPS_DEV_ASSETS:PASS:20" not in proc_ok.stdout:
             failures.append(f"check_dev_assets.sh did not emit pass marker: stdout={proc_ok.stdout.strip()}")
 
     # 6. After building, every runtime archive is mandatory, not optional.
@@ -314,6 +322,7 @@ def main() -> int:
             "dev/tcc/README.md", "user/libs/sofpack/include/sofpack/sofpack.h",
             "user/libs/manifestgen/include/manifestgen/manifest_default.h",
             "user/include/secureos_api.h", "user/include/secureos_abi.h",
+            "vendor/tinycc/tinycc/include/tccdefs.h",
             *(f"user/libs/clib/include/clib/{h}" for h in
               ("stddef.h", "stdarg.h", "stdint.h", "stdio.h", "string.h", "stdlib.h", "errno.h", "ctype.h", "limits.h", "stdbool.h")),
         )
@@ -329,7 +338,7 @@ def main() -> int:
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:23" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:24" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
         for archive in archives:
             path = archive_dir / archive
@@ -351,7 +360,7 @@ def main() -> int:
         cc_bin.write_bytes(b"SOF\x01fake-cc")
         comp_cmd = ["bash", str(check_script), str(fake_root), "--archives", "--compiler"]
         res = subprocess.run(comp_cmd, capture_output=True, text=True)
-        if res.returncode or "APPS_DEV_ASSETS:PASS:24" not in res.stdout:
+        if res.returncode or "APPS_DEV_ASSETS:PASS:25" not in res.stdout:
             failures.append(f"compiler gate rejected complete assets: stdout={res.stdout} stderr={res.stderr}")
         cc_bin.unlink()
         res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)

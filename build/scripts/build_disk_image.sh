@@ -162,6 +162,7 @@ build_disk_image_inner() {
 		"user/libs/clib/include/clib/ctype.h=/apps/dev/include/ctype.h"
 		"user/libs/clib/include/clib/limits.h=/apps/dev/include/limits.h"
 		"user/libs/clib/include/clib/stdbool.h=/apps/dev/include/stdbool.h"
+		"vendor/tinycc/tinycc/include/tccdefs.h=/apps/dev/include/tccdefs.h"
 	)
 	# The SOF packer keeps its host name but has an 8.3-safe disk alias.
 	dev_mappings+=(

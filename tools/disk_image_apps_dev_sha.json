@@ -42,7 +42,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "2bfbdd087ba45824d110b173c92cdb19227ca7340a7eb6775a8b216ee244dda9",
+      "sha256": "847c1d4da97afa58fb021a1e66acf9a46e066080d29dde6bec800b5040701121",
       "origin": "#768 on-device guide corrected to current developer-image build and experimental guest path"
     },
     {
@@ -80,6 +80,12 @@
       "source": "user/libs/clib/include/clib/stdarg.h",
       "sha256": "41afc0b78a5646b1bd548bfb5635877d86035edef911047e8cbec9abebddda51",
       "origin": "#768 SDK standard header"
+    },
+    {
+      "target": "/apps/dev/include/tccdefs.h",
+      "source": "vendor/tinycc/tinycc/include/tccdefs.h",
+      "sha256": "d1016b6170c45f1b8e7f8d83bf1f00f21e288eb2e446d9f141457f6f821acf7b",
+      "origin": "#768 pinned TinyCC runtime predefines header"
     },
     {
       "target": "/apps/dev/include/stdint.h",

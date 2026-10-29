@@ -45,6 +45,7 @@ required_dev_assets=(
 	dev/building.txt
 	dev/lib/README.md
 	dev/tcc/README.md
+	vendor/tinycc/tinycc/include/tccdefs.h
 	user/libs/sofpack/include/sofpack/sofpack.h
 	user/libs/manifestgen/include/manifestgen/manifest_default.h
 	user/libs/clib/include/clib/stddef.h

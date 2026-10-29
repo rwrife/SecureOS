@@ -64,6 +64,10 @@
     {
       "path": "/apps/dev/include/stdbool.h",
       "pending": false
+    },
+    {
+      "path": "/apps/dev/include/tccdefs.h",
+      "pending": false
     }
   ]
 }
