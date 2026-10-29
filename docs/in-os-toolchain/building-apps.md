@@ -58,7 +58,10 @@ Header staging currently includes:
 - `/apps/dev/include/` also carries `stddef.h`, `stdarg.h`, `stdint.h`,
   `stdio.h`, `string.h`, `stdlib.h`, `errno.h`, `ctype.h`, `limits.h`, and
   `stdbool.h` from the freestanding clib. Each is required by the image gate.
-  Other clib headers are not yet part of the staged SDK (#768 remains open).
+- `/apps/dev/include/tccdefs.h` from the pinned TinyCC source. The compiler
+  loads this runtime header during preprocessing; it is required by the image
+  gate. Other clib headers are not yet part of the staged SDK (#768 remains
+  open).
 
 `dev/building.txt` is user-facing runtime docs; this in-tree guide is the
 source-level companion. Keep both in sync so staged `/apps/dev` reality,
