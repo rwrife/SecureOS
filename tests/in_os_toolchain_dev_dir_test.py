@@ -216,6 +216,9 @@ def main() -> int:
                 expected = src_file.read_bytes()
                 if staged != expected:
                     failures.append(f"{target} on built disk differs from {src_file}")
+        libos_src = ROOT / "artifacts/sdk/libos.a"
+        if libos_src.is_file() and read_file(disk_img, "/apps/dev/lib/libos.a") != libos_src.read_bytes():
+            failures.append("/apps/dev/lib/libos.a on built disk differs from artifacts/sdk/libos.a")
         cc_src = ROOT / "artifacts/user/cc.bin"
         if cc_src.is_file():
             if read_file(disk_img, "/apps/dev/cc.bin") != cc_src.read_bytes():
@@ -335,11 +338,23 @@ def main() -> int:
         archive_dir.mkdir(parents=True)
         for archive in archives:
             (archive_dir / archive).write_bytes(b"!<arch>\n")
+        sdk_archive = fake_root / "artifacts/sdk/libos.a"
+        sdk_archive.parent.mkdir(parents=True)
+        sdk_archive.write_bytes(b"!<arch>\n")
         check_script = ROOT / "build/scripts/check_dev_assets.sh"
         command = ["bash", str(check_script), str(fake_root), "--archives"]
         complete = subprocess.run(command, capture_output=True, text=True)
-        if complete.returncode or "APPS_DEV_ASSETS:PASS:24" not in complete.stdout:
+        if complete.returncode or "APPS_DEV_ASSETS:PASS:25" not in complete.stdout:
             failures.append("archive gate rejected complete developer assets")
+        sdk_archive.unlink()
+        missing = subprocess.run(command, capture_output=True, text=True)
+        if missing.returncode == 0 or "missing_required_dev_asset:artifacts/sdk/libos.a" not in missing.stderr:
+            failures.append("archive gate did not reject missing libos.a")
+        sdk_archive.write_bytes(b"")
+        empty = subprocess.run(command, capture_output=True, text=True)
+        if empty.returncode == 0 or "empty_required_dev_asset:artifacts/sdk/libos.a" not in empty.stderr:
+            failures.append("archive gate did not reject empty libos.a")
+        sdk_archive.write_bytes(b"!<arch>\n")
         for archive in archives:
             path = archive_dir / archive
             path.unlink()
@@ -360,7 +375,7 @@ def main() -> int:
         cc_bin.write_bytes(b"SOF\x01fake-cc")
         comp_cmd = ["bash", str(check_script), str(fake_root), "--archives", "--compiler"]
         res = subprocess.run(comp_cmd, capture_output=True, text=True)
-        if res.returncode or "APPS_DEV_ASSETS:PASS:25" not in res.stdout:
+        if res.returncode or "APPS_DEV_ASSETS:PASS:26" not in res.stdout:
             failures.append(f"compiler gate rejected complete assets: stdout={res.stdout} stderr={res.stderr}")
         cc_bin.unlink()
         res_fail = subprocess.run(comp_cmd, capture_output=True, text=True)

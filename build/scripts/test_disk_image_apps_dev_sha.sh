@@ -23,6 +23,9 @@ fi
 if [[ ! -f "$ROOT_DIR/artifacts/user/libs/libmanifestgen.a" ]]; then
   (cd "$ROOT_DIR" && bash "$ROOT_DIR/build/scripts/build_user_lib.sh" manifestgen)
 fi
+if [[ ! -f "$ROOT_DIR/artifacts/sdk/libos.a" ]]; then
+  bash "$ROOT_DIR/build/scripts/build_sdk_libos.sh"
+fi
 # #768: generated 8.3 API/ABI aliases must exist before their SHA pins are checked.
 if [[ ! -f "$ROOT_DIR/artifacts/user/include/osapi.h" ||
       ! -f "$ROOT_DIR/artifacts/user/include/osabi.h" ]]; then

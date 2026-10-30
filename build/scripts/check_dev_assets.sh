@@ -65,6 +65,7 @@ required_dev_assets=(
 if [ "$CHECK_ARCHIVES" = "--archives" ]; then
 	required_dev_assets+=(
 		artifacts/user/libs/libclib.a
+		artifacts/sdk/libos.a
 		artifacts/user/libs/libsofpack.a
 		artifacts/user/libs/libmanifestgen.a
 		artifacts/user/libs/libtcc1.a
@@ -82,7 +83,7 @@ for asset in "${required_dev_assets[@]}"; do
 	if [ ! -f "$ROOT_DIR/$asset" ]; then
 		echo "BUILD_DISK_IMAGE:FAIL:missing_required_dev_asset:$asset" >&2
 		missing=1
-	elif [[ "$asset" == artifacts/user/* ]] && [ ! -s "$ROOT_DIR/$asset" ]; then
+	elif [[ "$asset" == artifacts/user/* || "$asset" == artifacts/sdk/* ]] && [ ! -s "$ROOT_DIR/$asset" ]; then
 		# ponytail: Check empty generated assets here; archive/SOF format is checked by build and image gates.
 		echo "BUILD_DISK_IMAGE:FAIL:empty_required_dev_asset:$asset" >&2
 		missing=1
