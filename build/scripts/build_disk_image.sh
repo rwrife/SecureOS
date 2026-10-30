@@ -137,6 +137,7 @@ build_disk_image_inner() {
 	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" sofpack
 	bash "$ROOT_DIR/build/scripts/build_user_lib.sh" manifestgen
 	bash "$ROOT_DIR/build/scripts/build_user_app.sh" cc
+	bash "$ROOT_DIR/build/scripts/build_sdk_libos.sh"
 	bash "$ROOT_DIR/build/scripts/check_dev_assets.sh" "$ROOT_DIR" --archives --compiler
 
 	# Keep host SDK canonical; stage its API/ABI pair under legal 8.3 aliases.
@@ -167,6 +168,7 @@ build_disk_image_inner() {
 	# The SOF packer keeps its host name but has an 8.3-safe disk alias.
 	dev_mappings+=(
 		"artifacts/user/libs/libclib.a=/apps/dev/lib/libclib.a"
+		"artifacts/sdk/libos.a=/apps/dev/lib/libos.a"
 		"artifacts/user/libs/libsofpack.a=/apps/dev/lib/sofpack.a"
 		"artifacts/user/libs/libmanifestgen.a=/apps/dev/lib/mangen.a"
 		"artifacts/user/libs/libtcc1.a=/apps/dev/tcc/libtcc1.a"

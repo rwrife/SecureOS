@@ -25,6 +25,7 @@ This folder (/apps/dev) holds the on-device developer sample content.
     include/tccdefs.h          TinyCC runtime predefines (required by compiler).
     lib/README.md               Notes on the staged compiler libraries.
     lib/libclib.a               Freestanding libc archive (required by disk build).
+    lib/libos.a                 SDK startup and syscall archive (required by disk build).
     lib/sofpack.a               8.3 alias for host libsofpack.a (required).
     lib/mangen.a                8.3 alias for host libmanifestgen.a (required).
     tcc/README.md               Notes on the TinyCC runtime helper archive.

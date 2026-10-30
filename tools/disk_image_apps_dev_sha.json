@@ -42,7 +42,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "847c1d4da97afa58fb021a1e66acf9a46e066080d29dde6bec800b5040701121",
+      "sha256": "fbce6f82c95a8920b3f28a33f365bc88a1fb3603e9e9a700c19f3a3d4092447d",
       "origin": "#768 on-device guide corrected to current developer-image build and experimental guest path"
     },
     {
@@ -140,6 +140,12 @@
       "source": "artifacts/user/libs/libclib.a",
       "sha256": "d2f108e50db43968a72a462440827744d3278fd79c123591d7340353672e5893",
       "origin": "#768 mandatory runtime archive (pinned Bookworm toolchain)"
+    },
+    {
+      "target": "/apps/dev/lib/libos.a",
+      "source": "artifacts/sdk/libos.a",
+      "sha256": "2181d76cb1f6127283b2ff90c0f80042fa8ae0fac3f37aaeb3b2a7e214f70760",
+      "origin": "#768 mandatory SDK startup and syscall archive (pinned Bookworm toolchain)"
     },
     {
       "target": "/apps/dev/lib/sofpack.a",
