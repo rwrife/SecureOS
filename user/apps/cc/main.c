@@ -32,8 +32,8 @@
  *   - `arena_bytes` reported in `cc.compile.start` is the pinned cc manifest
  *     budget (8 MiB); TinyCC-internal OOM currently exits through libtcc's
  *     abort path rather than the v0 slot 5.
- *   - crt1.o / libtcc1.a staging into `/apps/dev/tcc/` for booted guests is
- *     issue #768's developer-image scope.
+ *   - Guest execution and emitted ELF behavior still need the real #767
+ *     acceptance gate; a successful host build is not guest evidence.
  *
  * Interactions:
  *   - secureos_api.h: os_get_args, os_console_write, os_fs_read_file_bytes,
@@ -432,6 +432,15 @@ static int cc_compile(const char *input_path, const char *output_path,
     return CC_EXIT_ARENA;
   }
   tcc_set_error_func(state, &diag, cc_error_cb);
+  /* Set before output type: libtcc probes host-style crt1.o/crti.o during
+   * tcc_set_output_type unless -nostdlib is already active. The native
+   * launcher calls main directly; libos.a supplies syscall stubs below. */
+  rc = tcc_set_options(state, "-nostdlib");
+  if (rc != 0) {
+    tcc_delete(state);
+    cc_emit_fail(input_path, CC_EXIT_INTERNAL, CC_REASON_INTERNAL);
+    return CC_EXIT_INTERNAL;
+  }
   rc = tcc_set_output_type(state, TCC_OUTPUT_EXE);
   if (rc != 0) {
     tcc_delete(state);
@@ -466,6 +475,17 @@ static int cc_compile(const char *input_path, const char *output_path,
     cc_emit_fail(input_path, exit_code,
                  exit_code == CC_EXIT_IO ? CC_REASON_IO : CC_REASON_COMPILE);
     return exit_code;
+  }
+  /* With -nostdlib, TinyCC does not auto-link a host libc or libtcc1.
+   * Supply the shipped freestanding dependencies explicitly. Keep clib
+   * before libos so its syscall references resolve from the latter. */
+  if (tcc_add_file(state, "/apps/dev/lib/libclib.a") != 0 ||
+      tcc_add_file(state, "/apps/dev/tcc/libtcc1.a") != 0 ||
+      tcc_add_file(state, "/apps/dev/lib/libos.a") != 0) {
+    cc_console("cc: required runtime archive unavailable\n");
+    tcc_delete(state);
+    cc_emit_fail(input_path, CC_EXIT_LINK, CC_REASON_LINK);
+    return CC_EXIT_LINK;
   }
 
   /* TinyCC's public API emits the linked ELF through tcc_output_file only;

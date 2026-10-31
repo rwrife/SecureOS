@@ -83,6 +83,18 @@ def is_directory(image: "pop.DiskImage", path: str) -> bool:
 def main() -> int:
     failures = []
 
+    # TinyCC probes crt1.o during set_output_type unless -nostdlib is set
+    # first. The shipped SDK has no hosted CRT or libc; keep explicit archive
+    # linkage alongside the developer-image archive staging check below.
+    driver = (ROOT / "user/apps/cc/main.c").read_text()
+    if not (driver.index('tcc_set_options(state, "-nostdlib")') <
+            driver.index('tcc_set_output_type(state, TCC_OUTPUT_EXE)')):
+        failures.append("cc must select -nostdlib before output type")
+    for archive in ("/apps/dev/lib/libclib.a", "/apps/dev/tcc/libtcc1.a",
+                    "/apps/dev/lib/libos.a"):
+        if f'tcc_add_file(state, "{archive}")' not in driver:
+            failures.append(f"cc must explicitly link {archive}")
+
     # Build an image the same way build_disk_image.sh's main() does.
     image = pop.DiskImage(Path("unused.img"), 16384)
     image.mkdir("/os")
