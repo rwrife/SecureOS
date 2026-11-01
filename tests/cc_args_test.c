@@ -11,6 +11,19 @@
 #include "../user/apps/cc/main.c"
 #undef main
 
+static unsigned int captured_cap;
+static unsigned int reported_len;
+static os_status_t read_result;
+
+os_status_t os_fs_read_file_bytes(const char *path, void *buf,
+                                unsigned int cap, unsigned int *out_len) {
+  (void)path;
+  (void)buf;
+  captured_cap = cap;
+  *out_len = reported_len;
+  return read_result;
+}
+
 int main(void) {
   char exact[] = "a b c d e f g h i j k l m n o p";
   char trailing[] = "a b c d e f g h i j k l m n o p \t\r\n";
@@ -39,5 +52,22 @@ int main(void) {
   if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.bin")) return 14;
   if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.elf")) return 15;
   if (cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/custom.json")) return 16;
+  {
+    char buf[16];
+    size_t sz = sizeof(buf);
+    reported_len = sizeof(buf);
+    read_result = OS_STATUS_OK;
+    if (cc_backend_read("/apps/dev/lib/libtcc1.a", buf, &sz, NULL) != CLIB_STDIO_OK ||
+        sz != sizeof(buf) || captured_cap != sizeof(buf)) return 17;
+    sz = sizeof(buf);
+    reported_len = sizeof(buf) + 1u;
+    if (cc_backend_read("/apps/dev/lib/libtcc1.a", buf, &sz, NULL) != CLIB_STDIO_ERROR)
+      return 18;
+    sz = sizeof(buf);
+    read_result = OS_STATUS_DENIED;
+    reported_len = 0;
+    if (cc_backend_read("/apps/dev/lib/libtcc1.a", buf, &sz, NULL) != CLIB_STDIO_ERROR)
+      return 19;
+  }
   return 0;
 }

@@ -161,11 +161,15 @@ static clib_stdio_status_t cc_backend_read(const char *path, char *buf,
   if (path == 0 || buf == 0 || io_size == 0 || *io_size == 0u) {
     return CLIB_STDIO_DENIED;
   }
-  want = *io_size - 1u; /* keep room for the NUL snapshot consumers expect */
+  /* clib stdio tracks snapshot length separately: binary files may fill
+   * the entire buffer, including embedded NUL bytes. */
+  want = *io_size;
   st = os_fs_read_file_bytes(path, buf, (unsigned int)want, &out_len);
-  buf[out_len <= want ? out_len : want] = '\0';
+  if (st != OS_STATUS_OK || out_len > want) {
+    return CLIB_STDIO_ERROR;
+  }
   *io_size = out_len;
-  return (st == OS_STATUS_OK) ? CLIB_STDIO_OK : CLIB_STDIO_ERROR;
+  return CLIB_STDIO_OK;
 }
 
 static clib_stdio_status_t cc_backend_write(const char *path,
