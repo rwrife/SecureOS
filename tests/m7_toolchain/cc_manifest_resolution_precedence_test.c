@@ -241,6 +241,47 @@ static void test_invalid_cli_manifest_hard_fails(const char *tmp_dir) {
           "TEST:PASS:cc_manifest_resolution_precedence:invalid_cli_hard_fail\n");
 }
 
+static void test_manifest_size_boundary(const char *tmp_dir) {
+  char output_path[CC_MANIFEST_MAX_PATH];
+  char override_path[CC_MANIFEST_MAX_PATH];
+  char manifest[CC_MANIFEST_MAX_BYTES + 1u];
+  cc_manifest_resolve_params_t params;
+  cc_manifest_resolution_t out;
+  const char *prefix = "{\"manifest_version\":0,\"app\":{}";
+  size_t prefix_len = strlen(prefix);
+  FILE *fp;
+  size_t i;
+
+  CHECK(path_join(output_path, sizeof(output_path), tmp_dir, "bound.bin"),
+        "boundary_output_path");
+  CHECK(path_join(override_path, sizeof(override_path), tmp_dir, "bound.json"),
+        "boundary_override_path");
+  memset(&params, 0, sizeof(params));
+  params.output_binary_path = output_path;
+  params.manifest_override_path = override_path;
+
+  for (i = CC_MANIFEST_MAX_BYTES - 1u; i <= CC_MANIFEST_MAX_BYTES; ++i) {
+    memset(manifest, ' ', i);
+    memcpy(manifest, prefix, prefix_len);
+    manifest[i - 1u] = '}';
+    fp = fopen(override_path, "wb");
+    CHECK(fp != NULL, "boundary_open");
+    if (fp == NULL) return;
+    CHECK(fwrite(manifest, 1, i, fp) == i, "boundary_write");
+    CHECK(fclose(fp) == 0, "boundary_close");
+    CHECK(cc_manifest_resolve(&params, &out) ==
+              (i == CC_MANIFEST_MAX_BYTES - 1u ? CC_MANIFEST_RESOLVE_OK
+                                                : CC_MANIFEST_RESOLVE_ERR_BUFFER_TOO_SMALL),
+          "boundary_status");
+    if (i == CC_MANIFEST_MAX_BYTES - 1u) {
+      CHECK(out.manifest_len == i, "boundary_length");
+      CHECK(out.manifest_bytes[i] == '\0', "boundary_terminator");
+    }
+  }
+  rm_if_exists(override_path);
+  fprintf(stdout, "TEST:PASS:cc_manifest_resolution_precedence:size_boundary\n");
+}
+
 static int make_temp_dir(char *out, size_t cap) {
   unsigned int i;
   if (out == NULL || cap == 0u) {
@@ -271,6 +312,7 @@ int main(void) {
 
   run_precedence_table(tmp_dir);
   test_invalid_cli_manifest_hard_fails(tmp_dir);
+  test_manifest_size_boundary(tmp_dir);
 
   if (g_fail) {
     return 1;
