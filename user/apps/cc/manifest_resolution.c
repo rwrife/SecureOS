@@ -111,7 +111,9 @@ static cc_manifest_resolve_status_t cc_read_file(
     return CC_MANIFEST_RESOLVE_ERR_READ;
   }
 
-  n = fread(buf, 1, cap - 1u, fp);
+  /* Read one extra byte to distinguish a full valid payload (cap - 1)
+   * from a file that needs more than the NUL-terminated buffer. */
+  n = fread(buf, 1, cap, fp);
   ended = feof(fp);
   if (ferror(fp)) {
     fclose(fp);
@@ -119,7 +121,7 @@ static cc_manifest_resolve_status_t cc_read_file(
   }
   fclose(fp);
 
-  if (!ended) {
+  if (n == cap || !ended) {
     return CC_MANIFEST_RESOLVE_ERR_BUFFER_TOO_SMALL;
   }
 
