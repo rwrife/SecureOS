@@ -757,7 +757,8 @@ static int app_native_get_args(char *out_buffer, unsigned int out_buffer_size) {
     ++copied;
   }
   out_buffer[copied] = '\0';
-  return 0;
+  /* Never hand a silently truncated command line to cc (or another app). */
+  return g_native_raw_args[copied] == '\0' ? 0 : 3;
 }
 
 static int app_native_net_device_ready(void) {

@@ -626,7 +626,10 @@ int main(void) {
   output_path[0] = '\0';
   manifest_path[0] = '\0';
 
-  (void)os_get_args(args, (unsigned int)sizeof(args));
+  if (os_get_args(args, (unsigned int)sizeof(args)) != OS_STATUS_OK) {
+    cc_console("cc: could not read arguments\n");
+    return CC_EXIT_USAGE;
+  }
   argc = cc_tokenize(args, argv_slots, CC_ARGV_MAX);
   if (argc < 0) {
     cc_console("cc: too many arguments\n");

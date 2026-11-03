@@ -140,6 +140,7 @@ TEST_TARGETS=(
     # (`--manifest` > sidecar > synth) and hard-fail semantics when an
     # explicit override is unreadable/invalid.
     cc_args
+    native_args
     cc_manifest_resolution_precedence
     tls
     https
