@@ -36,6 +36,13 @@ int main(void) {
   if (!cc_swap_ext(staged, sizeof(staged), "/apps.v1/demo.bin", "elf") ||
       strcmp(staged, "/apps.v1/demo.elf") != 0) return 6;
   if (cc_swap_ext(staged, 8u, "/apps/demo.bin", "elf")) return 7;
+  {
+    char exact_fit[13];
+    if (!cc_swap_ext(exact_fit, sizeof(exact_fit), "12345678.bin", "elf") ||
+        strcmp(exact_fit, "12345678.elf") != 0) return 20;
+    if (cc_swap_ext(exact_fit, sizeof(exact_fit) - 1u, "12345678.bin", "elf"))
+      return 21;
+  }
   cc_derive_app_id(staged, sizeof(staged), "/apps/dev/hello.bin");
   if (strcmp(staged, "hello") != 0) return 8;
   cc_derive_app_id(staged, sizeof(staged), "/apps/dev/2-demo.bin");

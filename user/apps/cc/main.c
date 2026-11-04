@@ -275,7 +275,7 @@ static int cc_swap_ext(char *out, size_t cap, const char *path,
   size_t stem;
 
   stem = cc_stem_len(path);
-  if (stem + strlen(ext) + 1u >= cap) {
+  if (stem + strlen(ext) + 2u > cap) {
     return 0;
   }
   memcpy(out, path, stem);
