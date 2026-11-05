@@ -311,6 +311,14 @@ static int cc_paths_collide(const char *input, const char *output,
                             cc_same_path(manifest, elf)));
 }
 
+/* Reject a full buffer: the filesystem API does not report whether more
+ * bytes remain. Never wrap a possibly truncated ELF into a launchable SOF. */
+static int cc_read_staged_elf(const char *path, unsigned char *buf,
+                              unsigned int *len) {
+  return os_fs_read_file_bytes(path, buf, CC_ELF_MAX, len) == OS_STATUS_OK &&
+         *len > 0u && *len < CC_ELF_MAX;
+}
+
 /* Derive a v0-schema-safe app id from the output path stem: lowercase,
  * sanitised, guaranteed to start with an ASCII letter. Takes the basename stem
  * rather than concatenating directory components. */
@@ -519,9 +527,8 @@ static int cc_compile(const char *input_path, const char *output_path,
     cc_emit_fail(input_path, CC_EXIT_ARENA, CC_REASON_ARENA);
     return CC_EXIT_ARENA;
   }
-  wr_st = os_fs_read_file_bytes(elf_path, elf_buf, CC_ELF_MAX - 1u, &read_len);
-  if (wr_st != OS_STATUS_OK || read_len == 0u) {
-    cc_console("cc: could not read staged ELF output\n");
+  if (!cc_read_staged_elf(elf_path, elf_buf, &read_len)) {
+    cc_console("cc: staged ELF unreadable or exceeds size limit\n");
     clib_free(elf_buf);
     cc_emit_fail(input_path, CC_EXIT_IO, CC_REASON_IO);
     return CC_EXIT_IO;

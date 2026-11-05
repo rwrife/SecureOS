@@ -60,6 +60,21 @@ int main(void) {
   if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.elf")) return 15;
   if (cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/custom.json")) return 16;
   {
+    static unsigned char elf[CC_ELF_MAX];
+    unsigned int elf_len = 0u; if (sizeof(elf) != CC_ELF_MAX) return 22;
+    read_result = OS_STATUS_OK;
+    reported_len = CC_ELF_MAX - 1u;
+    if (!cc_read_staged_elf("/apps/staged.elf", elf, &elf_len) ||
+        elf_len != CC_ELF_MAX - 1u || captured_cap != CC_ELF_MAX) return 23;
+    reported_len = CC_ELF_MAX;
+    if (cc_read_staged_elf("/apps/staged.elf", elf, &elf_len)) return 24;
+    reported_len = 0u;
+    if (cc_read_staged_elf("/apps/staged.elf", elf, &elf_len)) return 25;
+    read_result = OS_STATUS_DENIED;
+    reported_len = 1u;
+    if (cc_read_staged_elf("/apps/staged.elf", elf, &elf_len)) return 26;
+  }
+  {
     char buf[16];
     size_t sz = sizeof(buf);
     reported_len = sizeof(buf);
