@@ -31,6 +31,19 @@ int main(void) {
   char empty[] = " \t\r\n";
   char *slots[CC_ARGV_MAX];
   char staged[CC_PATH_MAX];
+  /* Only guest-legal 8.3 BIN names may reach compiler or manifest I/O. */
+  if (!cc_valid_output_path("/apps/12345678.bin") ||
+      !cc_valid_output_path("/apps/hello.BIN") ||
+      !cc_valid_output_path("/apps/sub/hello.bin") ||
+      !cc_valid_output_path("/demo.bin") ||
+      cc_valid_output_path("relative/hello.bin") ||
+      cc_valid_output_path("/apps/123456789.bin") ||
+      cc_valid_output_path("/toolongdir/hello.bin") ||
+      cc_valid_output_path("/apps/hello.binx") ||
+      cc_valid_output_path("/apps/hello.bin.manifest.json") ||
+      cc_valid_output_path("/apps//hello.bin") ||
+      cc_valid_output_path("/apps/../hello.bin") ||
+      cc_valid_output_path("/apps/hello.bin/")) return 27;
   if (!cc_swap_ext(staged, sizeof(staged), "/apps.v1/demo", "elf") ||
       strcmp(staged, "/apps.v1/demo.elf") != 0) return 5;
   if (!cc_swap_ext(staged, sizeof(staged), "/apps.v1/demo.bin", "elf") ||
