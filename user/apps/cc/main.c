@@ -284,6 +284,40 @@ static int cc_swap_ext(char *out, size_t cap, const char *path,
   return 1;
 }
 
+/* Reject output paths the guest 8.3 filesystem cannot represent. Otherwise
+ * TinyCC may emit an ELF and synthesise a sidecar before the SOF write fails.
+ * Output must be .bin; intermediate .elf then keeps the same legal stem. */
+static int cc_valid_output_path(const char *path) {
+  const char *p;
+  size_t stem = 0u;
+  size_t ext = 0u;
+  int dot = 0;
+  if (path == 0 || path[0] != '/') return 0;
+  for (p = path + 1; ; ++p) {
+    if (*p == '/' || *p == '\0') {
+      if (stem == 0u || stem > 8u || ext > 3u) return 0;
+      if (*p == '\0') {
+        return dot && ext == 3u &&
+               (p[-3] == 'b' || p[-3] == 'B') &&
+               (p[-2] == 'i' || p[-2] == 'I') &&
+               (p[-1] == 'n' || p[-1] == 'N');
+      }
+      stem = ext = 0u;
+      dot = 0;
+    } else if (*p == '.') {
+      if (dot) return 0;
+      dot = 1;
+    } else if ((*p >= 'a' && *p <= 'z') ||
+               (*p >= 'A' && *p <= 'Z') ||
+               (*p >= '0' && *p <= '9') ||
+               *p == '_' || *p == '-') {
+      if (dot) ++ext; else ++stem;
+    } else {
+      return 0;
+    }
+  }
+}
+
 /* FAT 8.3 paths are case-insensitive. Reject collisions before TinyCC writes
  * its intermediate ELF or the final SOF over source/manifest bytes. */
 static int cc_same_path(const char *left, const char *right) {
@@ -712,6 +746,10 @@ int main(void) {
 
   if (input_path == 0 || output_path[0] == '\0') {
     cc_print_help();
+    return CC_EXIT_USAGE;
+  }
+  if (!cc_valid_output_path(output_path)) {
+    cc_console("cc: output path must be an absolute 8.3 .bin path\n");
     return CC_EXIT_USAGE;
   }
 
