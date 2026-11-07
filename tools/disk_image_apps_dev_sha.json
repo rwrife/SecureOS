@@ -138,7 +138,7 @@
     {
       "target": "/apps/dev/lib/libclib.a",
       "source": "artifacts/user/libs/libclib.a",
-      "sha256": "d2f108e50db43968a72a462440827744d3278fd79c123591d7340353672e5893",
+      "sha256": "2793648010aba207ec4527d026a985b92cae8957b75d7ab3d1f2690576feefb5",
       "origin": "#768 mandatory runtime archive (pinned Bookworm toolchain)"
     },
     {
