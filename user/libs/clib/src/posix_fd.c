@@ -84,9 +84,13 @@ static int path_is_console_alias(const char *path) {
 }
 
 #define CLIB_POSIX_FD_FIRST 3
-#define CLIB_POSIX_FD_SLOTS 16
+/* Keep total snapshot BSS at 1 MiB while admitting the shipped libclib.a
+ * (currently >64 KiB) through TinyCC's _tcc_open/archive reader.
+ * ponytail: 128 KiB is the per-file ceiling; add bounded streaming reads
+ * if a required archive outgrows this snapshot budget. */
+#define CLIB_POSIX_FD_SLOTS 8
 #define CLIB_POSIX_FD_PATH_CAP 256
-#define CLIB_POSIX_FD_FILE_CAP (64u * 1024u)
+#define CLIB_POSIX_FD_FILE_CAP (128u * 1024u)
 
 /* Reserved console descriptors (slice 3 of #538). They are not table
  * slots: fd 0 is a deterministic unsupported-read stub (the v0 bridge

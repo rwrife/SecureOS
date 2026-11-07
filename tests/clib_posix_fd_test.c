@@ -112,6 +112,16 @@ os_status_t os_fs_read_file_bytes(const char *path, void *out_buffer,
     return OS_STATUS_ERROR;
   }
 
+  /* Model a shipped compiler dependency larger than the old 64 KiB cap.
+   * TinyCC loads .a files through open/read/lseek, not clib stdio. */
+  if (strcmp(path, "/archive.a") == 0) {
+    const unsigned int n = 112740u;
+    if (out_buffer_size < n) return OS_STATUS_ERROR;
+    for (unsigned int i = 0; i < n; ++i)
+      ((unsigned char *)out_buffer)[i] = (unsigned char)(i % 251u);
+    *out_len = n;
+    return OS_STATUS_OK;
+  }
   row = find_row(path);
   if (!row || !row->exists) {
     return OS_STATUS_NOT_FOUND;
@@ -286,6 +296,31 @@ static void test_binary_roundtrip(void) {
   }
 }
 
+static void test_compiler_archive_snapshot(void) {
+  unsigned char buf[4096];
+  size_t total = 0;
+  int fd = open("/archive.a", O_RDONLY);
+  record_check(fd >= 0, "compiler_archive_open_over_64k");
+  if (fd < 0) return;
+  for (;;) {
+    ssize_t n = read(fd, buf, sizeof(buf));
+    if (n <= 0) {
+      record_check(n == 0 && total == 112740u,
+                   "compiler_archive_read_byte_exact");
+      break;
+    }
+    for (ssize_t i = 0; i < n; ++i) {
+      if (buf[i] != (unsigned char)((total + (size_t)i) % 251u)) {
+        record_check(0, "compiler_archive_read_byte_exact");
+        close(fd);
+        return;
+      }
+    }
+    total += (size_t)n;
+  }
+  record_check(close(fd) == 0, "compiler_archive_close");
+}
+
 static void test_invalid_inputs(void) {
   errno = 0;
   int fd = open(NULL, O_RDONLY);
@@ -457,8 +492,8 @@ static void test_write_modes(void) {
   /* Writes that would exceed the fixed snapshot slot fail with ENOSPC. */
   fd = open("/big.txt", O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
   if (fd >= 0) {
-    off_t near_end = lseek(fd, (off_t)(64u * 1024u - 4u), SEEK_SET);
-    record_check(near_end == (off_t)(64u * 1024u - 4u), "enospc_seek_ok");
+    off_t near_end = lseek(fd, (off_t)(128u * 1024u - 4u), SEEK_SET);
+    record_check(near_end == (off_t)(128u * 1024u - 4u), "enospc_seek_ok");
     errno = 0;
     record_check(write(fd, "toobig", 6) == -1 && errno == ENOSPC,
                  "enospc_past_slot_capacity");
@@ -552,6 +587,7 @@ int main(void) {
   test_invalid_inputs();
   test_read_and_seek_roundtrip();
   test_binary_roundtrip();
+  test_compiler_archive_snapshot();
   test_fd_table_limit();
   test_error_paths();
   test_write_modes();
