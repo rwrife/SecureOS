@@ -66,7 +66,7 @@
     {
       "target": "/apps/dev/include/manifest/manifest.h",
       "source": "user/libs/manifestgen/include/manifestgen/manifest_default.h",
-      "sha256": "3a81ffe0a9d3fb0097876dc5acb2765842106230656b36d122a8fbcb35647899",
+      "sha256": "460c6283e209a3af78fa80146ebfcbf9c4511dafe0fdd777ab8943e2ef04aa2a",
       "origin": "#613 namespaced public header (8.3-safe staged alias)"
     },
     {
