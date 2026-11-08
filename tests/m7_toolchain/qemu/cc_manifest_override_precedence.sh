@@ -6,7 +6,7 @@
 # Contract to enforce when toolchain execute slices land and this marker flips
 # from SKIP to PASS:
 #   1) Stage an author-supplied `--manifest override.json` and a co-located
-#      `<output>.manifest.json` sidecar with intentionally distinct
+#      `<output stem>.mft` sidecar with intentionally distinct
 #      `caps_required` + `runtime.arena_bytes` fields.
 #   2) Invoke `cc` with `--manifest override.json`.
 #   3) Assert resulting SOF/manifest + launcher enforcement follow override

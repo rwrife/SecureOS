@@ -6,7 +6,7 @@
 # Future PASS contract (when #767 is fully wired through qemu):
 #   - compile/link via in-OS `cc`
 #   - with no --manifest and no sidecar present, driver synthesises via
-#     libmanifestgen and writes `<output>.manifest.json`
+#     libmanifestgen and writes `<output stem>.mft`
 #   - sidecar bytes validate as launcher-consumable manifest JSON
 set -euo pipefail
 

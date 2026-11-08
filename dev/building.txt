@@ -38,9 +38,10 @@ unverified (#766/#767/#768).
 QUICK START (experimental — gated on #766/#767/#768)
 ----------------------------------------------------
   This is a target workflow, not a passing demo recipe. #766, #767 and #768
-  remain open: guest compilation/launch lacks a real gate and the current
-  manifest sidecar uses a name longer than the filesystem's 8.3 limit.
-  Do not rely on cc to preserve an earlier output on failure.
+  remain open: guest compilation/launch lacks a real gate. Compiler manifest
+  sidecars now use 8.3-safe <output stem>.mft names (hello.bin -> hello.mft),
+  but no booted-guest compile has passed. Do not rely on cc to preserve an
+  earlier output on failure.
 
   1. Attempt to compile the sample using the actual console command:
          run /apps/dev/cc.bin /apps/dev/hello.c -o /apps/hello.bin

@@ -132,7 +132,8 @@ cc /apps/dev/hello.c -o /apps/hello.bin
 
 When `cc` resolves the manifest paired with an output binary, precedence is:
 `--manifest <path>` (explicit override) > co-located
-`<output>.manifest.json` sidecar > synthesis via `libmanifestgen`.
+`<output stem>.mft` sidecar (8.3-safe; e.g. `/apps/hello.mft`
+for `/apps/hello.bin`) > synthesis via `libmanifestgen`.
 This contract is pinned by issue [#607](https://github.com/rwrife/SecureOS/issues/607)
 and is intentionally deterministic so launcher policy/audit behavior cannot
 silently drift.

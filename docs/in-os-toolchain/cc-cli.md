@@ -1,15 +1,9 @@
 # `cc` CLI Grammar v0 (Contract Pin)
 
-This document freezes the user-facing command-line contract for the planned
-in-OS compiler driver app (`/apps/dev/cc.bin`). It is the normative grammar
-reference for issue [#552](https://github.com/rwrife/SecureOS/issues/552)
-and companion slices under umbrella
-[#403](https://github.com/rwrife/SecureOS/issues/403).
-
-> Runtime implementation is still gated on
-> [#409](https://github.com/rwrife/SecureOS/issues/409) and
-> [#410](https://github.com/rwrife/SecureOS/issues/410). This file pins the
-> expected interface before those execute slices land.
+This document pins the user-facing command-line contract for the experimental
+in-OS compiler driver (`/apps/dev/cc.bin`). The driver and archives are staged,
+but guest compilation/launch remain unverified under DEMO-02 through DEMO-04
+(#766–#768). Host-only checks do not prove a working guest build.
 
 ## Canonical invocation
 
@@ -37,13 +31,12 @@ cc /apps/dev/hello.c -o /apps/hello.bin
 When manifest inputs are available, precedence is:
 
 1. `--manifest <path>` explicit override
-2. Co-located `<output>.manifest.json` sidecar
+2. Co-located `<output stem>.mft` sidecar: `/apps/hello.bin` pairs with
+   `/apps/hello.mft` (FAT 8.3 names, case-insensitive).
 3. Synthesised default via `libmanifestgen`
 
-This precedence is pinned by
-[#607](https://github.com/rwrife/SecureOS/issues/607) and scaffolded in
-`tests/m7_toolchain/markers.json` by
-`toolchain_cc_manifest_override_precedence`.
+This precedence is covered by `cc_manifest_resolution_precedence`; booted-guest
+acceptance still pending #767/#771.
 
 ## Exit-code contract
 

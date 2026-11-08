@@ -5,7 +5,7 @@
  * Covers:
  *   1) `--manifest <path>` wins over sibling sidecar.
  *   2) Sidecar is used when no CLI override is supplied.
- *   3) Synth branch calls libmanifestgen and writes `<output>.manifest.json`.
+ *   3) Synth branch calls libmanifestgen and writes `<output stem>.mft`.
  *   4) Invalid CLI override is a hard fail (no silent fallback to sidecar).
  */
 
@@ -119,10 +119,16 @@ static void run_precedence_table(const char *tmp_dir) {
 
   CHECK(path_join(output_path, sizeof(output_path), tmp_dir, "hello.bin"),
         "path_output");
+  CHECK(strcmp(CC_MANIFEST_SIDECAR_SUFFIX, ".mft") == 0,
+        "sidecar_suffix_83");
+  CHECK(path_join(sidecar_path, sizeof(sidecar_path), tmp_dir, "12345678.mft"),
+        "max_stem_sidecar_83");
+  CHECK(strlen(sidecar_path) < CC_MANIFEST_MAX_PATH,
+        "max_stem_sidecar_bounded");
   CHECK(path_join(override_path, sizeof(override_path), tmp_dir, "override.json"),
         "path_override");
   CHECK(path_join(sidecar_path, sizeof(sidecar_path), tmp_dir,
-                  "hello.bin.manifest.json"),
+                  "hello.mft"),
         "path_sidecar");
 
   for (i = 0u; i < sizeof(cases) / sizeof(cases[0]); ++i) {
@@ -157,6 +163,9 @@ static void run_precedence_table(const char *tmp_dir) {
     }
 
     CHECK(out.source == cases[i].expected_source, "source_matches");
+    CHECK(strcmp(out.manifest_path, cases[i].expected_source == CC_MANIFEST_SOURCE_CLI
+                                        ? override_path : sidecar_path) == 0,
+          "manifest_path_matches_83_contract");
     CHECK(strcmp(out.provenance_tag, cc_manifest_source_tag(out.source)) == 0,
           "provenance_tag_matches_source");
 
@@ -209,7 +218,7 @@ static void test_invalid_cli_manifest_hard_fails(const char *tmp_dir) {
   CHECK(path_join(override_path, sizeof(override_path), tmp_dir, "invalid_override.json"),
         "invalid_path_override");
   CHECK(path_join(sidecar_path, sizeof(sidecar_path), tmp_dir,
-                  "invalid.bin.manifest.json"),
+                  "invalid.mft"),
         "invalid_path_sidecar");
 
   rm_if_exists(override_path);

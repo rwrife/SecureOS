@@ -4,7 +4,7 @@
  *
  * Contract (issue #634, refs #607):
  *   1) explicit `--manifest <path>`
- *   2) `<output>.manifest.json` sidecar
+ *   2) `<output stem>.mft` sidecar (8.3-safe)
  *   3) synthesise via libmanifestgen + persist sidecar
  *
  * This header exposes a single precedence resolver that returns the resolved
@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-#define CC_MANIFEST_SIDECAR_SUFFIX ".manifest.json"
+#define CC_MANIFEST_SIDECAR_SUFFIX ".mft"
 #define CC_MANIFEST_MAX_BYTES      8192u
 #define CC_MANIFEST_MAX_PATH       512u
 
