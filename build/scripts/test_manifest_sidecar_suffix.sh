@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # build/scripts/test_manifest_sidecar_suffix.sh
 #
-# Drift gate for the `<binary>.manifest.json` sidecar filename convention
-# (issue #580). Asserts:
-#   1) docs/abi/manifest.md contains the exact quoted suffix ".manifest.json"
+# Drift gate for the `<binary stem>.mft` sidecar filename convention
+# (issue #767, originally #580). Asserts:
+#   1) docs/abi/manifest.md contains the exact quoted extension ".mft"
 #   2) manifest_default.h exports #define MANIFEST_SIDECAR_SUFFIX "..."
 #   3) doc and header values agree byte-for-byte
 #
@@ -30,7 +30,7 @@ cc -std=c11 -Wall -Wextra -Werror \
 grep -q '^TEST:PASS:manifest_sidecar_suffix$' "$LOG"
 ! grep -q '^TEST:FAIL:' "$LOG"
 
-if ! grep -Fq '".manifest.json"' "$DOC"; then
+if ! grep -Fq '`<stem>.mft`' "$DOC"; then
   echo "TEST:FAIL:manifest_sidecar_suffix:abi_doc_missing_suffix" >&2
   exit 1
 fi
@@ -41,13 +41,13 @@ if [[ -z "$HEADER_SUFFIX" ]]; then
   echo "TEST:FAIL:manifest_sidecar_suffix:header_define_missing" >&2
   exit 1
 fi
-if [[ "$HEADER_SUFFIX" != ".manifest.json" ]]; then
+if [[ "$HEADER_SUFFIX" != ".mft" ]]; then
   echo "TEST:FAIL:manifest_sidecar_suffix:header_define_value:$HEADER_SUFFIX" >&2
   exit 1
 fi
 echo "TEST:PASS:manifest_sidecar_suffix:header_define"
 
-DOC_SUFFIX="$({ grep -F '".manifest.json"' "$DOC" || true; } | head -n1 | sed -n 's/.*"\(\.manifest\.json\)".*/\1/p')"
+DOC_SUFFIX="$({ grep -F 'emits lowercase `.mft`' "$DOC" || true; } | head -n1 | sed -n 's/.*`\(\.mft\)`.*/\1/p')"
 if [[ "$DOC_SUFFIX" != "$HEADER_SUFFIX" ]]; then
   echo "TEST:FAIL:manifest_sidecar_suffix:disagree:doc=$DOC_SUFFIX:header=$HEADER_SUFFIX" >&2
   exit 1

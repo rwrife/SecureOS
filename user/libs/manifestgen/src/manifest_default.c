@@ -5,7 +5,7 @@
  *
  * Freestanding: no libc, no kernel/crypto headers. The in-OS `cc` driver
  * (#409) links this archive alongside `libsofpack.a` (#521) to emit a
- * companion `<binary>.manifest.json` next to its on-disk SOF output.
+ * companion `<binary stem>.mft` next to its on-disk SOF output.
  *
  * Output shape (locked by tests/manifest_default_synthesise_test.c against
  * manifests/schema/v0.json):

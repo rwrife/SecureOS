@@ -42,7 +42,7 @@
     {
       "target": "/apps/dev/building.txt",
       "source": "dev/building.txt",
-      "sha256": "fbce6f82c95a8920b3f28a33f365bc88a1fb3603e9e9a700c19f3a3d4092447d",
+      "sha256": "d0e8caa3b587c985af71db2de32cca32514da978ea2e04ec03f59af282a8947b",
       "origin": "#768 on-device guide corrected to current developer-image build and experimental guest path"
     },
     {
