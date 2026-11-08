@@ -10,8 +10,8 @@
  *   - This helper keeps loaded manifest bytes verbatim.
  *   - Synthesis path delegates to `manifest_default_synthesise` from
  *     `user/libs/manifestgen` (no byte re-implementation here).
- *   - On synth, writes `<output>.manifest.json` and returns the canonical
- *     `manifest.synth.ok` audit marker token to the caller.
+ *   - On synth, writes `<output stem>.mft` (8.3-safe) and returns the
+ *     canonical `manifest.synth.ok` audit marker token to the caller.
  */
 
 #include "manifest_resolution.h"
@@ -69,15 +69,29 @@ static int cc_path_copy(char *dst, size_t cap, const char *src) {
 }
 
 static int cc_sidecar_path(char *out, size_t cap, const char *binary_path) {
-  int n;
+  const char *slash;
+  const char *dot;
+  size_t stem_len;
+  size_t suffix_len = sizeof(CC_MANIFEST_SIDECAR_SUFFIX);
   if (out == NULL || binary_path == NULL || cap == 0u) {
     return 0;
   }
-  n = snprintf(out, cap, "%s%s", binary_path, CC_MANIFEST_SIDECAR_SUFFIX);
-  if (n < 0) {
+  slash = strrchr(binary_path, '/');
+  dot = strrchr(binary_path, '.');
+  if (dot == NULL || (slash != NULL && dot < slash) ||
+      dot == (slash == NULL ? binary_path : slash + 1) ||
+      strlen(dot) != 4u || (dot[1] != 'b' && dot[1] != 'B') ||
+      (dot[2] != 'i' && dot[2] != 'I') ||
+      (dot[3] != 'n' && dot[3] != 'N')) {
     return 0;
   }
-  return (size_t)n < cap;
+  stem_len = (size_t)(dot - binary_path);
+  if (stem_len > cap || suffix_len > cap - stem_len) {
+    return 0;
+  }
+  memcpy(out, binary_path, stem_len);
+  memcpy(out + stem_len, CC_MANIFEST_SIDECAR_SUFFIX, suffix_len);
+  return 1;
 }
 
 static int cc_file_exists(const char *path) {

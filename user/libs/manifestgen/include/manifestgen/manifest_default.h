@@ -17,7 +17,7 @@
  *   logic. It emits a deterministic JSON document conforming to
  *   `manifests/schema/v0.json` without depending on any kernel/crypto/host
  *   header — the `cc` driver (#409) links it after `sofpack_wrap()` to
- *   produce the on-disk `<binary>.manifest.json` companion file.
+ *   produce the on-disk 8.3-safe `<binary stem>.mft` companion file.
  *
  *   Same library-extraction-before-driver shape as #521 (sofpack lib) and
  *   PR #519 (`config-secureos.h` for #408). Pre-extracting this leaves #409
@@ -54,9 +54,9 @@
 extern "C" {
 #endif
 
-/* Canonical sidecar suffix for `<binary>.manifest.json` companion manifests.
+/* Canonical extension for `<binary stem>.mft` companion manifests.
  * Mirrors docs/abi/manifest.md §5.8 "Sidecar filename convention". */
-#define MANIFEST_SIDECAR_SUFFIX ".manifest.json"
+#define MANIFEST_SIDECAR_SUFFIX ".mft"
 
 /* Canonical default arena ceiling emitted by libmanifestgen when synthesis is
  * selected (i.e. no explicit `cc --manifest <path>` override and no valid

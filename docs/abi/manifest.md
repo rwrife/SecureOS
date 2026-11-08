@@ -480,7 +480,7 @@ behavior change.
 ### §5.8 in-OS minimal-manifest synthesiser (M7-TOOLCHAIN-006 sub-slice)
 
 `user/libs/manifestgen` ships the canonical helper the in-OS `cc`
-driver (#409) uses to emit a `<binary>.manifest.json` alongside the
+driver (#767) uses to emit a `<binary stem>.mft` alongside the
 SOF container it just produced on-target (plan
 `plans/2026-05-28-in-os-toolchain-self-hosting.md` §"In-OS
 packaging"). The synthesiser writes a deterministic v0 manifest
@@ -491,22 +491,18 @@ conforming to the schema documented above:
 The launcher / in-OS toolchain sidecar discovery contract is pinned to
 the following normative rules:
 
-- The companion manifest filename is exactly `<binary>.manifest.json`:
-  append the literal suffix `.manifest.json` to the full binary path
-  (including its `.bin` / SOF extension).
-- Filename matching is case-sensitive. The suffix bytes are the literal
-  ASCII sequence `".manifest.json"` (no locale or Unicode
-  normalisation).
-- The sidecar lives in the same directory as the SOF binary. The
-  launcher MUST NOT search parent/ancestor directories.
-- If the sidecar is absent at the canonical adjacent path, discovery
-  records the stable audit reason `MANIFEST_DISCOVERY_NOT_FOUND`
-  (deny-by-default launch decision / no kernel panic).
+- For an 8.3 `<stem>.bin` output, the `cc` sidecar filename is exactly
+  `<stem>.mft` in the same directory (`/apps/hello.bin` pairs with
+  `/apps/hello.mft`). Substitute the extension; do not append to `.bin`.
+- The guest filesystem is case-insensitive. `cc` emits lowercase `.mft`;
+  `.BIN` and `.MFT` resolve to the same FAT entries as lowercase names.
+- No parent/ancestor directory search is permitted. A missing required
+  sidecar must deny launch; actual booted-guest launcher discovery remains
+  unverified under #771. No isolation guarantee follows from a sidecar.
 
-Rationale: this mirrors existing adjacency patterns
-(`<binary>.sig` / `<binary>.sha256`) and preserves full binary identity
-in the sidecar filename, which reduces prefix-confusion risk for
-trust-origin classification (`owner.kind`, refs #522 / #410).
+Rationale: the guest filesystem enforces 8.3 components; the old
+`<binary>.manifest.json` contract could not be written there. The distinct
+`.mft` extension preserves the binary stem without long filenames.
 
 #### Sidecar resolution precedence
 
@@ -514,7 +510,7 @@ Manifest source resolution for in-OS `cc` output is pinned to this exact,
 ordered chain (no ties, no merge):
 
 1. explicit `--manifest <path>`
-2. co-located `<binary>.manifest.json` sidecar
+2. co-located `<binary stem>.mft` sidecar
 3. synthesis via `libmanifestgen`
 
 Branch contract:
@@ -531,7 +527,7 @@ Branch contract:
 
 - **Branch 2 (existing sidecar)**
   - Selected only when no `--manifest` override was provided and a canonical
-    adjacent sidecar exists at `<binary>.manifest.json`.
+    adjacent sidecar exists at `<binary stem>.mft`.
   - Provenance tag is `sidecar`.
   - Unreadable or schema-invalid sidecar is a **hard deny** (compile fails,
     no synthesis fallback).
@@ -577,7 +573,7 @@ the launcher floor already codified in schema range checks.
 Override precedence remains strict and winner-takes-all:
 
 - explicit `cc --manifest <path>` (branch 1) **wins** over synthesis defaults;
-- existing valid sidecar `<binary>.manifest.json` (branch 2) **wins** over
+- existing valid sidecar `<binary stem>.mft` (branch 2) **wins** over
   synthesis defaults;
 - synthesis defaults apply only when both higher-precedence sources are absent.
 
@@ -679,4 +675,4 @@ When `OS_ABI_VERSION` itself moves to 1 (SDK beta freeze, per
   always rejected (you cannot target a newer manifest shape at an older
   ABI host).
 
-Last verified against commit: e026af0be68c3238edf2b3d184b149a655511dee
+Last verified against commit: d7d66c9fe54dcb9bfc4a6bc6a6a45d65ad860333

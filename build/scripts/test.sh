@@ -474,8 +474,8 @@ case "$TEST_NAME" in
     run_script "$ROOT_DIR/build/scripts/test_manifestgen_golden.sh"
     ;;
   manifest_sidecar_suffix)
-    # Issue #580: drift gate for the canonical `<binary>.manifest.json`
-    # sidecar naming rule in docs/abi/manifest.md §5.8 and
+    # Drift gate for the 8.3-safe `<binary stem>.mft` sidecar naming
+    # rule in docs/abi/manifest.md §5.8 and
     # MANIFEST_SIDECAR_SUFFIX in libmanifestgen's public header.
     run_script "$ROOT_DIR/build/scripts/test_manifest_sidecar_suffix.sh"
     ;;

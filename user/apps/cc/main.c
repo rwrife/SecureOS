@@ -15,7 +15,7 @@
  *     4. reads the raw ELF back, wraps it into an unsigned SOF container via
  *        `sofpack_wrap` (issue #521),
  *     5. resolves the output manifest through the pinned precedence helper
- *        in `manifest_resolution.c` (cli > sidecar > synth, issue #634),
+ *        in `manifest_resolution.c` (cli > 8.3-safe .mft sidecar > synth),
  *     6. persists the SOF bytes and emits the `cc.compile.*` audit markers
  *        pinned in `docs/abi/audit-markers.md` §3.1 plus `manifest.synth.*`
  *        on the synth path (§3.2).
@@ -339,8 +339,11 @@ static int cc_same_path(const char *left, const char *right) {
 static int cc_paths_collide(const char *input, const char *output,
                             const char *manifest) {
   char elf[CC_PATH_MAX];
+  char mft[CC_PATH_MAX];
   if (!cc_swap_ext(elf, sizeof(elf), output, "elf")) return 1;
+  if (!cc_swap_ext(mft, sizeof(mft), output, "mft")) return 1;
   return cc_same_path(input, output) || cc_same_path(input, elf) ||
+         cc_same_path(input, mft) ||
          (manifest != 0 && (cc_same_path(manifest, output) ||
                             cc_same_path(manifest, elf)));
 }
