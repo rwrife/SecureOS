@@ -62,6 +62,22 @@ int main(void) {
   if (strcmp(staged, "demo") != 0) return 9;
   cc_derive_app_id(staged, sizeof(staged), "/apps/dev/123.bin");
   if (strcmp(staged, "ccout") != 0) return 10;
+  /* Check SOF framing overhead at the launcher's 524288-byte file cap. */
+  {
+    unsigned char payload = 0;
+    sofpack_build_params_t params;
+    size_t framed = 0;
+    memset(&params, 0, sizeof(params));
+    params.elf_payload = &payload;
+    params.elf_payload_size = 1u;
+    params.file_type = SOFPACK_TYPE_BIN;
+    params.name = "hello";
+    if (sofpack_wrap_size(&params, &framed) != SOFPACK_OK) return 30;
+    params.elf_payload_size = 524288u - (framed - 1u);
+    if (!cc_sof_fits_loader(&params)) return 31;
+    ++params.elf_payload_size;
+    if (cc_sof_fits_loader(&params)) return 32;
+  }
   if (cc_tokenize(exact, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 1;
   if (cc_tokenize(trailing, slots, CC_ARGV_MAX) != CC_ARGV_MAX) return 2;
   if (cc_tokenize(overflow, slots, CC_ARGV_MAX) != -1) return 3;
