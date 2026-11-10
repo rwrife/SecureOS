@@ -77,6 +77,8 @@ enum {
    * output is a few KiB; the bound keeps a pathological compile from
    * exhausting the 8 MiB manifest arena silently. */
   CC_ELF_MAX = 1u << 20,
+  /* Must match APP_FILE_MAX in kernel/user/launcher_exec.c. */
+  CC_LOADER_FILE_MAX = 524288,
   /* Must match runtime.arena_bytes in user/apps/cc/manifest.json (#573 pin). */
   CC_ARENA_BYTES = 8388608,
   /* Canonical `sof_sha_prefix` width for manifest.synth markers. */
@@ -356,6 +358,15 @@ static int cc_read_staged_elf(const char *path, unsigned char *buf,
          *len > 0u && *len < CC_ELF_MAX;
 }
 
+/* Returns non-zero if the framed SOF payload fits the loader staging buffer. */
+static int cc_sof_fits_loader(const sofpack_build_params_t *params) {
+  size_t framed_size = 0u;
+  if (params == 0 || sofpack_wrap_size(params, &framed_size) != SOFPACK_OK) {
+    return 0;
+  }
+  return framed_size <= (size_t)CC_LOADER_FILE_MAX;
+}
+
 /* Derive a v0-schema-safe app id from the output path stem: lowercase,
  * sanitised, guaranteed to start with an ASCII letter. Takes the basename stem
  * rather than concatenating directory components. */
@@ -571,6 +582,22 @@ static int cc_compile(const char *input_path, const char *output_path,
     return CC_EXIT_IO;
   }
 
+  /* Reject a framed file the launcher cannot read before manifest resolution
+   * writes a sidecar. Keep the existing output binary untouched. */
+  memset(&sparams, 0, sizeof(sparams));
+  sparams.file_type = SOFPACK_TYPE_BIN;
+  sparams.name = app_id;
+  sparams.author = "SecureOS";
+  sparams.version = CC_APP_VERSION;
+  sparams.elf_payload = elf_buf;
+  sparams.elf_payload_size = (size_t)read_len;
+  if (!cc_sof_fits_loader(&sparams)) {
+    cc_console("cc: output SOF exceeds launcher file limit\n");
+    clib_free(elf_buf);
+    cc_emit_fail(input_path, CC_EXIT_LINK, CC_REASON_LINK);
+    return CC_EXIT_LINK;
+  }
+
   /* Manifest precedence (#634): resolve BEFORE writing the SOF so a bad
    * --manifest/sidecar produces no output binary (cc-cli grammar contract).
    * The synth branch of the resolver persists the sidecar itself. */
@@ -598,14 +625,6 @@ static int cc_compile(const char *input_path, const char *output_path,
     cc_emit_fail(input_path, CC_EXIT_IO, CC_REASON_IO);
     return CC_EXIT_IO;
   }
-
-  memset(&sparams, 0, sizeof(sparams));
-  sparams.file_type = SOFPACK_TYPE_BIN;
-  sparams.name = app_id;
-  sparams.author = "SecureOS";
-  sparams.version = CC_APP_VERSION;
-  sparams.elf_payload = elf_buf;
-  sparams.elf_payload_size = (size_t)read_len;
 
   if (sofpack_wrap_size(&sparams, &sof_size) != SOFPACK_OK) {
     clib_free(mres_out);

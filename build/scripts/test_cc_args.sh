@@ -11,6 +11,7 @@ cc -std=c11 -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
   -I "$ROOT_DIR/user/libs/sofpack/include" \
   -I "$ROOT_DIR/user/libs/manifestgen/include" \
   -I "$ROOT_DIR/vendor/tinycc/tinycc" \
-  "$ROOT_DIR/tests/cc_args_test.c" -Wl,--gc-sections -o "$OUT_DIR/cc_args_test"
+  "$ROOT_DIR/tests/cc_args_test.c" "$ROOT_DIR/user/libs/sofpack/src/sofpack.c" \
+  -Wl,--gc-sections -o "$OUT_DIR/cc_args_test"
 "$OUT_DIR/cc_args_test"
 printf 'TEST:PASS:cc_args\n'
