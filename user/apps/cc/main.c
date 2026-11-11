@@ -331,6 +331,9 @@ static int cc_same_path(const char *left, const char *right) {
   while (*left != '\0' && *right != '\0') {
     a = (unsigned char)*left++;
     b = (unsigned char)*right++;
+    /* The guest path resolver accepts either separator; both name one file. */
+    if (a == '\\') a = '/';
+    if (b == '\\') b = '/';
     if (a >= 'a' && a <= 'z') a = (unsigned char)(a - 'a' + 'A');
     if (b >= 'a' && b <= 'z') b = (unsigned char)(b - 'a' + 'A');
     if (a != b) return 0;
