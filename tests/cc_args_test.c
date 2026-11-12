@@ -91,6 +91,11 @@ int main(void) {
   if (!cc_paths_collide("/apps\\demo.elf", "/apps/demo.bin", NULL)) return 33;
   if (!cc_paths_collide("/apps\\demo.mft", "/apps/demo.bin", NULL)) return 34;
   if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps\\demo.bin")) return 35;
+  /* Guest resolver skips separator runs; reject aliases before overwriting. */
+  if (!cc_paths_collide("//apps///demo.elf", "/apps/demo.bin", NULL)) return 36;
+  if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps//demo.bin")) return 37;
+  if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps//demo.elf")) return 38;
+  if (cc_paths_collide("/apps/other.elf", "/apps/demo.bin", NULL)) return 39;
   if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.bin")) return 14;
   if (!cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/demo.elf")) return 15;
   if (cc_paths_collide("/apps/demo.c", "/apps/demo.bin", "/apps/custom.json")) return 16;
