@@ -322,6 +322,10 @@ static int cc_valid_output_path(const char *path) {
 
 /* FAT 8.3 paths are case-insensitive. Reject collisions before TinyCC writes
  * its intermediate ELF or the final SOF over source/manifest bytes. */
+static int cc_separator(char c) {
+  return c == '/' || c == '\\';
+}
+
 static int cc_same_path(const char *left, const char *right) {
   unsigned char a;
   unsigned char b;
@@ -331,9 +335,12 @@ static int cc_same_path(const char *left, const char *right) {
   while (*left != '\0' && *right != '\0') {
     a = (unsigned char)*left++;
     b = (unsigned char)*right++;
-    /* The guest path resolver accepts either separator; both name one file. */
-    if (a == '\\') a = '/';
-    if (b == '\\') b = '/';
+    /* Guest resolver skips runs of either separator between components. */
+    if (cc_separator((char)a) && cc_separator((char)b)) {
+      while (cc_separator(*left)) ++left;
+      while (cc_separator(*right)) ++right;
+      continue;
+    }
     if (a >= 'a' && a <= 'z') a = (unsigned char)(a - 'a' + 'A');
     if (b >= 'a' && b <= 'z') b = (unsigned char)(b - 'a' + 'A');
     if (a != b) return 0;
